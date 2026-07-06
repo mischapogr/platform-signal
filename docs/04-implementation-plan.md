@@ -556,7 +556,7 @@ workstream and uses PS-01/PS-02 contracts when selected after the release gate.
 
 | Group | Capability and motivating requirements | Dependencies | Acceptance / stop condition |
 | --- | --- | --- | --- |
-| PS-01 | Versioned normalization profile and SourceCoverage mechanism; all detections, especially D15 | Existing event envelope/SDK; no private fields | Schema/fixture subtask accepted offline. Next implement bounded byte/time/profile validation and assessment against its quiet/unknown/failed/expired/recovered/overflow cases. No collectors/cloud calls yet |
+| PS-01 | Versioned normalization profile and SourceCoverage mechanism; all detections, especially D15 | Existing event envelope/SDK; no private fields | Pure SDK validator, history contract and bounded local library accepted. [ADR-015](adr/015-source-coverage-store.md) records frozen encodings, explicit ownership, atomic prepared append and process recovery. Next trusted local intake/authorization and exact-byte original-receipt replay; correction admission, GC and scans separately. No observers/collectors/cloud calls yet |
 | PS-02 | Source adapters and first real predicates: D01/D02/D03/D05/D07 | PS-01; existing predicate engine | Select one source per change set, CloudTrail management events first. Raw positive/negative/missing/duplicate fixtures → normalized fields, coverage declarations and findings; federated MFA excluded without IdP evidence. EKS audit is a separate adapter task; no claim of runtime hooks from file logs |
 | PS-03 | Durable finding delivery and disposition seam | Existing journal; [cursor contract](25-findings-cursor-proposal.md); does not require new state engine | Public cursor runtime/restart/divergent-history gates first. Separate private cursor+outbox transaction, destination uncertainty and disposition acceptance. No destination-specific policy in public core; listing is not already a feed |
 | PS-04 | Independent protected evidence and object-store query copies | PS-01/PS-02 source identity/coverage; [M3](failure-domains.md#acknowledgement-milestones) | Separate source-native evidence route, proof validation and security permissions from S3 query `EventStore` publication/manifests. Test observability-account outage, validation failure and recovery. Cloud/retention settings require authorized private environment; no ingest/detection HA claim |
@@ -574,9 +574,27 @@ accepted contract below advances that locally runnable sequence.
 PS-01's contract/fixture subtask now has the
 [formal SourceCoverage v1 contract](source-coverage-contract.md), two structural
 schemas, 60 record cases, 39 assessment expectations and seven transition sequences.
-Offline structural acceptance does not execute the semantic assessments. The next
-PS-01 task is a bounded semantic validator/assessment function using those fixtures;
-observer/store/source integration stays separate.
+Offline structural acceptance does not execute the semantic assessments. The SDK's
+pure validator now executes all 60 record cases, 39 assessments and seven transition
+sequences in 24 integration tests; its acceptance had 255 workspace tests.
+The [bounded intake/history contract](source-coverage-history-contract.md) now
+defines exact raw-byte retry identity, finite retention/deduplication guarantees,
+durable receipts, immutable corrections, prefix-aware reads/recovery and ownership.
+Its offline inventory has 16 requirements, 12 candidates and 56 planned cases;
+none is a storage runtime pass. [ADR-015](adr/015-source-coverage-store.md) now
+selects SQLite with one dedicated worker, freezes fingerprint/binding/commit/prefix/
+state/identity vectors and defines finite accounting/reserves. Its local Python
+projection passes 13 SQLite mechanics checks; 33 golden rejection guards and four
+relationship checks pass. The bounded `signal-coverage` library now passes 18
+focused tests for explicit initialization/root ownership, frozen encodings,
+atomic prepared append/recovery, process crashes, corruption, quotas and
+cancellation. Fresh local acceptance passes 273 workspace tests and the
+13-package boundary guard; SDK/agent remain free of database dependencies.
+The 56 full history outcomes remain unimplemented. Next implement trusted local
+intake/authorization, checked admission-age/retention policy and exact-byte
+original-receipt replay without renewal. Correction admission, GC and scans follow
+in separate bounded slices. Observer/source/server integration stays separate;
+no pipeline/detection wiring is implied.
 
 Splitting services is a subsequent evidence-based decision: benchmark query versus
 protected-ingest contention, verify permission/isolation requirements, then define

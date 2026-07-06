@@ -27,7 +27,9 @@ Kubernetes audit, authentication and host/runtime evidence.
 
 The first five predicate requirements fit the current engine after external
 normalization. Their synthetic fixtures are executable against `signal-server`.
-Real source adapters, SourceCoverage assessment, independent protected-evidence
+The SDK now validates SourceCoverage assertions and assesses current/historical
+coverage as a pure local mechanism; see the [accepted contract](source-coverage-contract.md).
+Real source adapters, observers and durable coverage history, independent protected-evidence
 storage, window/state/correlation, alert delivery and SecOps feedback remain
 post-MVP work. An absent finding is not proof that collection was healthy or that
 no suspicious activity occurred. HTTP 202 continues to mean synced WAL admission,

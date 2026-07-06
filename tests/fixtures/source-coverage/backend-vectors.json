@@ -1,0 +1,415 @@
+{
+  "schema_version": 1,
+  "contract_id": "source-coverage-backend-v1",
+  "runtime_status": "reference-only",
+  "profiles": [
+    {
+      "id": "basic",
+      "input": {
+        "schema_version": 1,
+        "id": "fixture-basic",
+        "revision": "v1",
+        "required_components": [
+          "configuration",
+          "scope",
+          "continuity"
+        ],
+        "requires_checkpoint": true,
+        "max_interval_seconds": 3600,
+        "max_verification_age_seconds": 60,
+        "max_clock_skew_seconds": 2
+      },
+      "encoded_hex": "5349474e414c2d434f5645524147452d50524f46494c452d563100000000010000000d666978747572652d6261736963000000027631070100000e100000003c00000002",
+      "sha256": "7d01c398c33395910af1512245aa21c6de7c30bd7d9696586fdb98c5e66fd09d"
+    },
+    {
+      "id": "basic_reordered",
+      "input": {
+        "schema_version": 1,
+        "id": "fixture-basic",
+        "revision": "v1",
+        "required_components": [
+          "continuity",
+          "scope",
+          "configuration"
+        ],
+        "requires_checkpoint": true,
+        "max_interval_seconds": 3600,
+        "max_verification_age_seconds": 60,
+        "max_clock_skew_seconds": 2
+      },
+      "encoded_hex": "5349474e414c2d434f5645524147452d50524f46494c452d563100000000010000000d666978747572652d6261736963000000027631070100000e100000003c00000002",
+      "sha256": "7d01c398c33395910af1512245aa21c6de7c30bd7d9696586fdb98c5e66fd09d"
+    },
+    {
+      "id": "signed",
+      "input": {
+        "schema_version": 1,
+        "id": "fixture-signed",
+        "revision": "v1",
+        "required_components": [
+          "configuration",
+          "scope",
+          "continuity",
+          "source_integrity"
+        ],
+        "requires_checkpoint": true,
+        "max_interval_seconds": 3600,
+        "max_verification_age_seconds": 60,
+        "max_clock_skew_seconds": 2
+      },
+      "encoded_hex": "5349474e414c2d434f5645524147452d50524f46494c452d563100000000010000000e666978747572652d7369676e65640000000276310f0100000e100000003c00000002",
+      "sha256": "264d3c6fea1555a6122a2961c097f5c1406294a927eb29818767ed9f87827c39"
+    }
+  ],
+  "bindings": [
+    {
+      "id": "basic",
+      "input": {
+        "source_id": "fixture-source",
+        "collector_id": "fixture-collector",
+        "resource_scope": {
+          "kind": "fixture-scope",
+          "id": "fixture-resource",
+          "attributes": {}
+        },
+        "expected_stream": "fixture-audit",
+        "coverage_profile": {
+          "id": "fixture-basic",
+          "revision": "v1"
+        },
+        "collection_config_revision": "fixture-config-v1",
+        "observer_id": "fixture-observer"
+      },
+      "encoded_hex": "5349474e414c2d434f5645524147452d42494e44494e472d5631000000000e666978747572652d736f7572636500000011666978747572652d636f6c6c6563746f720000000d666978747572652d73636f706500000010666978747572652d7265736f75726365000000000000000d666978747572652d61756469740000000d666978747572652d626173696300000002763100000011666978747572652d636f6e6669672d763100000010666978747572652d6f62736572766572",
+      "sha256": "bbd9339ea442b5d1ddad3e0cc3e9af6fce2fa468d4aee0d7a95a80caccc615bf"
+    },
+    {
+      "id": "omitted_attributes",
+      "input": {
+        "source_id": "fixture-source",
+        "collector_id": "fixture-collector",
+        "resource_scope": {
+          "kind": "fixture-scope",
+          "id": "fixture-resource"
+        },
+        "expected_stream": "fixture-audit",
+        "coverage_profile": {
+          "id": "fixture-basic",
+          "revision": "v1"
+        },
+        "collection_config_revision": "fixture-config-v1",
+        "observer_id": "fixture-observer"
+      },
+      "encoded_hex": "5349474e414c2d434f5645524147452d42494e44494e472d5631000000000e666978747572652d736f7572636500000011666978747572652d636f6c6c6563746f720000000d666978747572652d73636f706500000010666978747572652d7265736f75726365000000000000000d666978747572652d61756469740000000d666978747572652d626173696300000002763100000011666978747572652d636f6e6669672d763100000010666978747572652d6f62736572766572",
+      "sha256": "bbd9339ea442b5d1ddad3e0cc3e9af6fce2fa468d4aee0d7a95a80caccc615bf"
+    },
+    {
+      "id": "unicode",
+      "input": {
+        "source_id": "fixture-source",
+        "collector_id": "fixture-collector",
+        "resource_scope": {
+          "kind": "fixture-scope",
+          "id": "fixture-resource",
+          "attributes": {
+            "z": "last",
+            "é": "é",
+            "a": "first"
+          }
+        },
+        "expected_stream": "fixture-audit",
+        "coverage_profile": {
+          "id": "fixture-basic",
+          "revision": "v1"
+        },
+        "collection_config_revision": "fixture-config-v1",
+        "observer_id": "fixture-observer"
+      },
+      "encoded_hex": "5349474e414c2d434f5645524147452d42494e44494e472d5631000000000e666978747572652d736f7572636500000011666978747572652d636f6c6c6563746f720000000d666978747572652d73636f706500000010666978747572652d7265736f75726365000000030000000161000000056669727374000000017a000000046c61737400000002c3a900000002c3a90000000d666978747572652d61756469740000000d666978747572652d626173696300000002763100000011666978747572652d636f6e6669672d763100000010666978747572652d6f62736572766572",
+      "sha256": "c3ce1ee4546b98f1c110466e300cd2291d4bf50e469844e2757a2b75c72b0a62"
+    },
+    {
+      "id": "unicode_reordered",
+      "input": {
+        "source_id": "fixture-source",
+        "collector_id": "fixture-collector",
+        "resource_scope": {
+          "kind": "fixture-scope",
+          "id": "fixture-resource",
+          "attributes": {
+            "a": "first",
+            "é": "é",
+            "z": "last"
+          }
+        },
+        "expected_stream": "fixture-audit",
+        "coverage_profile": {
+          "id": "fixture-basic",
+          "revision": "v1"
+        },
+        "collection_config_revision": "fixture-config-v1",
+        "observer_id": "fixture-observer"
+      },
+      "encoded_hex": "5349474e414c2d434f5645524147452d42494e44494e472d5631000000000e666978747572652d736f7572636500000011666978747572652d636f6c6c6563746f720000000d666978747572652d73636f706500000010666978747572652d7265736f75726365000000030000000161000000056669727374000000017a000000046c61737400000002c3a900000002c3a90000000d666978747572652d61756469740000000d666978747572652d626173696300000002763100000011666978747572652d636f6e6669672d763100000010666978747572652d6f62736572766572",
+      "sha256": "c3ce1ee4546b98f1c110466e300cd2291d4bf50e469844e2757a2b75c72b0a62"
+    },
+    {
+      "id": "unicode_decomposed",
+      "input": {
+        "source_id": "fixture-source",
+        "collector_id": "fixture-collector",
+        "resource_scope": {
+          "kind": "fixture-scope",
+          "id": "fixture-resource",
+          "attributes": {
+            "z": "last",
+            "é": "é",
+            "a": "first"
+          }
+        },
+        "expected_stream": "fixture-audit",
+        "coverage_profile": {
+          "id": "fixture-basic",
+          "revision": "v1"
+        },
+        "collection_config_revision": "fixture-config-v1",
+        "observer_id": "fixture-observer"
+      },
+      "encoded_hex": "5349474e414c2d434f5645524147452d42494e44494e472d5631000000000e666978747572652d736f7572636500000011666978747572652d636f6c6c6563746f720000000d666978747572652d73636f706500000010666978747572652d7265736f75726365000000030000000161000000056669727374000000017a000000046c61737400000002c3a90000000365cc810000000d666978747572652d61756469740000000d666978747572652d626173696300000002763100000011666978747572652d636f6e6669672d763100000010666978747572652d6f62736572766572",
+      "sha256": "2c79509a6679d67015ae8229718710a1f24b4d188bc9e8c2fbe5cfc96f0890e0"
+    }
+  ],
+  "chains": [
+    {
+      "id": "original",
+      "history_id": "11111111-1111-4111-8111-111111111111",
+      "initial_prefix": "071e57ae8824360b725cf5a2452a7abf9d9d9315b26a4477ad4d978b69af1fb8",
+      "commits": [
+        {
+          "input": {
+            "history_id": "11111111-1111-4111-8111-111111111111",
+            "sequence": "1",
+            "record_id": "bcc77d04-395d-5803-b313-e58ac0c8acbe",
+            "raw_utf8": "{\"schema_version\":1,\"source_id\":\"fixture-source\",\"collector_id\":\"fixture-collector\",\"resource_scope\":{\"kind\":\"fixture-scope\",\"id\":\"fixture-resource\",\"attributes\":{}},\"expected_stream\":\"fixture-audit\",\"coverage_profile\":{\"id\":\"fixture-basic\",\"revision\":\"v1\"},\"coverage_start\":\"2026-10-07T00:00:00Z\",\"coverage_end\":\"2026-10-07T00:05:00Z\",\"last_observed_at\":null,\"last_verified_at\":\"2026-10-07T00:05:00Z\",\"valid_until\":\"2026-10-07T00:06:00Z\",\"checkpoint\":{\"schema_version\":1,\"kind\":\"fixture-position\",\"milestone\":\"durable_receipt\",\"value\":\"opaque-fixture-position\"},\"collection_config_revision\":\"fixture-config-v1\",\"validation_status\":\"verified\",\"validation\":{\"configuration\":\"verified\",\"scope\":\"verified\",\"continuity\":\"verified\",\"source_integrity\":\"unsupported\"},\"gaps\":[],\"gap_summary\":{\"total\":0,\"truncated\":false},\"provenance\":{\"observer_id\":\"fixture-observer\",\"method\":\"fixture-probe\",\"proof_refs\":[\"fixture://probe/basic\"],\"observed_at\":\"2026-10-07T00:05:00Z\"},\"record_id\":\"bcc77d04-395d-5803-b313-e58ac0c8acbe\"}",
+            "profile": "basic",
+            "binding": "basic",
+            "authority_revision": "fixture-authority-v1",
+            "accepted_at": "2026-10-07T00:05:30Z",
+            "replay_until": "2026-10-07T00:10:30Z",
+            "identity_until": "2026-10-07T00:15:30Z",
+            "correction_of": null
+          },
+          "encoded_hex": "5349474e414c2d434f5645524147452d434f4d4d49542d563100111111111111411181111111111111110000000000000001bcc77d04395d5803b313e58ac0c8acbe000003f79464466f1aeb6f8742dfbbcdb2fe135c729229965f1b7f385a332101c8620a82000000bc5349474e414c2d434f5645524147452d42494e44494e472d5631000000000e666978747572652d736f7572636500000011666978747572652d636f6c6c6563746f720000000d666978747572652d73636f706500000010666978747572652d7265736f75726365000000000000000d666978747572652d61756469740000000d666978747572652d626173696300000002763100000011666978747572652d636f6e6669672d763100000010666978747572652d6f627365727665727d01c398c33395910af1512245aa21c6de7c30bd7d9696586fdb98c5e66fd09d00000014666978747572652d617574686f726974792d7631323032362d31302d30375430303a30353a33302e3030303030303030305a323032362d31302d30375430303a31303a33302e3030303030303030305a323032362d31302d30375430303a31353a33302e3030303030303030305a00",
+          "commit_sha256": "9236bb556eeb740bac0466d3b9d26d4f57fab2163f803e712e8e19429a7b46ee",
+          "prefix_digest": "ba102c245eee6b2c5835afb4a3dfc994f0b50b786f2d357523796b99fb1b1115"
+        },
+        {
+          "input": {
+            "history_id": "11111111-1111-4111-8111-111111111111",
+            "sequence": "2",
+            "record_id": "147f4b74-8283-51e3-ac9a-b25059e452a6",
+            "raw_utf8": "{\"schema_version\":1,\"source_id\":\"fixture-source\",\"collector_id\":\"fixture-collector\",\"resource_scope\":{\"kind\":\"fixture-scope\",\"id\":\"fixture-resource\",\"attributes\":{}},\"expected_stream\":\"fixture-audit\",\"coverage_profile\":{\"id\":\"fixture-basic\",\"revision\":\"v1\"},\"coverage_start\":\"2026-10-07T00:05:00Z\",\"coverage_end\":\"2026-10-07T00:06:00Z\",\"last_observed_at\":null,\"last_verified_at\":\"2026-10-07T00:06:00Z\",\"valid_until\":\"2026-10-07T00:07:00Z\",\"checkpoint\":{\"schema_version\":1,\"kind\":\"fixture-position\",\"milestone\":\"durable_receipt\",\"value\":\"opaque-fixture-position\"},\"collection_config_revision\":\"fixture-config-v1\",\"validation_status\":\"failed\",\"validation\":{\"configuration\":\"verified\",\"scope\":\"verified\",\"continuity\":\"failed\",\"source_integrity\":\"unsupported\"},\"gaps\":[{\"id\":\"fixture-gap\",\"start\":\"2026-10-07T00:05:00Z\",\"end\":\"2026-10-07T00:06:00Z\",\"resource_scope\":{\"kind\":\"fixture-scope\",\"id\":\"fixture-resource\",\"attributes\":{}},\"reason_code\":\"collection_failure\",\"recoverability\":\"irrecoverable\",\"proof_ref\":\"fixture://gap\"}],\"gap_summary\":{\"total\":1,\"truncated\":false},\"provenance\":{\"observer_id\":\"fixture-observer\",\"method\":\"fixture-probe\",\"proof_refs\":[\"fixture://probe/basic\"],\"observed_at\":\"2026-10-07T00:06:00Z\"},\"record_id\":\"147f4b74-8283-51e3-ac9a-b25059e452a6\"}",
+            "profile": "basic",
+            "binding": "basic",
+            "authority_revision": "fixture-authority-v1",
+            "accepted_at": "2026-10-07T00:06:30Z",
+            "replay_until": "2026-10-07T00:11:30Z",
+            "identity_until": "2026-10-07T00:16:30Z",
+            "correction_of": null
+          },
+          "encoded_hex": "5349474e414c2d434f5645524147452d434f4d4d49542d563100111111111111411181111111111111110000000000000002147f4b74828351e3ac9ab25059e452a6000004f50ab2b159ed5bc873c8587c859e2bcfecfd18bd7a9d16c290ec7c7fd89f268510000000bc5349474e414c2d434f5645524147452d42494e44494e472d5631000000000e666978747572652d736f7572636500000011666978747572652d636f6c6c6563746f720000000d666978747572652d73636f706500000010666978747572652d7265736f75726365000000000000000d666978747572652d61756469740000000d666978747572652d626173696300000002763100000011666978747572652d636f6e6669672d763100000010666978747572652d6f627365727665727d01c398c33395910af1512245aa21c6de7c30bd7d9696586fdb98c5e66fd09d00000014666978747572652d617574686f726974792d7631323032362d31302d30375430303a30363a33302e3030303030303030305a323032362d31302d30375430303a31313a33302e3030303030303030305a323032362d31302d30375430303a31363a33302e3030303030303030305a00",
+          "commit_sha256": "525868fd1931d0fb63f8215d98b142d2cba74c3375471a4037d1fb1d253cf2d1",
+          "prefix_digest": "687f595d964239343946f888b0aea8117fe951abd66e48b837a8b86595189c28"
+        },
+        {
+          "input": {
+            "history_id": "11111111-1111-4111-8111-111111111111",
+            "sequence": "3",
+            "record_id": "62fa60bc-f104-5d5c-9a98-e2c131ed2f71",
+            "raw_utf8": "{\"schema_version\":1,\"source_id\":\"fixture-source\",\"collector_id\":\"fixture-collector\",\"resource_scope\":{\"kind\":\"fixture-scope\",\"id\":\"fixture-resource\",\"attributes\":{}},\"expected_stream\":\"fixture-audit\",\"coverage_profile\":{\"id\":\"fixture-basic\",\"revision\":\"v1\"},\"coverage_start\":\"2026-10-07T00:05:00Z\",\"coverage_end\":\"2026-10-07T00:06:00Z\",\"last_observed_at\":null,\"last_verified_at\":\"2026-10-07T00:07:00Z\",\"valid_until\":\"2026-10-07T00:08:00Z\",\"checkpoint\":{\"schema_version\":1,\"kind\":\"fixture-position\",\"milestone\":\"durable_receipt\",\"value\":\"opaque-fixture-position\"},\"collection_config_revision\":\"fixture-config-v1\",\"validation_status\":\"verified\",\"validation\":{\"configuration\":\"verified\",\"scope\":\"verified\",\"continuity\":\"verified\",\"source_integrity\":\"unsupported\"},\"gaps\":[],\"gap_summary\":{\"total\":0,\"truncated\":false},\"provenance\":{\"observer_id\":\"fixture-observer\",\"method\":\"fixture-probe\",\"proof_refs\":[\"fixture://probe/basic\"],\"observed_at\":\"2026-10-07T00:07:00Z\"},\"record_id\":\"62fa60bc-f104-5d5c-9a98-e2c131ed2f71\"}",
+            "profile": "basic",
+            "binding": "basic",
+            "authority_revision": "fixture-authority-v1",
+            "accepted_at": "2026-10-07T00:07:30Z",
+            "replay_until": "2026-10-07T00:12:30Z",
+            "identity_until": "2026-10-07T00:17:30Z",
+            "correction_of": "147f4b74-8283-51e3-ac9a-b25059e452a6"
+          },
+          "encoded_hex": "5349474e414c2d434f5645524147452d434f4d4d49542d56310011111111111141118111111111111111000000000000000362fa60bcf1045d5c9a98e2c131ed2f71000003f7711ba456f7774d9134158a611a5025edcc459a509a393da4ed305cea5ee5e41b000000bc5349474e414c2d434f5645524147452d42494e44494e472d5631000000000e666978747572652d736f7572636500000011666978747572652d636f6c6c6563746f720000000d666978747572652d73636f706500000010666978747572652d7265736f75726365000000000000000d666978747572652d61756469740000000d666978747572652d626173696300000002763100000011666978747572652d636f6e6669672d763100000010666978747572652d6f627365727665727d01c398c33395910af1512245aa21c6de7c30bd7d9696586fdb98c5e66fd09d00000014666978747572652d617574686f726974792d7631323032362d31302d30375430303a30373a33302e3030303030303030305a323032362d31302d30375430303a31323a33302e3030303030303030305a323032362d31302d30375430303a31373a33302e3030303030303030305a01147f4b74828351e3ac9ab25059e452a6",
+          "commit_sha256": "2ac55b194f694cb59b628093d03403837ad3bee989aafd5db1dd7618a99d3279",
+          "prefix_digest": "c7aca881f882cb5a1aaebf57d98f42076d33d99d1f0d6c1a1c814356388e878a"
+        }
+      ]
+    },
+    {
+      "id": "reserialized",
+      "history_id": "11111111-1111-4111-8111-111111111111",
+      "initial_prefix": "071e57ae8824360b725cf5a2452a7abf9d9d9315b26a4477ad4d978b69af1fb8",
+      "commits": [
+        {
+          "input": {
+            "history_id": "11111111-1111-4111-8111-111111111111",
+            "sequence": "1",
+            "record_id": "bcc77d04-395d-5803-b313-e58ac0c8acbe",
+            "raw_utf8": "{\n  \"schema_version\": 1,\n  \"source_id\": \"fixture-source\",\n  \"collector_id\": \"fixture-collector\",\n  \"resource_scope\": {\n    \"kind\": \"fixture-scope\",\n    \"id\": \"fixture-resource\",\n    \"attributes\": {}\n  },\n  \"expected_stream\": \"fixture-audit\",\n  \"coverage_profile\": {\n    \"id\": \"fixture-basic\",\n    \"revision\": \"v1\"\n  },\n  \"coverage_start\": \"2026-10-07T00:00:00Z\",\n  \"coverage_end\": \"2026-10-07T00:05:00Z\",\n  \"last_observed_at\": null,\n  \"last_verified_at\": \"2026-10-07T00:05:00Z\",\n  \"valid_until\": \"2026-10-07T00:06:00Z\",\n  \"checkpoint\": {\n    \"schema_version\": 1,\n    \"kind\": \"fixture-position\",\n    \"milestone\": \"durable_receipt\",\n    \"value\": \"opaque-fixture-position\"\n  },\n  \"collection_config_revision\": \"fixture-config-v1\",\n  \"validation_status\": \"verified\",\n  \"validation\": {\n    \"configuration\": \"verified\",\n    \"scope\": \"verified\",\n    \"continuity\": \"verified\",\n    \"source_integrity\": \"unsupported\"\n  },\n  \"gaps\": [],\n  \"gap_summary\": {\n    \"total\": 0,\n    \"truncated\": false\n  },\n  \"provenance\": {\n    \"observer_id\": \"fixture-observer\",\n    \"method\": \"fixture-probe\",\n    \"proof_refs\": [\n      \"fixture://probe/basic\"\n    ],\n    \"observed_at\": \"2026-10-07T00:05:00Z\"\n  },\n  \"record_id\": \"bcc77d04-395d-5803-b313-e58ac0c8acbe\"\n}",
+            "profile": "basic",
+            "binding": "basic",
+            "authority_revision": "fixture-authority-v1",
+            "accepted_at": "2026-10-07T00:05:30Z",
+            "replay_until": "2026-10-07T00:10:30Z",
+            "identity_until": "2026-10-07T00:15:30Z",
+            "correction_of": null
+          },
+          "encoded_hex": "5349474e414c2d434f5645524147452d434f4d4d49542d563100111111111111411181111111111111110000000000000001bcc77d04395d5803b313e58ac0c8acbe000004d49eb92efdaba050e970198039090019ec7bfe0fa2473ce943c9e41a4db85d33fe000000bc5349474e414c2d434f5645524147452d42494e44494e472d5631000000000e666978747572652d736f7572636500000011666978747572652d636f6c6c6563746f720000000d666978747572652d73636f706500000010666978747572652d7265736f75726365000000000000000d666978747572652d61756469740000000d666978747572652d626173696300000002763100000011666978747572652d636f6e6669672d763100000010666978747572652d6f627365727665727d01c398c33395910af1512245aa21c6de7c30bd7d9696586fdb98c5e66fd09d00000014666978747572652d617574686f726974792d7631323032362d31302d30375430303a30353a33302e3030303030303030305a323032362d31302d30375430303a31303a33302e3030303030303030305a323032362d31302d30375430303a31353a33302e3030303030303030305a00",
+          "commit_sha256": "85e0bd717e4c673324afaf8b86ccb204f7fd21ee12f5332e84b4719448e14563",
+          "prefix_digest": "80b0067b3177f54c0720c46671ce1ce22aca85a8ccfbe4ca52e93b15d2d80b5e"
+        }
+      ]
+    },
+    {
+      "id": "other_history",
+      "history_id": "22222222-2222-4222-8222-222222222222",
+      "initial_prefix": "0a8d9bc0736a337d5a7f3822aa7965839a72e98489d7bed4269202d9faa81ad0",
+      "commits": [
+        {
+          "input": {
+            "history_id": "22222222-2222-4222-8222-222222222222",
+            "sequence": "1",
+            "record_id": "bcc77d04-395d-5803-b313-e58ac0c8acbe",
+            "raw_utf8": "{\"schema_version\":1,\"source_id\":\"fixture-source\",\"collector_id\":\"fixture-collector\",\"resource_scope\":{\"kind\":\"fixture-scope\",\"id\":\"fixture-resource\",\"attributes\":{}},\"expected_stream\":\"fixture-audit\",\"coverage_profile\":{\"id\":\"fixture-basic\",\"revision\":\"v1\"},\"coverage_start\":\"2026-10-07T00:00:00Z\",\"coverage_end\":\"2026-10-07T00:05:00Z\",\"last_observed_at\":null,\"last_verified_at\":\"2026-10-07T00:05:00Z\",\"valid_until\":\"2026-10-07T00:06:00Z\",\"checkpoint\":{\"schema_version\":1,\"kind\":\"fixture-position\",\"milestone\":\"durable_receipt\",\"value\":\"opaque-fixture-position\"},\"collection_config_revision\":\"fixture-config-v1\",\"validation_status\":\"verified\",\"validation\":{\"configuration\":\"verified\",\"scope\":\"verified\",\"continuity\":\"verified\",\"source_integrity\":\"unsupported\"},\"gaps\":[],\"gap_summary\":{\"total\":0,\"truncated\":false},\"provenance\":{\"observer_id\":\"fixture-observer\",\"method\":\"fixture-probe\",\"proof_refs\":[\"fixture://probe/basic\"],\"observed_at\":\"2026-10-07T00:05:00Z\"},\"record_id\":\"bcc77d04-395d-5803-b313-e58ac0c8acbe\"}",
+            "profile": "basic",
+            "binding": "basic",
+            "authority_revision": "fixture-authority-v1",
+            "accepted_at": "2026-10-07T00:05:30Z",
+            "replay_until": "2026-10-07T00:10:30Z",
+            "identity_until": "2026-10-07T00:15:30Z",
+            "correction_of": null
+          },
+          "encoded_hex": "5349474e414c2d434f5645524147452d434f4d4d49542d563100222222222222422282222222222222220000000000000001bcc77d04395d5803b313e58ac0c8acbe000003f79464466f1aeb6f8742dfbbcdb2fe135c729229965f1b7f385a332101c8620a82000000bc5349474e414c2d434f5645524147452d42494e44494e472d5631000000000e666978747572652d736f7572636500000011666978747572652d636f6c6c6563746f720000000d666978747572652d73636f706500000010666978747572652d7265736f75726365000000000000000d666978747572652d61756469740000000d666978747572652d626173696300000002763100000011666978747572652d636f6e6669672d763100000010666978747572652d6f627365727665727d01c398c33395910af1512245aa21c6de7c30bd7d9696586fdb98c5e66fd09d00000014666978747572652d617574686f726974792d7631323032362d31302d30375430303a30353a33302e3030303030303030305a323032362d31302d30375430303a31303a33302e3030303030303030305a323032362d31302d30375430303a31353a33302e3030303030303030305a00",
+          "commit_sha256": "6374acf934b7fcb11778e4ca37304ebbc44efd8abb376488486a7a6d676a3ccc",
+          "prefix_digest": "05a9db05bf1cc95752809de05828ff5a96425ea39d659911aabe9a362b4dd990"
+        }
+      ]
+    }
+  ],
+  "standalone_commits": [
+    {
+      "input": {
+        "history_id": "11111111-1111-4111-8111-111111111111",
+        "sequence": "18446744073709551615",
+        "record_id": "bcc77d04-395d-5803-b313-e58ac0c8acbe",
+        "raw_utf8": "{\"schema_version\":1,\"source_id\":\"fixture-source\",\"collector_id\":\"fixture-collector\",\"resource_scope\":{\"kind\":\"fixture-scope\",\"id\":\"fixture-resource\",\"attributes\":{}},\"expected_stream\":\"fixture-audit\",\"coverage_profile\":{\"id\":\"fixture-basic\",\"revision\":\"v1\"},\"coverage_start\":\"2026-10-07T00:00:00Z\",\"coverage_end\":\"2026-10-07T00:05:00Z\",\"last_observed_at\":null,\"last_verified_at\":\"2026-10-07T00:05:00Z\",\"valid_until\":\"2026-10-07T00:06:00Z\",\"checkpoint\":{\"schema_version\":1,\"kind\":\"fixture-position\",\"milestone\":\"durable_receipt\",\"value\":\"opaque-fixture-position\"},\"collection_config_revision\":\"fixture-config-v1\",\"validation_status\":\"verified\",\"validation\":{\"configuration\":\"verified\",\"scope\":\"verified\",\"continuity\":\"verified\",\"source_integrity\":\"unsupported\"},\"gaps\":[],\"gap_summary\":{\"total\":0,\"truncated\":false},\"provenance\":{\"observer_id\":\"fixture-observer\",\"method\":\"fixture-probe\",\"proof_refs\":[\"fixture://probe/basic\"],\"observed_at\":\"2026-10-07T00:05:00Z\"},\"record_id\":\"bcc77d04-395d-5803-b313-e58ac0c8acbe\"}",
+        "profile": "basic",
+        "binding": "basic",
+        "authority_revision": "fixture-authority-v1",
+        "accepted_at": "0001-01-01T00:00:00Z",
+        "replay_until": "0001-01-01T00:00:01Z",
+        "identity_until": "0001-01-01T00:00:02Z",
+        "correction_of": null
+      },
+      "encoded_hex": "5349474e414c2d434f5645524147452d434f4d4d49542d56310011111111111141118111111111111111ffffffffffffffffbcc77d04395d5803b313e58ac0c8acbe000003f79464466f1aeb6f8742dfbbcdb2fe135c729229965f1b7f385a332101c8620a82000000bc5349474e414c2d434f5645524147452d42494e44494e472d5631000000000e666978747572652d736f7572636500000011666978747572652d636f6c6c6563746f720000000d666978747572652d73636f706500000010666978747572652d7265736f75726365000000000000000d666978747572652d61756469740000000d666978747572652d626173696300000002763100000011666978747572652d636f6e6669672d763100000010666978747572652d6f627365727665727d01c398c33395910af1512245aa21c6de7c30bd7d9696586fdb98c5e66fd09d00000014666978747572652d617574686f726974792d7631303030312d30312d30315430303a30303a30302e3030303030303030305a303030312d30312d30315430303a30303a30312e3030303030303030305a303030312d30312d30315430303a30303a30322e3030303030303030305a00",
+      "commit_sha256": "5807661d87391bd281282acc1b4f6dbbea49a35a7e5d3e736251a6ac0da8a587"
+    },
+    {
+      "input": {
+        "history_id": "11111111-1111-4111-8111-111111111111",
+        "sequence": "9223372036854775808",
+        "record_id": "bcc77d04-395d-5803-b313-e58ac0c8acbe",
+        "raw_utf8": "{\"schema_version\":1,\"source_id\":\"fixture-source\",\"collector_id\":\"fixture-collector\",\"resource_scope\":{\"kind\":\"fixture-scope\",\"id\":\"fixture-resource\",\"attributes\":{}},\"expected_stream\":\"fixture-audit\",\"coverage_profile\":{\"id\":\"fixture-basic\",\"revision\":\"v1\"},\"coverage_start\":\"2026-10-07T00:00:00Z\",\"coverage_end\":\"2026-10-07T00:05:00Z\",\"last_observed_at\":null,\"last_verified_at\":\"2026-10-07T00:05:00Z\",\"valid_until\":\"2026-10-07T00:06:00Z\",\"checkpoint\":{\"schema_version\":1,\"kind\":\"fixture-position\",\"milestone\":\"durable_receipt\",\"value\":\"opaque-fixture-position\"},\"collection_config_revision\":\"fixture-config-v1\",\"validation_status\":\"verified\",\"validation\":{\"configuration\":\"verified\",\"scope\":\"verified\",\"continuity\":\"verified\",\"source_integrity\":\"unsupported\"},\"gaps\":[],\"gap_summary\":{\"total\":0,\"truncated\":false},\"provenance\":{\"observer_id\":\"fixture-observer\",\"method\":\"fixture-probe\",\"proof_refs\":[\"fixture://probe/basic\"],\"observed_at\":\"2026-10-07T00:05:00Z\"},\"record_id\":\"bcc77d04-395d-5803-b313-e58ac0c8acbe\"}",
+        "profile": "basic",
+        "binding": "basic",
+        "authority_revision": "fixture-authority-v1",
+        "accepted_at": "9999-12-31T23:59:57.999999999Z",
+        "replay_until": "9999-12-31T23:59:58.999999999Z",
+        "identity_until": "9999-12-31T23:59:59.999999999Z",
+        "correction_of": null
+      },
+      "encoded_hex": "5349474e414c2d434f5645524147452d434f4d4d49542d563100111111111111411181111111111111118000000000000000bcc77d04395d5803b313e58ac0c8acbe000003f79464466f1aeb6f8742dfbbcdb2fe135c729229965f1b7f385a332101c8620a82000000bc5349474e414c2d434f5645524147452d42494e44494e472d5631000000000e666978747572652d736f7572636500000011666978747572652d636f6c6c6563746f720000000d666978747572652d73636f706500000010666978747572652d7265736f75726365000000000000000d666978747572652d61756469740000000d666978747572652d626173696300000002763100000011666978747572652d636f6e6669672d763100000010666978747572652d6f627365727665727d01c398c33395910af1512245aa21c6de7c30bd7d9696586fdb98c5e66fd09d00000014666978747572652d617574686f726974792d7631393939392d31322d33315432333a35393a35372e3939393939393939395a393939392d31322d33315432333a35393a35382e3939393939393939395a393939392d31322d33315432333a35393a35392e3939393939393939395a00",
+      "commit_sha256": "0b15daad097ee61e399696098d165792cba63eb697e736a522e9e1d7acb253e1"
+    }
+  ],
+  "times": [
+    {
+      "input": "0001-01-01T00:00:00Z",
+      "encoded_ascii": "0001-01-01T00:00:00.000000000Z"
+    },
+    {
+      "input": "9999-12-31T23:59:59.999999999Z",
+      "encoded_ascii": "9999-12-31T23:59:59.999999999Z"
+    },
+    {
+      "input": "2026-10-07T00:05:30.1Z",
+      "encoded_ascii": "2026-10-07T00:05:30.100000000Z"
+    },
+    {
+      "input": "2026-10-07T00:05:30.100000000Z",
+      "encoded_ascii": "2026-10-07T00:05:30.100000000Z"
+    }
+  ],
+  "states": [
+    {
+      "input": {
+        "history_id": "11111111-1111-4111-8111-111111111111",
+        "committed_sequence": "0",
+        "committed_prefix": "071e57ae8824360b725cf5a2452a7abf9d9d9315b26a4477ad4d978b69af1fb8",
+        "payload_pruned_through": "0",
+        "payload_anchor": "071e57ae8824360b725cf5a2452a7abf9d9d9315b26a4477ad4d978b69af1fb8",
+        "identity_pruned_through": "0",
+        "identity_anchor": "071e57ae8824360b725cf5a2452a7abf9d9d9315b26a4477ad4d978b69af1fb8",
+        "clock_floor": "2026-10-07T00:05:29Z",
+        "payload_count": 0,
+        "identity_count": 0,
+        "binding_count": 0,
+        "profile_count": 0,
+        "ledger_charge": 16384
+      },
+      "encoded_hex": "5349474e414c2d434f5645524147452d53544154452d56310000000001111111111111411181111111111111110000000000000000071e57ae8824360b725cf5a2452a7abf9d9d9315b26a4477ad4d978b69af1fb80000000000000000071e57ae8824360b725cf5a2452a7abf9d9d9315b26a4477ad4d978b69af1fb80000000000000000071e57ae8824360b725cf5a2452a7abf9d9d9315b26a4477ad4d978b69af1fb8323032362d31302d30375430303a30353a32392e3030303030303030305a00000000000000000000000000000000000000000000000000000000000000000000000000004000",
+      "sha256": "e8138de034541d685952bdb5fea521f34e42bc02b8a1db7fbc8b0fb2e65c5c18"
+    },
+    {
+      "input": {
+        "history_id": "11111111-1111-4111-8111-111111111111",
+        "committed_sequence": "3",
+        "committed_prefix": "c7aca881f882cb5a1aaebf57d98f42076d33d99d1f0d6c1a1c814356388e878a",
+        "payload_pruned_through": "0",
+        "payload_anchor": "071e57ae8824360b725cf5a2452a7abf9d9d9315b26a4477ad4d978b69af1fb8",
+        "identity_pruned_through": "0",
+        "identity_anchor": "071e57ae8824360b725cf5a2452a7abf9d9d9315b26a4477ad4d978b69af1fb8",
+        "clock_floor": "2026-10-07T00:07:30Z",
+        "payload_count": 3,
+        "identity_count": 3,
+        "binding_count": 1,
+        "profile_count": 1,
+        "ledger_charge": 54814
+      },
+      "encoded_hex": "5349474e414c2d434f5645524147452d53544154452d56310000000001111111111111411181111111111111110000000000000003c7aca881f882cb5a1aaebf57d98f42076d33d99d1f0d6c1a1c814356388e878a0000000000000000071e57ae8824360b725cf5a2452a7abf9d9d9315b26a4477ad4d978b69af1fb80000000000000000071e57ae8824360b725cf5a2452a7abf9d9d9315b26a4477ad4d978b69af1fb8323032362d31302d30375430303a30373a33302e3030303030303030305a0000000000000003000000000000000300000000000000010000000000000001000000000000d61e",
+      "sha256": "59d6326ab1e9648b725f3161f559a1b2de43219bfc9ab3d17a04e9756ee389a7"
+    },
+    {
+      "input": {
+        "history_id": "11111111-1111-4111-8111-111111111111",
+        "committed_sequence": "3",
+        "committed_prefix": "c7aca881f882cb5a1aaebf57d98f42076d33d99d1f0d6c1a1c814356388e878a",
+        "payload_pruned_through": "1",
+        "payload_anchor": "ba102c245eee6b2c5835afb4a3dfc994f0b50b786f2d357523796b99fb1b1115",
+        "identity_pruned_through": "1",
+        "identity_anchor": "ba102c245eee6b2c5835afb4a3dfc994f0b50b786f2d357523796b99fb1b1115",
+        "clock_floor": "2026-10-07T00:07:30Z",
+        "payload_count": 2,
+        "identity_count": 2,
+        "binding_count": 1,
+        "profile_count": 1,
+        "ledger_charge": 44910
+      },
+      "encoded_hex": "5349474e414c2d434f5645524147452d53544154452d56310000000001111111111111411181111111111111110000000000000003c7aca881f882cb5a1aaebf57d98f42076d33d99d1f0d6c1a1c814356388e878a0000000000000001ba102c245eee6b2c5835afb4a3dfc994f0b50b786f2d357523796b99fb1b11150000000000000001ba102c245eee6b2c5835afb4a3dfc994f0b50b786f2d357523796b99fb1b1115323032362d31302d30375430303a30373a33302e3030303030303030305a0000000000000002000000000000000200000000000000010000000000000001000000000000af6e",
+      "sha256": "a72310c563368e01feb47b37f6f0f13ed7d8e998abfa22fc12781f53b56bf804"
+    }
+  ],
+  "identities": [
+    {
+      "history_id": "11111111-1111-4111-8111-111111111111",
+      "encoded_hex": "534947434f563031111111111111411181111111111111113151792ed3331235a8965a96c63f8e9981b41a944b7bdbb6280edd0ebf08feba"
+    }
+  ]
+}
