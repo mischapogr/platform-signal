@@ -1,0 +1,260 @@
+{
+  "cases": [
+    {
+      "case_id": "aws.ecs.task-running",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "ecs.task.state",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"account\": \"000000000001\",\n  \"detail\": {\n    \"clusterArn\": \"arn:aws:ecs:eu-central-1:000000000001:cluster/fixture\",\n    \"containers\": [\n      {\n        \"lastStatus\": \"RUNNING\",\n        \"name\": \"fixture-api\"\n      }\n    ],\n    \"desiredStatus\": \"RUNNING\",\n    \"lastStatus\": \"RUNNING\",\n    \"launchType\": \"FARGATE\",\n    \"taskArn\": \"arn:aws:ecs:eu-central-1:000000000001:task/fixture/b0317e36e5815344870da2542d1855e2\",\n    \"taskDefinitionArn\": \"arn:aws:ecs:eu-central-1:000000000001:task-definition/fixture-api:1\",\n    \"version\": 1\n  },\n  \"detail-type\": \"ECS Task State Change\",\n  \"id\": \"9667eb72-6042-541f-b4d0-01bb4bbadd3a\",\n  \"region\": \"eu-central-1\",\n  \"resources\": [\n    \"arn:aws:ecs:eu-central-1:000000000001:task/fixture/b0317e36e5815344870da2542d1855e2\"\n  ],\n  \"source\": \"aws.ecs\",\n  \"time\": \"2026-07-07T17:30:00Z\",\n  \"version\": \"0\"\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.ecs.task-running",
+            "synthetic": true
+          }
+        },
+        "id": "f9bffc6c-e4e1-54cf-b321-3830650d3159",
+        "message": "ECS task RUNNING",
+        "observed_at": "2026-07-07T17:30:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.ecs:synthetic-demo",
+          "kind": "aws.ecs",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.ecs"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:30:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"account\": \"000000000001\",\n  \"detail\": {\n    \"clusterArn\": \"arn:aws:ecs:eu-central-1:000000000001:cluster/fixture\",\n    \"containers\": [\n      {\n        \"lastStatus\": \"RUNNING\",\n        \"name\": \"fixture-api\"\n      }\n    ],\n    \"desiredStatus\": \"RUNNING\",\n    \"lastStatus\": \"RUNNING\",\n    \"launchType\": \"FARGATE\",\n    \"taskArn\": \"arn:aws:ecs:eu-central-1:000000000001:task/fixture/b0317e36e5815344870da2542d1855e2\",\n    \"taskDefinitionArn\": \"arn:aws:ecs:eu-central-1:000000000001:task-definition/fixture-api:1\",\n    \"version\": 1\n  },\n  \"detail-type\": \"ECS Task State Change\",\n  \"id\": \"9667eb72-6042-541f-b4d0-01bb4bbadd3a\",\n  \"region\": \"eu-central-1\",\n  \"resources\": [\n    \"arn:aws:ecs:eu-central-1:000000000001:task/fixture/b0317e36e5815344870da2542d1855e2\"\n  ],\n  \"source\": \"aws.ecs\",\n  \"time\": \"2026-07-07T17:30:00Z\",\n  \"version\": \"0\"\n}\n",
+      "raw_format": "ecs-eventbridge-json",
+      "raw_sha256": "4d6b761f2988b6fbd1969b2244deb055a725ef723206918da46b52952c71187d",
+      "scenario": "ECS task RUNNING",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "none",
+        "required_context": [],
+        "severity": "none"
+      }
+    },
+    {
+      "case_id": "aws.ecs.task-failed",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "ecs.task.state",
+            "outcome": "failure"
+          },
+          "log": {
+            "original": "{\n  \"account\": \"000000000001\",\n  \"detail\": {\n    \"clusterArn\": \"arn:aws:ecs:eu-central-1:000000000001:cluster/fixture\",\n    \"containers\": [\n      {\n        \"exitCode\": 1,\n        \"lastStatus\": \"STOPPED\",\n        \"name\": \"fixture-api\"\n      }\n    ],\n    \"desiredStatus\": \"STOPPED\",\n    \"lastStatus\": \"STOPPED\",\n    \"launchType\": \"FARGATE\",\n    \"stopCode\": \"EssentialContainerExited\",\n    \"stoppedReason\": \"Essential container in task exited\",\n    \"taskArn\": \"arn:aws:ecs:eu-central-1:000000000001:task/fixture/66e3904a6924521f98123c5addec0c2d\",\n    \"taskDefinitionArn\": \"arn:aws:ecs:eu-central-1:000000000001:task-definition/fixture-api:1\",\n    \"version\": 1\n  },\n  \"detail-type\": \"ECS Task State Change\",\n  \"id\": \"b127b4e4-fc3f-5220-8fe1-e984f005aaa3\",\n  \"region\": \"eu-central-1\",\n  \"resources\": [\n    \"arn:aws:ecs:eu-central-1:000000000001:task/fixture/66e3904a6924521f98123c5addec0c2d\"\n  ],\n  \"source\": \"aws.ecs\",\n  \"time\": \"2026-07-07T17:31:00Z\",\n  \"version\": \"0\"\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.ecs.task-failed",
+            "synthetic": true
+          }
+        },
+        "id": "bfa91714-8ad1-51d3-afa2-d895e0c629a8",
+        "message": "ECS task STOPPED",
+        "observed_at": "2026-07-07T17:31:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.ecs:synthetic-demo",
+          "kind": "aws.ecs",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "error",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.ecs"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:31:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"account\": \"000000000001\",\n  \"detail\": {\n    \"clusterArn\": \"arn:aws:ecs:eu-central-1:000000000001:cluster/fixture\",\n    \"containers\": [\n      {\n        \"exitCode\": 1,\n        \"lastStatus\": \"STOPPED\",\n        \"name\": \"fixture-api\"\n      }\n    ],\n    \"desiredStatus\": \"STOPPED\",\n    \"lastStatus\": \"STOPPED\",\n    \"launchType\": \"FARGATE\",\n    \"stopCode\": \"EssentialContainerExited\",\n    \"stoppedReason\": \"Essential container in task exited\",\n    \"taskArn\": \"arn:aws:ecs:eu-central-1:000000000001:task/fixture/66e3904a6924521f98123c5addec0c2d\",\n    \"taskDefinitionArn\": \"arn:aws:ecs:eu-central-1:000000000001:task-definition/fixture-api:1\",\n    \"version\": 1\n  },\n  \"detail-type\": \"ECS Task State Change\",\n  \"id\": \"b127b4e4-fc3f-5220-8fe1-e984f005aaa3\",\n  \"region\": \"eu-central-1\",\n  \"resources\": [\n    \"arn:aws:ecs:eu-central-1:000000000001:task/fixture/66e3904a6924521f98123c5addec0c2d\"\n  ],\n  \"source\": \"aws.ecs\",\n  \"time\": \"2026-07-07T17:31:00Z\",\n  \"version\": \"0\"\n}\n",
+      "raw_format": "ecs-eventbridge-json",
+      "raw_sha256": "77dcfe42709e047d55868965d4a909ebe18e88a3d3bd60a898a6f48458120db9",
+      "scenario": "ECS task STOPPED",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "none",
+        "required_context": [],
+        "severity": "none"
+      }
+    },
+    {
+      "case_id": "aws.ecs.app-login-failed",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "authentication.login",
+            "outcome": "failure"
+          },
+          "log": {
+            "original": "{\n  \"action\": \"authentication.login\",\n  \"container_name\": \"fixture-api\",\n  \"level\": \"WARN\",\n  \"message\": \"ECS application login failed\",\n  \"outcome\": \"failure\",\n  \"principal\": \"operator@example.invalid\",\n  \"source_ip\": \"198.51.100.23\",\n  \"timestamp\": \"2026-07-07T17:32:00Z\"\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.ecs.app-login-failed",
+            "synthetic": true
+          }
+        },
+        "id": "daeb764a-aa65-56f5-be49-329fa0ed1147",
+        "message": "ECS application login failed",
+        "observed_at": "2026-07-07T17:32:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.ecs:synthetic-demo",
+          "kind": "aws.ecs",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "warn",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.ecs"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:32:00Z"
+      },
+      "native_severity": "WARN",
+      "raw": "{\n  \"action\": \"authentication.login\",\n  \"container_name\": \"fixture-api\",\n  \"level\": \"WARN\",\n  \"message\": \"ECS application login failed\",\n  \"outcome\": \"failure\",\n  \"principal\": \"operator@example.invalid\",\n  \"source_ip\": \"198.51.100.23\",\n  \"timestamp\": \"2026-07-07T17:32:00Z\"\n}\n",
+      "raw_format": "ecs-application-json",
+      "raw_sha256": "c3555b5a92cd09a6ebb95a241385542ebb7a59efb520348b88defccbca3fb3da",
+      "scenario": "ECS application login failed",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "awslogs/OTLP application audit instrumentation",
+          "approved export policy"
+        ],
+        "severity": "low"
+      }
+    },
+    {
+      "case_id": "aws.ecs.app-secret-export",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "data.export",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"action\": \"data.export\",\n  \"container_name\": \"fixture-api\",\n  \"level\": \"CRITICAL\",\n  \"message\": \"ECS application sensitive-data export audit\",\n  \"outcome\": \"success\",\n  \"principal\": \"operator@example.invalid\",\n  \"source_ip\": \"198.51.100.23\",\n  \"timestamp\": \"2026-07-07T17:33:00Z\"\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.ecs.app-secret-export",
+            "synthetic": true
+          }
+        },
+        "id": "dc15e34c-b753-51bd-9584-268d80a590ab",
+        "message": "ECS application sensitive-data export audit",
+        "observed_at": "2026-07-07T17:33:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.ecs:synthetic-demo",
+          "kind": "aws.ecs",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "critical",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.ecs"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:33:00Z"
+      },
+      "native_severity": "CRITICAL",
+      "raw": "{\n  \"action\": \"data.export\",\n  \"container_name\": \"fixture-api\",\n  \"level\": \"CRITICAL\",\n  \"message\": \"ECS application sensitive-data export audit\",\n  \"outcome\": \"success\",\n  \"principal\": \"operator@example.invalid\",\n  \"source_ip\": \"198.51.100.23\",\n  \"timestamp\": \"2026-07-07T17:33:00Z\"\n}\n",
+      "raw_format": "ecs-application-json",
+      "raw_sha256": "ae610137a4461ce5eeb386ad2db71bce14ecc0b91bbdcc7209b5336016f65023",
+      "scenario": "ECS application sensitive-data export audit",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "awslogs/OTLP application audit instrumentation",
+          "approved export policy"
+        ],
+        "severity": "high"
+      }
+    },
+    {
+      "case_id": "aws.ecs.privileged-task-definition",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "ecs:RegisterTaskDefinition",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"2c00de16-5d52-55f0-bf53-6c4ad808e32c\",\n  \"eventName\": \"RegisterTaskDefinition\",\n  \"eventSource\": \"ecs.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:34:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": false,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"2a250ca5-00f0-5b8d-8e73-cfaa422b37da\",\n  \"requestParameters\": {\n    \"containerDefinitions\": [\n      {\n        \"image\": \"registry.example.invalid/fixture/api:1\",\n        \"name\": \"fixture-api\",\n        \"privileged\": true\n      }\n    ],\n    \"family\": \"fixture-api\"\n  },\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.ecs.privileged-task-definition",
+            "synthetic": true
+          }
+        },
+        "id": "943d8d17-b92d-583d-a4b3-e4ac7a99ca9b",
+        "message": "ECS privileged EC2 task definition registered",
+        "observed_at": "2026-07-07T17:34:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.ecs:synthetic-demo",
+          "kind": "aws.ecs",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.ecs"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:34:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"2c00de16-5d52-55f0-bf53-6c4ad808e32c\",\n  \"eventName\": \"RegisterTaskDefinition\",\n  \"eventSource\": \"ecs.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:34:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": false,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"2a250ca5-00f0-5b8d-8e73-cfaa422b37da\",\n  \"requestParameters\": {\n    \"containerDefinitions\": [\n      {\n        \"image\": \"registry.example.invalid/fixture/api:1\",\n        \"name\": \"fixture-api\",\n        \"privileged\": true\n      }\n    ],\n    \"family\": \"fixture-api\"\n  },\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n",
+      "raw_format": "cloudtrail-json",
+      "raw_sha256": "fdd52f63f6a6ecf79f5299139f0a89a78e9a9a53472fc954df0735f1671c09cd",
+      "scenario": "ECS privileged EC2 task definition registered",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "EC2 launch type; privileged is unsupported on Fargate",
+          "change authorization"
+        ],
+        "severity": "high"
+      }
+    }
+  ],
+  "schema_version": 1,
+  "source": "aws.ecs"
+}

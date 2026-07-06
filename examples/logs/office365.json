@@ -1,0 +1,256 @@
+{
+  "cases": [
+    {
+      "case_id": "office365.login-success",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "office365.UserLoggedIn",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"ActorIpAddress\": \"198.51.100.23\",\n  \"ApplicationId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"ClientIP\": null,\n  \"CreationTime\": \"2026-07-07T17:40:00\",\n  \"ErrorCode\": \"0\",\n  \"Id\": \"d371f3e1-03fa-5d4d-9f15-fb968dcdbc78\",\n  \"LogonError\": \"\",\n  \"ObjectId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"Operation\": \"UserLoggedIn\",\n  \"OrganizationId\": \"c1bb4c52-7119-556a-b6e7-3c494fdffc92\",\n  \"RecordType\": 15,\n  \"ResultStatus\": \"Succeeded\",\n  \"UserId\": \"operator@example.invalid\",\n  \"UserKey\": \"4547055f-703f-5b5b-b240-7d92d40acc2a\",\n  \"UserType\": 0,\n  \"Version\": 1,\n  \"Workload\": \"AzureActiveDirectory\"\n}\n"
+          },
+          "sample": {
+            "case_id": "office365.login-success",
+            "synthetic": true
+          }
+        },
+        "id": "9dae8d74-8734-5b72-9458-bb5472bb54e0",
+        "message": "Microsoft 365 audit: login-success",
+        "observed_at": "2026-07-07T17:40:02Z",
+        "resource": {
+          "id": "office365:synthetic-demo",
+          "kind": "office365"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "office365"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:40:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"ActorIpAddress\": \"198.51.100.23\",\n  \"ApplicationId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"ClientIP\": null,\n  \"CreationTime\": \"2026-07-07T17:40:00\",\n  \"ErrorCode\": \"0\",\n  \"Id\": \"d371f3e1-03fa-5d4d-9f15-fb968dcdbc78\",\n  \"LogonError\": \"\",\n  \"ObjectId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"Operation\": \"UserLoggedIn\",\n  \"OrganizationId\": \"c1bb4c52-7119-556a-b6e7-3c494fdffc92\",\n  \"RecordType\": 15,\n  \"ResultStatus\": \"Succeeded\",\n  \"UserId\": \"operator@example.invalid\",\n  \"UserKey\": \"4547055f-703f-5b5b-b240-7d92d40acc2a\",\n  \"UserType\": 0,\n  \"Version\": 1,\n  \"Workload\": \"AzureActiveDirectory\"\n}\n",
+      "raw_format": "office365-audit-json",
+      "raw_sha256": "07f987fc31d069f5806804d6de21e381e46c99b36d5cab3e5b43316763a2cd44",
+      "scenario": "Microsoft 365 audit: login-success",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "none",
+        "required_context": [
+          "Operation/ErrorCode/LogonError, not only ResultStatus",
+          "approved admin change record"
+        ],
+        "severity": "none"
+      }
+    },
+    {
+      "case_id": "office365.login-failure",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "office365.UserLoginFailed",
+            "outcome": "failure"
+          },
+          "log": {
+            "original": "{\n  \"ActorIpAddress\": \"198.51.100.23\",\n  \"ApplicationId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"ClientIP\": null,\n  \"CreationTime\": \"2026-07-07T17:41:00\",\n  \"ErrorCode\": \"50126\",\n  \"Id\": \"7e371650-11ef-55ce-8b37-be329856076f\",\n  \"LogonError\": \"InvalidUserNameOrPassword\",\n  \"ObjectId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"Operation\": \"UserLoginFailed\",\n  \"OrganizationId\": \"c1bb4c52-7119-556a-b6e7-3c494fdffc92\",\n  \"RecordType\": 15,\n  \"ResultStatus\": \"Succeeded\",\n  \"UserId\": \"operator@example.invalid\",\n  \"UserKey\": \"4547055f-703f-5b5b-b240-7d92d40acc2a\",\n  \"UserType\": 0,\n  \"Version\": 1,\n  \"Workload\": \"AzureActiveDirectory\"\n}\n"
+          },
+          "sample": {
+            "case_id": "office365.login-failure",
+            "synthetic": true
+          }
+        },
+        "id": "f700159d-0f46-5ebe-82bb-af316470d21b",
+        "message": "Microsoft 365 audit: login-failure",
+        "observed_at": "2026-07-07T17:41:02Z",
+        "resource": {
+          "id": "office365:synthetic-demo",
+          "kind": "office365"
+        },
+        "schema_version": 1,
+        "severity": "warn",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "office365"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:41:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"ActorIpAddress\": \"198.51.100.23\",\n  \"ApplicationId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"ClientIP\": null,\n  \"CreationTime\": \"2026-07-07T17:41:00\",\n  \"ErrorCode\": \"50126\",\n  \"Id\": \"7e371650-11ef-55ce-8b37-be329856076f\",\n  \"LogonError\": \"InvalidUserNameOrPassword\",\n  \"ObjectId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"Operation\": \"UserLoginFailed\",\n  \"OrganizationId\": \"c1bb4c52-7119-556a-b6e7-3c494fdffc92\",\n  \"RecordType\": 15,\n  \"ResultStatus\": \"Succeeded\",\n  \"UserId\": \"operator@example.invalid\",\n  \"UserKey\": \"4547055f-703f-5b5b-b240-7d92d40acc2a\",\n  \"UserType\": 0,\n  \"Version\": 1,\n  \"Workload\": \"AzureActiveDirectory\"\n}\n",
+      "raw_format": "office365-audit-json",
+      "raw_sha256": "72449b3806ea65073fa044d11f3dfe1bfadb45e6e7bd67ede00ce6f6f02e952e",
+      "scenario": "Microsoft 365 audit: login-failure",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "Operation/ErrorCode/LogonError, not only ResultStatus",
+          "approved admin change record"
+        ],
+        "severity": "low"
+      }
+    },
+    {
+      "case_id": "office365.conditional-access-block",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "office365.UserLoginFailed",
+            "outcome": "failure"
+          },
+          "log": {
+            "original": "{\n  \"ActorIpAddress\": \"198.51.100.23\",\n  \"ApplicationId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"ClientIP\": null,\n  \"CreationTime\": \"2026-07-07T17:42:00\",\n  \"ErrorCode\": \"53003\",\n  \"Id\": \"8dea5326-ee1e-50cf-bc4b-9ad34a6735c9\",\n  \"LogonError\": \"BlockedByConditionalAccess\",\n  \"ObjectId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"Operation\": \"UserLoginFailed\",\n  \"OrganizationId\": \"c1bb4c52-7119-556a-b6e7-3c494fdffc92\",\n  \"RecordType\": 15,\n  \"ResultStatus\": \"Succeeded\",\n  \"UserId\": \"operator@example.invalid\",\n  \"UserKey\": \"4547055f-703f-5b5b-b240-7d92d40acc2a\",\n  \"UserType\": 0,\n  \"Version\": 1,\n  \"Workload\": \"AzureActiveDirectory\"\n}\n"
+          },
+          "sample": {
+            "case_id": "office365.conditional-access-block",
+            "synthetic": true
+          }
+        },
+        "id": "71a3626f-51a9-506f-a298-dbf7e88aee08",
+        "message": "Microsoft 365 audit: conditional-access-block",
+        "observed_at": "2026-07-07T17:42:02Z",
+        "resource": {
+          "id": "office365:synthetic-demo",
+          "kind": "office365"
+        },
+        "schema_version": 1,
+        "severity": "warn",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "office365"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:42:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"ActorIpAddress\": \"198.51.100.23\",\n  \"ApplicationId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"ClientIP\": null,\n  \"CreationTime\": \"2026-07-07T17:42:00\",\n  \"ErrorCode\": \"53003\",\n  \"Id\": \"8dea5326-ee1e-50cf-bc4b-9ad34a6735c9\",\n  \"LogonError\": \"BlockedByConditionalAccess\",\n  \"ObjectId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"Operation\": \"UserLoginFailed\",\n  \"OrganizationId\": \"c1bb4c52-7119-556a-b6e7-3c494fdffc92\",\n  \"RecordType\": 15,\n  \"ResultStatus\": \"Succeeded\",\n  \"UserId\": \"operator@example.invalid\",\n  \"UserKey\": \"4547055f-703f-5b5b-b240-7d92d40acc2a\",\n  \"UserType\": 0,\n  \"Version\": 1,\n  \"Workload\": \"AzureActiveDirectory\"\n}\n",
+      "raw_format": "office365-audit-json",
+      "raw_sha256": "ecdfbd555979c910ceb9b0a800ce7bec7c55a9ef640b2a0c493507efd322d3bf",
+      "scenario": "Microsoft 365 audit: conditional-access-block",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "Operation/ErrorCode/LogonError, not only ResultStatus",
+          "approved admin change record"
+        ],
+        "severity": "medium"
+      }
+    },
+    {
+      "case_id": "office365.mail-forwarding",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "office365.Set-Mailbox",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"ClientIP\": \"198.51.100.23\",\n  \"CreationTime\": \"2026-07-07T17:43:00\",\n  \"Id\": \"36bd2a01-dc5f-539e-a31b-accfe878a0f6\",\n  \"ObjectId\": \"operator@example.invalid\",\n  \"Operation\": \"Set-Mailbox\",\n  \"OrganizationId\": \"c1bb4c52-7119-556a-b6e7-3c494fdffc92\",\n  \"Parameters\": [\n    {\n      \"Name\": \"Identity\",\n      \"Value\": \"operator@example.invalid\"\n    },\n    {\n      \"Name\": \"ForwardingSmtpAddress\",\n      \"Value\": \"archive@example.invalid\"\n    },\n    {\n      \"Name\": \"DeliverToMailboxAndForward\",\n      \"Value\": \"True\"\n    }\n  ],\n  \"RecordType\": 1,\n  \"ResultStatus\": \"True\",\n  \"UserId\": \"operator@example.invalid\",\n  \"UserKey\": \"4547055f-703f-5b5b-b240-7d92d40acc2a\",\n  \"UserType\": 2,\n  \"Version\": 1,\n  \"Workload\": \"Exchange\"\n}\n"
+          },
+          "sample": {
+            "case_id": "office365.mail-forwarding",
+            "synthetic": true
+          }
+        },
+        "id": "116619d2-ce58-5b2c-89fb-a99e29d582e4",
+        "message": "Microsoft 365 audit: mail-forwarding",
+        "observed_at": "2026-07-07T17:43:02Z",
+        "resource": {
+          "id": "office365:synthetic-demo",
+          "kind": "office365"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "office365"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:43:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"ClientIP\": \"198.51.100.23\",\n  \"CreationTime\": \"2026-07-07T17:43:00\",\n  \"Id\": \"36bd2a01-dc5f-539e-a31b-accfe878a0f6\",\n  \"ObjectId\": \"operator@example.invalid\",\n  \"Operation\": \"Set-Mailbox\",\n  \"OrganizationId\": \"c1bb4c52-7119-556a-b6e7-3c494fdffc92\",\n  \"Parameters\": [\n    {\n      \"Name\": \"Identity\",\n      \"Value\": \"operator@example.invalid\"\n    },\n    {\n      \"Name\": \"ForwardingSmtpAddress\",\n      \"Value\": \"archive@example.invalid\"\n    },\n    {\n      \"Name\": \"DeliverToMailboxAndForward\",\n      \"Value\": \"True\"\n    }\n  ],\n  \"RecordType\": 1,\n  \"ResultStatus\": \"True\",\n  \"UserId\": \"operator@example.invalid\",\n  \"UserKey\": \"4547055f-703f-5b5b-b240-7d92d40acc2a\",\n  \"UserType\": 2,\n  \"Version\": 1,\n  \"Workload\": \"Exchange\"\n}\n",
+      "raw_format": "office365-audit-json",
+      "raw_sha256": "67c3e74908ef8ebe6a1d3793cbdee17e096af8bd62331f91e7bba97906fc5838",
+      "scenario": "Microsoft 365 audit: mail-forwarding",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "Operation/ErrorCode/LogonError, not only ResultStatus",
+          "approved admin change record"
+        ],
+        "severity": "high"
+      }
+    },
+    {
+      "case_id": "office365.disable-audit",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "office365.Set-AdminAuditLogConfig",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"ClientIP\": \"198.51.100.23\",\n  \"CreationTime\": \"2026-07-07T17:44:00\",\n  \"Id\": \"e3463db9-dccf-5ee8-9b81-2f8743eed36d\",\n  \"ObjectId\": \"operator@example.invalid\",\n  \"Operation\": \"Set-AdminAuditLogConfig\",\n  \"OrganizationId\": \"c1bb4c52-7119-556a-b6e7-3c494fdffc92\",\n  \"Parameters\": [\n    {\n      \"Name\": \"UnifiedAuditLogIngestionEnabled\",\n      \"Value\": \"False\"\n    }\n  ],\n  \"RecordType\": 1,\n  \"ResultStatus\": \"True\",\n  \"UserId\": \"operator@example.invalid\",\n  \"UserKey\": \"4547055f-703f-5b5b-b240-7d92d40acc2a\",\n  \"UserType\": 2,\n  \"Version\": 1,\n  \"Workload\": \"Exchange\"\n}\n"
+          },
+          "sample": {
+            "case_id": "office365.disable-audit",
+            "synthetic": true
+          }
+        },
+        "id": "3094400f-4a06-5c8f-b092-4e74a3d88c4b",
+        "message": "Microsoft 365 audit: disable-audit",
+        "observed_at": "2026-07-07T17:44:02Z",
+        "resource": {
+          "id": "office365:synthetic-demo",
+          "kind": "office365"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "office365"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:44:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"ClientIP\": \"198.51.100.23\",\n  \"CreationTime\": \"2026-07-07T17:44:00\",\n  \"Id\": \"e3463db9-dccf-5ee8-9b81-2f8743eed36d\",\n  \"ObjectId\": \"operator@example.invalid\",\n  \"Operation\": \"Set-AdminAuditLogConfig\",\n  \"OrganizationId\": \"c1bb4c52-7119-556a-b6e7-3c494fdffc92\",\n  \"Parameters\": [\n    {\n      \"Name\": \"UnifiedAuditLogIngestionEnabled\",\n      \"Value\": \"False\"\n    }\n  ],\n  \"RecordType\": 1,\n  \"ResultStatus\": \"True\",\n  \"UserId\": \"operator@example.invalid\",\n  \"UserKey\": \"4547055f-703f-5b5b-b240-7d92d40acc2a\",\n  \"UserType\": 2,\n  \"Version\": 1,\n  \"Workload\": \"Exchange\"\n}\n",
+      "raw_format": "office365-audit-json",
+      "raw_sha256": "09a079e47ebf832a9bb914ea3d14c4383146ea0bb627b7ed25b1ae94ed64c49d",
+      "scenario": "Microsoft 365 audit: disable-audit",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "Operation/ErrorCode/LogonError, not only ResultStatus",
+          "approved admin change record"
+        ],
+        "severity": "critical"
+      }
+    }
+  ],
+  "schema_version": 1,
+  "source": "office365"
+}

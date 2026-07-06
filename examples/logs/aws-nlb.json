@@ -1,0 +1,266 @@
+{
+  "cases": [
+    {
+      "case_id": "aws.nlb.tls-success",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "tls.connection",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "tls 2.0 2026-07-07T17:20:00Z net/fixture-nlb/0000000000000001 0000000000000001 198.51.100.23:55001 192.0.2.21:443 250 20 512 2048 - arn:aws:acm:eu-central-1:000000000001:certificate/38731727-1d32-5bab-92e1-70752faba4d3 - TLS_AES_128_GCM_SHA256 tlsv13 ECDHE api.example.invalid h2 h2 \"h2\",\"http/1.1\" 2026-07-07T17:19:59.750000Z\n"
+          },
+          "sample": {
+            "case_id": "aws.nlb.tls-success",
+            "synthetic": true
+          }
+        },
+        "id": "5f0370b7-fdba-58ef-a2a3-58aabfa860fe",
+        "message": "NLB TLS connection: tls-success",
+        "observed_at": "2026-07-07T17:20:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.nlb:synthetic-demo",
+          "kind": "aws.nlb",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.nlb"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:20:00Z"
+      },
+      "native_severity": null,
+      "raw": "tls 2.0 2026-07-07T17:20:00Z net/fixture-nlb/0000000000000001 0000000000000001 198.51.100.23:55001 192.0.2.21:443 250 20 512 2048 - arn:aws:acm:eu-central-1:000000000001:certificate/38731727-1d32-5bab-92e1-70752faba4d3 - TLS_AES_128_GCM_SHA256 tlsv13 ECDHE api.example.invalid h2 h2 \"h2\",\"http/1.1\" 2026-07-07T17:19:59.750000Z\n",
+      "raw_format": "nlb-tls-2.0",
+      "raw_sha256": "ddf9b98ec8635adf8fb5bb3f6aeb04d81842cbc01b2bb9325e4c0ca7c58ceb83",
+      "scenario": "NLB TLS connection: tls-success",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "none",
+        "required_context": [
+          "TLS listener logging enabled",
+          "traffic baseline/identity; byte count alone is not exfiltration"
+        ],
+        "severity": "none"
+      }
+    },
+    {
+      "case_id": "aws.nlb.bad-certificate",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "tls.handshake",
+            "outcome": "failure"
+          },
+          "log": {
+            "original": "tls 2.0 2026-07-07T17:21:00Z net/fixture-nlb/0000000000000001 0000000000000001 198.51.100.23:55001 192.0.2.21:443 250 - 0 0 42 - - - - - api.example.invalid - - \"h2\",\"http/1.1\" 2026-07-07T17:20:59.750000Z\n"
+          },
+          "sample": {
+            "case_id": "aws.nlb.bad-certificate",
+            "synthetic": true
+          }
+        },
+        "id": "36d1f311-020b-5f05-acea-26291b822bc2",
+        "message": "NLB TLS connection: bad-certificate",
+        "observed_at": "2026-07-07T17:21:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.nlb:synthetic-demo",
+          "kind": "aws.nlb",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "warn",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.nlb"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:21:00Z"
+      },
+      "native_severity": null,
+      "raw": "tls 2.0 2026-07-07T17:21:00Z net/fixture-nlb/0000000000000001 0000000000000001 198.51.100.23:55001 192.0.2.21:443 250 - 0 0 42 - - - - - api.example.invalid - - \"h2\",\"http/1.1\" 2026-07-07T17:20:59.750000Z\n",
+      "raw_format": "nlb-tls-2.0",
+      "raw_sha256": "42d8113f17c5258f8456cbf96a2ab04a83bb53c734bde7aadeb642535dd440e3",
+      "scenario": "NLB TLS connection: bad-certificate",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "TLS listener logging enabled",
+          "traffic baseline/identity; byte count alone is not exfiltration"
+        ],
+        "severity": "low"
+      }
+    },
+    {
+      "case_id": "aws.nlb.large-transfer",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "tls.connection",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "tls 2.0 2026-07-07T17:22:00Z net/fixture-nlb/0000000000000001 0000000000000001 198.51.100.23:55001 192.0.2.21:443 250 20 512 52428800 - arn:aws:acm:eu-central-1:000000000001:certificate/38731727-1d32-5bab-92e1-70752faba4d3 - TLS_AES_128_GCM_SHA256 tlsv13 ECDHE api.example.invalid h2 h2 \"h2\",\"http/1.1\" 2026-07-07T17:21:59.750000Z\n"
+          },
+          "sample": {
+            "case_id": "aws.nlb.large-transfer",
+            "synthetic": true
+          }
+        },
+        "id": "2b1c7269-77d4-542a-8e0b-10767c7eddb0",
+        "message": "NLB TLS connection: large-transfer",
+        "observed_at": "2026-07-07T17:22:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.nlb:synthetic-demo",
+          "kind": "aws.nlb",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.nlb"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:22:00Z"
+      },
+      "native_severity": null,
+      "raw": "tls 2.0 2026-07-07T17:22:00Z net/fixture-nlb/0000000000000001 0000000000000001 198.51.100.23:55001 192.0.2.21:443 250 20 512 52428800 - arn:aws:acm:eu-central-1:000000000001:certificate/38731727-1d32-5bab-92e1-70752faba4d3 - TLS_AES_128_GCM_SHA256 tlsv13 ECDHE api.example.invalid h2 h2 \"h2\",\"http/1.1\" 2026-07-07T17:21:59.750000Z\n",
+      "raw_format": "nlb-tls-2.0",
+      "raw_sha256": "f026a01b7f2436317a2699b8f6927c3a7062a84b3a9d3407adcd0ad85cd3a11e",
+      "scenario": "NLB TLS connection: large-transfer",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "TLS listener logging enabled",
+          "traffic baseline/identity; byte count alone is not exfiltration"
+        ],
+        "severity": "medium"
+      }
+    },
+    {
+      "case_id": "aws.nlb.legacy-tls",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "tls.connection",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "tls 2.0 2026-07-07T17:23:00Z net/fixture-nlb/0000000000000001 0000000000000001 198.51.100.23:55001 192.0.2.21:443 250 20 512 2048 - arn:aws:acm:eu-central-1:000000000001:certificate/38731727-1d32-5bab-92e1-70752faba4d3 - AES128-SHA tlsv10 ECDHE api.example.invalid h2 h2 \"h2\",\"http/1.1\" 2026-07-07T17:22:59.750000Z\n"
+          },
+          "sample": {
+            "case_id": "aws.nlb.legacy-tls",
+            "synthetic": true
+          }
+        },
+        "id": "5e697ca5-d5dd-53d5-8dd7-9aea9167260a",
+        "message": "NLB TLS connection: legacy-tls",
+        "observed_at": "2026-07-07T17:23:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.nlb:synthetic-demo",
+          "kind": "aws.nlb",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "warn",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.nlb"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:23:00Z"
+      },
+      "native_severity": null,
+      "raw": "tls 2.0 2026-07-07T17:23:00Z net/fixture-nlb/0000000000000001 0000000000000001 198.51.100.23:55001 192.0.2.21:443 250 20 512 2048 - arn:aws:acm:eu-central-1:000000000001:certificate/38731727-1d32-5bab-92e1-70752faba4d3 - AES128-SHA tlsv10 ECDHE api.example.invalid h2 h2 \"h2\",\"http/1.1\" 2026-07-07T17:22:59.750000Z\n",
+      "raw_format": "nlb-tls-2.0",
+      "raw_sha256": "02fdf67cc5b3aca8f2c6a7d2ea02d3d50f5455e0d3ddd0beb0f8baf080b5bc5c",
+      "scenario": "NLB TLS connection: legacy-tls",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "TLS listener logging enabled",
+          "traffic baseline/identity; byte count alone is not exfiltration"
+        ],
+        "severity": "medium"
+      }
+    },
+    {
+      "case_id": "aws.nlb.internal-tls-error",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "tls.handshake",
+            "outcome": "failure"
+          },
+          "log": {
+            "original": "tls 2.0 2026-07-07T17:24:00Z net/fixture-nlb/0000000000000001 0000000000000001 198.51.100.23:55001 192.0.2.21:443 250 - 0 0 80 - - - - - api.example.invalid - - \"h2\",\"http/1.1\" 2026-07-07T17:23:59.750000Z\n"
+          },
+          "sample": {
+            "case_id": "aws.nlb.internal-tls-error",
+            "synthetic": true
+          }
+        },
+        "id": "fbeb648a-85ec-5c08-8cc4-c3bb964caf97",
+        "message": "NLB TLS connection: internal-tls-error",
+        "observed_at": "2026-07-07T17:24:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.nlb:synthetic-demo",
+          "kind": "aws.nlb",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "error",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.nlb"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:24:00Z"
+      },
+      "native_severity": null,
+      "raw": "tls 2.0 2026-07-07T17:24:00Z net/fixture-nlb/0000000000000001 0000000000000001 198.51.100.23:55001 192.0.2.21:443 250 - 0 0 80 - - - - - api.example.invalid - - \"h2\",\"http/1.1\" 2026-07-07T17:23:59.750000Z\n",
+      "raw_format": "nlb-tls-2.0",
+      "raw_sha256": "43f1ab37bfe9ac97c1d07c0201ea41176ba3e93313aadeec1a14f360b55641b5",
+      "scenario": "NLB TLS connection: internal-tls-error",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "none",
+        "required_context": [
+          "TLS listener logging enabled",
+          "traffic baseline/identity; byte count alone is not exfiltration"
+        ],
+        "severity": "none"
+      }
+    }
+  ],
+  "schema_version": 1,
+  "source": "aws.nlb"
+}
