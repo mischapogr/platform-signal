@@ -1,0 +1,256 @@
+{
+  "cases": [
+    {
+      "case_id": "cato.vpn.vpn-connected",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "cato.vpn-connected",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"fieldsMap\": {\n    \"event_message\": \"Synthetic VPN client connected\",\n    \"event_sub_type\": \"SDP Activity\",\n    \"event_type\": \"Connectivity\",\n    \"src_isp_ip\": \"198.51.100.23\"\n  },\n  \"time\": \"2026-07-07T17:45:00Z\"\n}\n"
+          },
+          "sample": {
+            "case_id": "cato.vpn.vpn-connected",
+            "synthetic": true
+          }
+        },
+        "id": "d67c7a1c-f4ff-52a4-a099-15ddd06f33d2",
+        "message": "Synthetic VPN client connected",
+        "observed_at": "2026-07-07T17:45:02Z",
+        "resource": {
+          "id": "cato.vpn:synthetic-demo",
+          "kind": "cato.vpn"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "cato.vpn"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:45:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"fieldsMap\": {\n    \"event_message\": \"Synthetic VPN client connected\",\n    \"event_sub_type\": \"SDP Activity\",\n    \"event_type\": \"Connectivity\",\n    \"src_isp_ip\": \"198.51.100.23\"\n  },\n  \"time\": \"2026-07-07T17:45:00Z\"\n}\n",
+      "raw_format": "cato-eventrecord-json",
+      "raw_sha256": "00ebc8ec94c1dd5b89f4bf76fe4cf174918a3170fa604a022facb0820017785d",
+      "scenario": "Synthetic VPN client connected",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "none",
+        "required_context": [
+          "tenant EventFieldName/subtype enum export required before adapter acceptance",
+          "VPN identity and policy context"
+        ],
+        "severity": "none"
+      }
+    },
+    {
+      "case_id": "cato.vpn.vpn-disconnected",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "cato.vpn-disconnected",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"fieldsMap\": {\n    \"event_message\": \"Synthetic VPN client disconnected\",\n    \"event_sub_type\": \"SDP Activity\",\n    \"event_type\": \"Connectivity\",\n    \"src_isp_ip\": \"198.51.100.23\"\n  },\n  \"time\": \"2026-07-07T17:46:00Z\"\n}\n"
+          },
+          "sample": {
+            "case_id": "cato.vpn.vpn-disconnected",
+            "synthetic": true
+          }
+        },
+        "id": "2632810e-7be1-5a67-a3b5-e9e228e571b5",
+        "message": "Synthetic VPN client disconnected",
+        "observed_at": "2026-07-07T17:46:02Z",
+        "resource": {
+          "id": "cato.vpn:synthetic-demo",
+          "kind": "cato.vpn"
+        },
+        "schema_version": 1,
+        "severity": "warn",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "cato.vpn"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:46:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"fieldsMap\": {\n    \"event_message\": \"Synthetic VPN client disconnected\",\n    \"event_sub_type\": \"SDP Activity\",\n    \"event_type\": \"Connectivity\",\n    \"src_isp_ip\": \"198.51.100.23\"\n  },\n  \"time\": \"2026-07-07T17:46:00Z\"\n}\n",
+      "raw_format": "cato-eventrecord-json",
+      "raw_sha256": "d813cc36f65ad10aed42153f0957b1d3567efe3fdf274d605693ab11486a5440",
+      "scenario": "Synthetic VPN client disconnected",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "none",
+        "required_context": [
+          "tenant EventFieldName/subtype enum export required before adapter acceptance",
+          "VPN identity and policy context"
+        ],
+        "severity": "none"
+      }
+    },
+    {
+      "case_id": "cato.vpn.vpn-auth-failure",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "cato.vpn-auth-failure",
+            "outcome": "failure"
+          },
+          "log": {
+            "original": "{\n  \"fieldsMap\": {\n    \"event_message\": \"Synthetic VPN client authentication failed\",\n    \"event_sub_type\": \"SDP Activity\",\n    \"event_type\": \"Connectivity\",\n    \"src_isp_ip\": \"198.51.100.23\"\n  },\n  \"time\": \"2026-07-07T17:47:00Z\"\n}\n"
+          },
+          "sample": {
+            "case_id": "cato.vpn.vpn-auth-failure",
+            "synthetic": true
+          }
+        },
+        "id": "2d5341b9-7b3a-5096-991c-792343363ade",
+        "message": "Synthetic VPN client authentication failed",
+        "observed_at": "2026-07-07T17:47:02Z",
+        "resource": {
+          "id": "cato.vpn:synthetic-demo",
+          "kind": "cato.vpn"
+        },
+        "schema_version": 1,
+        "severity": "warn",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "cato.vpn"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:47:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"fieldsMap\": {\n    \"event_message\": \"Synthetic VPN client authentication failed\",\n    \"event_sub_type\": \"SDP Activity\",\n    \"event_type\": \"Connectivity\",\n    \"src_isp_ip\": \"198.51.100.23\"\n  },\n  \"time\": \"2026-07-07T17:47:00Z\"\n}\n",
+      "raw_format": "cato-eventrecord-json",
+      "raw_sha256": "bd632c70a2012c4703e579802d6f57a8a85dcfcea43504be29e5b4b824096da7",
+      "scenario": "Synthetic VPN client authentication failed",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "tenant EventFieldName/subtype enum export required before adapter acceptance",
+          "VPN identity and policy context"
+        ],
+        "severity": "low"
+      }
+    },
+    {
+      "case_id": "cato.vpn.internet-firewall-block",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "cato.internet-firewall-block",
+            "outcome": "blocked"
+          },
+          "log": {
+            "original": "{\n  \"fieldsMap\": {\n    \"action\": \"Block\",\n    \"event_message\": \"Synthetic VPN user flow blocked by Internet firewall\",\n    \"event_sub_type\": \"Internet Firewall\",\n    \"event_type\": \"Security\",\n    \"src_isp_ip\": \"198.51.100.23\"\n  },\n  \"time\": \"2026-07-07T17:48:00Z\"\n}\n"
+          },
+          "sample": {
+            "case_id": "cato.vpn.internet-firewall-block",
+            "synthetic": true
+          }
+        },
+        "id": "d2307f88-3fae-5441-8783-6a83a040ed79",
+        "message": "Synthetic VPN user flow blocked by Internet firewall",
+        "observed_at": "2026-07-07T17:48:02Z",
+        "resource": {
+          "id": "cato.vpn:synthetic-demo",
+          "kind": "cato.vpn"
+        },
+        "schema_version": 1,
+        "severity": "warn",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "cato.vpn"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:48:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"fieldsMap\": {\n    \"action\": \"Block\",\n    \"event_message\": \"Synthetic VPN user flow blocked by Internet firewall\",\n    \"event_sub_type\": \"Internet Firewall\",\n    \"event_type\": \"Security\",\n    \"src_isp_ip\": \"198.51.100.23\"\n  },\n  \"time\": \"2026-07-07T17:48:00Z\"\n}\n",
+      "raw_format": "cato-eventrecord-json",
+      "raw_sha256": "7411d092af2dc0c0aedda19fe6f9db986aa06393d09df421059dae2258e0bf7e",
+      "scenario": "Synthetic VPN user flow blocked by Internet firewall",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "tenant EventFieldName/subtype enum export required before adapter acceptance",
+          "VPN identity and policy context"
+        ],
+        "severity": "medium"
+      }
+    },
+    {
+      "case_id": "cato.vpn.ips-block",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "cato.ips-block",
+            "outcome": "blocked"
+          },
+          "log": {
+            "original": "{\n  \"fieldsMap\": {\n    \"action\": \"Block\",\n    \"event_message\": \"Synthetic VPN user flow matched IPS rule\",\n    \"event_sub_type\": \"IPS\",\n    \"event_type\": \"Security\",\n    \"src_isp_ip\": \"198.51.100.23\"\n  },\n  \"time\": \"2026-07-07T17:49:00Z\"\n}\n"
+          },
+          "sample": {
+            "case_id": "cato.vpn.ips-block",
+            "synthetic": true
+          }
+        },
+        "id": "fbbbddf7-3169-5833-8b12-ebb4f371a740",
+        "message": "Synthetic VPN user flow matched IPS rule",
+        "observed_at": "2026-07-07T17:49:02Z",
+        "resource": {
+          "id": "cato.vpn:synthetic-demo",
+          "kind": "cato.vpn"
+        },
+        "schema_version": 1,
+        "severity": "error",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "cato.vpn"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:49:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"fieldsMap\": {\n    \"action\": \"Block\",\n    \"event_message\": \"Synthetic VPN user flow matched IPS rule\",\n    \"event_sub_type\": \"IPS\",\n    \"event_type\": \"Security\",\n    \"src_isp_ip\": \"198.51.100.23\"\n  },\n  \"time\": \"2026-07-07T17:49:00Z\"\n}\n",
+      "raw_format": "cato-eventrecord-json",
+      "raw_sha256": "210c9ab1424163bd629fcb91ac1210f80239a43eef684a64b3a64297b4b35b49",
+      "scenario": "Synthetic VPN user flow matched IPS rule",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "tenant EventFieldName/subtype enum export required before adapter acceptance",
+          "VPN identity and policy context"
+        ],
+        "severity": "high"
+      }
+    }
+  ],
+  "schema_version": 1,
+  "source": "cato.vpn"
+}

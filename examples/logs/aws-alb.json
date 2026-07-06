@@ -1,0 +1,261 @@
+{
+  "cases": [
+    {
+      "case_id": "aws.alb.health",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "http.request",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "https 2026-07-07T17:15:00Z app/fixture-alb/0000000000000001 198.51.100.23:54001 192.0.2.20:8080 0.001 0.010 0.001 200 200 256 1024 \"GET https://api.example.invalid:443/health HTTP/1.1\" \"synthetic-fixture/1.0\" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 arn:aws:elasticloadbalancing:eu-central-1:000000000001:targetgroup/fixture/0000000000000001 \"Root=1-00000001-000000000000000000000001\" \"api.example.invalid\" \"arn:aws:acm:eu-central-1:000000000001:certificate/f2602588-51ba-511b-93fc-c47ca8c02d97\" 1 2026-07-07T17:15:00Z \"forward\" \"-\" \"-\" \"192.0.2.20:8080\" \"200\" \"-\" \"-\" TID_0000000000000001 \"-\" \"-\" \"-\"\n"
+          },
+          "sample": {
+            "case_id": "aws.alb.health",
+            "synthetic": true
+          }
+        },
+        "id": "3a44e0df-366a-5f8d-918d-81bbff9e3f91",
+        "message": "ALB 200 GET /health",
+        "observed_at": "2026-07-07T17:15:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.alb:synthetic-demo",
+          "kind": "aws.alb",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.alb"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:15:00Z"
+      },
+      "native_severity": null,
+      "raw": "https 2026-07-07T17:15:00Z app/fixture-alb/0000000000000001 198.51.100.23:54001 192.0.2.20:8080 0.001 0.010 0.001 200 200 256 1024 \"GET https://api.example.invalid:443/health HTTP/1.1\" \"synthetic-fixture/1.0\" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 arn:aws:elasticloadbalancing:eu-central-1:000000000001:targetgroup/fixture/0000000000000001 \"Root=1-00000001-000000000000000000000001\" \"api.example.invalid\" \"arn:aws:acm:eu-central-1:000000000001:certificate/f2602588-51ba-511b-93fc-c47ca8c02d97\" 1 2026-07-07T17:15:00Z \"forward\" \"-\" \"-\" \"192.0.2.20:8080\" \"200\" \"-\" \"-\" TID_0000000000000001 \"-\" \"-\" \"-\"\n",
+      "raw_format": "alb-access-v1",
+      "raw_sha256": "b4cde6f226e852034754fe57652656a5e59823b32546f01c2dcae4552f62f539",
+      "scenario": "ALB 200 GET /health",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "none",
+        "required_context": [
+          "application authentication and owner context"
+        ],
+        "severity": "none"
+      }
+    },
+    {
+      "case_id": "aws.alb.missing-route",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "http.request",
+            "outcome": "failure"
+          },
+          "log": {
+            "original": "https 2026-07-07T17:16:00Z app/fixture-alb/0000000000000001 198.51.100.23:54001 192.0.2.20:8080 0.001 0.010 0.001 404 404 256 1024 \"GET https://api.example.invalid:443/missing HTTP/1.1\" \"synthetic-fixture/1.0\" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 arn:aws:elasticloadbalancing:eu-central-1:000000000001:targetgroup/fixture/0000000000000001 \"Root=1-00000001-000000000000000000000001\" \"api.example.invalid\" \"arn:aws:acm:eu-central-1:000000000001:certificate/f2602588-51ba-511b-93fc-c47ca8c02d97\" 1 2026-07-07T17:16:00Z \"forward\" \"-\" \"-\" \"192.0.2.20:8080\" \"404\" \"-\" \"-\" TID_0000000000000001 \"-\" \"-\" \"-\"\n"
+          },
+          "sample": {
+            "case_id": "aws.alb.missing-route",
+            "synthetic": true
+          }
+        },
+        "id": "af4b7958-e559-5ca5-aa0f-5a4c0b0be50f",
+        "message": "ALB 404 GET /missing",
+        "observed_at": "2026-07-07T17:16:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.alb:synthetic-demo",
+          "kind": "aws.alb",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "warn",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.alb"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:16:00Z"
+      },
+      "native_severity": null,
+      "raw": "https 2026-07-07T17:16:00Z app/fixture-alb/0000000000000001 198.51.100.23:54001 192.0.2.20:8080 0.001 0.010 0.001 404 404 256 1024 \"GET https://api.example.invalid:443/missing HTTP/1.1\" \"synthetic-fixture/1.0\" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 arn:aws:elasticloadbalancing:eu-central-1:000000000001:targetgroup/fixture/0000000000000001 \"Root=1-00000001-000000000000000000000001\" \"api.example.invalid\" \"arn:aws:acm:eu-central-1:000000000001:certificate/f2602588-51ba-511b-93fc-c47ca8c02d97\" 1 2026-07-07T17:16:00Z \"forward\" \"-\" \"-\" \"192.0.2.20:8080\" \"404\" \"-\" \"-\" TID_0000000000000001 \"-\" \"-\" \"-\"\n",
+      "raw_format": "alb-access-v1",
+      "raw_sha256": "b5b134fa78c3c4737ef0ed09ae5b1ffa3897ab860ff87531bf8d32bf56f670f7",
+      "scenario": "ALB 404 GET /missing",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "none",
+        "required_context": [
+          "application authentication and owner context"
+        ],
+        "severity": "none"
+      }
+    },
+    {
+      "case_id": "aws.alb.waf-block",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "waf.block",
+            "outcome": "failure"
+          },
+          "log": {
+            "original": "https 2026-07-07T17:17:00Z app/fixture-alb/0000000000000001 198.51.100.23:54001 - 0.001 0.010 0.001 403 - 256 1024 \"GET https://api.example.invalid:443/search?q=fixture-test HTTP/1.1\" \"synthetic-fixture/1.0\" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 arn:aws:elasticloadbalancing:eu-central-1:000000000001:targetgroup/fixture/0000000000000001 \"Root=1-00000001-000000000000000000000001\" \"api.example.invalid\" \"arn:aws:acm:eu-central-1:000000000001:certificate/f2602588-51ba-511b-93fc-c47ca8c02d97\" 1 2026-07-07T17:17:00Z \"waf\" \"-\" \"-\" \"-\" \"-\" \"-\" \"-\" TID_0000000000000001 \"-\" \"-\" \"-\"\n"
+          },
+          "sample": {
+            "case_id": "aws.alb.waf-block",
+            "synthetic": true
+          }
+        },
+        "id": "b97891ca-f363-57ce-96fa-81d4924bc49b",
+        "message": "ALB 403 GET /search?q=fixture-test",
+        "observed_at": "2026-07-07T17:17:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.alb:synthetic-demo",
+          "kind": "aws.alb",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "warn",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.alb"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:17:00Z"
+      },
+      "native_severity": null,
+      "raw": "https 2026-07-07T17:17:00Z app/fixture-alb/0000000000000001 198.51.100.23:54001 - 0.001 0.010 0.001 403 - 256 1024 \"GET https://api.example.invalid:443/search?q=fixture-test HTTP/1.1\" \"synthetic-fixture/1.0\" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 arn:aws:elasticloadbalancing:eu-central-1:000000000001:targetgroup/fixture/0000000000000001 \"Root=1-00000001-000000000000000000000001\" \"api.example.invalid\" \"arn:aws:acm:eu-central-1:000000000001:certificate/f2602588-51ba-511b-93fc-c47ca8c02d97\" 1 2026-07-07T17:17:00Z \"waf\" \"-\" \"-\" \"-\" \"-\" \"-\" \"-\" TID_0000000000000001 \"-\" \"-\" \"-\"\n",
+      "raw_format": "alb-access-v1",
+      "raw_sha256": "a31dbaffece50ff236751875746a11afc4112f42756d14ce849cdef7b93592e4",
+      "scenario": "ALB 403 GET /search?q=fixture-test",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "WAF rule/details"
+        ],
+        "severity": "medium"
+      }
+    },
+    {
+      "case_id": "aws.alb.backend-failure",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "http.request",
+            "outcome": "failure"
+          },
+          "log": {
+            "original": "https 2026-07-07T17:18:00Z app/fixture-alb/0000000000000001 198.51.100.23:54001 192.0.2.20:8080 0.001 0.010 0.001 502 502 256 1024 \"GET https://api.example.invalid:443/orders HTTP/1.1\" \"synthetic-fixture/1.0\" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 arn:aws:elasticloadbalancing:eu-central-1:000000000001:targetgroup/fixture/0000000000000001 \"Root=1-00000001-000000000000000000000001\" \"api.example.invalid\" \"arn:aws:acm:eu-central-1:000000000001:certificate/f2602588-51ba-511b-93fc-c47ca8c02d97\" 1 2026-07-07T17:18:00Z \"forward\" \"-\" \"-\" \"192.0.2.20:8080\" \"502\" \"-\" \"-\" TID_0000000000000001 \"-\" \"-\" \"-\"\n"
+          },
+          "sample": {
+            "case_id": "aws.alb.backend-failure",
+            "synthetic": true
+          }
+        },
+        "id": "cc093715-7e63-5355-8f61-ae81599612cf",
+        "message": "ALB 502 GET /orders",
+        "observed_at": "2026-07-07T17:18:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.alb:synthetic-demo",
+          "kind": "aws.alb",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "error",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.alb"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:18:00Z"
+      },
+      "native_severity": null,
+      "raw": "https 2026-07-07T17:18:00Z app/fixture-alb/0000000000000001 198.51.100.23:54001 192.0.2.20:8080 0.001 0.010 0.001 502 502 256 1024 \"GET https://api.example.invalid:443/orders HTTP/1.1\" \"synthetic-fixture/1.0\" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 arn:aws:elasticloadbalancing:eu-central-1:000000000001:targetgroup/fixture/0000000000000001 \"Root=1-00000001-000000000000000000000001\" \"api.example.invalid\" \"arn:aws:acm:eu-central-1:000000000001:certificate/f2602588-51ba-511b-93fc-c47ca8c02d97\" 1 2026-07-07T17:18:00Z \"forward\" \"-\" \"-\" \"192.0.2.20:8080\" \"502\" \"-\" \"-\" TID_0000000000000001 \"-\" \"-\" \"-\"\n",
+      "raw_format": "alb-access-v1",
+      "raw_sha256": "50f1c90413ef6a24bf71441e28eff9bb0b40f5115d4a8712c6116437cea92398",
+      "scenario": "ALB 502 GET /orders",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "none",
+        "required_context": [
+          "application authentication and owner context"
+        ],
+        "severity": "none"
+      }
+    },
+    {
+      "case_id": "aws.alb.admin-export",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "http.request",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "https 2026-07-07T17:19:00Z app/fixture-alb/0000000000000001 198.51.100.23:54001 192.0.2.20:8080 0.001 0.010 0.001 200 200 256 1024 \"GET https://api.example.invalid:443/admin/export HTTP/1.1\" \"synthetic-fixture/1.0\" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 arn:aws:elasticloadbalancing:eu-central-1:000000000001:targetgroup/fixture/0000000000000001 \"Root=1-00000001-000000000000000000000001\" \"api.example.invalid\" \"arn:aws:acm:eu-central-1:000000000001:certificate/f2602588-51ba-511b-93fc-c47ca8c02d97\" 1 2026-07-07T17:19:00Z \"forward\" \"-\" \"-\" \"192.0.2.20:8080\" \"200\" \"-\" \"-\" TID_0000000000000001 \"-\" \"-\" \"-\"\n"
+          },
+          "sample": {
+            "case_id": "aws.alb.admin-export",
+            "synthetic": true
+          }
+        },
+        "id": "af5e20aa-dd2b-588c-8338-b623ce403111",
+        "message": "ALB 200 GET /admin/export",
+        "observed_at": "2026-07-07T17:19:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.alb:synthetic-demo",
+          "kind": "aws.alb",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.alb"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:19:00Z"
+      },
+      "native_severity": null,
+      "raw": "https 2026-07-07T17:19:00Z app/fixture-alb/0000000000000001 198.51.100.23:54001 192.0.2.20:8080 0.001 0.010 0.001 200 200 256 1024 \"GET https://api.example.invalid:443/admin/export HTTP/1.1\" \"synthetic-fixture/1.0\" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 arn:aws:elasticloadbalancing:eu-central-1:000000000001:targetgroup/fixture/0000000000000001 \"Root=1-00000001-000000000000000000000001\" \"api.example.invalid\" \"arn:aws:acm:eu-central-1:000000000001:certificate/f2602588-51ba-511b-93fc-c47ca8c02d97\" 1 2026-07-07T17:19:00Z \"forward\" \"-\" \"-\" \"192.0.2.20:8080\" \"200\" \"-\" \"-\" TID_0000000000000001 \"-\" \"-\" \"-\"\n",
+      "raw_format": "alb-access-v1",
+      "raw_sha256": "ff4c3277b27d5bca7d2c74e38d806f2dfcc8919fe5c3cc1ca5adc24de570948b",
+      "scenario": "ALB 200 GET /admin/export",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "application authentication and owner context"
+        ],
+        "severity": "high"
+      }
+    }
+  ],
+  "schema_version": 1,
+  "source": "aws.alb"
+}

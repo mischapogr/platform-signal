@@ -1,0 +1,271 @@
+{
+  "cases": [
+    {
+      "case_id": "aws.eks.list-pods",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "kubernetes.list.pods",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"annotations\": {\n    \"authorization.k8s.io/decision\": \"allow\",\n    \"authorization.k8s.io/reason\": \"synthetic fixture policy\"\n  },\n  \"apiVersion\": \"audit.k8s.io/v1\",\n  \"auditID\": \"d6fa906b-8e63-5579-8ec4-be3b647795ac\",\n  \"kind\": \"Event\",\n  \"level\": \"Metadata\",\n  \"objectRef\": {\n    \"apiGroup\": \"\",\n    \"apiVersion\": \"v1\",\n    \"name\": \"fixture-object\",\n    \"namespace\": \"fixture\",\n    \"resource\": \"pods\"\n  },\n  \"requestReceivedTimestamp\": \"2026-07-07T17:25:00Z\",\n  \"requestURI\": \"/api/v1/namespaces/fixture/pods\",\n  \"responseStatus\": {\n    \"code\": 200,\n    \"metadata\": {}\n  },\n  \"sourceIPs\": [\n    \"198.51.100.23\"\n  ],\n  \"stage\": \"ResponseComplete\",\n  \"stageTimestamp\": \"2026-07-07T17:25:00Z\",\n  \"user\": {\n    \"groups\": [\n      \"system:authenticated\"\n    ],\n    \"username\": \"operator@example.invalid\"\n  },\n  \"userAgent\": \"kubectl/synthetic-fixture\",\n  \"verb\": \"list\"\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.eks.list-pods",
+            "synthetic": true
+          }
+        },
+        "id": "103a21a8-540e-5fd4-a29c-ceebc9b50767",
+        "message": "Kubernetes audit: list-pods",
+        "observed_at": "2026-07-07T17:25:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.eks:synthetic-demo",
+          "kind": "aws.eks",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.eks"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:25:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"annotations\": {\n    \"authorization.k8s.io/decision\": \"allow\",\n    \"authorization.k8s.io/reason\": \"synthetic fixture policy\"\n  },\n  \"apiVersion\": \"audit.k8s.io/v1\",\n  \"auditID\": \"d6fa906b-8e63-5579-8ec4-be3b647795ac\",\n  \"kind\": \"Event\",\n  \"level\": \"Metadata\",\n  \"objectRef\": {\n    \"apiGroup\": \"\",\n    \"apiVersion\": \"v1\",\n    \"name\": \"fixture-object\",\n    \"namespace\": \"fixture\",\n    \"resource\": \"pods\"\n  },\n  \"requestReceivedTimestamp\": \"2026-07-07T17:25:00Z\",\n  \"requestURI\": \"/api/v1/namespaces/fixture/pods\",\n  \"responseStatus\": {\n    \"code\": 200,\n    \"metadata\": {}\n  },\n  \"sourceIPs\": [\n    \"198.51.100.23\"\n  ],\n  \"stage\": \"ResponseComplete\",\n  \"stageTimestamp\": \"2026-07-07T17:25:00Z\",\n  \"user\": {\n    \"groups\": [\n      \"system:authenticated\"\n    ],\n    \"username\": \"operator@example.invalid\"\n  },\n  \"userAgent\": \"kubectl/synthetic-fixture\",\n  \"verb\": \"list\"\n}\n",
+      "raw_format": "kubernetes-audit-v1",
+      "raw_sha256": "3a35fd81968d768e53d72ce21968a5e99ce1da4f01b0cb549b85a6dabadeb98c",
+      "scenario": "Kubernetes audit: list-pods",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "none",
+        "required_context": [
+          "EKS audit logging enabled",
+          "Request-level policy for pod/RBAC spec",
+          "authorized operator/change record"
+        ],
+        "severity": "none"
+      }
+    },
+    {
+      "case_id": "aws.eks.read-secret",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "kubernetes.get.secrets",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"annotations\": {\n    \"authorization.k8s.io/decision\": \"allow\",\n    \"authorization.k8s.io/reason\": \"synthetic fixture policy\"\n  },\n  \"apiVersion\": \"audit.k8s.io/v1\",\n  \"auditID\": \"92642ce1-cad3-5967-a169-fb5f0a5ea884\",\n  \"kind\": \"Event\",\n  \"level\": \"Metadata\",\n  \"objectRef\": {\n    \"apiGroup\": \"\",\n    \"apiVersion\": \"v1\",\n    \"name\": \"fixture-object\",\n    \"namespace\": \"fixture\",\n    \"resource\": \"secrets\"\n  },\n  \"requestReceivedTimestamp\": \"2026-07-07T17:26:00Z\",\n  \"requestURI\": \"/api/v1/namespaces/fixture/secrets\",\n  \"responseStatus\": {\n    \"code\": 200,\n    \"metadata\": {}\n  },\n  \"sourceIPs\": [\n    \"198.51.100.23\"\n  ],\n  \"stage\": \"ResponseComplete\",\n  \"stageTimestamp\": \"2026-07-07T17:26:00Z\",\n  \"user\": {\n    \"groups\": [\n      \"system:authenticated\"\n    ],\n    \"username\": \"operator@example.invalid\"\n  },\n  \"userAgent\": \"kubectl/synthetic-fixture\",\n  \"verb\": \"get\"\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.eks.read-secret",
+            "synthetic": true
+          }
+        },
+        "id": "755a3481-aa69-59c6-9772-22e79f862e3a",
+        "message": "Kubernetes audit: read-secret",
+        "observed_at": "2026-07-07T17:26:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.eks:synthetic-demo",
+          "kind": "aws.eks",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.eks"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:26:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"annotations\": {\n    \"authorization.k8s.io/decision\": \"allow\",\n    \"authorization.k8s.io/reason\": \"synthetic fixture policy\"\n  },\n  \"apiVersion\": \"audit.k8s.io/v1\",\n  \"auditID\": \"92642ce1-cad3-5967-a169-fb5f0a5ea884\",\n  \"kind\": \"Event\",\n  \"level\": \"Metadata\",\n  \"objectRef\": {\n    \"apiGroup\": \"\",\n    \"apiVersion\": \"v1\",\n    \"name\": \"fixture-object\",\n    \"namespace\": \"fixture\",\n    \"resource\": \"secrets\"\n  },\n  \"requestReceivedTimestamp\": \"2026-07-07T17:26:00Z\",\n  \"requestURI\": \"/api/v1/namespaces/fixture/secrets\",\n  \"responseStatus\": {\n    \"code\": 200,\n    \"metadata\": {}\n  },\n  \"sourceIPs\": [\n    \"198.51.100.23\"\n  ],\n  \"stage\": \"ResponseComplete\",\n  \"stageTimestamp\": \"2026-07-07T17:26:00Z\",\n  \"user\": {\n    \"groups\": [\n      \"system:authenticated\"\n    ],\n    \"username\": \"operator@example.invalid\"\n  },\n  \"userAgent\": \"kubectl/synthetic-fixture\",\n  \"verb\": \"get\"\n}\n",
+      "raw_format": "kubernetes-audit-v1",
+      "raw_sha256": "3a7da2ce5b5195c69f6888e6b51da590b561bfcf4f8441836273696b7bbbae34",
+      "scenario": "Kubernetes audit: read-secret",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "EKS audit logging enabled",
+          "Request-level policy for pod/RBAC spec",
+          "authorized operator/change record"
+        ],
+        "severity": "low"
+      }
+    },
+    {
+      "case_id": "aws.eks.exec-denied",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "kubernetes.create.pods.exec",
+            "outcome": "failure"
+          },
+          "log": {
+            "original": "{\n  \"annotations\": {\n    \"authorization.k8s.io/decision\": \"forbid\",\n    \"authorization.k8s.io/reason\": \"synthetic fixture policy\"\n  },\n  \"apiVersion\": \"audit.k8s.io/v1\",\n  \"auditID\": \"c88c6b1e-8760-516a-9173-9fc1d7308cac\",\n  \"kind\": \"Event\",\n  \"level\": \"Metadata\",\n  \"objectRef\": {\n    \"apiGroup\": \"\",\n    \"apiVersion\": \"v1\",\n    \"name\": \"fixture-object\",\n    \"namespace\": \"fixture\",\n    \"resource\": \"pods\",\n    \"subresource\": \"exec\"\n  },\n  \"requestReceivedTimestamp\": \"2026-07-07T17:27:00Z\",\n  \"requestURI\": \"/api/v1/namespaces/fixture/pods/fixture-pod/exec?command=id&container=debug&stdout=true\",\n  \"responseStatus\": {\n    \"code\": 403,\n    \"metadata\": {}\n  },\n  \"sourceIPs\": [\n    \"198.51.100.23\"\n  ],\n  \"stage\": \"ResponseComplete\",\n  \"stageTimestamp\": \"2026-07-07T17:27:00Z\",\n  \"user\": {\n    \"groups\": [\n      \"system:authenticated\"\n    ],\n    \"username\": \"operator@example.invalid\"\n  },\n  \"userAgent\": \"kubectl/synthetic-fixture\",\n  \"verb\": \"create\"\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.eks.exec-denied",
+            "synthetic": true
+          }
+        },
+        "id": "82000597-6063-53b1-ab06-fded278abf72",
+        "message": "Kubernetes audit: exec-denied",
+        "observed_at": "2026-07-07T17:27:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.eks:synthetic-demo",
+          "kind": "aws.eks",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "warn",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.eks"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:27:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"annotations\": {\n    \"authorization.k8s.io/decision\": \"forbid\",\n    \"authorization.k8s.io/reason\": \"synthetic fixture policy\"\n  },\n  \"apiVersion\": \"audit.k8s.io/v1\",\n  \"auditID\": \"c88c6b1e-8760-516a-9173-9fc1d7308cac\",\n  \"kind\": \"Event\",\n  \"level\": \"Metadata\",\n  \"objectRef\": {\n    \"apiGroup\": \"\",\n    \"apiVersion\": \"v1\",\n    \"name\": \"fixture-object\",\n    \"namespace\": \"fixture\",\n    \"resource\": \"pods\",\n    \"subresource\": \"exec\"\n  },\n  \"requestReceivedTimestamp\": \"2026-07-07T17:27:00Z\",\n  \"requestURI\": \"/api/v1/namespaces/fixture/pods/fixture-pod/exec?command=id&container=debug&stdout=true\",\n  \"responseStatus\": {\n    \"code\": 403,\n    \"metadata\": {}\n  },\n  \"sourceIPs\": [\n    \"198.51.100.23\"\n  ],\n  \"stage\": \"ResponseComplete\",\n  \"stageTimestamp\": \"2026-07-07T17:27:00Z\",\n  \"user\": {\n    \"groups\": [\n      \"system:authenticated\"\n    ],\n    \"username\": \"operator@example.invalid\"\n  },\n  \"userAgent\": \"kubectl/synthetic-fixture\",\n  \"verb\": \"create\"\n}\n",
+      "raw_format": "kubernetes-audit-v1",
+      "raw_sha256": "e9b34bf0e83cd438260612add18941de99058e2fa89a55136c7996ce902394d9",
+      "scenario": "Kubernetes audit: exec-denied",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "EKS audit logging enabled",
+          "Request-level policy for pod/RBAC spec",
+          "authorized operator/change record"
+        ],
+        "severity": "medium"
+      }
+    },
+    {
+      "case_id": "aws.eks.privileged-pod",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "kubernetes.create.pods",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"annotations\": {\n    \"authorization.k8s.io/decision\": \"allow\",\n    \"authorization.k8s.io/reason\": \"synthetic fixture policy\"\n  },\n  \"apiVersion\": \"audit.k8s.io/v1\",\n  \"auditID\": \"e5751435-8e91-581f-b86b-3d7ac2280b91\",\n  \"kind\": \"Event\",\n  \"level\": \"Request\",\n  \"objectRef\": {\n    \"apiGroup\": \"\",\n    \"apiVersion\": \"v1\",\n    \"name\": \"fixture-object\",\n    \"namespace\": \"fixture\",\n    \"resource\": \"pods\"\n  },\n  \"requestObject\": {\n    \"apiVersion\": \"v1\",\n    \"kind\": \"Pod\",\n    \"metadata\": {\n      \"name\": \"fixture-debug\",\n      \"namespace\": \"fixture\"\n    },\n    \"spec\": {\n      \"containers\": [\n        {\n          \"image\": \"registry.example.invalid/fixture/debug:1\",\n          \"name\": \"debug\",\n          \"securityContext\": {\n            \"privileged\": true\n          }\n        }\n      ]\n    }\n  },\n  \"requestReceivedTimestamp\": \"2026-07-07T17:28:00Z\",\n  \"requestURI\": \"/api/v1/namespaces/fixture/pods\",\n  \"responseStatus\": {\n    \"code\": 201,\n    \"metadata\": {}\n  },\n  \"sourceIPs\": [\n    \"198.51.100.23\"\n  ],\n  \"stage\": \"ResponseComplete\",\n  \"stageTimestamp\": \"2026-07-07T17:28:00Z\",\n  \"user\": {\n    \"groups\": [\n      \"system:authenticated\"\n    ],\n    \"username\": \"operator@example.invalid\"\n  },\n  \"userAgent\": \"kubectl/synthetic-fixture\",\n  \"verb\": \"create\"\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.eks.privileged-pod",
+            "synthetic": true
+          }
+        },
+        "id": "230f0ffd-4c8b-5e46-8c6f-50cee9ec4131",
+        "message": "Kubernetes audit: privileged-pod",
+        "observed_at": "2026-07-07T17:28:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.eks:synthetic-demo",
+          "kind": "aws.eks",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.eks"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:28:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"annotations\": {\n    \"authorization.k8s.io/decision\": \"allow\",\n    \"authorization.k8s.io/reason\": \"synthetic fixture policy\"\n  },\n  \"apiVersion\": \"audit.k8s.io/v1\",\n  \"auditID\": \"e5751435-8e91-581f-b86b-3d7ac2280b91\",\n  \"kind\": \"Event\",\n  \"level\": \"Request\",\n  \"objectRef\": {\n    \"apiGroup\": \"\",\n    \"apiVersion\": \"v1\",\n    \"name\": \"fixture-object\",\n    \"namespace\": \"fixture\",\n    \"resource\": \"pods\"\n  },\n  \"requestObject\": {\n    \"apiVersion\": \"v1\",\n    \"kind\": \"Pod\",\n    \"metadata\": {\n      \"name\": \"fixture-debug\",\n      \"namespace\": \"fixture\"\n    },\n    \"spec\": {\n      \"containers\": [\n        {\n          \"image\": \"registry.example.invalid/fixture/debug:1\",\n          \"name\": \"debug\",\n          \"securityContext\": {\n            \"privileged\": true\n          }\n        }\n      ]\n    }\n  },\n  \"requestReceivedTimestamp\": \"2026-07-07T17:28:00Z\",\n  \"requestURI\": \"/api/v1/namespaces/fixture/pods\",\n  \"responseStatus\": {\n    \"code\": 201,\n    \"metadata\": {}\n  },\n  \"sourceIPs\": [\n    \"198.51.100.23\"\n  ],\n  \"stage\": \"ResponseComplete\",\n  \"stageTimestamp\": \"2026-07-07T17:28:00Z\",\n  \"user\": {\n    \"groups\": [\n      \"system:authenticated\"\n    ],\n    \"username\": \"operator@example.invalid\"\n  },\n  \"userAgent\": \"kubectl/synthetic-fixture\",\n  \"verb\": \"create\"\n}\n",
+      "raw_format": "kubernetes-audit-v1",
+      "raw_sha256": "5ea07b65bd78d69c6ce4ef6425563e7e2ea879667da792f4b26e6559665cd3e3",
+      "scenario": "Kubernetes audit: privileged-pod",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "EKS audit logging enabled",
+          "Request-level policy for pod/RBAC spec",
+          "authorized operator/change record"
+        ],
+        "severity": "high"
+      }
+    },
+    {
+      "case_id": "aws.eks.cluster-admin-binding",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "kubernetes.create.clusterrolebindings",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"annotations\": {\n    \"authorization.k8s.io/decision\": \"allow\",\n    \"authorization.k8s.io/reason\": \"synthetic fixture policy\"\n  },\n  \"apiVersion\": \"audit.k8s.io/v1\",\n  \"auditID\": \"69dca71e-7c8b-5289-b029-60c3b6e6fd1c\",\n  \"kind\": \"Event\",\n  \"level\": \"Request\",\n  \"objectRef\": {\n    \"apiGroup\": \"rbac.authorization.k8s.io\",\n    \"apiVersion\": \"v1\",\n    \"name\": \"fixture-object\",\n    \"resource\": \"clusterrolebindings\"\n  },\n  \"requestObject\": {\n    \"apiVersion\": \"rbac.authorization.k8s.io/v1\",\n    \"kind\": \"ClusterRoleBinding\",\n    \"metadata\": {\n      \"name\": \"fixture-admin-binding\"\n    },\n    \"roleRef\": {\n      \"apiGroup\": \"rbac.authorization.k8s.io\",\n      \"kind\": \"ClusterRole\",\n      \"name\": \"cluster-admin\"\n    },\n    \"subjects\": [\n      {\n        \"kind\": \"User\",\n        \"name\": \"operator@example.invalid\"\n      }\n    ]\n  },\n  \"requestReceivedTimestamp\": \"2026-07-07T17:29:00Z\",\n  \"requestURI\": \"/apis/rbac.authorization.k8s.io/v1/clusterrolebindings\",\n  \"responseStatus\": {\n    \"code\": 201,\n    \"metadata\": {}\n  },\n  \"sourceIPs\": [\n    \"198.51.100.23\"\n  ],\n  \"stage\": \"ResponseComplete\",\n  \"stageTimestamp\": \"2026-07-07T17:29:00Z\",\n  \"user\": {\n    \"groups\": [\n      \"system:authenticated\"\n    ],\n    \"username\": \"operator@example.invalid\"\n  },\n  \"userAgent\": \"kubectl/synthetic-fixture\",\n  \"verb\": \"create\"\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.eks.cluster-admin-binding",
+            "synthetic": true
+          }
+        },
+        "id": "ad576f6f-3c8a-5295-8545-118a0a6c34ab",
+        "message": "Kubernetes audit: cluster-admin-binding",
+        "observed_at": "2026-07-07T17:29:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.eks:synthetic-demo",
+          "kind": "aws.eks",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.eks"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:29:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"annotations\": {\n    \"authorization.k8s.io/decision\": \"allow\",\n    \"authorization.k8s.io/reason\": \"synthetic fixture policy\"\n  },\n  \"apiVersion\": \"audit.k8s.io/v1\",\n  \"auditID\": \"69dca71e-7c8b-5289-b029-60c3b6e6fd1c\",\n  \"kind\": \"Event\",\n  \"level\": \"Request\",\n  \"objectRef\": {\n    \"apiGroup\": \"rbac.authorization.k8s.io\",\n    \"apiVersion\": \"v1\",\n    \"name\": \"fixture-object\",\n    \"resource\": \"clusterrolebindings\"\n  },\n  \"requestObject\": {\n    \"apiVersion\": \"rbac.authorization.k8s.io/v1\",\n    \"kind\": \"ClusterRoleBinding\",\n    \"metadata\": {\n      \"name\": \"fixture-admin-binding\"\n    },\n    \"roleRef\": {\n      \"apiGroup\": \"rbac.authorization.k8s.io\",\n      \"kind\": \"ClusterRole\",\n      \"name\": \"cluster-admin\"\n    },\n    \"subjects\": [\n      {\n        \"kind\": \"User\",\n        \"name\": \"operator@example.invalid\"\n      }\n    ]\n  },\n  \"requestReceivedTimestamp\": \"2026-07-07T17:29:00Z\",\n  \"requestURI\": \"/apis/rbac.authorization.k8s.io/v1/clusterrolebindings\",\n  \"responseStatus\": {\n    \"code\": 201,\n    \"metadata\": {}\n  },\n  \"sourceIPs\": [\n    \"198.51.100.23\"\n  ],\n  \"stage\": \"ResponseComplete\",\n  \"stageTimestamp\": \"2026-07-07T17:29:00Z\",\n  \"user\": {\n    \"groups\": [\n      \"system:authenticated\"\n    ],\n    \"username\": \"operator@example.invalid\"\n  },\n  \"userAgent\": \"kubectl/synthetic-fixture\",\n  \"verb\": \"create\"\n}\n",
+      "raw_format": "kubernetes-audit-v1",
+      "raw_sha256": "75c23d57d75c2e9e8a499f66147036b6b3086cfd053a59eaf20ef87ab34123bd",
+      "scenario": "Kubernetes audit: cluster-admin-binding",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "EKS audit logging enabled",
+          "Request-level policy for pod/RBAC spec",
+          "authorized operator/change record"
+        ],
+        "severity": "critical"
+      }
+    }
+  ],
+  "schema_version": 1,
+  "source": "aws.eks"
+}

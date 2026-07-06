@@ -1,0 +1,253 @@
+{
+  "cases": [
+    {
+      "case_id": "fortigate.vpn-connected",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "fortigate.tunnel-up",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "date=2026-07-07 time=17:50:00 eventtime=1783446600000000000 tz=\"+0000\" devname=\"fixture-fgt\" devid=\"FGT0000000000001\" logid=\"0101039424\" type=\"event\" subtype=\"vpn\" level=\"information\" vd=\"root\" logdesc=\"SSL VPN tunnel up\" action=\"tunnel-up\" tunneltype=\"ssl-web\" tunnelid=1001 remip=198.51.100.23 user=\"fixture-user\" group=\"fixture-vpn\" dst_host=\"N/A\" reason=\"N/A\" msg=\"SSL tunnel established\"\n"
+          },
+          "sample": {
+            "case_id": "fortigate.vpn-connected",
+            "synthetic": true
+          }
+        },
+        "id": "2b8412b4-ec6f-50f3-96ce-095d88a2573a",
+        "message": "FortiGate SSL VPN: vpn-connected",
+        "observed_at": "2026-07-07T17:50:02Z",
+        "resource": {
+          "id": "fortigate:synthetic-demo",
+          "kind": "fortigate"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "fortigate"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:50:00Z"
+      },
+      "native_severity": "information",
+      "raw": "date=2026-07-07 time=17:50:00 eventtime=1783446600000000000 tz=\"+0000\" devname=\"fixture-fgt\" devid=\"FGT0000000000001\" logid=\"0101039424\" type=\"event\" subtype=\"vpn\" level=\"information\" vd=\"root\" logdesc=\"SSL VPN tunnel up\" action=\"tunnel-up\" tunneltype=\"ssl-web\" tunnelid=1001 remip=198.51.100.23 user=\"fixture-user\" group=\"fixture-vpn\" dst_host=\"N/A\" reason=\"N/A\" msg=\"SSL tunnel established\"\n",
+      "raw_format": "fortios-key-value",
+      "raw_sha256": "9d22f022913f2f27036636249fa2bc92aa3adec2024d7358c9a149c404ffdbff",
+      "scenario": "FortiGate SSL VPN: vpn-connected",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "none",
+        "required_context": [
+          "native alert maps to log critical independently of finding severity",
+          "frequency/identity/posture context"
+        ],
+        "severity": "none"
+      }
+    },
+    {
+      "case_id": "fortigate.vpn-bad-password",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "fortigate.ssl-login-fail",
+            "outcome": "failure"
+          },
+          "log": {
+            "original": "date=2026-07-07 time=17:51:00 eventtime=1783446660000000000 tz=\"+0000\" devname=\"fixture-fgt\" devid=\"FGT0000000000001\" logid=\"0101039426\" type=\"event\" subtype=\"vpn\" level=\"alert\" vd=\"root\" logdesc=\"SSL VPN login fail\" action=\"ssl-login-fail\" tunneltype=\"ssl-web\" tunnelid=0 remip=198.51.100.23 user=\"fixture-user\" group=\"fixture-vpn\" dst_host=\"N/A\" reason=\"sslvpn_login_permission_denied\" msg=\"SSL user failed to logged in\"\n"
+          },
+          "sample": {
+            "case_id": "fortigate.vpn-bad-password",
+            "synthetic": true
+          }
+        },
+        "id": "a92cf50a-7a2c-5719-b308-51d6a730ee74",
+        "message": "FortiGate SSL VPN: vpn-bad-password",
+        "observed_at": "2026-07-07T17:51:02Z",
+        "resource": {
+          "id": "fortigate:synthetic-demo",
+          "kind": "fortigate"
+        },
+        "schema_version": 1,
+        "severity": "critical",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "fortigate"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:51:00Z"
+      },
+      "native_severity": "alert",
+      "raw": "date=2026-07-07 time=17:51:00 eventtime=1783446660000000000 tz=\"+0000\" devname=\"fixture-fgt\" devid=\"FGT0000000000001\" logid=\"0101039426\" type=\"event\" subtype=\"vpn\" level=\"alert\" vd=\"root\" logdesc=\"SSL VPN login fail\" action=\"ssl-login-fail\" tunneltype=\"ssl-web\" tunnelid=0 remip=198.51.100.23 user=\"fixture-user\" group=\"fixture-vpn\" dst_host=\"N/A\" reason=\"sslvpn_login_permission_denied\" msg=\"SSL user failed to logged in\"\n",
+      "raw_format": "fortios-key-value",
+      "raw_sha256": "518451bc5af748b8dad2e2dee83cc52645803d1cdbe3cd396c5b2c8f291eb948",
+      "scenario": "FortiGate SSL VPN: vpn-bad-password",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "native alert maps to log critical independently of finding severity",
+          "frequency/identity/posture context"
+        ],
+        "severity": "low"
+      }
+    },
+    {
+      "case_id": "fortigate.vpn-unknown-user",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "fortigate.ssl-login-fail",
+            "outcome": "failure"
+          },
+          "log": {
+            "original": "date=2026-07-07 time=17:52:00 eventtime=1783446720000000000 tz=\"+0000\" devname=\"fixture-fgt\" devid=\"FGT0000000000001\" logid=\"0101039426\" type=\"event\" subtype=\"vpn\" level=\"alert\" vd=\"root\" logdesc=\"SSL VPN login fail\" action=\"ssl-login-fail\" tunneltype=\"ssl-web\" tunnelid=0 remip=198.51.100.23 user=\"fixture-unknown\" group=\"fixture-vpn\" dst_host=\"N/A\" reason=\"sslvpn_login_permission_denied\" msg=\"SSL user failed to logged in\"\n"
+          },
+          "sample": {
+            "case_id": "fortigate.vpn-unknown-user",
+            "synthetic": true
+          }
+        },
+        "id": "406f2e99-2d24-534c-b5a3-7c86a6a35ee6",
+        "message": "FortiGate SSL VPN: vpn-unknown-user",
+        "observed_at": "2026-07-07T17:52:02Z",
+        "resource": {
+          "id": "fortigate:synthetic-demo",
+          "kind": "fortigate"
+        },
+        "schema_version": 1,
+        "severity": "critical",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "fortigate"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:52:00Z"
+      },
+      "native_severity": "alert",
+      "raw": "date=2026-07-07 time=17:52:00 eventtime=1783446720000000000 tz=\"+0000\" devname=\"fixture-fgt\" devid=\"FGT0000000000001\" logid=\"0101039426\" type=\"event\" subtype=\"vpn\" level=\"alert\" vd=\"root\" logdesc=\"SSL VPN login fail\" action=\"ssl-login-fail\" tunneltype=\"ssl-web\" tunnelid=0 remip=198.51.100.23 user=\"fixture-unknown\" group=\"fixture-vpn\" dst_host=\"N/A\" reason=\"sslvpn_login_permission_denied\" msg=\"SSL user failed to logged in\"\n",
+      "raw_format": "fortios-key-value",
+      "raw_sha256": "592e9a25ff0b9341898eb5de6b86ef1775bc1c095af15b698e465205f7d9aad7",
+      "scenario": "FortiGate SSL VPN: vpn-unknown-user",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "native alert maps to log critical independently of finding severity",
+          "frequency/identity/posture context"
+        ],
+        "severity": "medium"
+      }
+    },
+    {
+      "case_id": "fortigate.vpn-admin-login-failure",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "fortigate.ssl-login-fail",
+            "outcome": "failure"
+          },
+          "log": {
+            "original": "date=2026-07-07 time=17:53:00 eventtime=1783446780000000000 tz=\"+0000\" devname=\"fixture-fgt\" devid=\"FGT0000000000001\" logid=\"0101039426\" type=\"event\" subtype=\"vpn\" level=\"alert\" vd=\"root\" logdesc=\"SSL VPN login fail\" action=\"ssl-login-fail\" tunneltype=\"ssl-web\" tunnelid=0 remip=198.51.100.23 user=\"fixture-admin\" group=\"fixture-vpn\" dst_host=\"N/A\" reason=\"sslvpn_login_permission_denied\" msg=\"SSL user failed to logged in\"\n"
+          },
+          "sample": {
+            "case_id": "fortigate.vpn-admin-login-failure",
+            "synthetic": true
+          }
+        },
+        "id": "d14bde8c-80e9-54db-b280-f68dbc1c4f6c",
+        "message": "FortiGate SSL VPN: vpn-admin-login-failure",
+        "observed_at": "2026-07-07T17:53:02Z",
+        "resource": {
+          "id": "fortigate:synthetic-demo",
+          "kind": "fortigate"
+        },
+        "schema_version": 1,
+        "severity": "critical",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "fortigate"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:53:00Z"
+      },
+      "native_severity": "alert",
+      "raw": "date=2026-07-07 time=17:53:00 eventtime=1783446780000000000 tz=\"+0000\" devname=\"fixture-fgt\" devid=\"FGT0000000000001\" logid=\"0101039426\" type=\"event\" subtype=\"vpn\" level=\"alert\" vd=\"root\" logdesc=\"SSL VPN login fail\" action=\"ssl-login-fail\" tunneltype=\"ssl-web\" tunnelid=0 remip=198.51.100.23 user=\"fixture-admin\" group=\"fixture-vpn\" dst_host=\"N/A\" reason=\"sslvpn_login_permission_denied\" msg=\"SSL user failed to logged in\"\n",
+      "raw_format": "fortios-key-value",
+      "raw_sha256": "eb745d97620266e300c7610bcc959772c389410005db042a66c4708719ec1ffd",
+      "scenario": "FortiGate SSL VPN: vpn-admin-login-failure",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "native alert maps to log critical independently of finding severity",
+          "frequency/identity/posture context"
+        ],
+        "severity": "high"
+      }
+    },
+    {
+      "case_id": "fortigate.forward-session",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "fortigate.close",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "date=2026-07-07 time=17:54:00 eventtime=1783446840000000000 tz=\"+0000\" devname=\"fixture-fgt\" devid=\"FGT0000000000001\" logid=\"0000000013\" type=\"traffic\" subtype=\"forward\" level=\"notice\" vd=\"root\" srcip=198.51.100.23 srcport=54001 srcintf=\"wan1\" srcintfrole=\"wan\" dstip=192.0.2.40 dstport=443 dstintf=\"lan\" dstintfrole=\"lan\" proto=6 action=\"close\" policyid=1 policytype=\"policy\" service=\"HTTPS\" sessionid=42 duration=10 sentbyte=512 rcvdbyte=2048\n"
+          },
+          "sample": {
+            "case_id": "fortigate.forward-session",
+            "synthetic": true
+          }
+        },
+        "id": "c61dcd31-44ff-56a0-830d-81b5e8aa37bf",
+        "message": "FortiGate HTTPS session closed",
+        "observed_at": "2026-07-07T17:54:02Z",
+        "resource": {
+          "id": "fortigate:synthetic-demo",
+          "kind": "fortigate"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "fortigate"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:54:00Z"
+      },
+      "native_severity": "notice",
+      "raw": "date=2026-07-07 time=17:54:00 eventtime=1783446840000000000 tz=\"+0000\" devname=\"fixture-fgt\" devid=\"FGT0000000000001\" logid=\"0000000013\" type=\"traffic\" subtype=\"forward\" level=\"notice\" vd=\"root\" srcip=198.51.100.23 srcport=54001 srcintf=\"wan1\" srcintfrole=\"wan\" dstip=192.0.2.40 dstport=443 dstintf=\"lan\" dstintfrole=\"lan\" proto=6 action=\"close\" policyid=1 policytype=\"policy\" service=\"HTTPS\" sessionid=42 duration=10 sentbyte=512 rcvdbyte=2048\n",
+      "raw_format": "fortios-key-value",
+      "raw_sha256": "4a5f1312b30a9978e3701e878802580716863d5bdd56a6ed19fb926a1a79166f",
+      "scenario": "FortiGate HTTPS session closed",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "none",
+        "required_context": [],
+        "severity": "none"
+      }
+    }
+  ],
+  "schema_version": 1,
+  "source": "fortigate"
+}

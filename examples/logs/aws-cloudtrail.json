@@ -1,0 +1,266 @@
+{
+  "cases": [
+    {
+      "case_id": "aws.cloudtrail.list-buckets",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "s3:ListBuckets",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"9ca08d37-efe1-593b-a3fd-ca919219ba25\",\n  \"eventName\": \"ListBuckets\",\n  \"eventSource\": \"s3.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:00:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": true,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"97b5145d-a698-50b5-b9e6-5c05bca241bb\",\n  \"requestParameters\": null,\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.cloudtrail.list-buckets",
+            "synthetic": true
+          }
+        },
+        "id": "8c879c6b-a866-5998-8a02-3a2027626b57",
+        "message": "Routine bucket inventory",
+        "observed_at": "2026-07-07T17:00:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.cloudtrail:synthetic-demo",
+          "kind": "aws.cloudtrail",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.cloudtrail"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:00:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"9ca08d37-efe1-593b-a3fd-ca919219ba25\",\n  \"eventName\": \"ListBuckets\",\n  \"eventSource\": \"s3.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:00:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": true,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"97b5145d-a698-50b5-b9e6-5c05bca241bb\",\n  \"requestParameters\": null,\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n",
+      "raw_format": "json",
+      "raw_sha256": "c1c967d36454c3f74d3b4e11c29545d49d18391d16d1f4160d1044cacb8164f7",
+      "scenario": "Routine bucket inventory",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "none",
+        "required_context": [
+          "actual IAM authorization/change record",
+          "source coverage"
+        ],
+        "severity": "none"
+      }
+    },
+    {
+      "case_id": "aws.cloudtrail.decrypt-denied",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "kms:Decrypt",
+            "outcome": "failure"
+          },
+          "log": {
+            "original": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"errorCode\": \"AccessDenied\",\n  \"errorMessage\": \"Synthetic denied operation\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"8c7d25a8-dec8-5478-815c-4879530b019f\",\n  \"eventName\": \"Decrypt\",\n  \"eventSource\": \"kms.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:01:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": false,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"0fb04216-749d-5d3a-be9b-33b42c07f9d1\",\n  \"requestParameters\": {\n    \"keyId\": \"arn:aws:kms:eu-central-1:000000000001:key/1af65aa8-2157-56ae-8f55-87dab5b87a26\"\n  },\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.cloudtrail.decrypt-denied",
+            "synthetic": true
+          }
+        },
+        "id": "782a1805-ec08-5014-8cfe-9898006d2968",
+        "message": "Denied decrypt request; one event is not brute force",
+        "observed_at": "2026-07-07T17:01:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.cloudtrail:synthetic-demo",
+          "kind": "aws.cloudtrail",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.cloudtrail"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:01:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"errorCode\": \"AccessDenied\",\n  \"errorMessage\": \"Synthetic denied operation\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"8c7d25a8-dec8-5478-815c-4879530b019f\",\n  \"eventName\": \"Decrypt\",\n  \"eventSource\": \"kms.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:01:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": false,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"0fb04216-749d-5d3a-be9b-33b42c07f9d1\",\n  \"requestParameters\": {\n    \"keyId\": \"arn:aws:kms:eu-central-1:000000000001:key/1af65aa8-2157-56ae-8f55-87dab5b87a26\"\n  },\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n",
+      "raw_format": "json",
+      "raw_sha256": "5579570bfb792c9038af628754d126a49826bf3f098f2ad27a7789c88e29cc21",
+      "scenario": "Denied decrypt request; one event is not brute force",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "actual IAM authorization/change record",
+          "source coverage"
+        ],
+        "severity": "low"
+      }
+    },
+    {
+      "case_id": "aws.cloudtrail.public-ssh-rule",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "ec2:AuthorizeSecurityGroupIngress",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"0515413c-a422-5bdd-b365-cca2c4dbcf3e\",\n  \"eventName\": \"AuthorizeSecurityGroupIngress\",\n  \"eventSource\": \"ec2.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:02:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": false,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"23fbffe8-d072-56c5-835a-d1c689e089d9\",\n  \"requestParameters\": {\n    \"groupId\": \"sg-00000000000000001\",\n    \"ipPermissions\": {\n      \"items\": [\n        {\n          \"fromPort\": 22,\n          \"ipProtocol\": \"tcp\",\n          \"ipRanges\": {\n            \"items\": [\n              {\n                \"cidrIp\": \"0.0.0.0/0\"\n              }\n            ]\n          },\n          \"toPort\": 22\n        }\n      ]\n    }\n  },\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.cloudtrail.public-ssh-rule",
+            "synthetic": true
+          }
+        },
+        "id": "192beee8-059b-563b-89ee-6f1a741e1fce",
+        "message": "Security group ingress request opens SSH publicly",
+        "observed_at": "2026-07-07T17:02:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.cloudtrail:synthetic-demo",
+          "kind": "aws.cloudtrail",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.cloudtrail"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:02:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"0515413c-a422-5bdd-b365-cca2c4dbcf3e\",\n  \"eventName\": \"AuthorizeSecurityGroupIngress\",\n  \"eventSource\": \"ec2.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:02:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": false,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"23fbffe8-d072-56c5-835a-d1c689e089d9\",\n  \"requestParameters\": {\n    \"groupId\": \"sg-00000000000000001\",\n    \"ipPermissions\": {\n      \"items\": [\n        {\n          \"fromPort\": 22,\n          \"ipProtocol\": \"tcp\",\n          \"ipRanges\": {\n            \"items\": [\n              {\n                \"cidrIp\": \"0.0.0.0/0\"\n              }\n            ]\n          },\n          \"toPort\": 22\n        }\n      ]\n    }\n  },\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n",
+      "raw_format": "json",
+      "raw_sha256": "149d3bcb7cafbcaf40ec56af8b49d6aacdf841347c25476f5ff31316e9fd8f1e",
+      "scenario": "Security group ingress request opens SSH publicly",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "actual IAM authorization/change record",
+          "source coverage"
+        ],
+        "severity": "medium"
+      }
+    },
+    {
+      "case_id": "aws.cloudtrail.new-access-key",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "iam:CreateAccessKey",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"ac09b8dd-a5d7-5269-bbc9-46f95eb20f9a\",\n  \"eventName\": \"CreateAccessKey\",\n  \"eventSource\": \"iam.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:03:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": false,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"138b4abd-5eb8-5b84-b875-943ec43e284c\",\n  \"requestParameters\": {\n    \"userName\": \"fixture-automation\"\n  },\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.cloudtrail.new-access-key",
+            "synthetic": true
+          }
+        },
+        "id": "ef224624-e0e3-53a5-aa32-379e80ad4cd6",
+        "message": "Access-key creation requires change validation; secret is omitted",
+        "observed_at": "2026-07-07T17:03:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.cloudtrail:synthetic-demo",
+          "kind": "aws.cloudtrail",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.cloudtrail"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:03:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"ac09b8dd-a5d7-5269-bbc9-46f95eb20f9a\",\n  \"eventName\": \"CreateAccessKey\",\n  \"eventSource\": \"iam.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:03:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": false,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"138b4abd-5eb8-5b84-b875-943ec43e284c\",\n  \"requestParameters\": {\n    \"userName\": \"fixture-automation\"\n  },\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n",
+      "raw_format": "json",
+      "raw_sha256": "daf24f574bdd6836620a62de95ec153232efa090f6ed402f99f51be0b25e54b2",
+      "scenario": "Access-key creation requires change validation; secret is omitted",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "actual IAM authorization/change record",
+          "source coverage"
+        ],
+        "severity": "high"
+      }
+    },
+    {
+      "case_id": "aws.cloudtrail.stop-audit",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "cloudtrail:StopLogging",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"b89a050d-1505-5994-9716-b84364e60ef9\",\n  \"eventName\": \"StopLogging\",\n  \"eventSource\": \"cloudtrail.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:04:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": false,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"75cb3934-8486-534e-986a-1d08ebcf4683\",\n  \"requestParameters\": {\n    \"name\": \"arn:aws:cloudtrail:eu-central-1:000000000001:trail/fixture-trail\"\n  },\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.cloudtrail.stop-audit",
+            "synthetic": true
+          }
+        },
+        "id": "d71d1621-8d2d-565f-b52d-c5181e5bf5ad",
+        "message": "Successful request to stop trail logging",
+        "observed_at": "2026-07-07T17:04:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.cloudtrail:synthetic-demo",
+          "kind": "aws.cloudtrail",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.cloudtrail"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:04:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"b89a050d-1505-5994-9716-b84364e60ef9\",\n  \"eventName\": \"StopLogging\",\n  \"eventSource\": \"cloudtrail.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:04:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": false,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"75cb3934-8486-534e-986a-1d08ebcf4683\",\n  \"requestParameters\": {\n    \"name\": \"arn:aws:cloudtrail:eu-central-1:000000000001:trail/fixture-trail\"\n  },\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n",
+      "raw_format": "json",
+      "raw_sha256": "12ea04385acf37e15e663681f0915564e62e40129e77219f25b4399dff4c7685",
+      "scenario": "Successful request to stop trail logging",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "actual IAM authorization/change record",
+          "source coverage"
+        ],
+        "severity": "critical"
+      }
+    }
+  ],
+  "schema_version": 1,
+  "source": "aws.cloudtrail"
+}

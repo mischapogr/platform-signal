@@ -1,0 +1,133 @@
+{
+  "canonical": "canonical.ndjson",
+  "canonical.ndjson_sha256": "f339d2957888e9b9d7606877d5ddd0c4e7f76ddc0668731db559a1556dcdf7ae",
+  "corpus_version": "0.1.0-dev.0",
+  "ingest-batch.json_sha256": "7de17976b24de4d5872fcbe0887db85fea4fed3e8db3d436dccec22bedb01ed1",
+  "ingest_batch": "ingest-batch.json",
+  "normalization_status": "reference-examples-only",
+  "schema_version": 1,
+  "sources": [
+    {
+      "case_count": 5,
+      "documentation": [
+        "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-record-contents.html"
+      ],
+      "file": "aws-cloudtrail.json",
+      "format": "CloudTrail eventVersion 1.11 record",
+      "sha256": "cfb0f7b5e5366c210d06bd68e74ce0760ef552caceaa5cbe621e23e4d81c9445",
+      "source": "aws.cloudtrail",
+      "verification": "documented envelope and selected fields; synthetic values"
+    },
+    {
+      "case_count": 5,
+      "documentation": [
+        "https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/SubscriptionFilters.html"
+      ],
+      "file": "aws-cloudwatch.json",
+      "format": "Decoded CloudWatch Logs subscription DATA_MESSAGE",
+      "sha256": "0fd567d99a57976d2f8a6070eec915ef6f1c81c8db8cec0ec8560b9ba73cffb6",
+      "source": "aws.cloudwatch",
+      "verification": "documented envelope and selected fields; synthetic values"
+    },
+    {
+      "case_count": 5,
+      "documentation": [
+        "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_LogAccess.Concepts.PostgreSQL.html"
+      ],
+      "file": "aws-rds.json",
+      "format": "RDS PostgreSQL text log; custom timestamp/pid/user/db prefix",
+      "sha256": "f3519e374db27446ddf1f54e0a4cb2ffbd60cc3f0c1675ce7b07697dcf278193",
+      "source": "aws.rds",
+      "verification": "documented envelope and selected fields; synthetic values"
+    },
+    {
+      "case_count": 5,
+      "documentation": [
+        "https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-access-logs.html"
+      ],
+      "file": "aws-alb.json",
+      "format": "ALB HTTPS access log; 33 fields through transform_status",
+      "sha256": "e659d336f3651c0146bbd6a417f71738e1d3a81faed534d73f425998035724c5",
+      "source": "aws.alb",
+      "verification": "documented envelope and selected fields; synthetic values"
+    },
+    {
+      "case_count": 5,
+      "documentation": [
+        "https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-access-logs.html"
+      ],
+      "file": "aws-nlb.json",
+      "format": "NLB legacy v2.0 TLS connection access log; 22 fields",
+      "sha256": "86432acf8fe561e99ec0cce35d448732c25835c70c8f0bcd3b9df32f57c2c55d",
+      "source": "aws.nlb",
+      "verification": "documented envelope and selected fields; synthetic values"
+    },
+    {
+      "case_count": 5,
+      "documentation": [
+        "https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/"
+      ],
+      "file": "aws-eks.json",
+      "format": "Kubernetes audit.k8s.io/v1 Event; ResponseComplete",
+      "sha256": "de72866d1c7a6bf1cfa65c12b6a927d04b41f6390e24b4a28bc9bc5511564934",
+      "source": "aws.eks",
+      "verification": "documented envelope and selected fields; synthetic values"
+    },
+    {
+      "case_count": 5,
+      "documentation": [
+        "https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs_task_events.html"
+      ],
+      "file": "aws-ecs.json",
+      "format": "ECS EventBridge state changes, CloudTrail config and application stdout",
+      "sha256": "9d571a5e0d3d1558275faa686b50ed674c602877b88a04e13441575c0540df72",
+      "source": "aws.ecs",
+      "verification": "documented envelope and selected fields; synthetic values"
+    },
+    {
+      "case_count": 5,
+      "documentation": [
+        "https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/zone/firewall_events/"
+      ],
+      "file": "cloudflare.json",
+      "format": "Logpush firewall_events JSON; RFC3339 Datetime option",
+      "sha256": "0ee77f25922cc7a16e07392aa5aa2d97a0489797fdab662c21ac12670f3dbd73",
+      "source": "cloudflare",
+      "verification": "documented envelope and selected fields; synthetic values"
+    },
+    {
+      "case_count": 5,
+      "documentation": [
+        "https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema"
+      ],
+      "file": "office365.json",
+      "format": "Management Activity API audit record; STS and Exchange admin",
+      "sha256": "8afecc9967a3d0e9c4b55ac1786b06d00d4c492a1167df28216abb836d266bed",
+      "source": "office365",
+      "verification": "documented envelope and selected fields; synthetic values"
+    },
+    {
+      "case_count": 5,
+      "documentation": [
+        "https://knowledge.catonetworks.com/v1/docs/cato-api-eventsfeed-eventrecord-large-scale-event-monitoring"
+      ],
+      "file": "cato-vpn.json",
+      "format": "EventsFeed EventRecord projection with time and fieldsMap",
+      "sha256": "70cb27f8a1e5570dfa9a0dbd50f6f140102ba80739c19493461fb42d7144aff9",
+      "source": "cato.vpn",
+      "verification": "documented envelope; illustrative field values; tenant schema confirmation required"
+    },
+    {
+      "case_count": 5,
+      "documentation": [
+        "https://docs.fortinet.com/document/fortigate/7.4.0/fortios-log-message-reference/39426/39426-log-id-event-ssl-vpn-user-ssl-login-fail"
+      ],
+      "file": "fortigate.json",
+      "format": "FortiOS 7.4 key=value SSL VPN event and forward traffic log",
+      "sha256": "9bcbdac7b82f39ad1bbf7c2c0c59795e41d25c4c8dbf47729c8ffc4bada6942a",
+      "source": "fortigate",
+      "verification": "documented envelope and selected fields; synthetic values"
+    }
+  ],
+  "synthetic": true
+}
