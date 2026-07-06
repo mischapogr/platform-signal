@@ -1,0 +1,62 @@
+# SIGNAL defaults; authentication and permission settings remain inherited.
+model = "gpt-6.1-sol"
+model_reasoning_effort = "medium"
+service_tier = "default"
+
+[mcp_servers.context7]
+command = "bash"
+args = ["scripts/ai/context7"]
+env_vars = ["CONTEXT7_API_KEY"]
+startup_timeout_sec = 20
+tool_timeout_sec = 60
+enabled = true
+
+# Disabled placeholders parse without another checkout's global transports.
+# Optional integrations have their own generic transports below.
+[mcp_servers.phpocalypse]
+command = "false"
+enabled = false
+[mcp_servers.symfony-ai-mate]
+command = "false"
+enabled = false
+[mcp_servers.astro-app-mysql]
+command = "false"
+enabled = false
+[mcp_servers.swiss-ephemeris]
+command = "false"
+enabled = false
+[mcp_servers.git-local]
+command = "false"
+enabled = false
+[mcp_servers.playwright]
+command = "false"
+enabled = false
+[mcp_servers.astro-schmid-shop-mysql]
+command = "false"
+enabled = false
+[mcp_servers.immanuel-astrology]
+command = "false"
+enabled = false
+[mcp_servers.tmux]
+command = "tmux-mcp"
+enabled = false
+[mcp_servers.semgrep]
+command = "semgrep"
+args = ["mcp"]
+env_vars = ["SEMGREP_APP_TOKEN"]
+enabled_tools = ["get_supported_languages", "semgrep_scan_with_custom_rule", "semgrep_rule_schema", "get_abstract_syntax_tree"]
+enabled = false
+[mcp_servers.github]
+command = "mcp-server-github"
+env_vars = ["GITHUB_PERSONAL_ACCESS_TOKEN"]
+enabled_tools = ["get_file_contents", "search_code", "search_issues", "list_issues", "get_issue", "get_pull_request", "get_pull_request_files", "get_pull_request_status", "get_pull_request_comments", "get_pull_request_reviews", "list_commits", "search_repositories"]
+enabled = false
+[mcp_servers.1password]
+command = "false"
+enabled = false
+[mcp_servers.stitch]
+command = "false"
+enabled = false
+[mcp_servers.chrome-devtools]
+command = "false"
+enabled = false

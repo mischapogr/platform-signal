@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Opt into a project-scoped integration for this invocation only.
+set -euo pipefail
+platform_repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+platform_overrides=()
+while [[ "${1:-}" == "--with" ]]; do
+  case "${2:-}" in
+    github|semgrep|tmux)
+      platform_overrides+=(-c "mcp_servers.$2.enabled=true")
+      shift 2
+      ;;
+    *)
+      echo 'Usage: scripts/ai/codex [--with github|semgrep|tmux]... [Codex arguments]' >&2
+      exit 64
+      ;;
+  esac
+done
+cd -- "$platform_repo_root"
+exec codex "${platform_overrides[@]}" "$@"

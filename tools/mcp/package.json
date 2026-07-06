@@ -1,0 +1,10 @@
+{
+  "name": "platform-signal-mcp",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Project-local documentation MCP tooling for Codex and Claude Code",
+  "engines": { "node": ">=20.18.1" },
+  "dependencies": {
+    "@upstash/context7-mcp": "4.1.1"
+  }
+}
