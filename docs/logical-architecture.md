@@ -65,6 +65,13 @@ is pending. Pending or failed validation must remain visible to SecOps.
 
 ## Collection roles
 
+The [product baseline](27-product-architecture.md) groups these responsibilities
+into agent, collector, gateway and server role families. Deploy only the roles a
+source requires. Collector modes separate AWS, SaaS and cluster credentials;
+gateway placement follows transport/site boundaries. Small keeps one server;
+Standard's future shared control state and fenced ownership must be qualified
+before enabling multiple server writers. The current chart remains single-writer.
+
 | Role | Responsibility | Current boundary / next requirement |
 | --- | --- | --- |
 | Host agent | Local capture, timestamp/identity, bounded spool, retry and delivery acknowledgement | File/stdin exists; runtime hooks, boot/process identity and coverage reporting need new work |

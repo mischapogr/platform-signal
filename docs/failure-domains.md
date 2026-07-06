@@ -56,6 +56,14 @@ retention/capacity budget, recovery point and recovery time. This document does
 not invent numerical production SLOs. The owner supplies them per source and
 security policy before cloud qualification; synthetic fixture windows are not SLOs.
 
+The [product baseline](27-product-architecture.md#5-reliability-objectives-and-custody)
+now sets design objectives for Standard: 99.9% monthly control/API availability,
+explicit object-backed custody and bounded outage/replay qualification. These
+objectives are not current guarantees. They preserve M2's local-WAL meaning and
+require a new versioned custody receipt before claiming server/AZ-loss protection.
+Source-specific freshness and disaster-recovery budgets still require deployment
+qualification. Three replicas alone do not change any milestone's durability.
+
 ## Source Coverage Record
 
 SourceCoverage has a versioned, bounded pure SDK validator/assessment. It records

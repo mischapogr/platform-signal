@@ -39,6 +39,32 @@ Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
 
+## Product architecture baseline — 2026-10-07
+
+The owner-requested [product architecture](27-product-architecture.md) defines
+SIGNAL's small/mid-sized AWS customer envelope, shared DevOps/SecOps workflow,
+Small/Standard/Scale profiles, reliability objectives, resource budgets and
+non-goals. Rust, the v1 event contract and the monolith remain. Four role families
+are deployable only where needed, not four required services. S3 owns retained
+telemetry/evidence; separate durable control state remains necessary. Standard
+selects a future shared PostgreSQL control backend with fenced ownership and
+explicit object-backed custody before any multi-server HA claim.
+
+The baseline makes production security controls profile-independent and adopts
+generic opt-in detection packs while retaining company activation/routing/policy
+privately. API availability targets and security evidence durability are separate.
+Burst/resource figures are unqualified engineering targets: at 1 KiB per event,
+200k events/s sustained is approximately 17.7 TB/day, outside the 5 TB/day primary
+upper design envelope. Spool/catch-up sizing and archive retrieval behavior are
+explicit. No language rewrite, new dependency, replica/config change or release
+version is introduced. Existing release gates and next payload-pruning task remain.
+
+Documentation acceptance: 13-package boundary guard, 15-requirement/45-case
+detection catalog, 55 vendor cases across 11 families with seven rejection guards,
+sizing arithmetic, local Markdown links and whitespace. No new Rust tests or
+capacity/cloud measurements are claimed. Single-writer review and retained evidence:
+`target/product-architecture-20261007/`.
+
 ## Ingestion architecture audit — 2026-10-07
 
 The owner-requested [audit](26-ingestion-architecture-audit.md) compares the
