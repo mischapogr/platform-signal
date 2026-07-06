@@ -31,6 +31,7 @@ coverage or achieved scale follows from this positioning.
 
 | Decision | Consequence |
 | --- | --- |
+| Minimal SecOps UI is MVP; advanced SOC UX is post-MVP | Embed read-only findings/search/evidence views in the server; defer cases, dispositions, analyst workbenches and automation to bounded follow-on capabilities |
 | Modular Rust monolith remains the default | Keep existing crates and `signal-server`; retain DataFusion/Parquet. No language rewrite for cross-compilation convenience |
 | Four role families: agent, collector, gateway, server | Roles describe placement and permissions, not four mandatory deployments or new binaries today |
 | AWS-native bulk delivery, API polling where necessary | Collector modes cover AWS, SaaS and cluster metadata with independently scoped credentials and queues |
@@ -278,18 +279,29 @@ start with predicates; unusual role use, effective privilege escalation,
 impossible travel and multi-source compromise need additional state/context.
 Keep current [15 detection requirements](source-detection-catalog.md) as the
 executable starting point, then add one evidenced pack capability at a time.
-Record analyst disposition and tuning; share one resource/time/evidence workflow
-between DevOps and SecOps while preserving their permissions.
+After MVP, record analyst disposition and tuning; share one resource/time/evidence
+workflow between DevOps and SecOps while preserving their permissions.
 
 ## 8. Product milestones and explicit exclusions
+
+The owner-selected [SecOps UI contract](28-secops-ui.md) makes minimal read-only
+findings inspection, event search/detail and exact evidence navigation part of
+MVP. It is embedded in `signal-server`, keeps credentials only in page memory,
+uses existing API authorization and requires bounded requests, safe rendering,
+keyboard/responsive behavior and actual-browser/package qualification. UI-01
+implements the shell; UI-02 adds exact-ID navigation and completes qualification.
+Advanced SOC UX—persisted case/incident workflows, assignments, dispositions,
+collaboration, correlation workbenches and automated response—is post-MVP. This
+classification does not imply those backend mechanisms or OIDC/RBAC are present.
 
 The current `0.1.0-dev.0` core and its release checklist remain separate from
 the first operational product scenario. Do not advertise a completed AWS/SaaS
 platform when releasing only a qualified core library/server milestone.
 
-1. **Core qualification:** finish selected bounded coverage-history work and
-   existing ARM64/EKS/CI/released-dependency gates. Keep local design work runnable
-   while external gates are unavailable.
+1. **Core MVP qualification:** implement UI-01, then UI-02 and remaining locally
+   runnable release checks. Existing ARM64/EKS/CI/released-dependency gates remain
+   open until evidenced. Coverage-history pruning/scans are parked as post-MVP
+   PS-01 rather than required core release work.
 2. **AWS operational foundation:** CloudTrail source receipts/coverage, S3 original
    and query publication, baseline predicates, scoped security controls and
    durable finding delivery; prove the full source→evidence→finding→notification
@@ -306,11 +318,13 @@ platform when releasing only a qualified core library/server milestone.
 
 These are product milestones over PS-01–PS-06, not new version assignments or
 permission to provision accounts. [The implementation plan](04-implementation-plan.md)
-still selects one bounded change set at a time. The next existing implementation
-task remains payload-prefix pruning; the first new ingestion design is the
+still selects one bounded change set at a time. The next implementation sequence
+is UI-01 → UI-02 → remaining locally runnable MVP gates, then post-MVP slices.
+Payload-prefix pruning remains PS-01; the first new ingestion design is the
 CloudTrail durable source-receipt/normalization contract.
 
-Initial non-goals: full APM, continuous profiling, RUM, synthetic browser testing,
+Initial non-goals: advanced SOC UX as defined above, full APM, continuous profiling,
+RUM, synthetic browser testing,
 a tracing or custom time-series backend, broad SaaS/plugin catalogs, ML/AI causal
 RCA, multi-cloud parity, universal on-prem support, petabyte query scale, global
 active/active federation, a custom Kafka replacement and license-gated deployment

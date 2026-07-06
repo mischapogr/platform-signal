@@ -7,6 +7,14 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+Minimal SecOps UI is now an owner-selected MVP requirement. UI-01 has local
+embedded-route, browser, real-server/restart and source-export acceptance;
+UI-02 exact event-ID evidence navigation and fresh container/package
+qualification remain open. See [the UI contract](28-secops-ui.md). Advanced SOC
+UX remains post-MVP. The prior 300-test source acceptance is followed by 301
+workspace tests at `target/secops-ui-20261007/`; older images do not qualify the
+new embedded assets.
+
 The current SourceCoverage SDK/store/intake/correction source passes 300 workspace tests and
 the 13-package boundary guard. The preceding source revision's AMD64 image passes container, all six
 supply-chain and native parser/pipeline/120-second-soak gates. The current kind
