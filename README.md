@@ -59,6 +59,11 @@ existing image and retains parser/load reports without another image build.
 The findings endpoint is
 `GET /v1/findings`; Compose was locally qualified on Linux AMD64.
 
+Open `/ui` on the server origin for the embedded read-only SecOps console.
+Connect with the configured API token to inspect findings and search retained
+events. The token stays in page memory. See the [UI contract](docs/28-secops-ui.md)
+for scope, limits and the remaining exact evidence-navigation gate.
+
 This package defines the starting point for an open-source **Signal** observability/security-event platform and a separate private integration layer.
 
 ## Recommended repository split

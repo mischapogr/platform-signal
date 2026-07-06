@@ -39,6 +39,33 @@ Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
 
+## MVP SecOps UI-01 — 2026-10-07
+
+The owner classified minimal SecOps UI as MVP and advanced SOC UX as post-MVP,
+then authorized team execution item by item. The server now embeds `/ui` and fixed
+HTML/CSS/JavaScript assets with same-origin CSP/no-store/nosniff/referrer controls.
+Read-only findings filters/detail and event search/detail use the existing APIs;
+credentials stay in page memory and API authentication remains authoritative.
+Client limits are 100 rows, 8 MiB decoded response and 30 seconds, with pane cancel,
+disconnect cancellation and stale-response guards. Exact raw canonical row slices
+preserve large JSON integers; no original-source authenticity claim is made.
+
+Local acceptance: 301 workspace Rust tests, strict Clippy/fmt, 13-package boundary
+guard, 21 actual-Chromium checks against fixture APIs, four real server/browser
+checks including WAL/Parquet/finding restart, and 24 source-candidate regressions.
+The real server returns exact current source asset bytes. Browser review fixed
+mobile overflow; focused security review fixed a superseded/cancelled 401 race.
+Candidate source closure now includes only the three exact embedded assets and
+two explicit test helpers. No new production crate was added; the test harness
+adds already-locked Tower to server dev dependencies.
+
+Evidence: `target/secops-ui-20261007/` (browser, process-final, Rust logs, candidate
+tests and focused review). Team-owned docs/browser/packaging changes were reviewed
+with one product writer. Next: UI-02 exact event-ID evidence navigation, then
+current-source package/container qualification. PS-01 payload/identity pruning and
+scans remain parked post-MVP. Native ARM64, actual EKS, remote CI, released
+dependencies and publication remain open; this is still `0.1.0-dev.0`.
+
 ## Product architecture baseline — 2026-10-07
 
 The owner-requested [product architecture](27-product-architecture.md) defines

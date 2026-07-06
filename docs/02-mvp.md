@@ -6,7 +6,9 @@ The [product design envelope](27-product-architecture.md) positions this core as
 the foundation for a self-hosted AWS-first log/security telemetry product for
 small and mid-sized teams. Product profiles and production security/HA/S3 goals
 are subsequent qualification milestones; they do not silently expand this core
-MVP's existing release checklist or claim capabilities it lacks.
+MVP's release checklist or claim capabilities it lacks. The owner-selected minimal
+[SecOps UI](28-secops-ui.md) is explicitly added to MVP; advanced SOC UX remains
+post-MVP.
 
 Prove that Signal can provide a useful, low-footprint log/security-event pipeline with a clean OSS/internal extension boundary.
 
@@ -19,6 +21,8 @@ The MVP must answer:
 5. Can simple rules generate findings?
 6. Can a company-specific overlay enrich events and supply private rules without modifying OSS core?
 7. Can the same artifacts run on AMD64 and ARM64?
+8. Can a shared DevOps/SecOps team inspect findings and search evidence through a
+   bounded, accessible interface served by the same server?
 
 ### Security requirements and acceptance boundary — 2026-10-07
 
@@ -69,7 +73,7 @@ post-MVP rather than expanding this release's scope.
 
 ### Security engineer
 
-> As a security engineer, I can define a simple rule in YAML and receive a finding when an event matches.
+> As a security engineer, I can define a simple rule in YAML, inspect persisted findings in the SecOps UI and navigate to their available source-event evidence.
 
 ### Company integrator
 
@@ -167,6 +171,20 @@ Output:
 - severity;
 - title.
 
+### SecOps UI
+
+- embedded same-origin `/ui` shell with no separate frontend service or build;
+- read-only findings filters and complete finding detail/source event IDs;
+- bounded event search and complete canonical event detail;
+- exact event-ID evidence navigation in UI-02;
+- page-memory token only, safe text rendering and restrictive CSP;
+- manual, cancellable requests with finite time/body/result bounds;
+- keyboard access, responsive layout and actual-browser regression qualification.
+
+[UI-01/UI-02](28-secops-ui.md) define the contract and pending acceptance. No
+persisted analyst disposition, case state, correlation workbench or user-management
+capability is implied by this read-only interface.
+
 ### Agent
 
 - file tail;
@@ -190,7 +208,8 @@ Output:
 
 ## 4. Explicitly out of scope for MVP
 
-- UI;
+- advanced SOC UX: cases, assignments, persisted dispositions, analyst collaboration,
+  correlation workbenches and automation/playbooks;
 - distributed search cluster;
 - metrics backend;
 - APM;
@@ -361,7 +380,9 @@ telemetry:
 - matching rule produces finding;
 - non-matching event produces no finding;
 - `demo` enricher attaches company metadata;
-- private `demo` rule executes without OSS modification.
+- private `demo` rule executes without OSS modification;
+- embedded SecOps UI supports findings inspection, bounded event search and exact
+  evidence navigation with browser/security/accessibility acceptance.
 
 ### Operational
 
@@ -409,7 +430,7 @@ telemetry:
 
 5. Private rule matches failed login.
 6. Query original event.
-7. Query emitted finding.
+7. Inspect emitted finding in `/ui` and navigate to its exact available event evidence.
 8. Restart Signal.
 9. Query event/finding again.
 10. Show metrics.

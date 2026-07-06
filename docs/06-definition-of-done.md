@@ -47,6 +47,29 @@ are preparation checks; they do not check any of the open release boxes below.
 
 Evidence: I/B/S/Q/R/A/P in the [audit ledger](21-release-readiness.md#evidence-ledger).
 
+## MVP SecOps UI
+
+Owner-selected addition on 2026-10-07; checked criteria have local UI-01 evidence
+in [progress](07-progress.md), including an actual browser/server gate. The
+[UI contract](28-secops-ui.md) separates UI-01 from UI-02.
+
+- [x] Same-origin `/ui` shell and assets embedded in `signal-server`; no separate
+  frontend runtime/build service or production dependency.
+- [x] Findings filters/detail and bounded event search/complete row detail.
+- [ ] Exact event-ID navigation from finding evidence, with missing/duplicate
+  evidence behavior; substring searches do not satisfy this gate.
+- [x] Page-memory token handling and unchanged API auth enforcement.
+- [x] Safe text rendering, restrictive CSP and faithful large-number evidence.
+- [x] Finite client request deadline, cancellation, 8 MiB body limit and maximum
+  100 results; clear empty/error/loading states and stale-response protection.
+- [x] Actual-browser keyboard, accessible control/focus and responsive regression
+  checks (not a comprehensive accessibility certification).
+- [ ] Container/package checks include embedded UI assets on the reviewed revision.
+
+Read-only inspection does not prove persisted analyst disposition, case state,
+source coverage, protected original evidence, OIDC/RBAC or tenant isolation.
+Advanced SOC UX stays post-MVP. External release evidence remains required.
+
 ## Reliability
 
 - [x] SIGTERM path tested.
@@ -178,7 +201,8 @@ clone repository
 -> send events
 -> query events
 -> trigger a rule
--> query finding
+-> inspect finding in embedded SecOps UI
+-> navigate to exact available event evidence
 -> restart services
 -> verify data remains available
 ```
@@ -188,8 +212,10 @@ OSS source.
 
 ## Post-MVP backlog
 
-Only after `v0.1.0`:
+Only after `v0.1.0` (source-coverage design/library evidence already recorded
+remains valid; it does not move pending post-MVP work into the release gate):
 
+- SourceCoverage payload-prefix pruning, identity pruning and bounded scans;
 - S3-native object store;
 - CloudWatch Logs integration;
 - CloudTrail collection;
@@ -201,7 +227,8 @@ Only after `v0.1.0`:
 - OIDC/RBAC;
 - multi-tenancy;
 - hot index/cache;
-- UI;
+- advanced SOC UX: cases, analyst dispositions/assignments, correlation workbenches,
+  collaboration and automation/playbooks;
 - retention/tiering;
 - metrics ingestion beyond internal operational counters;
 - traces/APM.
