@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+signal_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+signal_mcp_entry="$signal_root/tools/mcp/node_modules/@upstash/context7-mcp/dist/index.js"
+if [[ ! -f "$signal_mcp_entry" ]]; then
+  echo 'Context7 is not installed. Run: npm ci --prefix tools/mcp' >&2
+  exit 1
+fi
+exec node "$signal_mcp_entry" "$@"
