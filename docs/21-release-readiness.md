@@ -1,4 +1,4 @@
-# Release readiness audit — 2026-10-06
+# Release readiness audit — 2026-10-07
 
 The current checkout has local Linux AMD64 mechanism proof through Phase 8 and
 Phase 10 hardening. It is
@@ -7,11 +7,28 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+The current SourceCoverage SDK/store source passes 273 workspace tests and the
+13-package boundary guard. The fresh AMD64 image passes container, all six
+supply-chain and native parser/pipeline/120-second-soak gates. The current kind
+campaign fails before SIGNAL starts: kube-proxy reports `too many open files`,
+and the PVC provisioner cannot reach the cluster API. The prior kind pass is
+historical and does not close the current-image gate. Detailed counts and retained
+paths are in [progress](07-progress.md#vendor-fixtures-and-current-source-release-refresh--2026-10-07).
+
+The public synthetic corpus covers 55 cases across 11 requested source families.
+The private overlay's version now matches `0.1.0-dev.0`; its three tests include
+all 55 real Rust event validations and one intended private IAM finding. This is
+source-path/local proof. The owner authorizes local Conventional Commits on
+`develop` with deliberately assigned July 7 evening Berlin dates; validation
+reports retain actual October 7 times. No revision is pushed, merged to `main`,
+tagged or published; no release version is selected. Local commits close no
+release gate.
+
 ## Evidence ledger
 
 | ID | Observed proof | Exact source or retained artifact |
 | --- | --- | --- |
-| W | Current local OSS formatting, strict all-target Clippy, build and workspace tests: 231 tests, zero failures; boundary gate validates 12 packages | `target/phase10-header-buffer-20261006/workspace-final.json` and `workspace-final-{01..05}.log`; [workspace guard](../scripts/check-workspace.py). Previous 228-test result remains historical. |
+| W | Current local OSS formatting, strict all-target Clippy and locked/offline workspace tests: 273 tests, zero failures; boundary gate validates 13 packages. Includes actual SourceCoverage library process-crash, quota, corruption and cancellation tests. | `target/source-coverage-store-20261007/validation.json`, acceptance logs and `sqlite-build.json`; [workspace guard](../scripts/check-workspace.py). Previous 255/231/228-test results remain historical. |
 | P | Separate private package: two tests; external normal-server process gate preserved one event/finding through SIGKILL and successful SIGTERM | `/tmp/signal-phase7b-private-gates.log`, `/tmp/signal-phase7b-process-gate.log`; [external overlay gate](17-external-overlay.md), [harness](../scripts/check-overlay.py) |
 | I | Single/batch validation, bounded request/queue admission, auth, cancellation, overload and exact partial admission | [HTTP integration tests](../crates/signal-ingest/tests/http.rs), included in W; [ingest API](09-phase1-ingest.md) |
 | B | Real WAL truncation/corruption/restart, bounded count/byte/segment quotas, block timeout, checkpoint I/O failure and replay | [WAL recovery tests](../crates/signal-buffer/tests/recovery.rs), included in W; [WAL contract](10-phase2-wal.md) |
@@ -35,8 +52,8 @@ Phase 9 AWS collection remains post-MVP.
 | X | Final independent source approval: no unresolved findings; campaign/log/test hashes, both benchmark hashes/eight-profile counts, cleanup, storage EEXIST and threat-model/security/upgrade/changelog/audit claims checked | Consolidated review acceptance recorded in [progress](07-progress.md); local source/mechanism scope only |
 | LC | The 2026-10-07 dev0 candidate preview passed local preparation, offline integrity verification, relocated source-path-graph checks and four packaged-chart checks. It preserves the accepted AMD64 image and remains `full_release: false`; this is not alpha, release or remote-dependency evidence. | `target/local-candidate-team-20261007/preview2/` and `preview2-relocated/{validation.json,bundled-offline-verify.json}`; [procedure and scope](23-local-candidate.md). Final candidate export/review is separate. |
 
-W is the current full workspace result: the prior 228-test gate plus three
-Parquet header-read regressions totals 231. Focused F/D/Z and Y results are
+W is the current full workspace result: the prior 231-test gate plus 24
+SourceCoverage SDK and local-store tests totals 273. Focused F/D/Z and Y results are
 already included and must not be added again. Earlier phase counts
 (including the 203-test Phase 6 run) remain historical evidence. The three
 Kubernetes cleanup tests, two standalone health-helper tests and H's one
@@ -45,7 +62,9 @@ Some historical `/tmp` logs have disappeared; their references describe earlier
 observations, not currently retained files. Current W/N and independently repeated
 Z evidence is retained under ignored `target/` and needs preservation before
 cleanup. Both OSS and private repositories were checked
-during this audit: zero index rows and zero commits.
+during the earlier audit: zero index rows and zero commits. That zero-commit state is historical. The public and private repositories now
+have owner-authorized local development histories; the current continuation also
+aligns private versioning and validates the shared corpus. Neither is published.
 
 The earlier 227-test final log records the first agent result separately and an
 interleaved seven-test codec summary. The original combined command exited two
@@ -60,18 +79,20 @@ corrections also passed independent source review and fifteen focused tests,
 separate from the 228 Cargo tests. Earlier approval X remains historical;
 the continuation's acceptance is recorded in progress. Those approvals preceded
 the buffered-reader change; the current reader preserves disk formats. The source
-tree has no committed release revision; report hashes bind
+tree has no committed release revision; the local baseline commits are development
+imports with deliberately assigned historical dates. Report hashes bind
 recorded inputs/artifacts but are unsigned local evidence.
 
 ## Required gates still open
 
 | Gate | Current boundary | Completion evidence needed |
 | --- | --- | --- |
-| Native ARM64 build/runtime/container/Kubernetes and measured hardening benchmarks | Owner confirmed no ARM64 host is available. The refreshed AMD64 image passed container, local kind, Helm, supply-chain, parser/pipeline and 120-second soak gates. No native ARM64 execution observed | Native ARM64 runner logs and reviewed architecture-specific runtime, persistence and benchmark evidence |
-| EKS deployment | Deferred: no authorized EKS environment is available. The owner-selected local Kubernetes milestone is satisfied by the kind 1.34/current standard chart gate, which does not establish actual EKS or AWS storage/runtime behavior. | Actual approved cluster/namespace/storage/image/architecture evidence and persistent restart checks |
+| Native ARM64 build/runtime/container/Kubernetes and measured hardening benchmarks | Owner confirmed no ARM64 host is available. The current AMD64 image passed container, Helm, supply-chain, parser/pipeline and 120-second soak gates; its kind run is blocked before application startup. No native ARM64 execution observed | Native ARM64 runner logs and reviewed architecture-specific runtime, persistence and benchmark evidence |
+| Current local kind deployment | Three attempts timed out on the PVC; owned-cluster diagnosis records kube-proxy `too many open files` and provisioner API timeout. Prior image proof is historical | Restore host-resource preconditions and pass the current-image standard-chart persistence/restart gate |
+| EKS deployment | Deferred: no authorized EKS environment is available. The preceding kind milestone was local proof; the fresh kind gate is currently blocked by host-resource exhaustion. Neither establishes EKS or AWS storage/runtime behavior. | Actual approved cluster/namespace/storage/image/architecture evidence and persistent restart checks |
 | Remote CI | Workflow source and local checks pass; no pushed revision/job execution | Successful required native jobs and retained report artifacts for the reviewed revision |
 | Released external dependency | Private application uses separate checkout/source-path dependencies | External application build/test against the actual released version and locked dependency graph |
-| Release artifacts/publication | Owner asked to hold staging, commits, pushes and publication until an alpha or first minor release is ready; no version has been selected or bumped | Qualified release artifacts after required gates pass and the owner-directed release workflow; ARM64, EKS, remote CI and released dependencies remain external gates |
+| Release artifacts/publication | Owner authorized local commits on `develop`; push/publication remain unapproved. No release version was selected or bumped; `main` receives changes only when release ready | Qualified release artifacts after required gates pass and the owner-directed release workflow; ARM64, EKS, remote CI and released dependencies remain external gates |
 
 ## Security and operational limits
 

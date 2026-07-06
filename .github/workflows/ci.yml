@@ -52,6 +52,8 @@ jobs:
           python3 scripts/test-hardening.py
           python3 scripts/test-native-qualification.py
           python3 scripts/test-soak.py
+          python3 scripts/test-local-candidate.py
+          python3 scripts/check-log-samples.py --self-test
       - name: Benchmark harness smoke
         run: cargo bench -p signal-server --bench harness --locked
       - name: Install pinned Kubernetes tools

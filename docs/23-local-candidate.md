@@ -2,9 +2,9 @@
 
 This procedure prepares a bounded, unsigned local evidence bundle for the
 current development snapshot. It is not an alpha, a release candidate, a
-registry-ready package or evidence that `v0.1.0` is ready. The owner has asked
-to hold staging, commits, pushes and publication until an alpha or first minor
-release is ready; no version is selected or bumped here.
+registry-ready package or evidence that `v0.1.0` is ready. The owner now permits
+local Conventional Commits on develop; pushes/publication remain on hold. No
+release version is selected or bumped here.
 
 The tool does not build, pull, tag, load or publish an image. On native Linux
 AMD64, it inspects and saves the exact already-present image ID accepted by the
@@ -89,9 +89,9 @@ archive and is not present in the server image, which contains the qualified
 server/agent image inputs. Preparation changes and the previously accepted
 runtime evidence remain separate in the manifest.
 
-The accepted runtime image and local Kubernetes proof are Linux AMD64/kind
-evidence. The owner-selected local Kubernetes milestone is complete with kind
-1.34 and the standard chart, but this does not establish actual EKS or AWS
+The preceding runtime image and kind proof are historical Linux AMD64 evidence.
+The refreshed current-image kind gate is open due to host-resource exhaustion;
+no local kind result establishes actual EKS or AWS
 storage/runtime behavior. Native ARM64, actual EKS, remote CI, released
 dependencies and publication remain separate release gates. Keep the
 bundle local and unpublished under the owner's release hold.
@@ -129,3 +129,20 @@ The exact tool contract and bounds are in
 candidate evidence and completion status are recorded in
 [`07-progress.md`](07-progress.md) and the
 [`release-readiness audit`](21-release-readiness.md).
+
+## Current workspace export — 2026-10-07
+
+The exporter accepts the frozen historical 12-package graph and current
+13-package graph, rejecting undeclared members and missing literal compile-time
+`include_str!`/`include_bytes!` inputs. Six explicitly named contract/catalog JSON
+files and the fixed public vendor sample inventory are included. Arbitrary fixture
+JSON, private sample directories and company policy remain excluded. Fresh accepted
+release evidence may be selected from `target/release-gates-20261007/accepted`;
+task/usage/private reports outside that directory remain local and excluded.
+
+Twenty-one helper regressions and the historical preview's offline verification
+pass. An actual source export passed all 53 SDK/store tests plus offline metadata
+and three contract/catalog checks. The refreshed AMD64 runtime is qualified only
+for passing container/native/supply-chain scopes; its kind infrastructure gate is
+open. Current bundle preparation is unsigned local evidence, not an independent
+review or any of the deferred release gates.

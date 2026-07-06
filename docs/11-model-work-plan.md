@@ -29,22 +29,36 @@ these rows do not authorize parallel agents or blanket cloud implementation.
 
 | Next task scope | Recommended new-task route | Required acceptance boundary |
 | --- | --- | --- |
-| PS-01 bounded SourceCoverage semantic validator/assessment; contract accepted offline | Sol 6.1/medium or Sonnet/medium | Execute byte/interval/profile/freshness cases and planned assessments; no observer or production collection claim |
+| PS-01 trusted local SourceCoverage intake and exact-byte original-receipt replay | Sol/high for authority/retry/clock decisions | Existing [ADR-015](adr/015-source-coverage-store.md) library; authorize exact observer/full binding on writes and retries; checked admission-age/retention policy; old pinned profile replay, changed-byte conflict, no receipt/deadline/clock renewal or cross-scope disclosure. Correction admission, pruning and scans follow separately; no HTTP/server/cloud wiring |
 | PS-02 one source normalizer and predicate profile | Sol 6.1/medium or Sonnet/medium | Current source docs, original synthetic payload fixtures, field/type/provenance checks, missing/duplicate cases; authorized environment separately |
 | PS-03 public cursor runtime; private durable outbox as a separate task | Sol/high for replay/cursor/atomicity | Existing [25](25-findings-cursor-proposal.md) contract; divergent restore and delivery uncertainty; private paths need their own writable scope |
 | PS-04 one evidence/store publication contract or adapter | Sol/high for integrity/commit/recovery | Independent evidence authority, version/proof reference, retention permission and failure acceptance; no cloud provisioning from this design task |
 | PS-05 one window operator or state lookup; PS-06 one correlation | Sol/high for durability/event-time/replay | Finite key/event/byte/TTL bounds, lateness/dedup, revisioned inputs and crash-consistent findings/state/checkpoint |
 | Settled docs and evidence summaries | Luna/low or Haiku when launching a separate task | Preserve accepted behavior/evidence scope; no model switch in an active task |
 
-PS-01's [schema/fixture contract](source-coverage-contract.md) is now written and
-checked offline. Select the bounded semantic validator/assessment function next,
-with the existing medium implementation route and focused high-effort review for
-time/bounds/error handling as appropriate to a new task. Do not launch additional
-agents without current user authorization. An observer/store and live source
-coverage are still unimplemented; production state/retention/fencing is separate.
+PS-01's [schema/fixture contract](source-coverage-contract.md) and pure SDK
+validator/assessment are accepted locally: 24 new integration tests, 255 workspace
+tests, all 60 record cases/39 assessments/seven transition sequences executed.
+The [intake/history contract](source-coverage-history-contract.md) now has 16
+requirements, 12 candidate encodings and 56 planned history cases, checked offline
+with 24 rejection guards. [ADR-015](adr/015-source-coverage-store.md) now selects
+SQLite on one worker and freezes profile/binding/commit/prefix/state/identity
+encodings. Reference acceptance has 33 rejection guards, four relationship checks
+and 13 system-SQLite mechanics checks. It does not execute the 56 history cases
+or qualify the complete history state machine. The bounded library slice is now
+accepted with 18 focused tests, 273 workspace tests and a 13-package boundary
+guard. It covers initialization/ownership, golden encodings, atomic prepared
+append, trusted inspection, process recovery, corruption, quota and cancellation
+semantics. Implement the trusted intake/retry slice above next. Do not launch
+additional agents without current user authorization. An observer and live source
+coverage remain unimplemented; production state/retention/fencing is separate.
 
-Keep no-stage/no-commit/publication instructions, existing Standard speed and one
-writer. Record task-specific usage/elapsed/corrections and qualify external
+Develop on `develop`; `main` merges require completed release readiness. The owner
+authorized three local baseline commits on 2026-10-07, with deliberately assigned
+2026-07-07 evening metadata at 15-minute intervals, then explicitly authorized
+commits for the validator/library, release tooling and public/private samples.
+Push/publication still need their own authority. Keep existing
+Standard speed and one writer. Record task-specific usage/elapsed/corrections and qualify external
 ARM64/EKS/CI/released-dependency evidence separately.
 
 ## Objective and billing basis
@@ -324,8 +338,9 @@ duplicate provider implementation, paid comparison inference, global model/speed
 setting change or subscription purchase occurred. Per-agent usage/token cost is
 not exposed in this session; no dollar saving is asserted.
 
-The owner asked to hold staging, commits, pushes and publication until an alpha
-or first minor release is ready; no version has been selected or bumped. Phase 9
+The earlier hold on baseline commits was superseded on 2026-10-07 by explicit
+local commit authorization, extended to the current validator/library and
+public/private samples. Push, publication and release remain unapproved. No release version has been selected or bumped. Phase 9
 AWS collection follows the release gate; parsers can use Sonnet medium, while IAM,
 network collection and live tests need current docs and separately supplied environment.
 

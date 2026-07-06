@@ -7,6 +7,7 @@ import hashlib
 import io
 import json
 import os
+import posixpath
 from pathlib import Path, PurePosixPath
 import platform
 import re
@@ -29,13 +30,23 @@ ARTIFACTS = ('source.tar.gz', 'signal-0.1.0.tgz', 'evidence.tar.gz', 'image.tar'
 TOP_FILES = {'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'LICENSE', '.dockerignore', '.gitignore',
              'AGENTS.md', 'CLAUDE.md', 'README.md', 'BENCHMARKS.md', 'CHANGELOG.md', 'CODE_OF_CONDUCT.md',
              'CONTRIBUTING.md', 'SECURITY.md', 'UPGRADING.md', 'docker-compose.yml'}
-CRATES = ('event', 'protocol', 'ingest', 'buffer', 'storage', 'query', 'rules', 'findings', 'collector-sdk')
+CRATES = ('event', 'protocol', 'ingest', 'buffer', 'storage', 'query', 'rules', 'findings', 'collector-sdk', 'coverage')
 MEMBERS = tuple('crates/signal-' + name for name in CRATES) + tuple('apps/' + name for name in ('signal-server', 'signal-agent', 'signalctl'))
+LEGACY_MEMBERS = tuple(name for name in MEMBERS if name != 'crates/signal-coverage')
+FIXTURE_FILES = {'schemas/source-coverage.schema.json', 'schemas/source-coverage-profile.schema.json',
+                 'tests/fixtures/security-requirements/catalog.json', 'tests/fixtures/source-coverage/contract.json',
+                 'tests/fixtures/source-coverage/history.json', 'tests/fixtures/source-coverage/backend-vectors.json'}
+SAMPLE_FILES = {'examples/logs/' + name for name in (
+    'README.md', 'manifest.json', 'canonical.ndjson', 'ingest-batch.json',
+    'aws-cloudtrail.json', 'aws-cloudwatch.json', 'aws-rds.json', 'aws-alb.json',
+    'aws-nlb.json', 'aws-eks.json', 'aws-ecs.json', 'cloudflare.json', 'office365.json',
+    'cato-vpn.json', 'fortigate.json')}
 CHART_FILES = {'Chart.yaml', 'README.md', 'values.yaml', 'values.schema.json',
                'templates/_helpers.tpl', 'templates/configmap.yaml', 'templates/deployment.yaml',
                'templates/pdb.yaml', 'templates/pvc.yaml', 'templates/service.yaml', 'templates/servicemonitor.yaml'}
 EVIDENCE_ROOTS = ('target/phase10-header-buffer-20261006', 'target/phase10-longer-soak-20261006/review',
-                  'target/phase10-longer-buffered-20261006', 'target/phase10-query-reads-20261006')
+                  'target/phase10-longer-buffered-20261006', 'target/phase10-query-reads-20261006',
+                  'target/release-gates-20261007/accepted')
 AWS_REPORT = 'target/release-tools-20261006/installation.json'
 HASH = re.compile(r'[0-9a-f]{64}')
 
@@ -50,6 +61,8 @@ def safe_name(name):
 def source_allowed(name):
     safe_name(name)
     if name in TOP_FILES or name == '.github/workflows/ci.yml':
+        return True
+    if name in FIXTURE_FILES or name in SAMPLE_FILES:
         return True
     parts = name.split('/')
     if any(part.startswith('.') or part in ('private', 'node_modules', 'data', 'target') for part in parts):
@@ -444,17 +457,27 @@ def run(command, record, timeout=30, bounded_file=None, cap=IMAGE_CAP):
 
 def validate_workspace(source_files, read_text):
     cfg = tomllib.loads(read_text('Cargo.toml'))
-    if cfg['workspace']['package']['version'] != VERSION or set(cfg['workspace']['members']) != set(MEMBERS):
+    members = cfg['workspace']['members']
+    if cfg['workspace']['package']['version'] != VERSION or frozenset(members) not in (frozenset(MEMBERS), frozenset(LEGACY_MEMBERS)) or len(members) != len(set(members)):
         raise RuntimeError('workspace version/member mismatch')
     required = {'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', 'LICENSE', 'benchmarks/harness.rs',
                 'benchmarks/pipeline.py', 'benchmarks/soak.py', 'rules/examples/login-failure.yaml',
-                'deploy/docker/healthcheck.rs', 'tests/integration/foundation.rs'} | {name + '/Cargo.toml' for name in MEMBERS}
+                'deploy/docker/healthcheck.rs', 'tests/integration/foundation.rs'} | {name + '/Cargo.toml' for name in members}
     if not required <= set(source_files):
         raise RuntimeError('source archive lacks required workspace inputs')
-    for member in MEMBERS:
+    if any(name.startswith(member + '/') for member in set(MEMBERS) - set(members) for name in source_files):
+        raise RuntimeError('undeclared workspace member in source')
+    for member in members:
         config = tomllib.loads(read_text(member + '/Cargo.toml'))
         if config['package'].get('publish') is not False:
             raise RuntimeError('package publish policy differs from unpublished contract')
+    for name in source_files:
+        if name.endswith('.rs'):
+            for reference in re.findall(r'include_(?:str|bytes)!\s*\(\s*"([^"\n]+)"', read_text(name)):
+                included = posixpath.normpath(str(PurePosixPath(name).parent / reference))
+                safe_name(included)
+                if included not in source_files:
+                    raise RuntimeError('missing compile-time source input: ' + included)
 
 
 def bind_review(review, root):
@@ -470,6 +493,23 @@ def bind_review(review, root):
             regular(root / name, root)
             if file_info(root / name, EVIDENCE_CAP)['sha256'] != digest:
                 raise RuntimeError('review binding changed: ' + name)
+
+
+def normalize_image_report(value):
+    """Normalize one bound report or Docker's one-image inspection array."""
+    if isinstance(value, list):
+        if len(value) != 1:
+            raise RuntimeError('image inspection must describe exactly one image')
+        value = value[0]
+    if isinstance(value, dict):
+        value = value.get('image', value)
+    if not isinstance(value, dict):
+        raise RuntimeError('unsupported image report shape')
+    if {'id', 'os', 'architecture'} <= value.keys():
+        return {key: value[key] for key in ('id', 'os', 'architecture')}
+    if {'Id', 'Os', 'Architecture'} <= value.keys():
+        return {'id': value['Id'], 'os': value['Os'], 'architecture': value['Architecture']}
+    raise RuntimeError('image report lacks identity or architecture')
 
 
 def exclusions(evidence, root):
@@ -551,7 +591,7 @@ def prepare(image_id, review_path, output, root=ROOT):
                 'image': {'id': image_id, 'source_snapshot_exact': False},
                 'limits': {'source_bytes': SOURCE_CAP, 'evidence_bytes': EVIDENCE_CAP,
                            'image_bytes': IMAGE_CAP, 'archive_files': FILE_COUNT},
-                'evidence_selection_scope': 'Positive suffix selection in four specifically retained Phase10 directories plus AWS installation JSON; not full historical/tooling closure.',
+                'evidence_selection_scope': 'Positive suffix selection in specifically retained Phase10/current accepted release-gate directories plus AWS installation JSON; not full historical/tooling closure.',
                 'runtime_contents': ['signal-server', 'signal-agent', 'signal-healthcheck'], 'signalctl_source_only': True,
                 'source_image_relation': 'Current source preparation snapshot; runtime image predates new preparation scripts/documentation.'}
     write_json(output / 'candidate.json', manifest)
@@ -567,7 +607,7 @@ def prepare(image_id, review_path, output, root=ROOT):
         matching = []
         for name in image_reports:
             value = read_json(root / name)
-            candidate = value.get('image', value)
+            candidate = normalize_image_report(value)
             if candidate.get('id') == image_id and candidate.get('architecture') == 'amd64' and candidate.get('os') == 'linux':
                 matching.append(name)
         if not matching:
@@ -587,7 +627,7 @@ def prepare(image_id, review_path, output, root=ROOT):
         if origin['image']['id'] != image_id or not HASH.fullmatch(origin['binary_sha256']):
             raise RuntimeError('accepted binary/image origin mismatch')
         manifest['image']['binary_sha256'] = origin['binary_sha256']
-        source = collect(root, tuple(TOP_FILES) + ('.github/workflows/ci.yml', 'apps', 'crates', 'benchmarks', 'docs', 'scripts', 'tests/integration', 'rules', 'deploy'), source_allowed)
+        source = collect(root, tuple(TOP_FILES) + ('.github/workflows/ci.yml', 'apps', 'crates', 'benchmarks', 'docs', 'scripts', 'tests/integration', 'tests/fixtures', 'schemas', 'examples/logs', 'rules', 'deploy'), source_allowed)
         validate_workspace(source, lambda name: (root / name).read_text())
         snapshot_names = [name for name in review['artifact_sha256'] if name.endswith('/source-snapshot.json')]
         if len(snapshot_names) != 1:
@@ -705,7 +745,7 @@ def verify(output):
     for name in review['artifact_sha256']:
         if name.endswith('/image.json'):
             image_report = archived_json(output / 'evidence.tar.gz', 'evidence/' + name)
-            image = image_report.get('image', image_report)
+            image = normalize_image_report(image_report)
             if image.get('id') == image_id and image.get('os') == 'linux' and image.get('architecture') == 'amd64':
                 bound_image = True
     if not bound_image:

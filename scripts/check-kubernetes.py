@@ -13,6 +13,7 @@ from pathlib import Path
 import secrets
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 import urllib.error
@@ -217,6 +218,27 @@ class Gate:
             if self.cluster_attempted:
                 self.run([self.args.kind, "delete", "cluster", "--name", self.name], timeout=120)
 
+    def failure_diagnostics(self):
+        """Read bounded diagnostics from this gate's namespace before cleanup."""
+        result = {}
+        for label, namespace, args in (
+            ("pods", "gate", ["get", "pods", "-o", "wide"]),
+            ("claims", "gate", ["get", "pvc", "-o", "wide"]),
+            ("events", "gate", ["get", "events", "--sort-by=.metadata.creationTimestamp"]),
+            ("logs", "gate", ["logs", "-l", "app.kubernetes.io/instance=proof", "--all-containers", "--tail=50"]),
+            ("system_pods", "kube-system", ["get", "pods", "--all-namespaces", "-o", "wide"]),
+            ("provisioner", "local-path-storage", ["logs", "deployment/local-path-provisioner", "--tail=50"]),
+        ):
+            try:
+                output = self.run([self.args.kubectl, "--context", "kind-" + self.name,
+                                   "--namespace", namespace, *args], timeout=10)
+            except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
+                output = str(error)
+            output = output.replace(self.token, "[redacted]")
+            output = output.replace(base64.b64encode(self.token.encode()).decode(), "[redacted]")
+            result[label] = output[-10000:]
+        return result
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -230,6 +252,11 @@ def main():
         gate = Gate(args, directory)
         try:
             report = gate.execute()
+        except Exception:
+            if gate.cluster_attempted:
+                print(json.dumps({"status": "failed", "diagnostics": gate.failure_diagnostics()}),
+                      file=sys.stderr)
+            raise
         finally:
             gate.cleanup()
         print(json.dumps(report))

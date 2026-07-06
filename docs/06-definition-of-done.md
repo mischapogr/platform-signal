@@ -1,6 +1,6 @@
 # MVP Definition of Done
 
-`v0.1.0` is ready only when all required items below pass. As of 2026-10-06,
+`v0.1.0` is ready only when all required items below pass. As of 2026-10-07,
 checked boxes mean observed **local Linux AMD64** proof, with evidence IDs from
 [the release audit](21-release-readiness.md). Native ARM64, EKS, remote CI and
 released external dependencies remain open. This checkout is `0.1.0-dev.0`;
@@ -8,10 +8,12 @@ it is not a released or production-qualified version.
 
 The owner confirmed that native ARM64 and an authorized EKS environment are
 unavailable and selected a minimal local Kubernetes target for the current
-milestone. K records the passing owned kind cluster. Actual ARM64 and EKS
-release qualification below remains deferred and unverified.
-Git staging, commits, pushes and publication remain on hold until the first
-minor release or alpha is ready, as requested by the owner. This local
+milestone. K records the preceding-image kind pass; the current-image kind
+refresh fails before application startup because kube-proxy exhausts host resources.
+Actual ARM64 and EKS qualification remains deferred and unverified.
+The owner explicitly authorized local staging/Conventional Commits on develop
+on October 7, with assigned July evening Berlin dates. Pushes and publication
+remain on hold pending their own authority. This local
 acceptance does not change the development version or complete the full release
 gates below.
 
