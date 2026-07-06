@@ -29,8 +29,10 @@ The first five predicate requirements fit the current engine after external
 normalization. Their synthetic fixtures are executable against `signal-server`.
 The SDK now validates SourceCoverage assertions and assesses current/historical
 coverage as a pure local mechanism; see the [accepted contract](source-coverage-contract.md).
-Real source adapters, observers and durable coverage history, independent protected-evidence
-storage, window/state/correlation, alert delivery and SecOps feedback remain
+The standalone coverage library also implements bounded history append/recovery,
+authorized intake/retry and immutable corrections; pruning/scans and runtime
+integration remain incomplete. Real source adapters and observers, independent
+protected-evidence storage, window/state/correlation, alert delivery and SecOps feedback remain
 post-MVP work. An absent finding is not proof that collection was healthy or that
 no suspicious activity occurred. HTTP 202 continues to mean synced WAL admission,
 not archive validation, completed detection or notification.
@@ -41,6 +43,11 @@ asset classifications, actual detections, retention durations and SecOps policy
 remain private. The [derived roadmap](04-implementation-plan.md#security-requirements-roadmap)
 adds bounded tasks without turning every logical component into a service or
 expanding the current release definition of done.
+
+The [ingestion architecture audit](26-ingestion-architecture-audit.md) evaluates
+AWS-native delivery, EKS, SaaS and site syslog against this implemented baseline.
+It preserves the v1 envelope and monolith; its proposed source sequence remains
+post-MVP rather than expanding this release's scope.
 
 ---
 
