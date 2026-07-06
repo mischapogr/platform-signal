@@ -348,6 +348,9 @@ impl HistoryBinding {
     pub fn encoded(&self) -> &[u8] {
         &self.bytes
     }
+    pub fn observer_id(&self) -> &str {
+        &self.wire.observer_id
+    }
     pub(crate) fn profile_matches(&self, p: &ProfileDefinition) -> bool {
         self.wire.coverage_profile.id == p.id()
             && self.wire.coverage_profile.revision == p.revision()

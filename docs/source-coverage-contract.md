@@ -264,8 +264,9 @@ written with 56 planned storage cases and offline rejection guards.
 [ADR-015](adr/015-source-coverage-store.md) now records the bounded local SQLite
 library, frozen format/prefix vectors and actual process-crash, quota, corruption
 and cancellation acceptance. The complete history state machine remains
-unimplemented. Next add trusted local intake and exact-byte original-receipt replay;
-corrections, pruning and scans follow separately.
+unimplemented. Trusted local application-grant intake and exact-byte original
+receipt replay now pass 31 focused library tests. Bounded correction admission is
+next; pruning and scans follow separately.
 
 An observer, complete durable coverage history, source adapter, server API, detection negative
 assessment and independent security-account reporting remain later tasks. Native

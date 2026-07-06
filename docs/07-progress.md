@@ -11,8 +11,8 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 273, including 24 SDK SourceCoverage tests and 18 local-store
-tests. The current AMD64 image has refreshed container, Helm, supply-chain and native
+workspace gate has 286, including 24 SDK SourceCoverage tests and 31 local-store/intake
+tests. The preceding source revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
 resource exhaustion before the application starts; the preceding image retains
 its passing kind evidence. The native CI matrix
@@ -38,6 +38,56 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## SourceCoverage trusted intake and original-receipt replay — 2026-10-07
+
+The next PS-01 library slice adds `submit`, `retry` and `get_authorized` to the
+existing bounded SQLite worker. An application supplies a fresh grant only after
+authenticating the observer and authorizing the complete binding. The library
+checks the original full binding before disclosing retained bytes or receipts;
+it provides no credential/revocation service. Low-level prepared append/inspection
+remain trusted primitives. No server, agent, collector or private overlay is wired
+to this store.
+
+New assertions enforce observed-time admission age and configured/profile skew.
+Finite unsigned-second retention durations receive fixed checked deadlines with
+nanosecond precision. Fresh reports about expired verification and valid failed,
+partial, unknown or unsupported assertions remain historical evidence. Retained
+identical bytes/link replay the original receipt even with a retired profile or
+full new-write quota; changed bytes conflict. Receipts cannot renew sequence,
+deadlines, verification or clock floor. Backward receiver time rejects intake;
+authorized historical reads remain available. Explicit retry rejects missing or
+divergent history, positions, prefixes or immutable metadata instead of admitting
+the record again. New `replayed` and existing rejection counters distinguish these
+outcomes without deriving current source health.
+
+All 31 focused tests and 286 workspace tests pass locally on Linux AMD64, along
+with formatting, strict all-target Clippy and the 13-package boundary guard.
+Thirteen new real-SQLite regressions cover all ten binding dimensions, exact-byte
+receipt roundtrip, concurrent duplicate admission, quota/restart, retired/conflicting
+profiles, nongreen history, age/skew/deadline nanoseconds, receiver regression,
+policy overflow and missing/divergent references. The existing SIGKILL test now
+replays the recovered lost-response receipt; queued cancellation exercises intake.
+Frozen encodings, root build inputs and dependency graph remain unchanged.
+One-writer review covers all 14 areas; it is not independent review.
+
+The restricted workspace attempt failed on existing local socket/stream tests;
+the permitted local rerun passes. Workspace feature unification exposed an
+ambiguous compact-JSON test fixture; explicitly changed formatting now guarantees
+the intended byte conflict. Review also ensures rejected preflight receipts are
+counted. Evidence, actual October 7 times, usage and handoff:
+`target/source-coverage-intake-20261007/`. One local Conventional Commit on
+`develop` uses both deliberately assigned July 7 21:00 Berlin Git dates, following
+the private commit by fifteen minutes. Push, main merge, tag and publication remain
+separate.
+
+Correction admission is next; prefix pruning and frontier scans follow as separate
+bounded tasks. The complete 56 planned history outcomes are not qualified. Source
+observers, current-health supervision, credentials, protected S3 evidence and cloud
+wiring remain separate. Prior image/candidate reports bind their earlier source
+revision and remain historical; this host-library acceptance does not refresh them.
+Current kind, native ARM64, actual EKS, remote CI, released-dependency and publication
+gates remain open. Versions remain `0.1.0-dev.0` in both public and private packages.
 
 ## Vendor fixtures and current-source release refresh — 2026-10-07
 
@@ -135,7 +185,8 @@ independent review. New dependencies/build inputs require refreshed image,
 supply-chain and native qualification; prior campaigns remain historical.
 
 Evidence is retained in `target/source-coverage-store-20261007/`, including task,
-validation, dependency build, review, usage and handoff records. Next implement
+validation, dependency build, review, usage and handoff records. At that acceptance,
+the next item was to implement
 trusted local intake/authorization, checked report-age/retention policy and exact
 original-byte receipt replay without renewing deadlines or sequence. Correction
 admission, prefix pruning and scans are separate tasks. The 56 history outcomes
