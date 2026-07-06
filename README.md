@@ -1,4 +1,15 @@
-# PLATFORM::SIGNAL — OSS + External Overlay MVP Starter Pack
+# PLATFORM::SIGNAL
+
+SIGNAL targets small and mid-sized AWS-centric organizations whose DevOps and
+SecOps teams need shared log/security-event visibility with low operating effort.
+The product direction is logs, security events, infrastructure context, search,
+actionable detections and alerts, with S3-backed retention and selective query
+acceleration. The current development core implements only part of that direction.
+
+The [product architecture](docs/27-product-architecture.md) defines the target
+customer, Small/Standard/Scale profiles, reliability objectives, resource budgets,
+security requirements and non-goals. These are design and qualification targets,
+not measured capacity or currently available HA/S3 capabilities.
 
 ## Implementation status
 

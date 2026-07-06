@@ -2,6 +2,12 @@
 
 ## 1. MVP objective
 
+The [product design envelope](27-product-architecture.md) positions this core as
+the foundation for a self-hosted AWS-first log/security telemetry product for
+small and mid-sized teams. Product profiles and production security/HA/S3 goals
+are subsequent qualification milestones; they do not silently expand this core
+MVP's existing release checklist or claim capabilities it lacks.
+
 Prove that Signal can provide a useful, low-footprint log/security-event pipeline with a clean OSS/internal extension boundary.
 
 The MVP must answer:

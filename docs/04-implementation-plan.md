@@ -544,6 +544,15 @@ But the event model, WAL semantics and storage schema should stabilize before br
 
 ## Security requirements roadmap
 
+The [product architecture baseline](27-product-architecture.md) constrains these
+tasks to a small operational footprint and a shared DevOps/SecOps workflow. The
+product sequence is core qualification → AWS operational foundation/Small pilot
+→ qualified Standard profile → selected external sources → measured Scale
+separation. Standard's PostgreSQL control store, object-backed custody and fenced
+ownership require dedicated design/acceptance before any replica increase.
+Generic baseline packs are public reusable content; actual policy remains private.
+Resource/scale figures are workload-defined targets, not existing support claims.
+
 Added 2026-10-07 from the owner-requested
 [15-detection catalog](source-detection-catalog.md),
 [logical architecture](logical-architecture.md) and
