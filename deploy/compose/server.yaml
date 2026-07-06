@@ -1,0 +1,31 @@
+schema_version: 1
+server:
+  listen: "0.0.0.0:8080"
+  shutdown_timeout: "10s"
+ingest:
+  max_request_bytes: 1048576
+  max_batch_events: 1000
+buffer:
+  memory_events: 10000
+  memory_bytes: 67108864
+  wal_directory: /var/lib/signal/wal
+  max_wal_bytes: 268435456
+  admission_policy: reject_new
+storage:
+  type: parquet
+  directory: /var/lib/signal/events
+  flush_events: 1000
+  flush_interval: "1s"
+  max_disk_bytes: 1073741824
+  compression: snappy
+rules:
+  directories: [/etc/signal/rules]
+findings:
+  directory: /var/lib/signal/findings
+  max_disk_bytes: 268435456
+  max_findings: 100000
+telemetry:
+  metrics_listen: "0.0.0.0:9090"
+  queue_records: 1024
+  queue_bytes: 1048576
+  max_record_bytes: 8192

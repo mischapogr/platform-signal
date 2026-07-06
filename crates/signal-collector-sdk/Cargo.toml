@@ -1,0 +1,22 @@
+[package]
+name = "signal-collector-sdk"
+description = "Generic Collector and Enricher extension points."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+signal-event.workspace = true
+signal-protocol.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true

@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "signal.name" . }}
+  labels:
+    {{- include "signal.labels" . | nindent 4 }}
+data:
+  server.yaml: |
+    schema_version: 1
+    server:
+      listen: "0.0.0.0:{{ .Values.service.port }}"
+      shutdown_timeout: "10s"
+    ingest:
+      max_request_bytes: {{ .Values.limits.requestBytes | int64 }}
+      max_batch_events: {{ .Values.limits.batchEvents | int64 }}
+    buffer:
+      memory_events: {{ .Values.limits.memoryEvents | int64 }}
+      memory_bytes: {{ .Values.limits.memoryBytes | int64 }}
+      wal_directory: /var/lib/signal/wal
+      max_wal_bytes: {{ .Values.limits.walBytes | int64 }}
+      admission_policy: reject_new
+    storage:
+      type: parquet
+      directory: /var/lib/signal/events
+      max_disk_bytes: {{ .Values.limits.storageBytes | int64 }}
+      flush_interval: "1s"
+      compression: snappy
+    query:
+      memory_bytes: {{ .Values.limits.queryMemoryBytes | int64 }}
+      max_concurrent: {{ .Values.limits.queryConcurrency | int64 }}
+    rules:
+      directories: {{ if .Values.rules.existingConfigMap }}[/etc/signal/rules]{{ else }}[]{{ end }}
+    findings:
+      directory: /var/lib/signal/findings
+      max_disk_bytes: {{ .Values.limits.findingsBytes | int64 }}
+    telemetry:
+      metrics_listen: "0.0.0.0:{{ .Values.service.metricsPort }}"
+      queue_records: 1024
+      queue_bytes: 1048576
+      max_record_bytes: 8192

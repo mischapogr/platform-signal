@@ -1,0 +1,76 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/signal-event",
+    "crates/signal-protocol",
+    "crates/signal-ingest",
+    "crates/signal-buffer",
+    "crates/signal-storage",
+    "crates/signal-query",
+    "crates/signal-rules",
+    "crates/signal-findings",
+    "crates/signal-collector-sdk",
+    "apps/signal-server",
+    "apps/signal-agent",
+    "apps/signalctl",
+]
+
+[workspace.package]
+version = "0.1.0-dev.0"
+edition = "2024"
+rust-version = "1.94"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+libc = "0.2"
+serde-saphyr = { version = "1", default-features = false, features = ["deserialize"] }
+object_store = { version = "=0.13.2", default-features = false }
+async-trait = "0.1"
+bytes = "1"
+url = "2"
+datafusion = { version = "=55.1.0", default-features = false, features = ["parquet", "string_expressions"] }
+futures-util = "0.3"
+futures = { version = "0.3", default-features = false, features = ["executor", "std"] }
+serde_urlencoded = "0.7"
+arrow = { version = "=59.2.0", default-features = false }
+parquet = { version = "=59.2.0", default-features = false, features = ["arrow", "snap", "zstd"] }
+futures-core = "0.3"
+axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "serde"] }
+crc32fast = "1.5"
+tempfile = "3"
+hyper = { version = "1", features = ["http1", "server"] }
+hyper-util = { version = "0.1", features = ["tokio", "service"] }
+http-body-util = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["arbitrary_precision"] }
+thiserror = "2"
+subtle = "2.6"
+tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread", "net", "io-util", "signal", "sync", "time"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+tokio-stream = "0.1"
+tower = { version = "0.5", features = ["util"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "json", "registry"] }
+uuid = { version = "1", features = ["v4", "v5", "serde"] }
+signal-event = { path = "crates/signal-event" }
+signal-protocol = { path = "crates/signal-protocol" }
+signal-ingest = { path = "crates/signal-ingest" }
+signal-buffer = { path = "crates/signal-buffer" }
+signal-storage = { path = "crates/signal-storage" }
+signal-query = { path = "crates/signal-query" }
+signal-rules = { path = "crates/signal-rules" }
+signal-findings = { path = "crates/signal-findings" }
+signal-collector-sdk = { path = "crates/signal-collector-sdk" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

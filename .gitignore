@@ -1,0 +1,14 @@
+/target/
+/data/
+/tools/mcp/node_modules/
+/.idea/
+/.setting.app/
+/.setting.shop/
+/.claude/.cc-writes/
+/.claude/settings.local.json
+/.env
+/.env.*
+!/.env.example
+*.profraw
+*.profdata
+__pycache__/
