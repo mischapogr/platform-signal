@@ -4,8 +4,8 @@ Status: PS-01 design/fixture contract, 2026-10-07. The
 [pure v1 validator](source-coverage-contract.md) and bounded local persistence
 primitives and trusted application-grant intake/retry are implemented.
 [ADR-015](adr/015-source-coverage-store.md) records prepared append, immutable
-receipts, recovery, full-binding authorized reads and original-byte replay.
-Correction admission, pruning, scans and source observers remain **unimplemented**;
+receipts, recovery, full-binding authorized reads, original-byte replay and bounded
+correction admission. Pruning, scans and source observers remain **unimplemented**;
 the complete 56-outcome state machine remains planned. This
 contract selects responsibilities and acceptance. The local backend and
 exact encodings are selected in ADR-015;
@@ -165,6 +165,16 @@ Source backfill/recovery proof references still need the trusted provider.
 Missing/pruned/cross-binding targets reject the link. A record links at most one
 earlier target; no recursive correction traversal occurs in this first contract.
 
+The library now enforces these admission checks on its existing worker. The link
+and new report/receipt/accounting commit in one transaction under the frozen prefix
+encoding. Only the direct target's available evidence is inspected; its ancestors
+are not followed. Target expiry alone does not make retained original evidence
+unavailable. A retained correction replays its original immutable receipt before
+its own deadline without revalidating target availability; later pruning cannot
+erase or reinterpret an admitted correction. It still requires the correction's
+current exact authorization grant, and changed links conflict. Pruning itself
+remains a separate task.
+
 Storage does not select the last appended row as current health, assemble intervals
 across records, or silently resolve corrections into a green historical view.
 Late arrivals and corrections can be appended after newer source intervals.
@@ -246,13 +256,13 @@ python3 scripts/check-source-coverage-contract.py
 [ADR-015](adr/015-source-coverage-store.md) now selects SQLite on one worker,
 freezes profile/binding/commit/state/identity encodings and supplies executable
 golden checks and a limited system-SQLite mechanics probe. The probe is not the
-complete Rust history state machine. The persistence and intake slices now pass
-31 focused tests and 286 workspace tests, including actual process-crash recovery,
-corruption, page exhaustion, cancellation ownership and exact-byte receipt replay.
+complete Rust history state machine. The persistence/intake/correction slices now
+pass 45 focused tests and 300 workspace tests, including process-crash recovery,
+corruption, page exhaustion, cancellation ownership and immutable-link receipt replay.
 The application's fresh `AuthorizedBinding` grant represents its authenticated
 observer and current full-binding permission; credential authentication/revocation
 and independently supervised current health remain application responsibilities.
 Admission checks finite report-age/skew/retention policy with fixed original
-deadlines. Next implement bounded correction admission; retention/pruning and scans
+deadlines. Next implement bounded payload-prefix pruning; identity pruning and scans
 follow separately. Do not adapt the event
 WAL/findings journal by assuming its contracts already satisfy this one.

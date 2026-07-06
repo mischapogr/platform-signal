@@ -2,9 +2,9 @@
 
 Status: Selected decision with bounded library implementation, 2026-10-07.
 Encodings, explicit initialization/ownership, prepared append, recovery and
-trusted one-row inspection and application-grant intake/retry are implemented in
-[`signal-coverage`](../../crates/signal-coverage/README.md). Correction admission,
-pruning, scans, credential authentication and source observers remain unimplemented.
+trusted one-row inspection, application-grant intake/retry and bounded correction
+admission are implemented in [`signal-coverage`](../../crates/signal-coverage/README.md).
+Pruning, scans, credential authentication and source observers remain unimplemented.
 This ADR does not select production retention or claim release readiness.
 
 ## Context and decision
@@ -342,6 +342,15 @@ references cannot be admitted as new. Report age uses `provenance.observed_at`;
 checked fixed retention arithmetic preserves nanoseconds. Replay never advances
 sequence, deadlines, verification or the admission clock floor. Low-level append
 still rejects retained IDs with `IdentityExists` and remains caller-trusted.
-Evidence: `target/source-coverage-intake-20261007/`. Correction admission is next;
-prefix GC and scan integration follow separately. No observer, current-health selection, protected S3 evidence,
+Evidence: `target/source-coverage-intake-20261007/`. The subsequent correction slice
+passes 45 focused tests and 300 workspace tests, including an actual admission of
+the frozen correction chain. It validates one available earlier target under the
+same full binding/observer, overlapping half-open intervals and strictly later
+verification; the existing atomic metadata/prefix encoding carries the immutable
+link. Original evidence/receipts remain unchanged. Recovery/replay needs no ancestor
+traversal or target reauthorization for an already admitted link. Tests cover
+target/link corruption, quota/restart/concurrency, queued cancellation and SIGKILL
+before/after commit. A pre-pruned fixture checks availability behavior, not runtime
+GC. Evidence: `target/source-coverage-corrections-20261007/`. Payload-prefix pruning
+is next; identity GC and scan integration follow separately. No observer, current-health selection, protected S3 evidence,
 source adapter or detection wiring follows from this library acceptance.

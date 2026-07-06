@@ -107,8 +107,8 @@ content within its declared replay/identity horizons. The
 and unavailable-retry outcomes explicit. Its retained ID/content identity and
 history need bounded storage and retention. The separate
 [`signal-coverage` library](../crates/signal-coverage/README.md) implements prepared
-append/recovery primitives; successful retry policy, pruning and distributed
-fencing remain unimplemented.
+append/recovery, trusted intake/retry and immutable correction admission. Prefix
+pruning and distributed fencing remain unimplemented.
 
 ## Structural bounds and required semantic checks
 
@@ -265,8 +265,8 @@ written with 56 planned storage cases and offline rejection guards.
 library, frozen format/prefix vectors and actual process-crash, quota, corruption
 and cancellation acceptance. The complete history state machine remains
 unimplemented. Trusted local application-grant intake and exact-byte original
-receipt replay now pass 31 focused library tests. Bounded correction admission is
-next; pruning and scans follow separately.
+receipt replay and bounded correction admission now pass 45 focused library tests.
+Payload-prefix pruning is next; identity pruning and scans follow separately.
 
 An observer, complete durable coverage history, source adapter, server API, detection negative
 assessment and independent security-account reporting remain later tasks. Native

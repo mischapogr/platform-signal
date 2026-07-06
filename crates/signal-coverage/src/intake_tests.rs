@@ -253,7 +253,7 @@ async fn retained_identity_conflict_precedes_new_report_validation() -> TestResu
                 ctx()
             )
             .await,
-        Err(CoverageError::CorrectionUnsupported)
+        Err(CoverageError::InvalidCorrection(_))
     ));
     assert_eq!(
         store
