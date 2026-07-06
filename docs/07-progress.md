@@ -1,6 +1,6 @@
 # Implementation progress
 
-## Current state — 2026-10-06
+## Current state — 2026-10-07
 
 Phases 0–7 are implemented and locally verified, including rules, durable
 findings, server wiring, the Compose demonstration, edge collection, generic
@@ -11,8 +11,11 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 231. A refreshed AMD64 image now has container, local kind,
-Helm, supply-chain and native qualification evidence. The native CI matrix
+workspace gate has 273, including 24 SDK SourceCoverage tests and 18 local-store
+tests. The current AMD64 image has refreshed container, Helm, supply-chain and native
+qualification evidence. The new local kind campaign is blocked by kube-proxy
+resource exhaustion before the application starts; the preceding image retains
+its passing kind evidence. The native CI matrix
 records measured campaigns and retains their reports. Native ARM64, EKS, remote CI,
 released dependencies and the complete v0.1.0 qualification remain outstanding.
 Phase 9 AWS work remains post-MVP. The 2026-10-07 dev0 candidate preview also
@@ -22,7 +25,7 @@ checks; it does not change release readiness. See
 Use `04-implementation-plan.md` for phase order and `06-definition-of-done.md`
 for the full release gate.
 
-The workspace has nine library crates and three apps at `0.1.0-dev.0`, licensed
+The workspace has ten library crates and three apps at `0.1.0-dev.0`, licensed
 Apache-2.0. `signal-server` accepts authenticated single/batch HTTP events into a
 bounded synced WAL, coalesces bounded Parquet batches, and checkpoints only after
 event storage, rule evaluation and required finding persistence complete.
@@ -35,6 +38,217 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Vendor fixtures and current-source release refresh — 2026-10-07
+
+The [public synthetic corpus](../examples/logs/README.md) contains 55 native and
+canonical reference records across CloudTrail, CloudWatch, RDS, ALB, NLB, EKS,
+ECS, Cloudflare, Microsoft 365, Cato VPN and FortiGate. Each family has five cases
+including benign and security scenarios. Log severity is separate from illustrative
+finding severity. Hash/native-envelope/aggregate checks and seven negative guards
+pass. The private application aligns with `0.1.0-dev.0`; formatting, strict Clippy,
+three tests and the CLI pass. Its new test deserializes/validates all 55 events,
+preserves evidence during enrichment and verifies one intended private IAM finding.
+This is sibling-source proof; no live vendor adapters or released dependency are
+qualified. Cato field/subtype values require tenant schema confirmation.
+
+The current-source AMD64 image is
+`sha256:59fc118e167047e8c4287c35581b581a1d5444b9db1ff70b918b912819fba8b9`.
+Container auth/health/restart/replay and cleanup pass. All six supply-chain gates
+pass: 341 locked Cargo packages and 15 image packages inventoried, zero RustSec
+vulnerabilities and zero HIGH/CRITICAL image occurrences; 23 MEDIUM and eight LOW
+remain. Native host/daemon/image/ELF checks, nine parser/property cases, seven
+pipeline profiles and both 120-second 1 KiB/4 KiB soaks pass. They are finite local
+AMD64 measurements. The coverage SQLite library is not linked into `signal-server`;
+its 18 host-library tests are distinct from image-runtime proof.
+
+Three fresh kind attempts fail at Helm installation with an unbound PVC. Retained
+diagnostics identify kube-proxy startup failure (`failed complete: too many open
+files`) and the provisioner's resulting API connection timeout. SIGNAL never
+starts in those attempts. One further disposable infrastructure diagnosis confirms
+the same kube-proxy error; all owned clusters are removed. No host sysctl, shared
+cluster or network setting was changed. The current kind gate remains open;
+preceding-image kind evidence is historical. The helper now retains bounded,
+redacted failure diagnostics; all five helper regressions pass.
+
+Source export now supports the current 13-package graph and includes all six
+compile-time/public contract JSON files and only the explicitly named public
+vendor corpus files. Twenty-one candidate regressions pass, including historical
+12-package support, missing compile-time fixture rejection and one-image Docker
+inspection-array normalization. A real export attempt exposed the latter report
+shape mismatch; it was corrected and the failed output retained. An actual exported
+source tree passed offline metadata, three contract/catalog guards and all 53
+SDK/store tests. Runtime/build inputs still match the accepted 273-test workspace
+result, reused here rather than repeated after tooling/data changes.
+
+Evidence: `target/release-gates-20261007/` and
+`target/vendor-samples-20261007/`. GitHub CLI is unauthenticated and the remote
+head read returns no advertised branches. No CI execution is claimed. The owner
+explicitly authorized local Conventional Commits on `develop`, with both Git dates
+assigned July 7 evening Berlin time at fifteen-minute intervals. Actual evidence
+times remain October 7. Public/private histories remain separate; no push, main
+merge, tag, release selection or publication is authorized by those commits.
+Native ARM64, actual EKS, current kind, remote CI, released dependencies and
+publication remain open. Next restore the local kind host-resource preconditions
+without affecting concurrent workloads, then rerun that gate; external gates
+need their respective runner/environment/credentials and authority.
+
+## SourceCoverage local library slice — 2026-10-07
+
+PS-01's [`signal-coverage`](../crates/signal-coverage/README.md) implements the
+bounded persistence slice selected by [ADR-015](adr/015-source-coverage-store.md).
+Explicit initialization creates a private root and stable identity; open requires
+established files and checks exact schema, pins, original bytes, prefix, anchors
+and accounting. One ordinary SQLite worker holds root ownership through physical
+exit. Atomic prepared append commits profile/binding pins, original report,
+receipt metadata and state together. Trusted one-row inspection cross-checks
+references, bytes, semantics and the local prefix link.
+
+The workspace locks `rusqlite` 0.40.2 with bundled/limits/hooks,
+`libsqlite3-sys` 0.38.2 (SQLite 3.53.2) and `sha2` 0.11.0. Every open verifies
+DELETE/EXTRA, 4096-byte pages, foreign keys, cache-spill/mmap/temp/VM settings and
+finite page limits. Count/key/pin/ledger, journal reserve, operation slots, worker
+memory allowance, VM steps and deadlines are explicit finite limits. They do not
+establish physical disk or whole-process RSS guarantees. Cancellation before
+mutation prevents it from starting; uncertain active work closes admission and
+retains its slot/lock until it settles. Shutdown cannot kill a blocked syscall.
+
+All 18 focused tests pass, including unchanged frozen vectors, initialized/missing
+root behavior, profile/ID/clock rejection, reduced caps, actual SQLite page
+exhaustion, eight corruption/path cases, live prefix damage, closed relocation
+and worker cancellation races. A subprocess is killed after entry insertion,
+before commit and after commit with the response lost; acknowledged bytes and
+receipts survive, and recovery selects the complete transaction prefix. This
+tests process loss, not device power loss. Bundled build options/source ID and
+amalgamation hash are retained; pinned Unix-VFS/pager source review and observed
+journal bounds are limited local evidence. VFS write/sync failure injection and
+deployment storage qualification remain open.
+
+Formatting, strict all-target Clippy and all 273 workspace tests pass locally on
+Linux AMD64. The boundary guard validates 13 packages; SDK/agent/server remain
+free of coverage-store dependencies. Existing coverage/catalog/reference guards
+pass. The 65 baseline Rust source/build inputs and frozen vector fixture remain
+unchanged. Focused self-review covered all 14 areas and corrected cancellation
+arbitration/ownership, control-wake capacity, receipt size/boxing, read corruption
+checks and bounded deadline arithmetic. This is one writer's review, not
+independent review. New dependencies/build inputs require refreshed image,
+supply-chain and native qualification; prior campaigns remain historical.
+
+Evidence is retained in `target/source-coverage-store-20261007/`, including task,
+validation, dependency build, review, usage and handoff records. Next implement
+trusted local intake/authorization, checked report-age/retention policy and exact
+original-byte receipt replay without renewing deadlines or sequence. Correction
+admission, prefix pruning and scans are separate tasks. The 56 history outcomes
+remain planned; this library adds no observer, endpoint, source/cloud integration,
+current-health claim or service split. At this slice acceptance the work was
+unstaged/uncommitted; the subsequent owner authorization permits local commits
+on `develop`, while push, main merge, tag and publication remain separate.
+
+## SourceCoverage backend/encoding decision — 2026-10-07
+
+PS-01's [ADR-015](adr/015-source-coverage-store.md) selects SQLite through bundled
+`rusqlite` on one ordinary worker. It specifies rollback-journal `DELETE` with
+`EXTRA` synchronization, explicit private-root initialization/ownership, atomic
+append and pruning, fixed original receipts, and bounded recovery/accounting.
+It freezes domain-separated canonical profile/binding/commit/prefix/state bytes,
+the persistent identity sidecar, and 8-byte BLOB sequences spanning unsigned u64.
+The SDK remains pure. This decision's handoff selected the library slice now
+implemented and recorded above.
+
+[Frozen vectors](../tests/fixtures/source-coverage/backend-vectors.json) cover
+three profiles, five bindings, three chains/five chained commits, two standalone
+unsigned/calendar boundary commits, four times, three states and one identity.
+The [reference checker](../scripts/check-source-coverage-backend.py) passes all
+vectors, 33 rejection guards and four relationship checks. Its bounded Python/
+system-SQLite 3.45.1 projection passes 13 mechanics checks: controlled SIGKILL
+before/after commit and during prefix pruning, surviving anchors/frontiers,
+page-cap rejection, transaction/OS lock contention, unsigned BLOB ordering and
+closed-database relocation. These are real local SQLite operations, not the Rust
+store, trusted intake, receipt-policy runtime or the 56 planned history outcomes.
+Device power loss, VFS journal-reserve geometry, native ARM64 and complete worker
+cancellation/lifetime ownership still require implementation qualification.
+
+Offline SourceCoverage/catalog checks, the 12-package boundary guard, helper
+syntax/CLI checks and owned Markdown links pass. All 67 Rust source/build inputs
+match this task's baseline; Cargo is not rerun and the prior 255-test result
+remains scoped to the pure validator. Focused self-review covered 14 areas;
+corrections include sidecar/missing-store behavior, exact byte/profile encoding,
+unsigned positions, conservative active-journal reserves and evidence scope.
+This is one writer's review, not independent review or release qualification.
+
+Evidence is retained in `target/source-coverage-backend-20261007/`, including
+`backend-acceptance.json`, task/validation/review/handoff records and usage.
+At this design acceptance, no Rust store, new endpoint, observer, source/cloud
+integration or service split was added. The selected library implementation is
+recorded above; intake/retry, pruning and scans remain separate. All new work
+remains unstaged/uncommitted on `develop`; no push or `main` merge.
+
+## SourceCoverage intake/history contract — 2026-10-07
+
+PS-01's [bounded intake/history contract](source-coverage-history-contract.md) is
+written with [linked fixtures](../tests/fixtures/source-coverage/history.json).
+It defines exact raw-byte submission identity, original receipt replay, immutable
+profile pins/correction links, finite payload/identity horizons, count/key/byte
+reserves, explicit pruning/unavailable evidence, bounded prefix-aware scans,
+commit uncertainty, restart/restore and single-writer ownership. It keeps receipt
+durability separate from current source health, source proofs and M2/M3/M4.
+
+Offline acceptance passes 16 requirement links, 12 candidate encodings, 56 planned
+history cases and 24 rejection guards. Guards reject false runtime/prefix-vector
+claims, replay renewal, guaranteed rollback for uncertain commits, invalid quotas,
+receipt/hash/retention mismatches and broken references. Focused self-review covered
+all 14 areas, correcting uncertainty expectations and requiring retained profile
+fingerprints. No history state machine, disk sync, process crash or prefix vector
+was executed. The pure validator's Rust files/build inputs are unchanged; retained
+255-test workspace evidence remains scoped to that earlier implementation.
+
+The structural coverage/catalog checks and 12-package boundary guard pass.
+Evidence is retained under `target/source-coverage-history-contract-20261007/`,
+including input hashes, mutation checks, focused self-review, usage and handoff.
+That handoff selected the local backend/format ADR recorded above, with runnable
+atomicity/quota/pruning/ownership and prefix/fingerprint golden-vector acceptance.
+No observer/store/server/API/cloud integration was implemented. Work remains
+unstaged/uncommitted on `develop`; no additional commits, push or `main` merge.
+
+## SourceCoverage validator and local Git baseline — 2026-10-07
+
+PS-01's pure validator/assessment is implemented in
+[`signal-collector-sdk::coverage`](../crates/signal-collector-sdk/src/coverage.rs).
+It admits at most 65,536 raw UTF-8 bytes, rejects duplicate/unknown keys and
+missing required nullable fields, validates calendar/UUID/text/profile bounds,
+preserves nanosecond time comparisons and checks gaps/summary/proof/checkpoint
+consistency. Exact trusted bindings, observer identity, future-clock guards,
+current expiry/health and historical interval semantics follow the
+[v1 contract](source-coverage-contract.md). Rejected input cannot become verified.
+
+The 24 new integration tests execute all 60 record cases (21 valid/21 semantic
+rejects/18 structural rejects), 39 assessments and seven pure transition sequences,
+plus boundary regressions. Final fmt, strict workspace/all-target Clippy,
+locked workspace build, 255 workspace tests (40 result lines, zero failures),
+offline structural/catalog checks and 12-package guard pass on local Linux AMD64.
+The first workspace run was blocked by sandbox socket permissions; the permitted
+local rerun passed. Focused self-review covered all 14 review areas and corrected
+missing-profile guard precedence. This was one writer, not independent review.
+
+There is no new dependency, event field, observer, durable coverage store, source
+adapter, server endpoint or detection wiring. Image/native qualification below
+belongs to the preceding baseline; no new image or external qualification ran.
+That handoff selected a bounded coverage intake/history contract for immutable
+IDs/retries, content conflicts, cardinality, retention, expiry and ownership;
+the contract is accepted offline above, with storage implementation still separate.
+
+The owner authorized development on `develop` and local baseline commits. `origin`
+already targets `git@github.com:mischapogr/platform-signal.git`; a successful remote
+head check found no branches. Three baseline commits were created:
+`b43cede` (pipeline), `e56985f` (tooling), `8d705d2` (security contracts).
+At the owner's request, author/committer metadata is 2026-07-07 19:00, 19:15 and
+19:30 Europe/Berlin (+02:00). Actual validation occurred on 2026-10-07.
+The new validator and documentation remain unstaged/uncommitted; the index is
+empty. Nothing was pushed, merged to `main`, tagged or published. The version
+remains `0.1.0-dev.0`, with release gates still open.
+
+Evidence: `target/source-coverage-validator-20261007/` holds logs, input hashes,
+baseline path manifests/commit metadata, focused review, usage and handoff.
 
 ## SourceCoverage contract — 2026-10-07
 
@@ -53,7 +267,8 @@ No Rust/build inputs changed; the earlier 231-test workspace result is unchanged
 
 Evidence lives under `target/source-coverage-contract-20261007/`, with input hashes,
 structural/guard/document checks, focused review, usage and handoff. The next
-locally selectable task is the bounded semantic validator/assessment function.
+locally selected task was the bounded semantic validator/assessment function,
+accepted above. This earlier contract evidence remains historical.
 Source observer/storage/adapters and external ARM64/EKS/CI/released-dependency
 qualification remain separate; nothing was staged, committed or provisioned.
 

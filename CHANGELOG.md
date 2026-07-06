@@ -9,6 +9,23 @@ and remaining required gates are recorded in the
 
 ### Implemented
 
+- Add 55 synthetic native/canonical examples across 11 vendor source families,
+  separate log/finding severity metadata, hash bindings and fixture regressions.
+- Close current 13-package source exports over required compile-time JSON data
+  and explicitly named public samples; preserve historical archive support.
+- Retain bounded, redacted diagnostics when owned Kubernetes checks fail.
+
+- A standalone bounded SourceCoverage SQLite library preserves original report
+  bytes, profile pins, full bindings, immutable receipts and checked commit
+  prefixes under one local owner. Eighteen focused tests cover frozen encodings,
+  restart, process-crash boundaries, cancellation, corruption, page/count/byte
+  exhaustion and closed relocation. Trusted intake/retry, corrections, pruning,
+  scans and server/source integration remain separate tasks.
+- Pure SourceCoverage v1 validation and current/historical assessment in the
+  generic SDK: bounded strict JSON, exact bindings/profiles, nanosecond time
+  budgets, gap/summary consistency and typed rejection reasons. The new 24-test
+  suite executes 60 record cases, 39 assessments and seven transition sequences;
+  observers, durable history, source proofs and detection wiring remain separate.
 - Version 1 canonical events preserve nested JSON attributes and numeric
   precision; HTTP ingestion validates single events and batches, authenticates
   with an optional Bearer token, and bounds admission and request work.

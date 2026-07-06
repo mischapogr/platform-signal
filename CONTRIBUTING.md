@@ -33,3 +33,10 @@ retain copyright; submissions are licensed under Apache-2.0, the project license
 Do not add third-party content without compatible terms and attribution.
 
 See `docs/VERSIONING.md` for release and serialized-contract versioning.
+
+Develop on `develop`. Merge into `main` only when the required
+[release gates](docs/21-release-readiness.md) pass and the release is authorized.
+Use SemVer for releases; a development commit does not select a release version.
+Commit messages describe the change without agent-attribution trailers. Local
+commits, remote pushes and publication have separate authorization; preserve an
+explicit request to leave a task unstaged/uncommitted.

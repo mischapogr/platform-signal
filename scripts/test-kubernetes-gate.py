@@ -2,6 +2,7 @@
 """Local regressions for cleanup of exclusively owned Kubernetes gate resources."""
 
 import argparse
+import base64
 import importlib.util
 from pathlib import Path
 import subprocess
@@ -61,6 +62,36 @@ class CleanupTests(unittest.TestCase):
         gate.cluster_attempted = False
         gate.cleanup()
         self.assertEqual(commands, [])
+
+    def test_diagnostics_are_bounded_redacted_and_use_owned_context(self):
+        gate = MODULE.Gate(argparse.Namespace(kubectl="kubectl"), "/tmp/diagnostics-test")
+        commands = []
+        def run(args, **kwargs):
+            commands.append((args, kwargs))
+            return "x" * 11000 + gate.token + base64.b64encode(gate.token.encode()).decode()
+        gate.run = run
+        diagnostics = gate.failure_diagnostics()
+        self.assertEqual(len(diagnostics), 6)
+        for output in diagnostics.values():
+            self.assertLessEqual(len(output), 10000)
+            self.assertNotIn(gate.token, output)
+            self.assertNotIn(base64.b64encode(gate.token.encode()).decode(), output)
+        for args, kwargs in commands:
+            self.assertEqual(args[:4], ["kubectl", "--context", "kind-" + gate.name,
+                                      "--namespace"])
+            self.assertIn(args[4], ("gate", "kube-system", "local-path-storage"))
+            self.assertEqual(kwargs, {"timeout": 10})
+
+    def test_failed_diagnostic_commands_preserve_other_diagnostics(self):
+        gate = MODULE.Gate(argparse.Namespace(kubectl="kubectl"), "/tmp/diagnostics-test")
+        def run(args, **kwargs):
+            if "pods" in args:
+                raise subprocess.TimeoutExpired(args, 10)
+            return "available"
+        gate.run = run
+        diagnostics = gate.failure_diagnostics()
+        self.assertIn("timed out", diagnostics["pods"])
+        self.assertEqual(diagnostics["events"], "available")
 
 
 if __name__ == "__main__":
