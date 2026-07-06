@@ -70,6 +70,7 @@ is pending. Pending or failed validation must remain visible to SecOps.
 | Host agent | Local capture, timestamp/identity, bounded spool, retry and delivery acknowledgement | File/stdin exists; runtime hooks, boot/process identity and coverage reporting need new work |
 | Cluster collector | Centralized Kubernetes audit/state discovery and metadata distribution | Proposed SDK consumer; use per-cluster ownership and bounded API watches/caches |
 | Cloud collector | Account/region partitioned audit reads and configuration discovery | Post-MVP Phase 9; generic role-assumption/adapter mechanisms only in OSS |
+| SaaS collector | Provider-specific API pagination, durable source receipts and scoped retry | Proposed; shared mechanisms with separate credentials and source coverage profiles |
 | Admission/gateway | Authenticate sender, validate envelope/limits, bound concurrency, append synced WAL | Existing ingest role inside server; sender authentication alone does not prove resource identity |
 | OTLP adapter | Convert supported OTel records into the canonical envelope | Proposed; logs first if selected; no metrics/traces platform implied |
 
@@ -81,6 +82,11 @@ classifications and authorization decisions stay in the private application.
 Separate modes or deployables are options after permission/scale evidence, not
 an instruction to build one universal privileged binary.
 
+The [ingestion audit](26-ingestion-architecture-audit.md) distinguishes host,
+AWS, SaaS and gateway operational roles without requiring new binaries. A site
+syslog gateway, Firehose receiver and canonical HTTP admission have different
+framing and acknowledgement contracts; none is implied by the existing endpoint.
+
 ## Event identity, provenance and context
 
 `signal-event` remains the canonical versioned envelope. New source metadata fits
@@ -90,7 +96,9 @@ collector identity/configuration revision, normalization revision and original
 evidence reference. SourceCoverage is a separate versioned contract with pure SDK
 validation/assessment. The separate bounded local
 [`signal-coverage` library](../crates/signal-coverage/README.md) implements prepared
-append/recovery; trusted intake/retry, pruning, scans and observers remain planned.
+append/recovery, application-authorized intake, exact-byte receipt replay and
+immutable correction admission. Pruning, scans, observers and server integration
+remain planned; coverage receipts do not implement telemetry source receipts.
 The event schema is unchanged.
 
 Keep actor identity, affected resource identity and collector identity distinct.

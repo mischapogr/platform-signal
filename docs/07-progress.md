@@ -39,6 +39,29 @@ Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
 
+## Ingestion architecture audit — 2026-10-07
+
+The owner-requested [audit](26-ingestion-architecture-audit.md) compares the
+implemented baseline `dd4a1cd` with AWS-native, EKS, SaaS and site syslog ingestion.
+It retains four operational roles and the monolith, prioritizes durable source
+receipts/checkpoints, scoped publisher identity and protected originals, and
+preserves the v1 envelope. Vendor documentation corrections include Firehose's
+distinct HTTP protocol, Microsoft 365 API selection, NLB TLS coverage and Cato's
+finite marker horizon. Cloudflare remains in the source inventory.
+
+Overview status is corrected for the implemented coverage intake/retry/correction
+library; pruning/scans/observers remain open. Proposed post-MVP order starts with
+CloudTrail S3/SQS and source receipts, then selected CloudWatch/EKS profiles, site
+syslog and SaaS. Immediate implementation remains bounded payload-prefix pruning.
+
+Documentation acceptance: 13-package boundary guard; catalog structural guard
+(15 requirements, seven profiles, 45 cases, five native predicates); shared vendor
+fixtures (11 families, 55 cases, seven negative guards); Markdown links and diff
+whitespace. Retained 300-test Rust evidence was inspected, not rerun for this
+documentation-only task. No new runtime, cloud, release or private-overlay proof
+is claimed. Evidence and single-writer review:
+`target/ingestion-architecture-audit-20261007/`.
+
 ## SourceCoverage bounded correction admission — 2026-10-07
 
 PS-01 now admits one immutable `correction_of` link through the existing worker.

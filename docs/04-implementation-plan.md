@@ -556,7 +556,7 @@ workstream and uses PS-01/PS-02 contracts when selected after the release gate.
 
 | Group | Capability and motivating requirements | Dependencies | Acceptance / stop condition |
 | --- | --- | --- | --- |
-| PS-01 | Versioned normalization profile and SourceCoverage mechanism; all detections, especially D15 | Existing event envelope/SDK; no private fields | Pure SDK validator, history contract and bounded local library accepted. [ADR-015](adr/015-source-coverage-store.md) records frozen encodings, explicit ownership, atomic prepared append and process recovery. Next trusted local intake/authorization and exact-byte original-receipt replay; correction admission, GC and scans separately. No observers/collectors/cloud calls yet |
+| PS-01 | Versioned normalization profile and SourceCoverage mechanism; all detections, especially D15 | Existing event envelope/SDK; no private fields | Pure SDK validator, history contract and bounded local library accepted. [ADR-015](adr/015-source-coverage-store.md) records frozen encodings, ownership, atomic append/recovery, authorized intake/retry and immutable corrections. Next payload-prefix pruning, then identity pruning and scans separately. No observers/collectors/cloud calls yet |
 | PS-02 | Source adapters and first real predicates: D01/D02/D03/D05/D07 | PS-01; existing predicate engine | Select one source per change set, CloudTrail management events first. Raw positive/negative/missing/duplicate fixtures → normalized fields, coverage declarations and findings; federated MFA excluded without IdP evidence. EKS audit is a separate adapter task; no claim of runtime hooks from file logs |
 | PS-03 | Durable finding delivery and disposition seam | Existing journal; [cursor contract](25-findings-cursor-proposal.md); does not require new state engine | Public cursor runtime/restart/divergent-history gates first. Separate private cursor+outbox transaction, destination uncertainty and disposition acceptance. No destination-specific policy in public core; listing is not already a feed |
 | PS-04 | Independent protected evidence and object-store query copies | PS-01/PS-02 source identity/coverage; [M3](failure-domains.md#acknowledgement-milestones) | Separate source-native evidence route, proof validation and security permissions from S3 query `EventStore` publication/manifests. Test observability-account outage, validation failure and recovery. Cloud/retention settings require authorized private environment; no ingest/detection HA claim |
@@ -600,6 +600,12 @@ original and atomic immutable link. Payload-prefix pruning is next; identity GC
 and scans follow
 in separate bounded slices. Observer/source/server integration stays separate;
 no pipeline/detection wiring is implied.
+
+The [ingestion audit](26-ingestion-architecture-audit.md) evaluates the next source
+sequence against actual transport and provider constraints: shared durable source
+receipts, CloudTrail S3/SQS first, selected CloudWatch/EKS profiles, site syslog,
+Microsoft 365 and Cato. Cloudflare can reuse object intake. These are proposed
+PS-02 slices, not additional MVP gates or a requirement for new server services.
 
 Splitting services is a subsequent evidence-based decision: benchmark query versus
 protected-ingest contention, verify permission/isolation requirements, then define
