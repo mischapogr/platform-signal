@@ -29,7 +29,7 @@ these rows do not authorize parallel agents or blanket cloud implementation.
 
 | Next task scope | Recommended new-task route | Required acceptance boundary |
 | --- | --- | --- |
-| PS-01 trusted local SourceCoverage intake and exact-byte original-receipt replay | Sol/high for authority/retry/clock decisions | Existing [ADR-015](adr/015-source-coverage-store.md) library; authorize exact observer/full binding on writes and retries; checked admission-age/retention policy; old pinned profile replay, changed-byte conflict, no receipt/deadline/clock renewal or cross-scope disclosure. Correction admission, pruning and scans follow separately; no HTTP/server/cloud wiring |
+| PS-01 bounded correction admission | Sol/high for link/authority/recovery decisions | Existing [ADR-015](adr/015-source-coverage-store.md) library and accepted intake/retry; require an available earlier target with the same full binding/observer, preserve original evidence and commit the immutable correction link atomically. Reject unavailable, cross-binding, self/future links; exact replay retains the original link. Prefix pruning and scans follow separately; no HTTP/server/cloud wiring |
 | PS-02 one source normalizer and predicate profile | Sol 6.1/medium or Sonnet/medium | Current source docs, original synthetic payload fixtures, field/type/provenance checks, missing/duplicate cases; authorized environment separately |
 | PS-03 public cursor runtime; private durable outbox as a separate task | Sol/high for replay/cursor/atomicity | Existing [25](25-findings-cursor-proposal.md) contract; divergent restore and delivery uncertainty; private paths need their own writable scope |
 | PS-04 one evidence/store publication contract or adapter | Sol/high for integrity/commit/recovery | Independent evidence authority, version/proof reference, retention permission and failure acceptance; no cloud provisioning from this design task |
@@ -49,7 +49,13 @@ or qualify the complete history state machine. The bounded library slice is now
 accepted with 18 focused tests, 273 workspace tests and a 13-package boundary
 guard. It covers initialization/ownership, golden encodings, atomic prepared
 append, trusted inspection, process recovery, corruption, quota and cancellation
-semantics. Implement the trusted intake/retry slice above next. Do not launch
+semantics. The subsequent trusted intake/retry slice passes 31 focused tests and
+286 workspace tests: exact full-binding application grants, observed-time admission
+age, fixed checked retention, original receipt replay without renewal, full-quota
+replay, retired profiles and missing/divergent receipt rejection. Thirteen new tests
+cover this bounded slice; they do not execute the complete 56-case history state
+machine. Evidence: `target/source-coverage-intake-20261007/`. Implement bounded
+correction admission next. Do not launch
 additional agents without current user authorization. An observer and live source
 coverage remain unimplemented; production state/retention/fencing is separate.
 

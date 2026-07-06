@@ -590,9 +590,11 @@ focused tests for explicit initialization/root ownership, frozen encodings,
 atomic prepared append/recovery, process crashes, corruption, quotas and
 cancellation. Fresh local acceptance passes 273 workspace tests and the
 13-package boundary guard; SDK/agent remain free of database dependencies.
-The 56 full history outcomes remain unimplemented. Next implement trusted local
-intake/authorization, checked admission-age/retention policy and exact-byte
-original-receipt replay without renewal. Correction admission, GC and scans follow
+The subsequent trusted intake/retry slice passes 31 focused tests and 286 workspace
+tests, covering exact application grants, observed-time admission age, fixed checked
+retention and original-byte receipt replay without renewal. The complete 56-outcome
+history state machine remains unimplemented. Next implement bounded correction
+admission; GC and scans follow
 in separate bounded slices. Observer/source/server integration stays separate;
 no pipeline/detection wiring is implied.
 

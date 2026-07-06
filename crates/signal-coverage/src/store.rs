@@ -1,9 +1,10 @@
 use crate::format::{self, CommitMetadata, HistoryBinding, ProfileDefinition, State, Timestamp};
+use crate::intake::{AuthorizedBinding, CoverageSubmission, IntakeContext, IntakeOutcome};
 use crate::worker::WorkContext;
 use rusqlite::{
     Connection, OpenFlags, OptionalExtension, TransactionBehavior, limits::Limit, params,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use signal_collector_sdk::coverage::ValidatedCoverage;
 use std::{
     fs::{self, File, OpenOptions},
@@ -47,6 +48,22 @@ pub enum CoverageError {
     OutcomeUnknown,
     #[error("coverage record identity is already retained")]
     IdentityExists,
+    #[error("coverage caller is not authorized for the original full binding")]
+    NotAuthorized,
+    #[error("coverage retained identity has different original content or correction link")]
+    IdContentConflict,
+    #[error("coverage original receipt replay window expired")]
+    ReplayWindowExpired,
+    #[error("coverage current trusted profile is unavailable for new admission")]
+    ProfileUnavailable,
+    #[error("coverage report exceeds its maximum admission age")]
+    ReportTooOld,
+    #[error("coverage referenced history or position is unavailable")]
+    HistoryUnavailable,
+    #[error("coverage supplied receipt differs from the committed receipt")]
+    ReceiptMismatch,
+    #[error("coverage correction admission is not implemented")]
+    CorrectionUnsupported,
     #[error("coverage profile revision conflicts with retained definition")]
     ProfileRevisionConflict,
     #[error("coverage receiver clock regressed")]
@@ -174,6 +191,7 @@ pub struct CoverageMetrics {
     pub command_depth: usize,
     pub command_capacity: usize,
     pub accepted: u64,
+    pub replayed: u64,
     pub rejected: u64,
     pub timeouts: u64,
     pub failures: u64,
@@ -250,7 +268,8 @@ fn validate_raw(
 }
 
 /// Versioned durable receipt. External exposure requires a separate authorized intake layer.
-#[derive(Clone, Debug, Serialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct Receipt {
     pub schema_version: u32,
     pub history_id: Uuid,
@@ -266,6 +285,45 @@ pub struct Receipt {
     pub correction_of: Option<Uuid>,
 }
 impl Receipt {
+    pub(crate) fn validate_reference(&self) -> Result<u64, CoverageError> {
+        if self.sequence.is_empty() || self.sequence.len() > 20 {
+            return Err(CoverageError::Invalid("receipt sequence bound"));
+        }
+        let sequence = self
+            .sequence
+            .parse::<u64>()
+            .map_err(|_| CoverageError::Invalid("receipt sequence"))?;
+        let hashes = [
+            &self.content_sha256,
+            &self.prefix_digest,
+            &self.profile_fingerprint,
+        ];
+        if self.schema_version != 1
+            || self.history_id.is_nil()
+            || self.record_id.is_nil()
+            || sequence == 0
+            || self.sequence != sequence.to_string()
+            || hashes.iter().any(|s| {
+                s.len() != 64
+                    || !s
+                        .bytes()
+                        .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            })
+            || self.authority_revision.is_empty()
+            || self.authority_revision.len() > 1024
+        {
+            return Err(CoverageError::Invalid("receipt reference"));
+        }
+        for time in [&self.accepted_at, &self.replay_until, &self.identity_until] {
+            if Timestamp::parse(time)?.to_string() != *time {
+                return Err(CoverageError::Invalid("receipt canonical time"));
+            }
+        }
+        if let Some(id) = self.correction_of {
+            format::non_nil(id)?;
+        }
+        Ok(sequence)
+    }
     fn from_metadata(m: &CommitMetadata, prefix: [u8; 32]) -> Result<Self, CoverageError> {
         let r = Self {
             schema_version: 1,
@@ -905,6 +963,99 @@ impl Engine {
         self.database_bytes = fs::metadata(self.config.directory.join("coverage.sqlite3"))?.len();
         ctx.check()?;
         Ok(receipt)
+    }
+    pub fn submit(
+        &mut self,
+        submission: CoverageSubmission,
+        intake: IntakeContext,
+        reference: Option<Receipt>,
+        ctx: &WorkContext,
+    ) -> Result<IntakeOutcome, CoverageError> {
+        // The single worker serializes authorization, identity lookup and admission.
+        // Check the stored binding before disclosing any original receipt or payload.
+        let retained = self.get_authorized(submission.record_id, &intake.authority, ctx)?;
+        if let Some(reference) = &reference {
+            let sequence = reference.validate_reference()?;
+            if reference.history_id != self.state.history_id
+                || sequence > self.state.committed_sequence
+                || retained.is_none()
+            {
+                return Err(CoverageError::HistoryUnavailable);
+            }
+        }
+        if intake.received_at < self.state.clock_floor {
+            return Err(CoverageError::ClockRegression);
+        }
+        if let Some(stored) = retained {
+            if reference.as_ref().is_some_and(|r| r != &stored.receipt) {
+                return Err(CoverageError::ReceiptMismatch);
+            }
+            if intake.received_at >= Timestamp::parse(&stored.receipt.replay_until)? {
+                return Err(CoverageError::ReplayWindowExpired);
+            }
+            let raw = stored.raw.ok_or(CoverageError::ReplayWindowExpired)?;
+            if raw != submission.raw || stored.receipt.correction_of != submission.correction_of {
+                return Err(CoverageError::IdContentConflict);
+            }
+            ctx.check()?;
+            return Ok(IntakeOutcome::Replayed(stored.receipt));
+        }
+        if submission.correction_of.is_some() {
+            return Err(CoverageError::CorrectionUnsupported);
+        }
+        let profile = intake.profile.ok_or(CoverageError::ProfileUnavailable)?;
+        if profile.skew() > intake.policy.max_clock_skew_seconds {
+            return Err(CoverageError::Invalid(
+                "profile exceeds configured clock skew",
+            ));
+        }
+        let (binding, times) = HistoryBinding::from_record(&submission.raw)?;
+        if binding.encoded() != intake.authority.binding.encoded() {
+            return Err(CoverageError::NotAuthorized);
+        }
+        if times.id != submission.record_id {
+            return Err(CoverageError::Invalid("producer record identity mismatch"));
+        }
+        let admission = intake
+            .policy
+            .admission(intake.received_at, intake.authority.revision)?;
+        let prepared = PreparedObservation::prepare(
+            &submission.raw,
+            profile,
+            intake.authority.binding,
+            admission,
+        )?;
+        if intake.received_at.datetime()? - times.observed.datetime()?
+            > chrono::TimeDelta::seconds(i64::from(intake.policy.max_report_age_seconds))
+        {
+            return Err(CoverageError::ReportTooOld);
+        }
+        ctx.check()?;
+        self.append(prepared, ctx).map(IntakeOutcome::Accepted)
+    }
+    pub fn get_authorized(
+        &self,
+        id: Uuid,
+        authority: &AuthorizedBinding,
+        ctx: &WorkContext,
+    ) -> Result<Option<StoredObservation>, CoverageError> {
+        ctx.check()?;
+        format::non_nil(id)?;
+        let binding = self
+            .connection
+            .query_row(
+                "SELECT binding FROM entries WHERE record_id=?1",
+                params![id.as_bytes()],
+                |r| bounded_blob(r, 0, format::MAX_BINDING_BYTES),
+            )
+            .optional()?;
+        match binding {
+            None => Ok(None),
+            Some(binding) if binding != authority.binding.encoded() => {
+                Err(CoverageError::NotAuthorized)
+            }
+            Some(_) => self.load(id, ctx),
+        }
     }
     pub fn load(
         &self,

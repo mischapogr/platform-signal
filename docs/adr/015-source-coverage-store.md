@@ -2,9 +2,9 @@
 
 Status: Selected decision with bounded library implementation, 2026-10-07.
 Encodings, explicit initialization/ownership, prepared append, recovery and
-trusted one-row inspection are implemented in
-[`signal-coverage`](../../crates/signal-coverage/README.md). Trusted intake/retry
-policy, correction admission, pruning, scans and observers remain unimplemented.
+trusted one-row inspection and application-grant intake/retry are implemented in
+[`signal-coverage`](../../crates/signal-coverage/README.md). Correction admission,
+pruning, scans, credential authentication and source observers remain unimplemented.
 This ADR does not select production retention or claim release readiness.
 
 ## Context and decision
@@ -332,9 +332,16 @@ receipts. Full local acceptance passes formatting, strict Clippy, 273 workspace
 tests and the 13-package boundary guard. Evidence is retained under
 `target/source-coverage-store-20261007/`.
 
-The table still includes future requirements. A retained ID currently rejects
-append with `IdentityExists`; it does not implement successful exact-byte replay.
-Trusted local intake/authorization, checked admission/retention policy and original
-receipt replay are next. Correction admission, prefix GC and scan integration
-follow separately. No observer, current-health selection, protected S3 evidence,
+The table still includes future requirements. The subsequent intake slice passes
+31 focused tests and 286 workspace tests with unchanged encodings/dependencies.
+`submit`, `retry` and `get_authorized` require a fresh exact application grant.
+Retained IDs authorize their original binding before evidence disclosure; exact
+original bytes/link return the original receipt within its fixed replay window,
+including retired pins and full new-write quotas. Missing/divergent receipt
+references cannot be admitted as new. Report age uses `provenance.observed_at`;
+checked fixed retention arithmetic preserves nanoseconds. Replay never advances
+sequence, deadlines, verification or the admission clock floor. Low-level append
+still rejects retained IDs with `IdentityExists` and remains caller-trusted.
+Evidence: `target/source-coverage-intake-20261007/`. Correction admission is next;
+prefix GC and scan integration follow separately. No observer, current-health selection, protected S3 evidence,
 source adapter or detection wiring follows from this library acceptance.

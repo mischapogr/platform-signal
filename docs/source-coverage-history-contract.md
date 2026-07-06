@@ -2,10 +2,11 @@
 
 Status: PS-01 design/fixture contract, 2026-10-07. The
 [pure v1 validator](source-coverage-contract.md) and bounded local persistence
-primitives are implemented. [ADR-015](adr/015-source-coverage-store.md) records
-prepared append, immutable receipts, recovery and trusted one-row inspection.
-The complete intake/retry, correction, pruning and scan state machine described
-here remains **unimplemented**; its 56 outcomes remain planned fixtures. This
+primitives and trusted application-grant intake/retry are implemented.
+[ADR-015](adr/015-source-coverage-store.md) records prepared append, immutable
+receipts, recovery, full-binding authorized reads and original-byte replay.
+Correction admission, pruning, scans and source observers remain **unimplemented**;
+the complete 56-outcome state machine remains planned. This
 contract selects responsibilities and acceptance. The local backend and
 exact encodings are selected in ADR-015;
 there is no new endpoint or split of `signal-server`.
@@ -245,9 +246,13 @@ python3 scripts/check-source-coverage-contract.py
 [ADR-015](adr/015-source-coverage-store.md) now selects SQLite on one worker,
 freezes profile/binding/commit/state/identity encodings and supplies executable
 golden checks and a limited system-SQLite mechanics probe. The probe is not the
-complete Rust history state machine. The first library slice now passes 18 focused
-tests and 273 workspace tests, including actual process-crash recovery, corruption,
-page exhaustion and cancellation ownership. Next implement trusted local intake,
-authorization and exact-byte original-receipt replay; correction admission,
-retention/pruning and scans follow separately. Do not adapt the event
+complete Rust history state machine. The persistence and intake slices now pass
+31 focused tests and 286 workspace tests, including actual process-crash recovery,
+corruption, page exhaustion, cancellation ownership and exact-byte receipt replay.
+The application's fresh `AuthorizedBinding` grant represents its authenticated
+observer and current full-binding permission; credential authentication/revocation
+and independently supervised current health remain application responsibilities.
+Admission checks finite report-age/skew/retention policy with fixed original
+deadlines. Next implement bounded correction admission; retention/pruning and scans
+follow separately. Do not adapt the event
 WAL/findings journal by assuming its contracts already satisfy this one.

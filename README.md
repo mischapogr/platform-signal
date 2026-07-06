@@ -140,8 +140,9 @@ recovery/inspection. It passes local process-crash and cancellation tests withou
 changing server admission or assessing live source coverage.
 The [intake/history contract](docs/source-coverage-history-contract.md) defines
 bounded retry/retention/correction and recovery expectations; its 56 storage cases
-are planned fixtures. Trusted intake and exact-byte receipt replay are next;
-corrections, pruning, scans and observers follow separately.
+are planned fixtures. Trusted application-grant intake and exact-byte original
+receipt replay now have 31 focused library tests. Bounded correction admission is
+next; pruning, scans and observers follow separately.
 
 ## First executable milestone
 
