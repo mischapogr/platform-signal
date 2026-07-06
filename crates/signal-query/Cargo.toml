@@ -1,0 +1,34 @@
+[package]
+name = "signal-query"
+description = "URL filter execution and partition pruning through DataFusion."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+signal-event.workspace = true
+signal-protocol.workspace = true
+signal-storage.workspace = true
+arrow.workspace = true
+object_store.workspace = true
+async-trait.workspace = true
+bytes.workspace = true
+url.workspace = true
+datafusion.workspace = true
+chrono.workspace = true
+futures-util.workspace = true
+futures.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+uuid.workspace = true

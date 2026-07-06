@@ -1,0 +1,17 @@
+**
+!Cargo.toml
+!Cargo.lock
+!rust-toolchain.toml
+!crates/
+!crates/**
+!apps/
+!apps/**
+!tests/
+!tests/integration/
+!tests/integration/**
+!benchmarks/
+!benchmarks/**
+!LICENSE
+!deploy/
+!deploy/docker/
+!deploy/docker/healthcheck.rs

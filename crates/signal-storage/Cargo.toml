@@ -1,0 +1,29 @@
+[package]
+name = "signal-storage"
+description = "Replaceable EventStore contract and filesystem Parquet implementation."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+signal-event.workspace = true
+signal-protocol.workspace = true
+arrow.workspace = true
+parquet.workspace = true
+chrono.workspace = true
+crc32fast.workspace = true
+futures-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

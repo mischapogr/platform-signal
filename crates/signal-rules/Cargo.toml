@@ -1,0 +1,26 @@
+[package]
+name = "signal-rules"
+description = "Stateless validated predicates producing findings."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+chrono.workspace = true
+libc.workspace = true
+serde-saphyr.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+signal-event.workspace = true
+signal-findings.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
