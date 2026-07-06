@@ -87,8 +87,11 @@ an instruction to build one universal privileged binary.
 inside nested attributes through the public SDK; no company fields enter its
 top-level schema. Preserve source event ID, source event time, observed time,
 collector identity/configuration revision, normalization revision and original
-evidence reference. SourceCoverage is a separate proposed contract, not an
-unannounced change to the event schema.
+evidence reference. SourceCoverage is a separate versioned contract with pure SDK
+validation/assessment. The separate bounded local
+[`signal-coverage` library](../crates/signal-coverage/README.md) implements prepared
+append/recovery; trusted intake/retry, pruning, scans and observers remain planned.
+The event schema is unchanged.
 
 Keep actor identity, affected resource identity and collector identity distinct.
 An STS session may belong to one account and act on resources in another.

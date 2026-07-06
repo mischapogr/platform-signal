@@ -21,3 +21,4 @@ monolith-first deployment, the OSS boundary and both Linux architectures.
 | [012](012-agent-spool.md) | Durable edge-agent spool and source cursors | 6 |
 | [013](013-extension-sdk.md) | Generic collector and enrichment extension hooks | 7-A |
 | [014](014-packaging.md) | Minimal runtime and single persistent Kubernetes writer | 8 |
+| [015](015-source-coverage-store.md) | Proposed local SourceCoverage backend, bounded transactions and integrity encoding | PS-01 |
