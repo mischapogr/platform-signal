@@ -72,6 +72,24 @@ requests before decoding them. Typed references are checked for finite field
 sizes/canonical forms before dispatch. Library ownership/slots/deadlines apply
 equally to reads, replays and new writes.
 
+New submissions may carry one immutable `correction_of` link. Admission requires
+the direct target's original evidence to remain available, under the same full
+binding and observer. The target must already be committed, its half-open interval
+must overlap the correction's, and the correction's verification must be strictly
+later, including at nanosecond boundaries. Self/missing/future targets, different
+bindings, disjoint intervals and equal/older verification reject without changing
+history. An expired target can still be corrected while its original bytes remain.
+The link is committed with the new report/receipt/accounting in the same transaction
+and participates in the existing prefix encoding. The original row and receipt
+are unchanged; storage never resolves corrections into current health.
+
+Only the direct target is inspected; correcting a correction does not traverse
+ancestors. A retained correction replays its original bytes/link/receipt before
+its fixed deadline without checking target availability again. Later target
+pruning therefore cannot erase or reinterpret an already admitted correction.
+Changed links still conflict on a retained ID. No correction counters, queues,
+indexes, database schema or serialization format were added.
+
 `OperationContext` carries cancellation and a deadline, capped at the configured
 timeout (at most 300 seconds). One ordinary worker owns SQLite; operation slots
 and the command queue are finite. Cancellation before mutation prevents it from
@@ -93,7 +111,7 @@ EXTRA synchronization and the pinned bundled Unix VFS. Hashes detect inconsisten
 stored content; they do not authenticate a source or prevent coherent host-admin
 rewrites. Filesystem/device flush guarantees remain deployment prerequisites.
 
-Local Linux AMD64 acceptance has 31 focused tests, including frozen independent
+Local Linux AMD64 acceptance has 45 focused tests, including frozen independent
 vectors, actual page exhaustion, corruption, ownership/cancellation races,
 closed relocation and subprocess SIGKILL at three transaction boundaries.
 Thirteen intake regressions add authorization across all ten binding dimensions,
@@ -101,6 +119,13 @@ exact receipt replay, concurrent duplicates, full quotas, age/skew/expiry bounda
 profile retirement/redefinition, nongreen history and missing/divergent references.
 The crash test reconciles the recovered lost-response receipt; queued cancellation
 exercises the new intake path. Evidence: `target/source-coverage-intake-20261007/`.
+Fourteen correction regressions add all ten target-binding dimensions,
+half-open overlap/later-verification nanoseconds, self/future/missing targets,
+quotas/concurrent duplicates, corruption of target/link, one-hop corrections,
+queued timeout and SIGKILL at three transaction boundaries. A manually constructed
+pre-pruned persisted fixture checks unavailable-target rejection and retained
+correction replay/one-hop behavior; it does not test a pruning implementation.
+Current acceptance: `target/source-coverage-corrections-20261007/`.
 Bundled SQLite 3.53.2 build options and the reviewed source fingerprint are retained
 in `target/source-coverage-store-20261007/sqlite-build.json`. VFS write/sync fault
 injection, power-loss behavior, refreshed images and native ARM64 remain open.
@@ -110,6 +135,6 @@ cargo test -p signal-coverage --locked --offline
 python3 scripts/check-source-coverage-backend.py --self-test
 ```
 
-Correction admission, payload/identity prefix pruning, frontier scans, observers and cloud/server
+Payload/identity prefix pruning, frontier scans, observers and cloud/server
 integration require separately bounded tasks. The 56 planned history outcomes
 are not claimed as implemented by these primitives.

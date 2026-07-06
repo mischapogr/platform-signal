@@ -371,6 +371,8 @@ impl HistoryBinding {
             collection_config_revision: String,
             provenance: Provenance,
             record_id: Uuid,
+            coverage_start: String,
+            coverage_end: String,
             last_verified_at: String,
         }
         let p: Projection = bounded_json(data, MAX_RAW_BYTES)?;
@@ -378,6 +380,8 @@ impl HistoryBinding {
             id: p.record_id,
             verified: Timestamp::parse(&p.last_verified_at)?,
             observed: Timestamp::parse(&p.provenance.observed_at)?,
+            start: Timestamp::parse(&p.coverage_start)?,
+            end: Timestamp::parse(&p.coverage_end)?,
         };
         let b = Self::from_wire(BindingWire {
             source_id: p.source_id,
@@ -443,6 +447,8 @@ pub(crate) struct RecordTimes {
     pub id: Uuid,
     pub verified: Timestamp,
     pub observed: Timestamp,
+    pub start: Timestamp,
+    pub end: Timestamp,
 }
 
 /// Immutable commit fields. Encoding alone is not a valid source assertion or admission.

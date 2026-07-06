@@ -141,8 +141,9 @@ changing server admission or assessing live source coverage.
 The [intake/history contract](docs/source-coverage-history-contract.md) defines
 bounded retry/retention/correction and recovery expectations; its 56 storage cases
 are planned fixtures. Trusted application-grant intake and exact-byte original
-receipt replay now have 31 focused library tests. Bounded correction admission is
-next; pruning, scans and observers follow separately.
+receipt replay and bounded append-only correction admission now have 45 focused
+library tests. Payload-prefix pruning is next; identity pruning, scans and observers
+follow separately.
 
 ## First executable milestone
 

@@ -29,7 +29,7 @@ these rows do not authorize parallel agents or blanket cloud implementation.
 
 | Next task scope | Recommended new-task route | Required acceptance boundary |
 | --- | --- | --- |
-| PS-01 bounded correction admission | Sol/high for link/authority/recovery decisions | Existing [ADR-015](adr/015-source-coverage-store.md) library and accepted intake/retry; require an available earlier target with the same full binding/observer, preserve original evidence and commit the immutable correction link atomically. Reject unavailable, cross-binding, self/future links; exact replay retains the original link. Prefix pruning and scans follow separately; no HTTP/server/cloud wiring |
+| PS-01 bounded payload-prefix pruning | Sol/high for retention/clock/transaction decisions | Existing [ADR-015](adr/015-source-coverage-store.md) library and accepted intake/corrections; reclaim only an eligible global prefix under finite work/byte limits, preserving identity/receipt/pins/correction links. Atomically advance payload marker/anchor/accounting, retain unexpired acknowledged evidence, reject clock regression and recover pre/post-commit loss. Identity pruning and scans follow separately; no HTTP/server/cloud wiring |
 | PS-02 one source normalizer and predicate profile | Sol 6.1/medium or Sonnet/medium | Current source docs, original synthetic payload fixtures, field/type/provenance checks, missing/duplicate cases; authorized environment separately |
 | PS-03 public cursor runtime; private durable outbox as a separate task | Sol/high for replay/cursor/atomicity | Existing [25](25-findings-cursor-proposal.md) contract; divergent restore and delivery uncertainty; private paths need their own writable scope |
 | PS-04 one evidence/store publication contract or adapter | Sol/high for integrity/commit/recovery | Independent evidence authority, version/proof reference, retention permission and failure acceptance; no cloud provisioning from this design task |
@@ -54,8 +54,15 @@ semantics. The subsequent trusted intake/retry slice passes 31 focused tests and
 age, fixed checked retention, original receipt replay without renewal, full-quota
 replay, retired profiles and missing/divergent receipt rejection. Thirteen new tests
 cover this bounded slice; they do not execute the complete 56-case history state
-machine. Evidence: `target/source-coverage-intake-20261007/`. Implement bounded
-correction admission next. Do not launch
+machine. Evidence: `target/source-coverage-intake-20261007/`. Bounded correction
+admission now passes 45 focused tests and 300 workspace tests with unchanged
+encodings/dependencies. It checks one earlier available target, exact observer/full
+binding, overlapping half-open intervals and later verification; preserves original
+evidence and commits the immutable link atomically. Fourteen additional regressions
+include frozen-chain admission, quota/concurrency, target/link corruption, queued
+cancellation, process loss and pre-pruned fixture behavior. This is not runtime GC
+or complete history acceptance. Evidence: `target/source-coverage-corrections-20261007/`.
+Implement bounded payload-prefix pruning next. Do not launch
 additional agents without current user authorization. An observer and live source
 coverage remain unimplemented; production state/retention/fencing is separate.
 
@@ -63,7 +70,11 @@ Develop on `develop`; `main` merges require completed release readiness. The own
 authorized three local baseline commits on 2026-10-07, with deliberately assigned
 2026-07-07 evening metadata at 15-minute intervals, then explicitly authorized
 commits for the validator/library, release tooling and public/private samples.
-Push/publication still need their own authority. Keep existing
+Push/publication still need their own authority. Keep
+commit author and committer times in the owner-selected **18:00–22:00
+Europe/Berlin** window at fifteen-minute steps. Use the timezone's applicable
+UTC offset; deliberately assigned historical Git dates are separate from actual
+validation/usage timestamps. Keep existing
 Standard speed and one writer. Record task-specific usage/elapsed/corrections and qualify external
 ARM64/EKS/CI/released-dependency evidence separately.
 
