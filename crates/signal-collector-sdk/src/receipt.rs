@@ -6,6 +6,7 @@ mod ack;
 mod capture;
 mod discovery;
 mod format;
+mod http_publisher;
 mod preparation;
 mod progress;
 mod publisher;
@@ -21,6 +22,7 @@ pub use capture::{
 pub use discovery::{
     DiscoveryError, MAX_DISCOVERY_BYTES, MAX_DISCOVERY_REFERENCES, ObjectDiscovery, discover_object,
 };
+pub use http_publisher::HttpReceiptPublisher;
 pub use preparation::{
     OriginalCapture, PreparationError, ReceiptPreparation, ReceiptRetention, prepare_receipt,
 };

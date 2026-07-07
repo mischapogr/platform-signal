@@ -235,11 +235,19 @@
           ]
         },
         {
+          "id": "http-publication",
+          "status": "passed_local",
+          "evidence": [
+            "target/goal-execution-20261007/AWS-DELIVERY/http-publisher-validation.json",
+            "target/goal-execution-20261007/AWS-DELIVERY/http-publisher-independent-review.json"
+          ]
+        },
+        {
           "id": "capture-delivery-simulation",
           "status": "in_progress"
         }
       ],
-      "notes": "Discovery, exact capture and bounded retained-byte publisher accepted with 485 workspace tests and independent review. Network/source queue redelivery/ACK simulation remains runnable; real auth/provider deployment and stronger custody unqualified."
+      "notes": "Discovery, exact capture, bounded retained-byte publisher and actual local HTTP transport accepted with 489 workspace tests and independent review. Complete source-to-M2/queue redelivery/ACK simulation remains runnable; real auth/provider deployment and stronger custody unqualified."
     },
     {
       "id": "COVERAGE-OBSERVERS",
