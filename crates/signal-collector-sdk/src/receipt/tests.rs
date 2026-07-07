@@ -9,6 +9,8 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 mod capture_tests;
 #[path = "discovery_tests.rs"]
 mod discovery_tests;
+#[path = "publisher_tests.rs"]
+mod publisher_tests;
 fn ctx() -> ExtensionContext {
     ExtensionContext::new(CancellationToken::new(), Duration::from_secs(5))
         .unwrap_or_else(|_| unreachable!("constant valid context"))

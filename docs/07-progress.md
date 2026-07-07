@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 477, including eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+workspace gate has 485, including eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,27 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Retained-byte bounded batch publication — 2026-10-08
+
+AWS-DELIVERY's publication substep passes local acceptance. The batch envelope
+copies exact retained event payloads without reserialization. Count/body-byte
+selection includes envelope and commas before allocation. One invocation sends
+one bounded batch using fresh trusted binding. Shared response verification
+supplies retry classification; the physical store independently checks actual
+reply/IDs and exact prior control before atomically advancing a verified prefix.
+No publisher result grants source ACK or proves completed processing.
+
+Eight tests execute exact payload preservation, count/byte/config limits, partial
+admission/reopen/completion, uncertain/denied/reduce-batch zero progress, malformed/
+oversized/duplicate/forged replies, stale scope/deadline/live cancel, empty/quarantine
+suffix with ACK denial, and progress changed during an outstanding request. Default
+limits match current ingest (1 MiB/1,000); external transport still owns endpoint
+authentication, streamed-response bounds and I/O cancellation. Review has no
+blocker/high; all workspace gates pass: 485 tests, zero failures, 13-package guard.
+Evidence: `target/goal-execution-20261007/AWS-DELIVERY/publisher-validation.json`.
+Continue with reproducible local network/source queue/redelivery/ACK simulation;
+AWS-DELIVERY remains in_progress, actual AWS and stronger custody stay unqualified.
 
 ## Exact-version bounded capture and owned preparation — 2026-10-08
 
