@@ -65,6 +65,37 @@ or collected events without mutation or cloning. It uses the same bounded
 canonical validation as enrichment; `apply_enricher` adds transactional mutation
 and immutable identity checks.
 
+## SourceCoverage validation and assessment
+
+`signal_collector_sdk::coverage` provides a pure SourceCoverage v1 mechanism.
+`CoverageProfile::parse` and `CoverageContext::parse` validate trusted local
+configuration; `ValidatedCoverage::parse(record_bytes, Some(&profile))` admits
+one bounded immutable assertion and returns static typed errors. Resolve the
+exact profile ID/revision in the consuming application. Parse success does not
+authenticate an observer or check the contents of a proof reference.
+
+`validated.assess(&context)` evaluates current or historical coverage without
+changing verification/expiry times. `assess_coverage(record_bytes, profile, &context)`
+maps missing profiles and invalid candidates to unknown coverage. Assessment
+serialization carries `schema_version: 1`, `status` and zero/one `reason_codes`.
+An absent match is still a separate detection decision, not a coverage result.
+
+Record, profile and context inputs are limited to 65,536 raw UTF-8 bytes before
+parsing. Records have 1,024-byte text limits, 128 gaps, 32 proof references and
+16 attributes per scope. Duplicate/unknown keys, missing required nullable fields,
+invalid UTC/calendar timestamps and inconsistent profile/status claims fail
+closed. Time budgets and clock skew compare full fractional seconds; immutable
+historical assertions survive current expiry/observer-health changes.
+
+The [contract and acceptance](../../docs/source-coverage-contract.md) describe
+the exact wire/summary/binding rules. The module adds no I/O, queue, observer,
+coverage store, server wiring or private policy. Run its focused requirements with
+`cargo test -p signal-collector-sdk --test coverage`.
+
+The separate [`signal-coverage`](../signal-coverage/README.md) library depends on
+this validator for bounded local persistence. The SDK has no database dependency;
+trusted intake/retry policy and observers remain separate tasks.
+
 The public integration tests establish local compatibility of generic hooks.
 They do not provide proof of an external overlay integration, private detection,
 released dependency, or deployment.
