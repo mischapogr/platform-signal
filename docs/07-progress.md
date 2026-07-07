@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-default workspace gate has 535; the all-feature gate has 558 (11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+default workspace gate has 539; the all-feature gate has 562 (11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 106 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,27 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Independent source coverage runtime — 2026-10-08
+
+Four actual-source/monolith HTTP simulations derive reports from separate bounded
+synthetic source truth, rather than from successful telemetry admission. They
+verify quiet coverage, a missing capture position despite HTTP 202, fresh backfill
+correction with preserved historical failure, denied/throttled/malformed/oversize
+source responses, blind intervals, expiry and arrival without renewed verification.
+Lost history responses retain exact intent; server/observer restart and replay
+cannot heal supervision. Scope/profile alias denials preserve original history.
+
+Default 539/all-feature 562 tests pass, with zero failures and five existing
+ignored helpers; format, strict Clippy and package checks pass. Independent review
+has no blocker/high after two test-helper lifecycle corrections: owned bootstrap
+children have a finite deadline, and source-task shutdown retains ownership through
+abort/join. Evidence: `target/goal-execution-20261007/COVERAGE-OBSERVERS/runtime-validation.json`.
+COVERAGE-OBSERVERS is passed_simulated; native CloudTrail checkpoint/continuity/
+digest adapters remain unimplemented/unqualified. Applicable proof work remains
+within EVIDENCE; simulation closes no real environment gate. Server history health
+stays unknown without application-owned independent supervision. Next is the
+bounded public findings cursor; historical artifacts need fresh final qualification.
 
 ## Scoped monolith coverage integration — 2026-10-08
 

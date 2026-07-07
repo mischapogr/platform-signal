@@ -272,7 +272,7 @@
     {
       "id": "COVERAGE-OBSERVERS",
       "title": "Source observers, health and SDK/server integration",
-      "status": "in_progress",
+      "status": "passed_simulated",
       "dependencies": [
         "COVERAGE",
         "AWS-DELIVERY"
@@ -299,11 +299,13 @@
         },
         {
           "id": "independent-source-probes",
-          "status": "in_progress",
+          "status": "passed_simulated",
           "configuration_observation_status": "passed_local",
           "evidence": [
             "target/goal-execution-20261007/COVERAGE-OBSERVERS/native-probe-validation.json",
-            "target/goal-execution-20261007/COVERAGE-OBSERVERS/native-probe-independent-review.json"
+            "target/goal-execution-20261007/COVERAGE-OBSERVERS/native-probe-independent-review.json",
+            "target/goal-execution-20261007/COVERAGE-OBSERVERS/runtime-validation.json",
+            "target/goal-execution-20261007/COVERAGE-OBSERVERS/runtime-independent-review.json"
           ]
         },
         {
@@ -319,10 +321,14 @@
         },
         {
           "id": "observer-runtime-simulation",
-          "status": "pending"
+          "status": "passed_simulated",
+          "evidence": [
+            "target/goal-execution-20261007/COVERAGE-OBSERVERS/runtime-validation.json",
+            "target/goal-execution-20261007/COVERAGE-OBSERVERS/runtime-independent-review.json"
+          ]
         }
       ],
-      "notes": "Bounded observer state, regional signed configuration observation, durable bridge and scoped monolith history API/bootstrap/lifecycle accepted locally. Default535/all-feature558 gates. Current API health unknown; replay/arrival cannot heal. Continue independent checkpoint/gap/quiet/degraded-silence runtime simulation. Native source continuity/digest proofs remain explicitly unimplemented/unqualified; existing live/security/release gates remain open."
+      "notes": "Bounded state, regional signed configuration observation, durable bridge and scoped monolith history accepted locally. Independent synthetic source truth/checkpoint/gap/quiet/degraded-silence composition accepted simulated with default539/all-feature562 gates. API current health stays unknown; replay/arrival cannot heal independent supervision. Native CloudTrail continuity/checkpoint/digest adapters remain unimplemented and unqualified; applicable proof implementation stays in EVIDENCE acceptance. Real environment and release gates remain open."
     },
     {
       "id": "FINDINGS-CURSOR",
