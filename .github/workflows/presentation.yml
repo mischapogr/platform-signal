@@ -1,0 +1,88 @@
+name: Presentation
+
+# Builds the AWS adoption deck and the architecture diagram exports. On main it publishes them
+# to GitHub Pages. Path-filtered so ordinary code pushes never start it.
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/presentations/**
+      - docs/diagrams/**
+      - docs/logical-architecture.md
+      - .github/workflows/presentation.yml
+  pull_request:
+    paths:
+      - docs/presentations/**
+      - docs/diagrams/**
+      - docs/logical-architecture.md
+      - .github/workflows/presentation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: presentation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build deck and diagram exports
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Deck is up to date with its committed inputs
+        run: |
+          python3 docs/presentations/aws-adoption/build.py
+          git diff --exit-code -- docs/presentations/aws-adoption
+      - name: Render every Mermaid source to SVG and PNG
+        run: PNG=1 docs/diagrams/render.sh
+      - name: Assemble site
+        run: |
+          mkdir -p site/aws-adoption site/diagrams
+          cp docs/presentations/aws-adoption/index.html site/aws-adoption/
+          cp docs/diagrams/*.mmd docs/diagrams/dist/* site/diagrams/
+          cat > site/index.html <<'HTML'
+          <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>PLATFORM::SIGNAL presentation</title>
+          <style>body{font:16px/1.5 system-ui,sans-serif;max-width:42rem;margin:3rem auto;padding:0 1rem}</style>
+          <h1>PLATFORM::SIGNAL</h1>
+          <ul><li><a href="aws-adoption/">Architecture and AWS adoption deck</a></li>
+          <li><a href="diagrams/">Diagram exports (.mmd, .svg, .png)</a></li></ul>
+          <p>Product names belong to their owners. No affiliation or endorsement is implied.</p>
+          HTML
+          # Plain file listing so the diagrams folder is browsable on Pages.
+          (cd site/diagrams && { echo '<!doctype html><meta charset="utf-8"><title>Diagrams</title><ul>'; for f in *; do echo "<li><a href=\"$f\">$f</a></li>"; done; echo '</ul>'; } > index.html)
+      - name: Keep the site bundle for reviewers
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: presentation-site
+          path: site
+          retention-days: 14
+      - name: Package for Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+  deploy:
+    name: Publish to GitHub Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
