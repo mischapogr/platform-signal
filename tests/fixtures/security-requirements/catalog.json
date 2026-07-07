@@ -1,0 +1,2283 @@
+{
+  "schema_version": 1,
+  "status": "generic-requirements-and-synthetic-fixtures",
+  "normalization_profile": "security-requirements-lab-v1",
+  "scope": "Five native predicate rules can be executed against pre-normalized synthetic events. Ten future requirements, source collection and coverage assessment are not implemented.",
+  "source_profiles": [
+    {
+      "id": "S01",
+      "name": "AWS control-plane audit",
+      "required_evidence": "Original CloudTrail management events, account/region scope, selectors, delivery configuration and source digest validation where available.",
+      "coverage_preconditions": "Required accounts/regions and read/write selectors enabled; collector can read delivered originals; exclusions and delivery delay known. Data events are a separate opt-in scope.",
+      "identity": "Event account, actor principal/session and affected resource are separate identities."
+    },
+    {
+      "id": "S02",
+      "name": "IAM and security configuration state",
+      "required_evidence": "Versioned inventory, before/after policies and security-control settings, approval records supplied by a private adapter.",
+      "coverage_preconditions": "Snapshot freshness and authority recorded; incomplete IAM conditions, boundaries, SCPs or session policies make effective-permission claims indeterminate.",
+      "identity": "Principal, policy, account and revision keys; private approval decisions stay external."
+    },
+    {
+      "id": "S03",
+      "name": "Kubernetes audit and workload state",
+      "required_evidence": "Audit records plus revisioned workload/RBAC metadata; retain stage, verb, user, objectRef and response status.",
+      "coverage_preconditions": "Audit collection explicitly enabled and delivered; policy includes required resources/verbs and adequate request/response detail. Metadata-only records cannot prove a privileged pod specification.",
+      "identity": "Cluster identity + namespace + object UID; actor identity separate; auditID and stage distinguish duplicates."
+    },
+    {
+      "id": "S04",
+      "name": "Application or host authentication",
+      "required_evidence": "Structured success/failure records, stable principal and target identity, authentication method and producer checkpoint.",
+      "coverage_preconditions": "Success and failure logging verified with controlled fixtures; source timestamps and delivery continuity bounded; no credentials or tokens captured.",
+      "identity": "Identity authority + principal + target + session, with IP as context rather than sole identity."
+    },
+    {
+      "id": "S05",
+      "name": "Database authentication",
+      "required_evidence": "Database audit/authentication records and privileged-role inventory with revision and validity interval.",
+      "coverage_preconditions": "Engine-specific audit settings and roles verified; managed-service access does not automatically enable database audit logs.",
+      "identity": "Database resource + database principal + client/session."
+    },
+    {
+      "id": "S06",
+      "name": "Host/runtime execution and access",
+      "required_evidence": "Process execution, protected-file access and egress records with boot/process identities, producer sequence and dropped-event counters.",
+      "coverage_preconditions": "Required kernel/runtime capabilities, permissions and capture hooks verified. File/stdin collection alone does not establish runtime coverage.",
+      "identity": "Host + boot ID + process start identity, avoiding PID reuse; container/workload links carry confidence."
+    },
+    {
+      "id": "S07",
+      "name": "Independent collection coverage observer",
+      "required_evidence": "Expected source inventory, configuration revision, probe/heartbeat and checkpoint observations, observer self-health.",
+      "coverage_preconditions": "Observer has independent failure visibility; expectations exist before silence; freshness and outage budgets bounded. An unhealthy observer yields unknown coverage.",
+      "identity": "Source + collector + resource scope + expected stream + configuration revision."
+    }
+  ],
+  "detections": [
+    {
+      "id": "SIG-D01",
+      "name": "Root identity activity",
+      "domain": "aws_control_plane",
+      "required_sources": [
+        "S01"
+      ],
+      "coverage_preconditions": [
+        "Required accounts/regions and read/write selectors enabled; collector can read delivered originals; exclusions and delivery delay known. Data events are a separate opt-in scope."
+      ],
+      "normalization": "CloudTrail userIdentity.type -> actor_kind; eventName -> action; errorCode -> outcome; preserve eventID, recipient account, region, session and source identity.",
+      "rule_type": "predicate",
+      "trigger": "A successful audited activity uses a Root identity. Confidence concerns the recorded activity, not whether it is malicious.",
+      "state_requirements": "No cross-event state. Fixed-size field lookup and configured predicate limits suffice; normalization and coverage validity remain separate requirements.",
+      "missing_data_behavior": "Missing required field or expired source coverage gives indeterminate assessment plus a coverage gap; never interpret absent evidence as a clean result. Existing predicates can only emit no finding.",
+      "evidence_retention": "Retain original reference, normalized input, source/configuration revision, rule version and assessment. Private policy supplies duration and legal hold; absent evidence reduces confidence.",
+      "severity_confidence": {
+        "suggested_severity": "high",
+        "confidence": "High for root activity; intent requires investigation.",
+        "policy": "Generic suggestion only; private policy chooses severity, thresholds and response."
+      },
+      "expected_secops_action": "Verify emergency/change authorization and affected resources; inspect adjacent activity before escalation.",
+      "capability_status": "normalized_predicate_runnable",
+      "fixtures": [
+        {
+          "id": "SIG-D01-positive",
+          "case": "positive",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "77f88a62-28c0-5628-a4aa-8dfb14c49a92",
+              "timestamp": "2026-10-07T00:00:01Z",
+              "observed_at": "2026-10-07T00:01:01Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D01 positive",
+              "attributes": {
+                "security": {
+                  "action": "resource.activity",
+                  "outcome": "success",
+                  "actor_kind": "Root"
+                },
+                "evidence_ref": "fixture://SIG-D01/positive"
+              },
+              "tags": []
+            }
+          ],
+          "state": {},
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "match",
+          "expected_native_findings": 1,
+          "acceptance_scope": "Existing predicate only; coverage assessment is proposed."
+        },
+        {
+          "id": "SIG-D01-negative",
+          "case": "negative",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "a9a3ee8f-966c-5d4d-a0e3-9b14e273e107",
+              "timestamp": "2026-10-07T00:00:01Z",
+              "observed_at": "2026-10-07T00:01:01Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D01 negative",
+              "attributes": {
+                "security": {
+                  "action": "resource.activity",
+                  "outcome": "success",
+                  "actor_kind": "IAMUser"
+                },
+                "evidence_ref": "fixture://SIG-D01/negative"
+              },
+              "tags": []
+            }
+          ],
+          "state": {},
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "no_match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Existing predicate only; coverage assessment is proposed."
+        },
+        {
+          "id": "SIG-D01-missing_data",
+          "case": "missing_data",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "25b23ffc-022b-547d-94be-b93c15795e1f",
+              "timestamp": "2026-10-07T00:00:01Z",
+              "observed_at": "2026-10-07T00:01:01Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D01 missing_data",
+              "attributes": {
+                "security": {
+                  "action": "resource.activity",
+                  "outcome": "success"
+                },
+                "evidence_ref": "fixture://SIG-D01/missing_data"
+              },
+              "tags": []
+            }
+          ],
+          "state": {},
+          "coverage_status": "unknown",
+          "parameters": {},
+          "expected_assessment": "indeterminate",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Existing predicate only; coverage assessment is proposed."
+        }
+      ],
+      "native_rule": {
+        "apiVersion": "signal.dev/v1",
+        "kind": "Rule",
+        "metadata": {
+          "id": "SIG-D01",
+          "name": "Root identity activity"
+        },
+        "spec": {
+          "severity": "high",
+          "match": {
+            "all": [
+              {
+                "field": "source.type",
+                "eq": "cloudtrail"
+              },
+              {
+                "field": "attributes.security.action",
+                "eq": "resource.activity"
+              },
+              {
+                "field": "attributes.security.outcome",
+                "eq": "success"
+              },
+              {
+                "field": "attributes.security.actor_kind",
+                "eq": "Root"
+              }
+            ]
+          },
+          "finding": {
+            "title": "Root identity activity"
+          }
+        }
+      }
+    },
+    {
+      "id": "SIG-D02",
+      "name": "Audit collection stopped or deleted",
+      "domain": "aws_control_plane",
+      "required_sources": [
+        "S01",
+        "S07"
+      ],
+      "coverage_preconditions": [
+        "Required accounts/regions and read/write selectors enabled; collector can read delivered originals; exclusions and delivery delay known. Data events are a separate opt-in scope.",
+        "Observer has independent failure visibility; expectations exist before silence; freshness and outage budgets bounded. An unhealthy observer yields unknown coverage."
+      ],
+      "normalization": "StopLogging/DeleteTrail -> audit.stop/audit.delete; preserve trail ARN, actor, result and account/region. An API attempt is distinct from a successful change.",
+      "rule_type": "predicate",
+      "trigger": "Successful stop/delete operation on an audit trail; independent observer separately verifies resulting collection state.",
+      "state_requirements": "No cross-event state. Fixed-size field lookup and configured predicate limits suffice; normalization and coverage validity remain separate requirements.",
+      "missing_data_behavior": "Missing required field or expired source coverage gives indeterminate assessment plus a coverage gap; never interpret absent evidence as a clean result. Existing predicates can only emit no finding.",
+      "evidence_retention": "Retain original reference, normalized input, source/configuration revision, rule version and assessment. Private policy supplies duration and legal hold; absent evidence reduces confidence.",
+      "severity_confidence": {
+        "suggested_severity": "critical",
+        "confidence": "High for successful operation; coverage impact independently verified.",
+        "policy": "Generic suggestion only; private policy chooses severity, thresholds and response."
+      },
+      "expected_secops_action": "Validate approved maintenance and current audit scope; restore collection through an authorized runbook and investigate actor.",
+      "capability_status": "normalized_predicate_runnable",
+      "fixtures": [
+        {
+          "id": "SIG-D02-positive",
+          "case": "positive",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "7ede9626-69cb-5f38-a621-2ba2080a18c8",
+              "timestamp": "2026-10-07T00:00:02Z",
+              "observed_at": "2026-10-07T00:01:02Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D02 positive",
+              "attributes": {
+                "security": {
+                  "action": "audit.stop",
+                  "outcome": "success"
+                },
+                "evidence_ref": "fixture://SIG-D02/positive"
+              },
+              "tags": []
+            }
+          ],
+          "state": {},
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "match",
+          "expected_native_findings": 1,
+          "acceptance_scope": "Existing predicate only; coverage assessment is proposed."
+        },
+        {
+          "id": "SIG-D02-negative",
+          "case": "negative",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "92e84ae9-529f-5793-b556-e10ff3e842c2",
+              "timestamp": "2026-10-07T00:00:02Z",
+              "observed_at": "2026-10-07T00:01:02Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D02 negative",
+              "attributes": {
+                "security": {
+                  "action": "audit.stop",
+                  "outcome": "failure"
+                },
+                "evidence_ref": "fixture://SIG-D02/negative"
+              },
+              "tags": []
+            }
+          ],
+          "state": {},
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "no_match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Existing predicate only; coverage assessment is proposed."
+        },
+        {
+          "id": "SIG-D02-missing_data",
+          "case": "missing_data",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "07c78b15-b9e8-5d9c-9aa3-5b6557738856",
+              "timestamp": "2026-10-07T00:00:02Z",
+              "observed_at": "2026-10-07T00:01:02Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D02 missing_data",
+              "attributes": {
+                "security": {
+                  "action": "audit.stop"
+                },
+                "evidence_ref": "fixture://SIG-D02/missing_data"
+              },
+              "tags": []
+            }
+          ],
+          "state": {},
+          "coverage_status": "unknown",
+          "parameters": {},
+          "expected_assessment": "indeterminate",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Existing predicate only; coverage assessment is proposed."
+        }
+      ],
+      "native_rule": {
+        "apiVersion": "signal.dev/v1",
+        "kind": "Rule",
+        "metadata": {
+          "id": "SIG-D02",
+          "name": "Audit collection stopped or deleted"
+        },
+        "spec": {
+          "severity": "critical",
+          "match": {
+            "all": [
+              {
+                "field": "source.type",
+                "eq": "cloudtrail"
+              },
+              {
+                "field": "attributes.security.outcome",
+                "eq": "success"
+              }
+            ],
+            "any": [
+              {
+                "field": "attributes.security.action",
+                "eq": "audit.stop"
+              },
+              {
+                "field": "attributes.security.action",
+                "eq": "audit.delete"
+              }
+            ]
+          },
+          "finding": {
+            "title": "Audit collection stopped or deleted"
+          }
+        }
+      }
+    },
+    {
+      "id": "SIG-D03",
+      "name": "Successful IAM or root console login without MFA",
+      "domain": "aws_control_plane",
+      "required_sources": [
+        "S01"
+      ],
+      "coverage_preconditions": [
+        "Required accounts/regions and read/write selectors enabled; collector can read delivered originals; exclusions and delivery delay known. Data events are a separate opt-in scope."
+      ],
+      "normalization": "ConsoleLogin -> identity.console_login; responseElements.ConsoleLogin -> outcome; userIdentity.type -> actor_kind; additionalEventData.MFAUsed -> mfa_used boolean only for IAMUser/Root. Missing/unsupported value stays absent. Federated MFA needs IdP evidence.",
+      "rule_type": "predicate",
+      "trigger": "Successful ConsoleLogin, actor_kind IAMUser or Root, and explicit mfa_used=false. AssumedRole/federated No is not proof that IdP MFA was absent.",
+      "state_requirements": "No cross-event state. Fixed-size field lookup and configured predicate limits suffice; normalization and coverage validity remain separate requirements.",
+      "missing_data_behavior": "Missing required field or expired source coverage gives indeterminate assessment plus a coverage gap; never interpret absent evidence as a clean result. Existing predicates can only emit no finding.",
+      "evidence_retention": "Retain original reference, normalized input, source/configuration revision, rule version and assessment. Private policy supplies duration and legal hold; absent evidence reduces confidence.",
+      "severity_confidence": {
+        "suggested_severity": "high",
+        "confidence": "High for native IAM/root MFA observation; federated coverage unsupported without IdP source.",
+        "policy": "Generic suggestion only; private policy chooses severity, thresholds and response."
+      },
+      "expected_secops_action": "Validate identity and access policy; inspect session actions and investigate unapproved access.",
+      "capability_status": "normalized_predicate_runnable",
+      "fixtures": [
+        {
+          "id": "SIG-D03-positive",
+          "case": "positive",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "93cf6e9f-75f9-53ab-84e1-7ee1c858ad5e",
+              "timestamp": "2026-10-07T00:00:03Z",
+              "observed_at": "2026-10-07T00:01:03Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D03 positive",
+              "attributes": {
+                "security": {
+                  "action": "identity.console_login",
+                  "outcome": "success",
+                  "actor_kind": "IAMUser",
+                  "mfa_used": false
+                },
+                "evidence_ref": "fixture://SIG-D03/positive"
+              },
+              "tags": []
+            }
+          ],
+          "state": {},
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "match",
+          "expected_native_findings": 1,
+          "acceptance_scope": "Existing predicate only; coverage assessment is proposed."
+        },
+        {
+          "id": "SIG-D03-negative",
+          "case": "negative",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "b7b6ce1d-b1e0-5d16-a2ad-e9667eb7a04b",
+              "timestamp": "2026-10-07T00:00:03Z",
+              "observed_at": "2026-10-07T00:01:03Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D03 negative",
+              "attributes": {
+                "security": {
+                  "action": "identity.console_login",
+                  "outcome": "success",
+                  "actor_kind": "AssumedRole",
+                  "mfa_used": false
+                },
+                "evidence_ref": "fixture://SIG-D03/negative"
+              },
+              "tags": []
+            }
+          ],
+          "state": {},
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "no_match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Existing predicate only; coverage assessment is proposed."
+        },
+        {
+          "id": "SIG-D03-missing_data",
+          "case": "missing_data",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "23377a94-cdc8-5236-99d3-23ad2ff32ccb",
+              "timestamp": "2026-10-07T00:00:03Z",
+              "observed_at": "2026-10-07T00:01:03Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D03 missing_data",
+              "attributes": {
+                "security": {
+                  "action": "identity.console_login",
+                  "outcome": "success",
+                  "actor_kind": "IAMUser"
+                },
+                "evidence_ref": "fixture://SIG-D03/missing_data"
+              },
+              "tags": []
+            }
+          ],
+          "state": {},
+          "coverage_status": "unknown",
+          "parameters": {},
+          "expected_assessment": "indeterminate",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Existing predicate only; coverage assessment is proposed."
+        }
+      ],
+      "native_rule": {
+        "apiVersion": "signal.dev/v1",
+        "kind": "Rule",
+        "metadata": {
+          "id": "SIG-D03",
+          "name": "Successful IAM or root console login without MFA"
+        },
+        "spec": {
+          "severity": "high",
+          "match": {
+            "all": [
+              {
+                "field": "source.type",
+                "eq": "cloudtrail"
+              },
+              {
+                "field": "attributes.security.action",
+                "eq": "identity.console_login"
+              },
+              {
+                "field": "attributes.security.outcome",
+                "eq": "success"
+              },
+              {
+                "field": "attributes.security.mfa_used",
+                "eq": false
+              }
+            ],
+            "any": [
+              {
+                "field": "attributes.security.actor_kind",
+                "eq": "IAMUser"
+              },
+              {
+                "field": "attributes.security.actor_kind",
+                "eq": "Root"
+              }
+            ]
+          },
+          "finding": {
+            "title": "Successful IAM or root console login without MFA"
+          }
+        }
+      }
+    },
+    {
+      "id": "SIG-D04",
+      "name": "Unexpected IAM credential creation",
+      "domain": "iam_security_controls",
+      "required_sources": [
+        "S01",
+        "S02"
+      ],
+      "coverage_preconditions": [
+        "Required accounts/regions and read/write selectors enabled; collector can read delivered originals; exclusions and delivery delay known. Data events are a separate opt-in scope.",
+        "Snapshot freshness and authority recorded; incomplete IAM conditions, boundaries, SCPs or session policies make effective-permission claims indeterminate."
+      ],
+      "normalization": "CreateUser/CreateAccessKey -> credential.create; target principal and credential identifier distinct from actor. Never retain secret key material.",
+      "rule_type": "state",
+      "trigger": "Successful credential creation without a valid approval for target, actor and interval.",
+      "state_requirements": "Bounded approval/inventory lookup keyed by account+target+change; revision, validity interval and timeout mandatory. Persist decision inputs for replay; stale state is indeterminate.",
+      "missing_data_behavior": "Missing required field or expired source coverage gives indeterminate assessment plus a coverage gap; never interpret absent evidence as a clean result. Existing predicates can only emit no finding.",
+      "evidence_retention": "Retain original reference, normalized input, source/configuration revision, rule version and assessment. Private policy supplies duration and legal hold; absent evidence reduces confidence.",
+      "severity_confidence": {
+        "suggested_severity": "high",
+        "confidence": "Medium until approval/state is authoritative.",
+        "policy": "Generic suggestion only; private policy chooses severity, thresholds and response."
+      },
+      "expected_secops_action": "Confirm owner/change intent, inspect new credential use and revoke only through an authorized response workflow.",
+      "capability_status": "planned",
+      "fixtures": [
+        {
+          "id": "SIG-D04-positive",
+          "case": "positive",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "a164f290-4838-5929-a561-9e77c39cf42f",
+              "timestamp": "2026-10-07T00:00:04Z",
+              "observed_at": "2026-10-07T00:01:04Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D04 positive",
+              "attributes": {
+                "security": {
+                  "action": "credential.create",
+                  "outcome": "success",
+                  "target": "fixture-principal",
+                  "actor": "fixture-actor"
+                },
+                "evidence_ref": "fixture://SIG-D04/positive"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "approval": "absent",
+            "inventory_revision": "fixture-v1"
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D04-negative",
+          "case": "negative",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "fc074fbb-c814-5a25-80ae-1f3f936a6a36",
+              "timestamp": "2026-10-07T00:00:04Z",
+              "observed_at": "2026-10-07T00:01:04Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D04 negative",
+              "attributes": {
+                "security": {
+                  "action": "credential.create",
+                  "outcome": "success",
+                  "target": "fixture-principal",
+                  "actor": "fixture-actor"
+                },
+                "evidence_ref": "fixture://SIG-D04/negative"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "approval": "valid",
+            "inventory_revision": "fixture-v1"
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "no_match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D04-missing_data",
+          "case": "missing_data",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "01a23d79-e9e5-5915-ba28-090bee9189d4",
+              "timestamp": "2026-10-07T00:00:04Z",
+              "observed_at": "2026-10-07T00:01:04Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D04 missing_data",
+              "attributes": {
+                "security": {
+                  "action": "credential.create",
+                  "outcome": "success",
+                  "actor": "fixture-actor"
+                },
+                "evidence_ref": "fixture://SIG-D04/missing_data"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "approval": "valid",
+            "inventory_revision": "fixture-v1"
+          },
+          "coverage_status": "unknown",
+          "parameters": {},
+          "expected_assessment": "indeterminate",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        }
+      ]
+    },
+    {
+      "id": "SIG-D05",
+      "name": "Security control disabled",
+      "domain": "iam_security_controls",
+      "required_sources": [
+        "S01",
+        "S07"
+      ],
+      "coverage_preconditions": [
+        "Required accounts/regions and read/write selectors enabled; collector can read delivered originals; exclusions and delivery delay known. Data events are a separate opt-in scope.",
+        "Observer has independent failure visibility; expectations exist before silence; freshness and outage budgets bounded. An unhealthy observer yields unknown coverage."
+      ],
+      "normalization": "Normalize supported successful disable/stop APIs for GuardDuty, Security Hub or Config to control.disable with service/resource and outcome; selectors/version define supported actions.",
+      "rule_type": "predicate",
+      "trigger": "Successful supported control-disable operation. Independent coverage verifies actual impact.",
+      "state_requirements": "No cross-event state. Fixed-size field lookup and configured predicate limits suffice; normalization and coverage validity remain separate requirements.",
+      "missing_data_behavior": "Missing required field or expired source coverage gives indeterminate assessment plus a coverage gap; never interpret absent evidence as a clean result. Existing predicates can only emit no finding.",
+      "evidence_retention": "Retain original reference, normalized input, source/configuration revision, rule version and assessment. Private policy supplies duration and legal hold; absent evidence reduces confidence.",
+      "severity_confidence": {
+        "suggested_severity": "high",
+        "confidence": "High for operation; disabling one detector does not prove all regional/org coverage disabled.",
+        "policy": "Generic suggestion only; private policy chooses severity, thresholds and response."
+      },
+      "expected_secops_action": "Validate maintenance and affected scope; restore expected control configuration with approval.",
+      "capability_status": "normalized_predicate_runnable",
+      "fixtures": [
+        {
+          "id": "SIG-D05-positive",
+          "case": "positive",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "60a7a366-fe9b-5e3a-b836-6e61837818f1",
+              "timestamp": "2026-10-07T00:00:05Z",
+              "observed_at": "2026-10-07T00:01:05Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D05 positive",
+              "attributes": {
+                "security": {
+                  "action": "control.disable",
+                  "outcome": "success",
+                  "control": "fixture-control"
+                },
+                "evidence_ref": "fixture://SIG-D05/positive"
+              },
+              "tags": []
+            }
+          ],
+          "state": {},
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "match",
+          "expected_native_findings": 1,
+          "acceptance_scope": "Existing predicate only; coverage assessment is proposed."
+        },
+        {
+          "id": "SIG-D05-negative",
+          "case": "negative",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "3a0471fb-31ae-5dad-a967-82407ba8d2a7",
+              "timestamp": "2026-10-07T00:00:05Z",
+              "observed_at": "2026-10-07T00:01:05Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D05 negative",
+              "attributes": {
+                "security": {
+                  "action": "control.disable",
+                  "outcome": "failure",
+                  "control": "fixture-control"
+                },
+                "evidence_ref": "fixture://SIG-D05/negative"
+              },
+              "tags": []
+            }
+          ],
+          "state": {},
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "no_match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Existing predicate only; coverage assessment is proposed."
+        },
+        {
+          "id": "SIG-D05-missing_data",
+          "case": "missing_data",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "35d62f3f-72d6-5911-99c7-e874f29af8f1",
+              "timestamp": "2026-10-07T00:00:05Z",
+              "observed_at": "2026-10-07T00:01:05Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D05 missing_data",
+              "attributes": {
+                "security": {
+                  "action": "control.disable",
+                  "control": "fixture-control"
+                },
+                "evidence_ref": "fixture://SIG-D05/missing_data"
+              },
+              "tags": []
+            }
+          ],
+          "state": {},
+          "coverage_status": "unknown",
+          "parameters": {},
+          "expected_assessment": "indeterminate",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Existing predicate only; coverage assessment is proposed."
+        }
+      ],
+      "native_rule": {
+        "apiVersion": "signal.dev/v1",
+        "kind": "Rule",
+        "metadata": {
+          "id": "SIG-D05",
+          "name": "Security control disabled"
+        },
+        "spec": {
+          "severity": "high",
+          "match": {
+            "all": [
+              {
+                "field": "source.type",
+                "eq": "cloudtrail"
+              },
+              {
+                "field": "attributes.security.action",
+                "eq": "control.disable"
+              },
+              {
+                "field": "attributes.security.outcome",
+                "eq": "success"
+              }
+            ]
+          },
+          "finding": {
+            "title": "Security control disabled"
+          }
+        }
+      }
+    },
+    {
+      "id": "SIG-D06",
+      "name": "IAM effective permission expansion",
+      "domain": "iam_security_controls",
+      "required_sources": [
+        "S01",
+        "S02"
+      ],
+      "coverage_preconditions": [
+        "Required accounts/regions and read/write selectors enabled; collector can read delivered originals; exclusions and delivery delay known. Data events are a separate opt-in scope.",
+        "Snapshot freshness and authority recorded; incomplete IAM conditions, boundaries, SCPs or session policies make effective-permission claims indeterminate."
+      ],
+      "normalization": "Policy/role/group changes identify affected principal and before/after revisions; retain boundaries, SCP/session/condition inputs and evaluator support limits.",
+      "rule_type": "state",
+      "trigger": "A supported, verified before/after permission set expands beyond the approved scope. AttachPolicy alone is not an escalation verdict.",
+      "state_requirements": "Bounded versioned snapshots and supported permission-diff evaluator, keyed by principal/account. Unsupported semantics or missing prior version remain indeterminate; no universal IAM solver assumed.",
+      "missing_data_behavior": "Missing required field or expired source coverage gives indeterminate assessment plus a coverage gap; never interpret absent evidence as a clean result. Existing predicates can only emit no finding.",
+      "evidence_retention": "Retain original reference, normalized input, source/configuration revision, rule version and assessment. Private policy supplies duration and legal hold; absent evidence reduces confidence.",
+      "severity_confidence": {
+        "suggested_severity": "high",
+        "confidence": "Medium/high only for supported semantics and complete inputs.",
+        "policy": "Generic suggestion only; private policy chooses severity, thresholds and response."
+      },
+      "expected_secops_action": "Review exact added actions/resources and approval; investigate follow-on use.",
+      "capability_status": "planned",
+      "fixtures": [
+        {
+          "id": "SIG-D06-positive",
+          "case": "positive",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "fb8c2646-1e28-523d-803f-7d572603786a",
+              "timestamp": "2026-10-07T00:00:06Z",
+              "observed_at": "2026-10-07T00:01:06Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D06 positive",
+              "attributes": {
+                "security": {
+                  "action": "permission.change",
+                  "outcome": "success",
+                  "target": "fixture-principal"
+                },
+                "evidence_ref": "fixture://SIG-D06/positive"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "before": [
+              "read:fixture"
+            ],
+            "after": [
+              "read:fixture",
+              "admin:fixture"
+            ],
+            "approval": "absent",
+            "semantic_scope": "fixture-only"
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D06-negative",
+          "case": "negative",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "7b12c93f-63e3-580d-b9e3-47235737abe3",
+              "timestamp": "2026-10-07T00:00:06Z",
+              "observed_at": "2026-10-07T00:01:06Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D06 negative",
+              "attributes": {
+                "security": {
+                  "action": "permission.change",
+                  "outcome": "success",
+                  "target": "fixture-principal"
+                },
+                "evidence_ref": "fixture://SIG-D06/negative"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "before": [
+              "read:fixture"
+            ],
+            "after": [
+              "read:fixture"
+            ],
+            "approval": "absent",
+            "semantic_scope": "fixture-only"
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "no_match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D06-missing_data",
+          "case": "missing_data",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "42c09c15-a12e-5b20-812a-4996ce8f17fd",
+              "timestamp": "2026-10-07T00:00:06Z",
+              "observed_at": "2026-10-07T00:01:06Z",
+              "source": {
+                "type": "cloudtrail",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D06 missing_data",
+              "attributes": {
+                "security": {
+                  "action": "permission.change",
+                  "outcome": "success"
+                },
+                "evidence_ref": "fixture://SIG-D06/missing_data"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "before": [
+              "read:fixture"
+            ],
+            "after": [
+              "read:fixture"
+            ],
+            "approval": "absent",
+            "semantic_scope": "fixture-only"
+          },
+          "coverage_status": "unknown",
+          "parameters": {},
+          "expected_assessment": "indeterminate",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        }
+      ]
+    },
+    {
+      "id": "SIG-D07",
+      "name": "Privileged Kubernetes workload admitted",
+      "domain": "kubernetes_audit",
+      "required_sources": [
+        "S03"
+      ],
+      "coverage_preconditions": [
+        "Audit collection explicitly enabled and delivered; policy includes required resources/verbs and adequate request/response detail. Metadata-only records cannot prove a privileged pod specification."
+      ],
+      "normalization": "Audit objectRef/verb -> workload action; response classification -> outcome; request/response spec -> privileged. Preserve cluster/object UID, auditID, stage and policy revision. Read persisted/admitted spec where admission mutation matters.",
+      "rule_type": "predicate",
+      "trigger": "Successful workload write whose admitted workload specification has privileged=true. A rejected request is not an admitted workload.",
+      "state_requirements": "No cross-event state. Fixed-size field lookup and configured predicate limits suffice; normalization and coverage validity remain separate requirements.",
+      "missing_data_behavior": "Missing required field or expired source coverage gives indeterminate assessment plus a coverage gap; never interpret absent evidence as a clean result. Existing predicates can only emit no finding.",
+      "evidence_retention": "Retain original reference, normalized input, source/configuration revision, rule version and assessment. Private policy supplies duration and legal hold; absent evidence reduces confidence.",
+      "severity_confidence": {
+        "suggested_severity": "high",
+        "confidence": "High with confirmed admitted spec; request-only is lower-confidence candidate.",
+        "policy": "Generic suggestion only; private policy chooses severity, thresholds and response."
+      },
+      "expected_secops_action": "Validate workload owner and approved exception; inspect container image and operator identity.",
+      "capability_status": "normalized_predicate_runnable",
+      "fixtures": [
+        {
+          "id": "SIG-D07-positive",
+          "case": "positive",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "296317da-7512-551b-8388-a088a8ee4c0b",
+              "timestamp": "2026-10-07T00:00:07Z",
+              "observed_at": "2026-10-07T00:01:07Z",
+              "source": {
+                "type": "kubernetes.audit",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D07 positive",
+              "attributes": {
+                "security": {
+                  "action": "k8s.workload.write",
+                  "outcome": "success",
+                  "privileged": true
+                },
+                "evidence_ref": "fixture://SIG-D07/positive"
+              },
+              "tags": []
+            }
+          ],
+          "state": {},
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "match",
+          "expected_native_findings": 1,
+          "acceptance_scope": "Existing predicate only; coverage assessment is proposed."
+        },
+        {
+          "id": "SIG-D07-negative",
+          "case": "negative",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "1ae1d3a8-1d50-5afb-b627-f6dab093bf56",
+              "timestamp": "2026-10-07T00:00:07Z",
+              "observed_at": "2026-10-07T00:01:07Z",
+              "source": {
+                "type": "kubernetes.audit",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D07 negative",
+              "attributes": {
+                "security": {
+                  "action": "k8s.workload.write",
+                  "outcome": "success",
+                  "privileged": false
+                },
+                "evidence_ref": "fixture://SIG-D07/negative"
+              },
+              "tags": []
+            }
+          ],
+          "state": {},
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "no_match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Existing predicate only; coverage assessment is proposed."
+        },
+        {
+          "id": "SIG-D07-missing_data",
+          "case": "missing_data",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "16b44d5e-dc81-5ae2-9f61-a2c354948436",
+              "timestamp": "2026-10-07T00:00:07Z",
+              "observed_at": "2026-10-07T00:01:07Z",
+              "source": {
+                "type": "kubernetes.audit",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D07 missing_data",
+              "attributes": {
+                "security": {
+                  "action": "k8s.workload.write",
+                  "outcome": "success"
+                },
+                "evidence_ref": "fixture://SIG-D07/missing_data"
+              },
+              "tags": []
+            }
+          ],
+          "state": {},
+          "coverage_status": "unknown",
+          "parameters": {},
+          "expected_assessment": "indeterminate",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Existing predicate only; coverage assessment is proposed."
+        }
+      ],
+      "native_rule": {
+        "apiVersion": "signal.dev/v1",
+        "kind": "Rule",
+        "metadata": {
+          "id": "SIG-D07",
+          "name": "Privileged Kubernetes workload admitted"
+        },
+        "spec": {
+          "severity": "high",
+          "match": {
+            "all": [
+              {
+                "field": "source.type",
+                "eq": "kubernetes.audit"
+              },
+              {
+                "field": "attributes.security.action",
+                "eq": "k8s.workload.write"
+              },
+              {
+                "field": "attributes.security.outcome",
+                "eq": "success"
+              },
+              {
+                "field": "attributes.security.privileged",
+                "eq": true
+              }
+            ]
+          },
+          "finding": {
+            "title": "Privileged Kubernetes workload admitted"
+          }
+        }
+      }
+    },
+    {
+      "id": "SIG-D08",
+      "name": "Kubernetes effective RBAC privilege grant",
+      "domain": "kubernetes_audit",
+      "required_sources": [
+        "S03",
+        "S02"
+      ],
+      "coverage_preconditions": [
+        "Audit collection explicitly enabled and delivered; policy includes required resources/verbs and adequate request/response detail. Metadata-only records cannot prove a privileged pod specification.",
+        "Snapshot freshness and authority recorded; incomplete IAM conditions, boundaries, SCPs or session policies make effective-permission claims indeterminate."
+      ],
+      "normalization": "Role/binding changes -> rbac.change; subject/role/namespace plus role revisions; include aggregated roles and applicable authorization configuration.",
+      "rule_type": "state",
+      "trigger": "Supported before/after authorization view grants privileges outside approved subject scope.",
+      "state_requirements": "Bounded subject/role/binding snapshots, versioned authorization diff and approval lookup; unsupported authorizers/aggregation or stale revisions are indeterminate.",
+      "missing_data_behavior": "Missing required field or expired source coverage gives indeterminate assessment plus a coverage gap; never interpret absent evidence as a clean result. Existing predicates can only emit no finding.",
+      "evidence_retention": "Retain original reference, normalized input, source/configuration revision, rule version and assessment. Private policy supplies duration and legal hold; absent evidence reduces confidence.",
+      "severity_confidence": {
+        "suggested_severity": "high",
+        "confidence": "Medium/high for complete supported authorization inputs.",
+        "policy": "Generic suggestion only; private policy chooses severity, thresholds and response."
+      },
+      "expected_secops_action": "Review subject, role and namespace scope; validate operator change and inspect subsequent API actions.",
+      "capability_status": "planned",
+      "fixtures": [
+        {
+          "id": "SIG-D08-positive",
+          "case": "positive",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "7907f546-1e4d-5b7f-a8ff-8b678e489ed4",
+              "timestamp": "2026-10-07T00:00:08Z",
+              "observed_at": "2026-10-07T00:01:08Z",
+              "source": {
+                "type": "kubernetes.audit",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D08 positive",
+              "attributes": {
+                "security": {
+                  "action": "rbac.change",
+                  "outcome": "success",
+                  "subject": "fixture-subject"
+                },
+                "evidence_ref": "fixture://SIG-D08/positive"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "permission_delta": [
+              "privileged:fixture"
+            ],
+            "approval": "absent",
+            "revision": "fixture-v2"
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D08-negative",
+          "case": "negative",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "1fd1ddbf-0c03-526b-96fd-486f5920108b",
+              "timestamp": "2026-10-07T00:00:08Z",
+              "observed_at": "2026-10-07T00:01:08Z",
+              "source": {
+                "type": "kubernetes.audit",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D08 negative",
+              "attributes": {
+                "security": {
+                  "action": "rbac.change",
+                  "outcome": "success",
+                  "subject": "fixture-subject"
+                },
+                "evidence_ref": "fixture://SIG-D08/negative"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "permission_delta": [],
+            "approval": "valid",
+            "revision": "fixture-v2"
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "no_match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D08-missing_data",
+          "case": "missing_data",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "2506d33a-9d9f-5e4c-bf95-b90e3a336f19",
+              "timestamp": "2026-10-07T00:00:08Z",
+              "observed_at": "2026-10-07T00:01:08Z",
+              "source": {
+                "type": "kubernetes.audit",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D08 missing_data",
+              "attributes": {
+                "security": {
+                  "action": "rbac.change",
+                  "outcome": "success"
+                },
+                "evidence_ref": "fixture://SIG-D08/missing_data"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "permission_delta": [],
+            "approval": "valid",
+            "revision": "fixture-v2"
+          },
+          "coverage_status": "unknown",
+          "parameters": {},
+          "expected_assessment": "indeterminate",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        }
+      ]
+    },
+    {
+      "id": "SIG-D09",
+      "name": "Unauthorized exec into sensitive workload",
+      "domain": "kubernetes_audit",
+      "required_sources": [
+        "S03",
+        "S02"
+      ],
+      "coverage_preconditions": [
+        "Audit collection explicitly enabled and delivered; policy includes required resources/verbs and adequate request/response detail. Metadata-only records cannot prove a privileged pod specification.",
+        "Snapshot freshness and authority recorded; incomplete IAM conditions, boundaries, SCPs or session policies make effective-permission claims indeterminate."
+      ],
+      "normalization": "pods/exec subresource with auditID, actor, cluster/object identity and endpoint-aware result; streaming ResponseStarted/upgrade can establish accepted session without waiting for ResponseComplete.",
+      "rule_type": "state",
+      "trigger": "Accepted exec session into a workload classified sensitive, by an operator lacking valid authorization for that interval.",
+      "state_requirements": "Bounded historical workload classification and operator authorization, keyed by cluster+object UID+actor. Persist revision and time-valid decision; namespace name alone is insufficient.",
+      "missing_data_behavior": "Missing required field or expired source coverage gives indeterminate assessment plus a coverage gap; never interpret absent evidence as a clean result. Existing predicates can only emit no finding.",
+      "evidence_retention": "Retain original reference, normalized input, source/configuration revision, rule version and assessment. Private policy supplies duration and legal hold; absent evidence reduces confidence.",
+      "severity_confidence": {
+        "suggested_severity": "high",
+        "confidence": "Medium/high with accepted session and authoritative asset/actor policy.",
+        "policy": "Generic suggestion only; private policy chooses severity, thresholds and response."
+      },
+      "expected_secops_action": "Validate break-glass activity; inspect commands/session context available from authorized sources.",
+      "capability_status": "planned",
+      "fixtures": [
+        {
+          "id": "SIG-D09-positive",
+          "case": "positive",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "b712b952-5d9a-56b8-803a-af0c5898939f",
+              "timestamp": "2026-10-07T00:00:09Z",
+              "observed_at": "2026-10-07T00:01:09Z",
+              "source": {
+                "type": "kubernetes.audit",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D09 positive",
+              "attributes": {
+                "security": {
+                  "action": "k8s.exec",
+                  "outcome": "success",
+                  "workload": "fixture-workload",
+                  "actor": "fixture-actor"
+                },
+                "evidence_ref": "fixture://SIG-D09/positive"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "sensitivity": "sensitive",
+            "operator_authorized": false,
+            "revision": "fixture-v1"
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D09-negative",
+          "case": "negative",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "43bb4d74-e40a-51d3-a61b-760f04a2b8a8",
+              "timestamp": "2026-10-07T00:00:09Z",
+              "observed_at": "2026-10-07T00:01:09Z",
+              "source": {
+                "type": "kubernetes.audit",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D09 negative",
+              "attributes": {
+                "security": {
+                  "action": "k8s.exec",
+                  "outcome": "success",
+                  "workload": "fixture-workload",
+                  "actor": "fixture-actor"
+                },
+                "evidence_ref": "fixture://SIG-D09/negative"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "sensitivity": "sensitive",
+            "operator_authorized": true,
+            "revision": "fixture-v1"
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "no_match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D09-missing_data",
+          "case": "missing_data",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "677caf00-cc27-5dff-a5d4-e4d1b959b478",
+              "timestamp": "2026-10-07T00:00:09Z",
+              "observed_at": "2026-10-07T00:01:09Z",
+              "source": {
+                "type": "kubernetes.audit",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D09 missing_data",
+              "attributes": {
+                "security": {
+                  "action": "k8s.exec",
+                  "outcome": "success",
+                  "workload": "fixture-workload"
+                },
+                "evidence_ref": "fixture://SIG-D09/missing_data"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "sensitivity": "sensitive",
+            "operator_authorized": true,
+            "revision": "fixture-v1"
+          },
+          "coverage_status": "unknown",
+          "parameters": {},
+          "expected_assessment": "indeterminate",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        }
+      ]
+    },
+    {
+      "id": "SIG-D10",
+      "name": "Authentication failure burst",
+      "domain": "authentication",
+      "required_sources": [
+        "S04"
+      ],
+      "coverage_preconditions": [
+        "Success and failure logging verified with controlled fixtures; source timestamps and delivery continuity bounded; no credentials or tokens captured."
+      ],
+      "normalization": "Authentication attempt -> auth.attempt; outcome and authority+principal+target keys; preserve producer ID/time and source context. Count distinct attempts, not replay copies.",
+      "rule_type": "window",
+      "trigger": "At least N distinct failures for authority+principal+target within window W; laboratory threshold N=3, W=60 seconds.",
+      "state_requirements": "Bound keys, per-key events/counters, bytes, TTL and lateness. Persist watermark, dedup IDs and rule revision together with recovery checkpoint; overflow degrades assessment.",
+      "missing_data_behavior": "Missing required field or expired source coverage gives indeterminate assessment plus a coverage gap; never interpret absent evidence as a clean result. Existing predicates can only emit no finding.",
+      "evidence_retention": "Retain original reference, normalized input, source/configuration revision, rule version and assessment. Private policy supplies duration and legal hold; absent evidence reduces confidence.",
+      "severity_confidence": {
+        "suggested_severity": "medium",
+        "confidence": "Medium; shared client/NAT and legitimate failures need context.",
+        "policy": "Generic suggestion only; private policy chooses severity, thresholds and response."
+      },
+      "expected_secops_action": "Review principal/target and distributed-source context; validate user lockout and suspicious activity.",
+      "capability_status": "planned",
+      "fixtures": [
+        {
+          "id": "SIG-D10-positive",
+          "case": "positive",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "d8738eeb-0edc-5d6e-92dc-5f76e4981889",
+              "timestamp": "2026-10-07T00:00:10Z",
+              "observed_at": "2026-10-07T00:01:10Z",
+              "source": {
+                "type": "authentication",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D10 positive",
+              "attributes": {
+                "security": {
+                  "action": "auth.attempt",
+                  "outcome": "failure",
+                  "principal": "fixture-principal",
+                  "target": "fixture-target"
+                },
+                "evidence_ref": "fixture://SIG-D10/positive"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "distinct_prior_failures": 2,
+            "oldest_age_seconds": 20
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {
+            "failure_threshold": 3,
+            "window_seconds": 60
+          },
+          "expected_assessment": "match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D10-negative",
+          "case": "negative",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "c49732d0-a92a-556d-9198-81373bd61888",
+              "timestamp": "2026-10-07T00:00:10Z",
+              "observed_at": "2026-10-07T00:01:10Z",
+              "source": {
+                "type": "authentication",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D10 negative",
+              "attributes": {
+                "security": {
+                  "action": "auth.attempt",
+                  "outcome": "failure",
+                  "principal": "fixture-principal",
+                  "target": "fixture-target"
+                },
+                "evidence_ref": "fixture://SIG-D10/negative"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "distinct_prior_failures": 0
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {
+            "failure_threshold": 3,
+            "window_seconds": 60
+          },
+          "expected_assessment": "no_match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D10-missing_data",
+          "case": "missing_data",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "40791faa-349e-5975-a43b-d64f39ab74c7",
+              "timestamp": "2026-10-07T00:00:10Z",
+              "observed_at": "2026-10-07T00:01:10Z",
+              "source": {
+                "type": "authentication",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D10 missing_data",
+              "attributes": {
+                "security": {
+                  "action": "auth.attempt",
+                  "outcome": "failure",
+                  "target": "fixture-target"
+                },
+                "evidence_ref": "fixture://SIG-D10/missing_data"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "distinct_prior_failures": 0
+          },
+          "coverage_status": "unknown",
+          "parameters": {
+            "failure_threshold": 3,
+            "window_seconds": 60
+          },
+          "expected_assessment": "indeterminate",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        }
+      ]
+    },
+    {
+      "id": "SIG-D11",
+      "name": "Authentication failures followed by success",
+      "domain": "authentication",
+      "required_sources": [
+        "S04"
+      ],
+      "coverage_preconditions": [
+        "Success and failure logging verified with controlled fixtures; source timestamps and delivery continuity bounded; no credentials or tokens captured."
+      ],
+      "normalization": "Same identity authority+principal+target as SIG-D10; success session identity and source changes preserved. No correlation solely by IP.",
+      "rule_type": "correlation",
+      "trigger": "Qualifying failure burst followed by a distinct success for the same identity/target within C; suggests compromised account, not proof.",
+      "state_requirements": "Bounded failure-window state plus success join, event-time/lateness, TTL, stable evidence IDs and coordinated state checkpoint. Dedup findings by rule revision+episode.",
+      "missing_data_behavior": "Missing required field or expired source coverage gives indeterminate assessment plus a coverage gap; never interpret absent evidence as a clean result. Existing predicates can only emit no finding.",
+      "evidence_retention": "Retain original reference, normalized input, source/configuration revision, rule version and assessment. Private policy supplies duration and legal hold; absent evidence reduces confidence.",
+      "severity_confidence": {
+        "suggested_severity": "high",
+        "confidence": "Medium; legitimate recovery can produce the same pattern.",
+        "policy": "Generic suggestion only; private policy chooses severity, thresholds and response."
+      },
+      "expected_secops_action": "Confirm user/session legitimacy; inspect post-login actions and escalate when evidence supports compromise.",
+      "capability_status": "planned",
+      "fixtures": [
+        {
+          "id": "SIG-D11-positive",
+          "case": "positive",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "617cbe46-2454-5e18-94ba-0d7ffc6dcee7",
+              "timestamp": "2026-10-07T00:00:11Z",
+              "observed_at": "2026-10-07T00:01:11Z",
+              "source": {
+                "type": "authentication",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D11 positive",
+              "attributes": {
+                "security": {
+                  "action": "auth.attempt",
+                  "outcome": "success",
+                  "principal": "fixture-principal",
+                  "target": "fixture-target"
+                },
+                "evidence_ref": "fixture://SIG-D11/positive"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "qualifying_failure_burst": true,
+            "burst_age_seconds": 10
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {
+            "correlation_seconds": 120
+          },
+          "expected_assessment": "match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D11-negative",
+          "case": "negative",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "a04b8cca-2fb7-55f3-be5c-1c31a16c960f",
+              "timestamp": "2026-10-07T00:00:11Z",
+              "observed_at": "2026-10-07T00:01:11Z",
+              "source": {
+                "type": "authentication",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D11 negative",
+              "attributes": {
+                "security": {
+                  "action": "auth.attempt",
+                  "outcome": "success",
+                  "principal": "fixture-principal",
+                  "target": "fixture-target"
+                },
+                "evidence_ref": "fixture://SIG-D11/negative"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "qualifying_failure_burst": false
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {
+            "correlation_seconds": 120
+          },
+          "expected_assessment": "no_match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D11-missing_data",
+          "case": "missing_data",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "f183c88e-4703-5969-ad3c-2078a873d52f",
+              "timestamp": "2026-10-07T00:00:11Z",
+              "observed_at": "2026-10-07T00:01:11Z",
+              "source": {
+                "type": "authentication",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D11 missing_data",
+              "attributes": {
+                "security": {
+                  "action": "auth.attempt",
+                  "outcome": "success",
+                  "target": "fixture-target"
+                },
+                "evidence_ref": "fixture://SIG-D11/missing_data"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "qualifying_failure_burst": false
+          },
+          "coverage_status": "unknown",
+          "parameters": {
+            "correlation_seconds": 120
+          },
+          "expected_assessment": "indeterminate",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        }
+      ]
+    },
+    {
+      "id": "SIG-D12",
+      "name": "Unexpected privileged database login",
+      "domain": "authentication",
+      "required_sources": [
+        "S05",
+        "S02"
+      ],
+      "coverage_preconditions": [
+        "Engine-specific audit settings and roles verified; managed-service access does not automatically enable database audit logs.",
+        "Snapshot freshness and authority recorded; incomplete IAM conditions, boundaries, SCPs or session policies make effective-permission claims indeterminate."
+      ],
+      "normalization": "Engine-specific successful auth -> db.login; database resource, role/principal, client and session; map role privileges through versioned inventory.",
+      "rule_type": "state",
+      "trigger": "Successful privileged-role login outside approved actor/source/time policy.",
+      "state_requirements": "Bounded versioned privilege and authorization lookup by database+principal+client; freshness and historical validity required; source IP is context.",
+      "missing_data_behavior": "Missing required field or expired source coverage gives indeterminate assessment plus a coverage gap; never interpret absent evidence as a clean result. Existing predicates can only emit no finding.",
+      "evidence_retention": "Retain original reference, normalized input, source/configuration revision, rule version and assessment. Private policy supplies duration and legal hold; absent evidence reduces confidence.",
+      "severity_confidence": {
+        "suggested_severity": "high",
+        "confidence": "Medium/high for complete database audit and role state.",
+        "policy": "Generic suggestion only; private policy chooses severity, thresholds and response."
+      },
+      "expected_secops_action": "Validate DBA/change activity; inspect authorized query audit and affected data scope.",
+      "capability_status": "planned",
+      "fixtures": [
+        {
+          "id": "SIG-D12-positive",
+          "case": "positive",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "58dba537-59d7-5cfe-8ac6-a05d37e11852",
+              "timestamp": "2026-10-07T00:00:12Z",
+              "observed_at": "2026-10-07T00:01:12Z",
+              "source": {
+                "type": "authentication",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D12 positive",
+              "attributes": {
+                "security": {
+                  "action": "db.login",
+                  "outcome": "success",
+                  "principal": "fixture-db-admin",
+                  "database": "fixture-db"
+                },
+                "evidence_ref": "fixture://SIG-D12/positive"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "privileged": true,
+            "authorized": false,
+            "revision": "fixture-v1"
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D12-negative",
+          "case": "negative",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "c798c4c6-2bb1-58b7-a5f8-28ee54db5887",
+              "timestamp": "2026-10-07T00:00:12Z",
+              "observed_at": "2026-10-07T00:01:12Z",
+              "source": {
+                "type": "authentication",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D12 negative",
+              "attributes": {
+                "security": {
+                  "action": "db.login",
+                  "outcome": "success",
+                  "principal": "fixture-db-admin",
+                  "database": "fixture-db"
+                },
+                "evidence_ref": "fixture://SIG-D12/negative"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "privileged": true,
+            "authorized": true,
+            "revision": "fixture-v1"
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "no_match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D12-missing_data",
+          "case": "missing_data",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "c94569ec-1339-59e9-a9e1-8e2768901513",
+              "timestamp": "2026-10-07T00:00:12Z",
+              "observed_at": "2026-10-07T00:01:12Z",
+              "source": {
+                "type": "authentication",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D12 missing_data",
+              "attributes": {
+                "security": {
+                  "action": "db.login",
+                  "outcome": "success",
+                  "database": "fixture-db"
+                },
+                "evidence_ref": "fixture://SIG-D12/missing_data"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "privileged": true,
+            "authorized": true,
+            "revision": "fixture-v1"
+          },
+          "coverage_status": "unknown",
+          "parameters": {},
+          "expected_assessment": "indeterminate",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        }
+      ]
+    },
+    {
+      "id": "SIG-D13",
+      "name": "Unauthorized privileged host execution",
+      "domain": "host_runtime",
+      "required_sources": [
+        "S06",
+        "S02"
+      ],
+      "coverage_preconditions": [
+        "Required kernel/runtime capabilities, permissions and capture hooks verified. File/stdin collection alone does not establish runtime coverage.",
+        "Snapshot freshness and authority recorded; incomplete IAM conditions, boundaries, SCPs or session policies make effective-permission claims indeterminate."
+      ],
+      "normalization": "Runtime exec -> host.exec; host+boot+process start ID, executable identity/provenance, effective UID/capabilities, parent chain and capture-drop counters.",
+      "rule_type": "state",
+      "trigger": "Privileged execution inconsistent with approved executable/workload/operator policy.",
+      "state_requirements": "Bounded approval/provenance inventory and time-valid decision keyed by immutable process/executable identity; PID/path alone is insufficient. No automatic eBPF implementation implied.",
+      "missing_data_behavior": "Missing required field or expired source coverage gives indeterminate assessment plus a coverage gap; never interpret absent evidence as a clean result. Existing predicates can only emit no finding.",
+      "evidence_retention": "Retain original reference, normalized input, source/configuration revision, rule version and assessment. Private policy supplies duration and legal hold; absent evidence reduces confidence.",
+      "severity_confidence": {
+        "suggested_severity": "high",
+        "confidence": "Medium; privileged execution alone is common and not malicious.",
+        "policy": "Generic suggestion only; private policy chooses severity, thresholds and response."
+      },
+      "expected_secops_action": "Validate administrative activity and binary provenance; investigate host and parent process.",
+      "capability_status": "planned",
+      "fixtures": [
+        {
+          "id": "SIG-D13-positive",
+          "case": "positive",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "eb479498-76dc-50e0-954a-54d37e6106a4",
+              "timestamp": "2026-10-07T00:00:13Z",
+              "observed_at": "2026-10-07T00:01:13Z",
+              "source": {
+                "type": "runtime",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D13 positive",
+              "attributes": {
+                "security": {
+                  "action": "host.exec",
+                  "privileged": true,
+                  "process_key": "fixture-boot/process-start",
+                  "executable": "fixture-executable"
+                },
+                "evidence_ref": "fixture://SIG-D13/positive"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "approved": false,
+            "provenance_revision": "fixture-v1"
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D13-negative",
+          "case": "negative",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "c4a12eed-b80a-5e07-b59c-4c3a5f56e11b",
+              "timestamp": "2026-10-07T00:00:13Z",
+              "observed_at": "2026-10-07T00:01:13Z",
+              "source": {
+                "type": "runtime",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D13 negative",
+              "attributes": {
+                "security": {
+                  "action": "host.exec",
+                  "privileged": true,
+                  "process_key": "fixture-boot/process-start",
+                  "executable": "fixture-executable"
+                },
+                "evidence_ref": "fixture://SIG-D13/negative"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "approved": true,
+            "provenance_revision": "fixture-v1"
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {},
+          "expected_assessment": "no_match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D13-missing_data",
+          "case": "missing_data",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "bbc63565-b4d2-571b-adaa-1dba406ad18a",
+              "timestamp": "2026-10-07T00:00:13Z",
+              "observed_at": "2026-10-07T00:01:13Z",
+              "source": {
+                "type": "runtime",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D13 missing_data",
+              "attributes": {
+                "security": {
+                  "action": "host.exec",
+                  "privileged": true,
+                  "executable": "fixture-executable"
+                },
+                "evidence_ref": "fixture://SIG-D13/missing_data"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "approved": true,
+            "provenance_revision": "fixture-v1"
+          },
+          "coverage_status": "unknown",
+          "parameters": {},
+          "expected_assessment": "indeterminate",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        }
+      ]
+    },
+    {
+      "id": "SIG-D14",
+      "name": "Protected credential access followed by suspicious egress",
+      "domain": "host_runtime",
+      "required_sources": [
+        "S06",
+        "S02"
+      ],
+      "coverage_preconditions": [
+        "Required kernel/runtime capabilities, permissions and capture hooks verified. File/stdin collection alone does not establish runtime coverage.",
+        "Snapshot freshness and authority recorded; incomplete IAM conditions, boundaries, SCPs or session policies make effective-permission claims indeterminate."
+      ],
+      "normalization": "File/runtime access and connection records share host+boot+process start identity; protected asset category and destination decision supplied by versioned policy. Never collect credential contents.",
+      "rule_type": "correlation",
+      "trigger": "Same process successfully reads protected credential material then connects to a destination classified suspicious within C. This is an investigative candidate, not proof of exfiltration.",
+      "state_requirements": "Bounded process join/window, dedup, historical asset/destination policy revisions, event-time/lateness and coordinated recovery checkpoint; missing either stream is indeterminate.",
+      "missing_data_behavior": "Missing required field or expired source coverage gives indeterminate assessment plus a coverage gap; never interpret absent evidence as a clean result. Existing predicates can only emit no finding.",
+      "evidence_retention": "Retain original reference, normalized input, source/configuration revision, rule version and assessment. Private policy supplies duration and legal hold; absent evidence reduces confidence.",
+      "severity_confidence": {
+        "suggested_severity": "high",
+        "confidence": "Medium; sanctioned tooling and proxies can produce similar evidence.",
+        "policy": "Generic suggestion only; private policy chooses severity, thresholds and response."
+      },
+      "expected_secops_action": "Inspect process lineage and destination; preserve evidence and use an authorized isolation workflow if justified.",
+      "capability_status": "planned",
+      "fixtures": [
+        {
+          "id": "SIG-D14-positive",
+          "case": "positive",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "57ff0dff-ac96-591c-a379-859d137282d3",
+              "timestamp": "2026-10-07T00:00:14Z",
+              "observed_at": "2026-10-07T00:01:14Z",
+              "source": {
+                "type": "runtime",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D14 positive",
+              "attributes": {
+                "security": {
+                  "action": "network.connect",
+                  "outcome": "success",
+                  "process_key": "fixture-boot/process-start",
+                  "destination": "fixture-destination"
+                },
+                "evidence_ref": "fixture://SIG-D14/positive"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "protected_read": true,
+            "read_age_seconds": 5,
+            "destination_suspicious": true,
+            "revision": "fixture-v1"
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {
+            "correlation_seconds": 60
+          },
+          "expected_assessment": "match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D14-negative",
+          "case": "negative",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "8010927f-1f04-513a-9617-3134b56d4011",
+              "timestamp": "2026-10-07T00:00:14Z",
+              "observed_at": "2026-10-07T00:01:14Z",
+              "source": {
+                "type": "runtime",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D14 negative",
+              "attributes": {
+                "security": {
+                  "action": "network.connect",
+                  "outcome": "success",
+                  "process_key": "fixture-boot/process-start",
+                  "destination": "fixture-destination"
+                },
+                "evidence_ref": "fixture://SIG-D14/negative"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "protected_read": false,
+            "destination_suspicious": true,
+            "revision": "fixture-v1"
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {
+            "correlation_seconds": 60
+          },
+          "expected_assessment": "no_match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D14-missing_data",
+          "case": "missing_data",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "9219d279-a135-55d0-b51f-e256c6cb61fe",
+              "timestamp": "2026-10-07T00:00:14Z",
+              "observed_at": "2026-10-07T00:01:14Z",
+              "source": {
+                "type": "runtime",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D14 missing_data",
+              "attributes": {
+                "security": {
+                  "action": "network.connect",
+                  "outcome": "success",
+                  "destination": "fixture-destination"
+                },
+                "evidence_ref": "fixture://SIG-D14/missing_data"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "protected_read": false,
+            "destination_suspicious": true,
+            "revision": "fixture-v1"
+          },
+          "coverage_status": "unknown",
+          "parameters": {
+            "correlation_seconds": 60
+          },
+          "expected_assessment": "indeterminate",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        }
+      ]
+    },
+    {
+      "id": "SIG-D15",
+      "name": "Expected host collector heartbeat absent",
+      "domain": "host_runtime",
+      "required_sources": [
+        "S07"
+      ],
+      "coverage_preconditions": [
+        "Observer has independent failure visibility; expectations exist before silence; freshness and outage budgets bounded. An unhealthy observer yields unknown coverage."
+      ],
+      "normalization": "Independent observer maps expected source/collector/scope/configuration to last verified heartbeat/checkpoint and observation time; telemetry silence alone is insufficient.",
+      "rule_type": "window",
+      "trigger": "A source expected active has no heartbeat within the configured interval while the independent observer remains healthy.",
+      "state_requirements": "Bounded expected-source inventory, monotonic observation clock, grace period, last heartbeat/checkpoint and observer self-health; replay must not advance freshness. Preserve revision/expiry.",
+      "missing_data_behavior": "Unknown expected inventory or unhealthy/stale observer -> indeterminate coverage, not a source failure or compromise verdict.",
+      "evidence_retention": "Retain original reference, normalized input, source/configuration revision, rule version and assessment. Private policy supplies duration and legal hold; absent evidence reduces confidence. Retain coverage gaps and recovery boundaries even if no security event was recorded.",
+      "severity_confidence": {
+        "suggested_severity": "high",
+        "confidence": "High for independently observed collection gap; cause/compromise unknown.",
+        "policy": "Generic suggestion only; private policy chooses severity, thresholds and response."
+      },
+      "expected_secops_action": "Check deployment, connectivity and capacity; restore collection and identify irrecoverable gaps before security escalation.",
+      "capability_status": "planned",
+      "fixtures": [
+        {
+          "id": "SIG-D15-positive",
+          "case": "positive",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "369dae4c-313c-51f8-8ad7-8921b6dd3b6b",
+              "timestamp": "2026-10-07T00:00:15Z",
+              "observed_at": "2026-10-07T00:01:15Z",
+              "source": {
+                "type": "runtime",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D15 positive",
+              "attributes": {
+                "security": {
+                  "action": "coverage.probe",
+                  "source_key": "fixture-host/source"
+                },
+                "evidence_ref": "fixture://SIG-D15/positive"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "expected_active": true,
+            "heartbeat_age_seconds": 180,
+            "observer_healthy": true
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {
+            "heartbeat_timeout_seconds": 120
+          },
+          "expected_assessment": "match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D15-negative",
+          "case": "negative",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "efbce51c-a2ac-5873-8567-eb3f8ff40842",
+              "timestamp": "2026-10-07T00:00:15Z",
+              "observed_at": "2026-10-07T00:01:15Z",
+              "source": {
+                "type": "runtime",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D15 negative",
+              "attributes": {
+                "security": {
+                  "action": "coverage.probe",
+                  "source_key": "fixture-host/source"
+                },
+                "evidence_ref": "fixture://SIG-D15/negative"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "expected_active": true,
+            "heartbeat_age_seconds": 10,
+            "observer_healthy": true
+          },
+          "coverage_status": "verified_for_fixture",
+          "parameters": {
+            "heartbeat_timeout_seconds": 120
+          },
+          "expected_assessment": "no_match",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        },
+        {
+          "id": "SIG-D15-missing_data",
+          "case": "missing_data",
+          "events": [
+            {
+              "schema_version": 1,
+              "id": "3a79ff93-87b7-51af-9538-67729061d2b3",
+              "timestamp": "2026-10-07T00:00:15Z",
+              "observed_at": "2026-10-07T00:01:15Z",
+              "source": {
+                "type": "runtime",
+                "name": "requirement-fixture"
+              },
+              "severity": "info",
+              "message": "Synthetic SIG-D15 missing_data",
+              "attributes": {
+                "security": {
+                  "action": "coverage.probe"
+                },
+                "evidence_ref": "fixture://SIG-D15/missing_data"
+              },
+              "tags": []
+            }
+          ],
+          "state": {
+            "expected_active": true,
+            "heartbeat_age_seconds": 10,
+            "observer_healthy": true
+          },
+          "coverage_status": "unknown",
+          "parameters": {
+            "heartbeat_timeout_seconds": 120
+          },
+          "expected_assessment": "indeterminate",
+          "expected_native_findings": 0,
+          "acceptance_scope": "Future engine contract; not executed by the MVP."
+        }
+      ]
+    }
+  ]
+}
