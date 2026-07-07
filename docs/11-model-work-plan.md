@@ -46,7 +46,8 @@ has 468-test acceptance; exact bounded capture/physical preparation and inherite
 correction have 477-test acceptance; retained-byte batch publication has 485-test
 acceptance. Configured HTTP transport has four actual TCP regressions and 489-test
 acceptance. Three source/real-server delivery simulations have 492-test acceptance.
-The bounded collector driver is next;
+The bounded collector driver has 500-test acceptance with seven SDK regressions
+and one actual-source/real-server test. Signed AWS source transport is next;
 existing unavailable environment/release gates remain open. Keep
 one writer per coherent owned path set, independent focused review and a settled
 evidence pass. Do not overlap writers or treat permission to delegate as authority

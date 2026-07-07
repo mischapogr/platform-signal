@@ -40,6 +40,15 @@ impl SourceAckTicket {
 /// Narrow response-shape verification from an authenticated AWS JSON adapter.
 /// Success does not prove deletion with a stale handle or exclude redelivery.
 pub struct SourceAckOutcome(bool);
+/// Read-only store-validated state. Confirmation never proves absence of
+/// provider redelivery or deletion with a stale source handle.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SourceAckState {
+    NotRequested,
+    Intent,
+    Uncertain,
+    Confirmed,
+}
 impl SourceAckOutcome {
     pub fn from_sqs_json_response(status: u16, body: &[u8]) -> Self {
         Self(status == 200 && body.is_empty())

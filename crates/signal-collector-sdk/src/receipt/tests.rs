@@ -9,6 +9,8 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 mod capture_tests;
 #[path = "discovery_tests.rs"]
 mod discovery_tests;
+#[path = "driver_tests.rs"]
+mod driver_tests;
 #[path = "http_publisher_tests.rs"]
 mod http_publisher_tests;
 #[path = "publisher_tests.rs"]

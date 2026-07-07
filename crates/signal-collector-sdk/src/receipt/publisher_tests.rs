@@ -2,12 +2,12 @@ use super::*;
 use signal_protocol::AdmissionDisposition;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-struct Publisher {
+pub(super) struct Publisher {
     mode: &'static str,
-    calls: AtomicUsize,
+    pub(super) calls: AtomicUsize,
 }
 impl Publisher {
-    fn new(mode: &'static str) -> Self {
+    pub(super) fn new(mode: &'static str) -> Self {
         Self {
             mode,
             calls: AtomicUsize::new(0),

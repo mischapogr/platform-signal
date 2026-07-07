@@ -131,3 +131,30 @@ budget as the exact-ceiling case, with expired/cancelled checks unchanged.
 Evidence: `target/goal-execution-20261007/AWS-DELIVERY/delivery-simulation-validation.json`.
 This does not qualify real AWS, independent custody, account/host loss or source
 completeness. Source object bytes remain retained after deleting queue deliveries.
+
+## One-poll collector driver
+
+`collect_delivery` composes `SourceQueue`, `CaptureTransport`,
+`HttpReceiptPublisher` and trusted `DeliveryPolicy` with the physical receipt
+store. One call receives one delivery, captures one exact version, prepares M1,
+sends at most one batch and attempts ACK only after full verified M2. No retry
+loop or new service is introduced. Application code owns retry/backoff, aggregate
+concurrency, credentials, current history reconciliation and configured custody.
+Quarantine/stronger-custody/multi-reference ACK remains blocked. Errors can race
+remote effects: reopen/reconcile and receive a fresh handle, never reconstruct a
+ticket. `DeliveryStep::Settled` plus `SourceAckState` reports stored confirmed or
+uncertain response handling, not proof of physical deletion or no redelivery.
+
+`publish_pinned_receipt_batch` checks the published receipt identity in the same
+replay used to form the batch, and the driver checks it before ACK replay. The
+store's atomic control comparison protects later awaits. An authorized concurrent
+retirement/replacement therefore cannot substitute another receipt under the
+same binding. The two-seam regression fails before and passes after this review
+correction; no alternate source delivery is accidentally acknowledged.
+
+Seven SDK regressions and one additional real-server driver test pass with all
+workspace acceptance: 500 tests, zero failures, independent review resolved.
+Evidence: `target/goal-execution-20261007/AWS-DELIVERY/driver-validation.json`.
+A signed AWS source transport still needs local protocol/credential qualification;
+actual AWS/permission/source-completeness and independent custody gates remain
+external or separately planned. The fixture coordinator is not a restore witness.

@@ -186,3 +186,14 @@ local-filesystem process recovery evidence, not host/AZ/account-loss custody or
 source continuity. The caller must qualify original-to-record spans and native
 normalization before operating a real collector. Security policy, credentials,
 retention horizons and deployment remain in the private application.
+
+## Bounded CloudTrail delivery
+
+`receipt::collect_delivery` composes a one-message `SourceQueue`, exact-version
+`CaptureTransport`, retained HTTP publisher and application-owned `DeliveryPolicy`.
+It physically retains preparation, sends one batch, and attempts process-local
+ACK only after full verified admission. Fresh binding/history checks, durable
+intent and exact receipt identity guard side effects. Caller owns credentials,
+aggregate work/retry policy and independently authenticated reconciliation.
+See [delivery contract and simulations](../../docs/35-cloudtrail-delivery.md).
+No AWS credentials, deployment policy or company topology are built into the SDK.
