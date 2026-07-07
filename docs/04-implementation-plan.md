@@ -63,7 +63,7 @@ The user also authorized a team of agents for current execution: one writer per
 coherent set of owned paths, focused independent review, then settled evidence.
 This does not authorize duplicate writers, external provisioning or publication.
 
-Coverage payload-prefix pruning and later identity pruning/scans remain PS-01
+Coverage payload/identity-prefix pruning and later scans remain PS-01
 post-MVP work; they do not block the read-only UI or core release. S3, AWS source
 adapters, HA, durable dispositions and advanced analyst workflows retain their
 separate post-MVP scope. UI source checks cannot close actual-browser or package
@@ -587,7 +587,7 @@ workstream and uses PS-01/PS-02 contracts when selected after the release gate.
 
 | Group | Capability and motivating requirements | Dependencies | Acceptance / stop condition |
 | --- | --- | --- | --- |
-| PS-01 | Versioned normalization profile and SourceCoverage mechanism; all detections, especially D15 | Existing event envelope/SDK; no private fields | Pure SDK validator, history contract and bounded local library accepted. [ADR-015](adr/015-source-coverage-store.md) records frozen encodings, ownership, atomic append/recovery, authorized intake/retry and immutable corrections. MVP UI/local checks and payload-prefix pruning accepted; identity pruning then scans separately. No observers/collectors/cloud calls yet |
+| PS-01 | Versioned normalization profile and SourceCoverage mechanism; all detections, especially D15 | Existing event envelope/SDK; no private fields | Pure SDK validator, history contract and bounded local library accepted. [ADR-015](adr/015-source-coverage-store.md) records frozen encodings, ownership, atomic append/recovery, authorized intake/retry and immutable corrections. MVP UI/local checks and payload/identity-prefix pruning accepted; fixed-frontier scans next separately. No observers/collectors/cloud calls yet |
 | PS-02 | Source adapters and first real predicates: D01/D02/D03/D05/D07 | PS-01; existing predicate engine | Select one source per change set, CloudTrail management events first. Raw positive/negative/missing/duplicate fixtures → normalized fields, coverage declarations and findings; federated MFA excluded without IdP evidence. EKS audit is a separate adapter task; no claim of runtime hooks from file logs |
 | PS-03 | Durable finding delivery and disposition seam | Existing journal; [cursor contract](25-findings-cursor-proposal.md); does not require new state engine | Public cursor runtime/restart/divergent-history gates first. Separate private cursor+outbox transaction, destination uncertainty and disposition acceptance. No destination-specific policy in public core; listing is not already a feed |
 | PS-04 | Independent protected evidence and object-store query copies | PS-01/PS-02 source identity/coverage; [M3](failure-domains.md#acknowledgement-milestones) | Separate source-native evidence route, proof validation and security permissions from S3 query `EventStore` publication/manifests. Test observability-account outage, validation failure and recovery. Cloud/retention settings require authorized private environment; no ingest/detection HA claim |
@@ -628,8 +628,10 @@ history state machine remains unimplemented. Bounded correction admission now
 passes 45 focused tests and 300 workspace tests: same full binding/observer,
 available earlier target, overlapping interval/later verification, preserved
 original and atomic immutable link. Post-MVP payload-prefix pruning passes 58 coverage/320 workspace tests with
-unchanged schema/encodings. Identity GC and scans follow
-in separate bounded slices. Observer/source/server integration stays separate;
+unchanged schema/encodings. Identity-prefix pruning subsequently passes 74 coverage/336
+workspace tests, including exact pin reclamation, stale-reference classification,
+correction survival and prune-all pin-deletion crash recovery. Fixed-frontier scans
+follow separately. Observer/source/server integration stays separate;
 no pipeline/detection wiring is implied.
 
 The [ingestion audit](26-ingestion-architecture-audit.md) evaluates the next source

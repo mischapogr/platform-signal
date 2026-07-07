@@ -65,8 +65,8 @@ Receiver time behind the durable floor rejects intake; authorized historical
 reads remain available. The `accepted` counter counts writes and `replayed`
 counts successful original-receipt replays; neither reports source health.
 
-`retry` also validates the original receipt's history, position, prefix and full
-immutable metadata. Missing or divergent history never becomes a new admission.
+`retry` validates retained original receipts against their history, position,
+prefix and full immutable metadata. Missing or divergent history never becomes a new admission.
 Receipt parsing and input construction are caller-owned memory; bound serialized
 requests before decoding them. Typed references are checked for finite field
 sizes/canonical forms before dispatch. Library ownership/slots/deadlines apply
@@ -115,6 +115,44 @@ after `OutcomeUnknown`, reopen only when the old owner exits and reconcile the
 marker/accounting before proceeding. Another call can prune the next eligible
 prefix. Lower configured caps fail readiness with `Quota`, preserving history;
 restore sufficient limits before maintenance rather than deleting evidence.
+
+`prune_identities(now, IdentityPruneBudget, context)` reclaims the expired global
+identity prefix only after its payloads are unavailable. Positive `max_records`
+and `max_metadata_bytes` are bounded by configured identity/ledger capacity. The
+byte budget counts selected immutable commit encodings; the first blocked candidate
+may still be inspected under the fixed metadata cap. Preflight and transaction
+point-load at most twice the record budget, holding one bounded row at a time.
+Each deleted row can reclaim at most one 65,536-byte binding and one 8,192-byte
+profile, with reference queries bounded by the existing VM/deadline limits.
+An unexpired or oversized oldest row blocks younger rows; equality is eligible,
+clock regression rejects and a no-op leaves the durable floor unchanged.
+
+One transaction deletes selected identities and only their newly unreferenced
+pins, updating marker/anchor, counts, receiver floor, logical charge and checksum.
+Each identity releases encoded metadata length plus 8,192 bytes; each removed pin
+releases encoded length plus 4,096. Shared pins remain until their last reference
+is removed. The history UUID, committed high water/tail, payload anchor and
+surviving correction links/receipts stay unchanged, including an empty store.
+A later append continues the previous sequence and prefix. This is logical
+reclamation, with the same physical-erasure and maintenance-retry limits above.
+
+A same-history retry reference at/below the identity marker returns
+`IdentityPruned` after current authorization; it never becomes admission.
+Malformed references, unordered retention times, wrong history and future
+positions reject. A reference at the marker must match its retained anchor.
+Below that anchor, deleted original bindings/prefixes cannot be authenticated:
+the result classifies unavailable history, not the authenticity of every supplied
+receipt field. When the original row is absent, the supplied report's full binding
+and producer ID must match the current grant before this classification. Bare-ID
+absence cannot prove prior existence; a bounded store cannot detect changed-content
+ID reuse forever. Producers must never reuse IDs. Old unchanged reports remain
+subject to admission-age checks; retained corrections replay without rechecking
+their deleted target. New links still require available original evidence.
+
+Metrics expose durable `identity_pruned_through` and runtime successful nonempty
+`identity_prune_operations`, `identities_pruned` and `identity_metadata_bytes_pruned`.
+Runtime counters reset on restart; retained markers do not. Scans and maintenance
+scheduling remain separate tasks; no HTTP/server/source integration is added.
 
 `OperationContext` carries cancellation and a deadline, capped at the configured
 timeout (at most 300 seconds). One ordinary worker owns SQLite; operation slots
@@ -167,6 +205,16 @@ cargo test -p signal-coverage --locked --offline
 python3 scripts/check-source-coverage-backend.py --self-test
 ```
 
-Identity prefix pruning, frontier scans, observers and cloud/server
+Frontier scans, observers and cloud/server
 integration require separately bounded tasks. The 56 planned history outcomes
 are not claimed as implemented by these primitives.
+
+
+Identity-prefix pruning adds 16 regressions: 74 focused coverage and 336 workspace
+tests pass. They cover exact pin/identity accounting, original deadlines, budgets,
+stale references/current grants, bare-ID limits, retained corrections, corruption,
+quota/restart behavior and actual queued timeout/cancellation. Actual SIGKILL
+before/after identity commit covers shared pins and final pin deletion/prune-all,
+then appends sequence 3 from the retained tail. Evidence:
+`target/source-coverage-identity-pruning-20261007/`. Independent review accepted.
+Fixed-frontier scans are next; no source health or server/cloud wiring follows.

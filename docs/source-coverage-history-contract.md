@@ -5,7 +5,7 @@ Status: PS-01 design/fixture contract, 2026-10-07. The
 primitives and trusted application-grant intake/retry are implemented.
 [ADR-015](adr/015-source-coverage-store.md) records prepared append, immutable
 receipts, recovery, full-binding authorized reads, original-byte replay and bounded
-correction admission and bounded payload-prefix pruning. Identity pruning, scans
+correction admission and bounded payload/identity-prefix pruning. Scans
 and source observers remain **unimplemented**;
 the complete 56-outcome state machine remains planned. This
 contract selects responsibilities and acceptance. The local backend and
@@ -145,6 +145,12 @@ Payload pruning preserves identity, receipt and digest metadata until identity
 pruning is eligible. Advance markers/anchors crash consistently before declaring
 data unavailable; recovery accounts for remaining old files. A retry with an old
 receipt at/below the identity marker returns `identity_pruned`, not new admission.
+The implementation checks current authorization before classifying a pruned
+reference, validates canonical receipt shape/deadline ordering and rejects wrong
+history/future positions. At the identity marker its prefix must match the retained
+anchor. Below that anchor, original receipt fields/full bindings cannot be
+independently authenticated after deletion; `identity_pruned` classifies unavailable
+history and never asserts receipt authenticity or admits a replacement.
 An unknown bare ID cannot prove whether it ever existed. Producers must never
 reuse IDs; changed-content reuse after all identity evidence is deleted cannot
 be detected forever by a bounded store. No global exactly-once claim follows.
@@ -174,8 +180,7 @@ unavailable. A retained correction replays its original immutable receipt before
 its own deadline without revalidating target availability; later pruning cannot
 erase or reinterpret an admitted correction. It still requires the correction's
 current exact authorization grant, and changed links conflict. Payload-prefix
-pruning now preserves this behavior in real maintenance tests; identity pruning
-remains a separate task.
+pruning and identity pruning now preserve this behavior in real maintenance tests.
 
 Storage does not select the last appended row as current health, assemble intervals
 across records, or silently resolve corrections into a green historical view.
@@ -210,8 +215,8 @@ not signatures or proof against an operator rewriting all local evidence.
 | Failure point | Required observable result |
 | --- | --- |
 | Before committing starts | Known not committed; reservation released |
-| Write/sync outcome uncertain or cancellation during commit | `outcome_unknown`; retry exact bytes/identity; never assume rollback |
-| After sync, before response | Commit recovers once; exact retry returns original receipt |
+| Write/sync outcome uncertain or cancellation during commit | `outcome_unknown`; reconcile exact admission identity or maintenance markers after owner exit/recovery; never assume rollback |
+| After sync, before response | Admission commit recovers once; exact admission retry returns original receipt; maintenance reconciles markers |
 | Incomplete unacknowledged final transaction | Recover complete prefix; discard/truncate only incomplete tail under chosen format |
 | Complete interior corruption or inconsistent sequence/index/anchor | Fail readiness/intake; no silent reset, skipped row or green response |
 | Crash during prefix pruning/compaction | Restore a consistent committed/pruned state; preserve unexpired acknowledgements and count surviving files |
@@ -269,7 +274,11 @@ deadlines. Bounded payload-prefix pruning now adds 13 regressions (58 focused/32
 workspace tests), preserving receipts/pins/links and atomically advancing only an
 eligible global prefix under finite record/raw-byte/VM/deadline bounds. No-op calls
 leave the floor unchanged; clock regression and corruption reject. Evidence:
-`target/source-coverage-payload-pruning-20261007/`. Identity pruning and scans follow
-separately. Maintenance has no durable operation receipt: reconcile markers after
+`target/source-coverage-payload-pruning-20261007/`. Identity pruning subsequently
+adds 16 regressions (74 focused/336 workspace tests), bounded selected-metadata/
+record work, atomic eligible identity/pin reclamation, preserved anchors/receipts/
+links, stale-reference classification and all-pruned pin-deletion SIGKILL/restart/
+sequence continuity. Evidence: `target/source-coverage-identity-pruning-20261007/`.
+Fixed-frontier scans follow separately. Maintenance has no durable operation receipt: reconcile markers after
 unknown-outcome recovery rather than assuming an exact retry. Do not adapt the event
 WAL/findings journal by assuming its contracts already satisfy this one.
