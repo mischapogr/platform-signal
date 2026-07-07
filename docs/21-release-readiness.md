@@ -7,6 +7,33 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Scoped audited disposition backend — 2026-10-08
+
+DISPOSITIONS is passed_local. Public version-1 outcomes, stable finding references,
+separate trusted actor/scope authority and a backend seam are implemented by the
+existing private control worker. Each update atomically appends immutable audit
+and advances exact revision; corrections retain history and exact operation
+replay preserves original receipt time. Scope/unknown finding/stale revision
+failures grant no progress. Missing/stale heads and substituted audit fail closed;
+complete query envelopes obey byte limits with truthful bounded continuation.
+
+Two public and nine private regressions pass, including actual process crashes
+before/after audit/head commit. Default559/all-feature582 public tests and 37 private
+tests pass, zero failures; the five existing public and three bounded private
+subprocess helpers retain their parent-invoked scope. Required fmt, strict default/
+all-feature Clippy, package guard, private build and overlay process recovery pass.
+Independent review has no unresolved blocker/high. Evidence:
+`target/goal-execution-20261007/DISPOSITIONS/public-validation/validation.json`,
+`private-validation/validation.json` and `independent-review.json` in that directory.
+An initial sandbox-denied loopback campaign is retained separately; permitted
+unchanged-source rerun passes. See [the disposition contract](37-disposition-contract.md).
+
+No writable HTTP/SOC UI, OIDC/RBAC authentication, shared fencing or independent
+signed audit archive is claimed. Private development schema 3 refuses older
+stores without reset; explicit migration remains UPGRADE. Existing native ARM64,
+actual AWS/EKS/vendors/remote-CI/released-dependency/publication gates and fresh
+final artifact qualification remain open. Next: EVIDENCE.
+
 ## Private bounded notification delivery — 2026-10-08
 
 OUTBOX is passed_simulated. The separate private application persists attempting

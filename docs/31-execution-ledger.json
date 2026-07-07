@@ -392,7 +392,7 @@
     {
       "id": "DISPOSITIONS",
       "title": "Disposition/outcome backend seam",
-      "status": "pending",
+      "status": "passed_local",
       "dependencies": [
         "OUTBOX"
       ],
@@ -400,12 +400,25 @@
         "Persist audited true/benign/false positive and incident outcomes with stable finding references and scope checks."
       ],
       "evidence": [
-        "target/goal-execution-20261007/DISPOSITIONS/"
+        "target/goal-execution-20261007/DISPOSITIONS/public-validation/validation.json",
+        "target/goal-execution-20261007/DISPOSITIONS/private-validation/validation.json",
+        "target/goal-execution-20261007/DISPOSITIONS/independent-review.json"
       ],
       "references": [
         "docs/source-detection-catalog.md",
         "docs/27-product-architecture.md"
-      ]
+      ],
+      "substeps": [
+        {
+          "id": "versioned-generic-disposition-contract",
+          "status": "passed_local"
+        },
+        {
+          "id": "audited-private-control-state-and-scope-regressions",
+          "status": "passed_local"
+        }
+      ],
+      "notes": "Version-1 public disposition/backend seam and private bounded immutable audit/revision state accepted locally. Two public and nine private regressions include scope denial, original-time replay, all outcomes, corrections, byte/row quotas, missing/stale heads and actual audit/head process crashes. Current public559/all-feature582 and private37 gates pass. No writable HTTP, native authenticated identity/RBAC, shared fencing, independently signed archive or SOC UI claim. Private schema3 refuses older stores; migration remains UPGRADE."
     },
     {
       "id": "EVIDENCE",

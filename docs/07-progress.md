@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-default workspace gate has 557; the all-feature gate has 580 (11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+default workspace gate has 559; the all-feature gate has 582 (11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 106 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,33 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Scoped audited disposition backend — 2026-10-08
+
+DISPOSITIONS is passed_local. Public version-1 outcomes, stable finding references,
+separate trusted actor/scope authority and a backend seam are implemented by the
+existing private control worker. Each update atomically appends immutable audit
+and advances exact revision; corrections retain history and exact operation
+replay preserves original receipt time. Scope/unknown finding/stale revision
+failures grant no progress. Missing/stale heads and substituted audit fail closed;
+complete query envelopes obey byte limits with truthful bounded continuation.
+
+Two public and nine private regressions pass, including actual process crashes
+before/after audit/head commit. Default559/all-feature582 public tests and 37 private
+tests pass, zero failures; the five existing public and three bounded private
+subprocess helpers retain their parent-invoked scope. Required fmt, strict default/
+all-feature Clippy, package guard, private build and overlay process recovery pass.
+Independent review has no unresolved blocker/high. Evidence:
+`target/goal-execution-20261007/DISPOSITIONS/public-validation/validation.json`,
+`private-validation/validation.json` and `independent-review.json` in that directory.
+An initial sandbox-denied loopback campaign is retained separately; permitted
+unchanged-source rerun passes. See [the disposition contract](37-disposition-contract.md).
+
+No writable HTTP/SOC UI, OIDC/RBAC authentication, shared fencing or independent
+signed audit archive is claimed. Private development schema 3 refuses older
+stores without reset; explicit migration remains UPGRADE. Existing native ARM64,
+actual AWS/EKS/vendors/remote-CI/released-dependency/publication gates and fresh
+final artifact qualification remain open. Next: EVIDENCE.
 
 ## Private bounded notification delivery — 2026-10-08
 
