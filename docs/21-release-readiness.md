@@ -88,11 +88,17 @@ new tests include progress faults/crashes, queue/cancel/timeout and exact immuta
 suffix recovery. Source ACK, ownership/reclaim/restore and transport remain
 separate; current image/candidate reports retain their earlier source bindings.
 
+Voluntary owner handover and independently-current-checkpoint opening now pass
+422 workspace tests and independent source review. Evidence is
+`target/goal-execution-20261007/RECEIPT-RECOVERY/validation.json`. These require
+trusted application checkpoint authentication and retain the ordinary API’s
+process-local limit. Retirement and source ACK are still pending.
+
 ## Evidence ledger
 
 | ID | Observed proof | Exact source or retained artifact |
 | --- | --- | --- |
-| W | Current local OSS formatting, strict all-target Clippy and locked/offline workspace tests: 410 tests, zero failures; boundary guard validates 13 packages. Includes 12 verified-prefix progress tests and 21 initial source-receipt store tests, 16 bounded CloudTrail parser/preparation and three native-to-finding profile tests alongside existing coverage/UI/WAL/storage tests. | `target/goal-execution-20261007/validation.json` and independent review; prior 398-test initial receipt store and 377-test normalizer and 358-test coverage acceptance and previous image/candidate reports retain their own bindings. Bundled SQLite build evidence remains `target/source-coverage-store-20261007/sqlite-build.json`; [workspace guard](../scripts/check-workspace.py). |
+| W | Current local OSS formatting, strict all-target Clippy and locked/offline workspace tests: 422 tests, zero failures; boundary guard validates 13 packages. Includes 12 handover/reconciled-open tests, 12 verified-prefix progress tests and 21 initial source-receipt store tests, 16 bounded CloudTrail parser/preparation and three native-to-finding profile tests alongside existing coverage/UI/WAL/storage tests. | `target/goal-execution-20261007/RECEIPT-RECOVERY/validation.json` and independent review; prior 410-test progress acceptance is `target/goal-execution-20261007/validation.json`;  prior 398-test initial receipt store and 377-test normalizer and 358-test coverage acceptance and previous image/candidate reports retain their own bindings. Bundled SQLite build evidence remains `target/source-coverage-store-20261007/sqlite-build.json`; [workspace guard](../scripts/check-workspace.py). |
 | P | Separate private package: two tests; external normal-server process gate preserved one event/finding through SIGKILL and successful SIGTERM | `/tmp/signal-phase7b-private-gates.log`, `/tmp/signal-phase7b-process-gate.log`; [external overlay gate](17-external-overlay.md), [harness](../scripts/check-overlay.py) |
 | I | Single/batch validation, bounded request/queue admission, auth, cancellation, overload and exact partial admission | [HTTP integration tests](../crates/signal-ingest/tests/http.rs), included in W; [ingest API](09-phase1-ingest.md) |
 | B | Real WAL truncation/corruption/restart, bounded count/byte/segment quotas, block timeout, checkpoint I/O failure and replay | [WAL recovery tests](../crates/signal-buffer/tests/recovery.rs), included in W; [WAL contract](10-phase2-wal.md) |

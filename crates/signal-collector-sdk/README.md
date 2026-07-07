@@ -174,7 +174,13 @@ immutable pins, prefix witness and the initial predecessor at revision one.
 A mutation error stops dispatch until reopen/reconciliation. The library does
 not authenticate a transport endpoint or obtain grants itself.
 
-There is no source dispatch/ACK, takeover, retirement,
+`transfer_owner` consumes the old store and awaits physical exit after a checked
+owner/generation transition. It requires an independently current application
+checkpoint and full scope. `open_reconciled` checks that checkpoint before
+exposing state; ordinary `open` remains process-local only. The library checks
+bounds and equality, not checkpoint authenticity.
+
+There is no source dispatch/ACK or retirement,
 gzip/object reader, source-proof verifier or AWS adapter here. This is surviving
 local-filesystem process recovery evidence, not host/AZ/account-loss custody or
 source continuity. The caller must qualify original-to-record spans and native

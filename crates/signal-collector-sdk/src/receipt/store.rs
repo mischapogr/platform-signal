@@ -16,12 +16,14 @@ enum Operation {
     Inspect(ReceiptBinding),
     Replay(ReceiptBinding),
     Advance(ReceiptBinding, ReceiptProgress, u32, ReceiptAttempt),
+    Transfer(ReceiptBinding, ReceiptProgress, ReceiptRecoveryGrant, Uuid),
 }
 enum Answer {
     Published(ReceiptInfo),
     Inspected(Option<StoredReceipt>),
     Replayed(Option<ReceiptReplay>),
     Advanced(ReceiptProgress),
+    Transferred,
 }
 struct Command {
     op: Operation,
@@ -42,6 +44,27 @@ impl ReceiptStore {
         generation: u64,
         ctx: ExtensionContext,
     ) -> Result<Self, ReceiptError> {
+        Self::open_with_grant(config, owner, generation, None, ctx).await
+    }
+    /// Restore-aware opening requires the trusted application's independently
+    /// current checkpoint before any receipt/progress is exposed. The ordinary
+    /// open API retains its explicitly limited process-local assurance.
+    pub async fn open_reconciled(
+        config: ReceiptConfig,
+        owner: Uuid,
+        generation: u64,
+        grant: ReceiptRecoveryGrant,
+        ctx: ExtensionContext,
+    ) -> Result<Self, ReceiptError> {
+        Self::open_with_grant(config, owner, generation, Some(grant), ctx).await
+    }
+    async fn open_with_grant(
+        config: ReceiptConfig,
+        owner: Uuid,
+        generation: u64,
+        grant: Option<ReceiptRecoveryGrant>,
+        ctx: ExtensionContext,
+    ) -> Result<Self, ReceiptError> {
         check(&ctx)?;
         if owner.is_nil() || generation == 0 {
             return Err(ReceiptError::Configuration);
@@ -52,7 +75,7 @@ impl ReceiptStore {
         let wm = metrics.clone();
         let wc = ctx.clone();
         let worker = tokio::task::spawn_blocking(move || {
-            let opened = Engine::open(config, owner, generation, &wc);
+            let opened = Engine::open(config, owner, generation, grant, &wc);
             let mut engine = match opened {
                 Ok(e) => {
                     if ready.send(Ok(())).is_err() {
@@ -70,6 +93,7 @@ impl ReceiptStore {
             while let Some(command) = receiver.blocking_recv() {
                 wm.depth.fetch_sub(1, Ordering::AcqRel);
                 wm.active.store(true, Ordering::Release);
+                let terminal = matches!(&command.op, Operation::Transfer(..));
                 let result = if command.reply.is_closed() {
                     Err(ReceiptError::Cancelled)
                 } else {
@@ -83,6 +107,9 @@ impl ReceiptStore {
                         Operation::Advance(binding, expected, count, outcome) => engine
                             .advance(&binding, expected, count, outcome, &command.ctx, &wm)
                             .map(Answer::Advanced),
+                        Operation::Transfer(binding, expected, grant, owner) => engine
+                            .transfer(&binding, expected, grant, owner, &command.ctx, &wm)
+                            .map(|()| Answer::Transferred),
                         Operation::Inspect(binding) => engine.read(&command.ctx).and_then(|r| {
                             if r.as_ref()
                                 .is_some_and(|r| r.metadata["binding"] != binding.0)
@@ -100,6 +127,17 @@ impl ReceiptStore {
                 wm.active.store(false, Ordering::Release);
                 if command.reply.send(result).is_err() {
                     wm.unobserved_results.fetch_add(1, Ordering::AcqRel);
+                }
+                if terminal {
+                    receiver.close();
+                    while let Ok(queued) = receiver.try_recv() {
+                        wm.depth.fetch_sub(1, Ordering::AcqRel);
+                        wm.rejected.fetch_add(1, Ordering::AcqRel);
+                        if queued.reply.send(Err(ReceiptError::Closed)).is_err() {
+                            wm.unobserved_results.fetch_add(1, Ordering::AcqRel);
+                        }
+                    }
+                    break;
                 }
             }
             drop(engine);
@@ -206,6 +244,35 @@ impl ReceiptStore {
             _ => Err(ReceiptError::Closed),
         }
     }
+    /// Voluntary local handover consumes the old handle. An independent trusted
+    /// checkpoint is mandatory; this is not automatic recovery of arbitrary roots.
+    /// Await physical worker exit before reporting success or releasing its lock.
+    pub async fn transfer_owner(
+        self,
+        binding: ReceiptBinding,
+        expected: ReceiptProgress,
+        grant: ReceiptRecoveryGrant,
+        new_owner: Uuid,
+        ctx: ExtensionContext,
+    ) -> Result<(), ReceiptError> {
+        let result = match self
+            .request(
+                Operation::Transfer(binding, expected, grant, new_owner),
+                ctx.clone(),
+            )
+            .await
+        {
+            Ok(Answer::Transferred) => Ok(()),
+            Ok(_) => Err(ReceiptError::Closed),
+            Err(e) => Err(e),
+        };
+        let closed = self.close(ctx).await;
+        result.and(closed)
+    }
+    #[cfg(test)]
+    pub(super) fn test_metrics(&self) -> Arc<Metrics> {
+        self.metrics.clone()
+    }
     pub fn metrics(&self) -> ReceiptMetrics {
         self.metrics.snapshot()
     }
@@ -272,6 +339,7 @@ impl Engine {
         mut config: ReceiptConfig,
         owner: Uuid,
         generation: u64,
+        grant: Option<ReceiptRecoveryGrant>,
         ctx: &ExtensionContext,
     ) -> Result<Self, ReceiptError> {
         check(ctx)?;
@@ -319,7 +387,23 @@ impl Engine {
             generation,
             poisoned: false,
         };
-        engine.read(ctx)?;
+        let receipt = engine.read(ctx)?;
+        if let Some(grant) = grant {
+            let r = receipt.ok_or(ReceiptError::History)?;
+            if r.metadata["binding"] != grant.binding.0 {
+                return Err(ReceiptError::Scope);
+            }
+            let current = progress::decode(
+                engine.load("control", 8 * 1024 * 1024, ctx)?,
+                &r,
+                owner,
+                generation,
+            )?;
+            if current.checksum() != grant.control_checksum {
+                return Err(ReceiptError::History);
+            }
+        }
+        check(ctx)?;
         Ok(engine)
     }
     fn stable(&self, ctx: &ExtensionContext) -> Result<(), ReceiptError> {
@@ -518,9 +602,49 @@ impl Engine {
             self.owner,
             self.generation,
         )?;
+        self.replace_control(&next.bytes, ctx)?;
+        metrics.progress_updates.fetch_add(1, Ordering::AcqRel);
+        Ok(next)
+    }
+
+    fn transfer(
+        &mut self,
+        binding: &ReceiptBinding,
+        expected: ReceiptProgress,
+        grant: ReceiptRecoveryGrant,
+        new_owner: Uuid,
+        ctx: &ExtensionContext,
+        metrics: &Metrics,
+    ) -> Result<(), ReceiptError> {
+        let replay = self
+            .replay(binding, ctx)?
+            .ok_or(ReceiptError::StaleProgress)?;
+        if replay.progress.bytes != expected.bytes {
+            return Err(ReceiptError::StaleProgress);
+        }
+        if grant.binding != *binding {
+            return Err(ReceiptError::Scope);
+        }
+        if grant.control_checksum != replay.progress.checksum() {
+            return Err(ReceiptError::History);
+        }
+        let generation = self.generation.checked_add(1).ok_or(ReceiptError::Owner)?;
+        let next =
+            progress::owner_replacement(&replay.receipt, &replay.progress, new_owner, generation)?;
+        self.replace_control(&next.bytes, ctx)?;
+        self.owner = new_owner;
+        self.generation = generation;
+        metrics.owner_transfers.fetch_add(1, Ordering::AcqRel);
+        Ok(())
+    }
+    fn replace_control(
+        &mut self,
+        bytes: &[u8],
+        ctx: &ExtensionContext,
+    ) -> Result<(), ReceiptError> {
         self.stable(ctx)?;
         let result = (|| {
-            self.write("control.next", &next.bytes, ctx)?;
+            self.write("control.next", bytes, ctx)?;
             self.hit(Stage::ProgressTempSynced, ctx)?;
             fs::rename(
                 self.config.root.join("control.next"),
@@ -530,15 +654,14 @@ impl Engine {
             self.hit(Stage::ProgressRenamed, ctx)?;
             self.root.sync_all().map_err(io_error)?;
             self.hit(Stage::ProgressDirectorySynced, ctx)?;
-            Ok(next)
+            Ok(())
         })();
         if result.is_err() {
             self.poisoned = true;
-        } else {
-            metrics.progress_updates.fetch_add(1, Ordering::AcqRel);
         }
         result
     }
+
     fn hit(&self, stage: Stage, ctx: &ExtensionContext) -> Result<(), ReceiptError> {
         self.stable(ctx)?;
         #[cfg(test)]

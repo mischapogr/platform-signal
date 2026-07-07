@@ -40,6 +40,11 @@ ARM64, actual AWS/EKS, live vendor or remote CI evidence. No full release claim
 while these gates remain open. Retain final candidate bindings and documented
 external exceptions even after the local Goal is complete.
 
+The frozen retirement contract requires a confirmed source ACK. Therefore ACK
+control follows the qualified owner-handover/reconciled-open substeps, then
+retirement completes RECEIPT-RECOVERY. This corrects the initial dependency order
+without adding capabilities or claiming general recovery from copied bits.
+
 ## Frozen inventory
 
 | Item | Status | Depends on | Outcome |
@@ -48,8 +53,8 @@ external exceptions even after the local Goal is complete.
 | COVERAGE | passed_local | CORE | Bounded SourceCoverage history/intake/corrections/pruning/scans |
 | RECEIPT-BASE | passed_local | CORE | CloudTrail normalization/profile and initial receipt store |
 | RECEIPT-PROGRESS | passed_local | RECEIPT-BASE | Atomic verified-prefix progress and immutable suffix replay |
-| RECEIPT-RECOVERY | pending | RECEIPT-PROGRESS | Retirement, owner takeover and restore reconciliation |
-| SOURCE-ACK | pending | RECEIPT-RECOVERY | Source acknowledgement and selected custody seam |
+| RECEIPT-RECOVERY | in_progress | RECEIPT-PROGRESS, SOURCE-ACK | Retirement, owner takeover and restore reconciliation |
+| SOURCE-ACK | pending | RECEIPT-PROGRESS | Source acknowledgement and selected custody seam |
 | OBJECT-READER | pending | RECEIPT-RECOVERY | Bounded CloudTrail gzip object reader/preparation |
 | AWS-DELIVERY | pending | SOURCE-ACK, OBJECT-READER | CloudTrail S3/SQS collector and local delivery simulation |
 | COVERAGE-OBSERVERS | pending | COVERAGE, AWS-DELIVERY | Source observers, health and SDK/server integration |

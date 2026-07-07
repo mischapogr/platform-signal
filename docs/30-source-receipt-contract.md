@@ -315,3 +315,31 @@ error poisons further dispatch. A pre-replacement interrupted temp fails closed;
 a surviving post-replacement control can reopen only after full verification.
 This remains process recovery on the current filesystem. Evidence and independent
 review are retained in `target/goal-execution-20261007/`.
+
+## Voluntary owner handover and reconciled opening
+
+`ReceiptRecoveryGrant` is a bounded, non-deserializable trusted application input
+binding full scope to an independently current control checksum and authority
+revision. Its constructor checks bounds, not authentication or source proof.
+Never derive recovery authority from producer fields or copied root bits.
+
+`transfer_owner` consumes the store and requires exact prior control/current
+grant under the existing OS lock. A different non-nil owner increments generation
+and control revision once, preserves receipt/prefix/retention/custody/ACK, and
+resets attempt to the exact `none` value. Atomic replacement uses the same bounded
+control commit path. Every transfer outcome terminates ordinary worker admission;
+success awaits physical exit. New-owner open cannot overlap the old worker.
+The first handover has a zero prefix and an old-owner predecessor, so the decoder
+distinguishes it from first-send predecessor validation. No remote fence follows.
+
+`open_reconciled` checks the independently current checkpoint and full binding
+before exposing any store. A consistent older copied root is rejected when the
+trusted checkpoint remains current elsewhere. Ordinary `open` continues to
+promise process-local recovery only; selecting it is not restore reconciliation.
+Unknown/missing/divergent authority cannot be replaced by a fresh initial record.
+The caller must authenticate/qualify checkpoint durability outside this library.
+
+Twelve local handover/opening tests and independent source review are retained in
+`target/goal-execution-20261007/RECEIPT-RECOVERY/`; current workspace acceptance is
+422 tests. Source ACK and retirement/reclamation remain separate: confirmed ACK
+control must exist before the frozen retirement guard can pass.
