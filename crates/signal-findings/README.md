@@ -58,3 +58,14 @@ timeouts, failures and closed state. Counters are process-local.
 `feed(FindingsFeedQuery, max_response_bytes, FindingContext)` returns bounded serialized version-1 pages in first-unique journal order. Canonical cursors bind the stream, consumed position and exact-original-payload SHA-256 prefix. Recovery syncs retained frames before readiness; reads recheck requested frame integrity and prefix. Explicit `begin` selects position zero; a missing or divergent cursor never falls back to the tail. The filtered list remains unchanged.
 
 Feed-enabled deployments call `FindingConfig::validate_feed` (minimum 288 query bytes for the 144-byte empty envelope). Output is counted before allocation and preallocated exactly; record decoding and output share conservative memory accounting. Returned buffers also require caller concurrency limits. Upgrade index preflight is 512 bytes per unique finding. See [the feed contract](../../docs/25-findings-cursor-proposal.md) for restore and rollback limits.
+
+## Disposition backend seam
+
+`signal_findings::disposition` defines version-1 true/benign/false-positive and
+incident outcomes, stable stream/finding references, separate trusted actor
+scope, revision-CAS updates, immutable records and bounded history continuation.
+`DispositionBackend` is implemented by the separate private control application;
+this crate adds no actor policy, writable HTTP endpoint, database service or SOC
+UI. Shape validation does not authenticate users. See the
+[disposition contract](../../docs/37-disposition-contract.md) for audit/replay,
+resource limits and the separate authentication/shared-control/release gates.

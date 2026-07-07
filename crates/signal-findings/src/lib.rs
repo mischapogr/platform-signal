@@ -1,4 +1,5 @@
 //! Versioned deterministic findings and bounded durable journal persistence.
+pub mod disposition;
 mod store;
 pub use store::*;
 
