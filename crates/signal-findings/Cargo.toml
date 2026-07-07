@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 signal-event.workspace = true
+signal-protocol.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true

@@ -46,9 +46,15 @@ Applications should finish coordinated consumption and call `flush(context)`
 before shutdown. An expired shutdown leaves pending WAL records replayable.
 
 Default limits: journal 256 MiB; 100,000 findings; index 16 MiB with conservative
-256-byte charges per indexed finding; record 64 KiB; append 1000 rows/1 MiB;
+512-byte charges per indexed finding; record 64 KiB; append 1000 rows/1 MiB;
 query 1000 rows/8 MiB conservative memory; eight operations; five-second maximum
-operation time. The first reached quota wins (the default index admits 65,536
+operation time. The first reached quota wins (the default index admits 32,768
 findings). Configuration has finite hard ceilings. Metrics expose finding count,
 journal bytes, charged index bytes, operation depth/capacity, rejections,
 timeouts, failures and closed state. Counters are process-local.
+
+## Durable append feed
+
+`feed(FindingsFeedQuery, max_response_bytes, FindingContext)` returns bounded serialized version-1 pages in first-unique journal order. Canonical cursors bind the stream, consumed position and exact-original-payload SHA-256 prefix. Recovery syncs retained frames before readiness; reads recheck requested frame integrity and prefix. Explicit `begin` selects position zero; a missing or divergent cursor never falls back to the tail. The filtered list remains unchanged.
+
+Feed-enabled deployments call `FindingConfig::validate_feed` (minimum 288 query bytes for the 144-byte empty envelope). Output is counted before allocation and preallocated exactly; record decoding and output share conservative memory accounting. Returned buffers also require caller concurrency limits. Upgrade index preflight is 512 bytes per unique finding. See [the feed contract](../../docs/25-findings-cursor-proposal.md) for restore and rollback limits.

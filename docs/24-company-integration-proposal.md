@@ -8,8 +8,7 @@ separate application. AWS collection requires its own task.
 One company integration should consume public SIGNAL components through their
 existing APIs: establish source identity, prepare an enriched event, obtain
 durable admission, evaluate private rules, and deliver a durable finding. The
-most useful candidate public addition is bounded consumption of findings in
-durable append order. Collector and enrichment hooks already exist.
+public feed now supplies bounded consumption of findings in durable append order. Collector and enrichment hooks already exist.
 
 The example is one application event with ownership enrichment, one matching
 private rule and one external destination. It specifies behavior without
@@ -40,7 +39,8 @@ bounded finding consumption <-------------------------------------+
 durable delivery plan -> external destination
 ```
 
-The finding-consumption and private receipt/delivery stages are proposed.
+The public findings feed is locally accepted; private receipt/delivery composition
+remains proposed here.
 The existing [SDK](16-collector-sdk.md) invokes cooperative providers; it does
 not create a durable integration runner, wire enrichers into the normal server,
 or sandbox extensions. The existing [external gate](17-external-overlay.md)
@@ -52,7 +52,7 @@ proves local source-path integration, not this operational workflow.
 | Collector/enricher invocation limits and cancellation | Provider wiring, metadata schema and refresh policy |
 | HTTP admission, bounded WAL and replay | Durable source receipt, prepared-event persistence and retries |
 | Stateless rule evaluation and durable findings | Detection content, rule bundles and activation policy |
-| Candidate bounded findings-consumption contract | Routing, destination credentials and durable delivery state |
+| Bounded findings-consumption contract | Routing, destination credentials and durable delivery state |
 | Generic packaging and resource-limit mechanisms | Actual topology, access controls, quotas and operator procedures |
 
 The company can run public server artifacts alongside its integration
@@ -180,8 +180,8 @@ may own a server store or private spool at a time.
 ## Findings consumption contract
 
 The [findings cursor proposal](25-findings-cursor-proposal.md) specifies the
-candidate append-order read, consumed-prefix digest, bounded paging and restore
-behavior. It remains a draft contract rather than an implemented route.
+implemented append-order read, consumed-prefix digest, bounded paging and restore
+behavior. Public local acceptance does not qualify private delivery.
 
 The current `GET /v1/findings` is a bounded list ordered by `(created_at, id)`;
 `created_at` is the event's observed time. It supplies time/severity/rule filters
@@ -211,11 +211,10 @@ consumption contract around these requirements before selecting its API syntax:
   Never silently jump to the current tail or assume stream ID alone detects all
   divergent restore histories.
 
-This hook requires a new public design and acceptance task. The current journal
-has no published consumption-position contract. Stable positions, cursor/restore
-semantics and compatibility must be designed before changing its disk format;
-no byte-offset cursor or new HTTP route is established here. Consumer progress
-remains private, avoiding a requirement for core to know company destinations.
+The public hook is now locally accepted without a journal-format change. Its
+version-1 consumption-position and restore contract is defined in document 25.
+Consumer progress remains private; OUTBOX owns its atomic delivery-plan acceptance
+and core has no company destinations.
 
 ## Durable delivery and failure handling
 
