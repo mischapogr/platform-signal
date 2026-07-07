@@ -1,4 +1,5 @@
-//! Deterministic loopback S3/SQS subset. No SigV4, TLS, IAM or AWS qualification.
+//! Deterministic loopback S3/SQS subset; optional independent signed-request
+//! verification. No TLS, IAM or AWS runtime qualification.
 use super::*;
 use axum::{
     Json, Router,
@@ -23,6 +24,8 @@ pub struct StateData {
     pub visible_at: u64,
     pub pending: bool,
     pub fault: &'static str,
+    #[cfg(feature = "aws-source")]
+    pub signatures: u64,
 }
 pub struct LocalSource {
     pub url: String,
@@ -43,10 +46,17 @@ impl LocalSource {
             visible_at: 0,
             pending: true,
             fault: "none",
+            #[cfg(feature = "aws-source")]
+            signatures: 0,
         }));
         let app = Router::new()
             .route("/object", get(object))
-            .route("/queue", post(queue))
+            .route("/queue", post(queue));
+        #[cfg(feature = "aws-source")]
+        let app = app
+            .route("/", post(signed_queue))
+            .route("/{*path}", get(signed_object));
+        let app = app
             .layer(DefaultBodyLimit::max(1024 * 1024))
             .with_state(state.clone());
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
@@ -359,4 +369,91 @@ impl SourceQueue for SourceClient {
             .await
             .map_err(|_| SourceFailure::Unavailable)
     }
+}
+
+#[cfg(feature = "aws-source")]
+pub const ACCESS_A: &str = "AKIASYNTHETIC0001";
+#[cfg(feature = "aws-source")]
+pub const ACCESS_B: &str = "AKIASYNTHETIC0002";
+#[cfg(feature = "aws-source")]
+pub const SIGNING_SECRET: &str = "synthetic-signing-secret-never-use-in-aws";
+#[cfg(feature = "aws-source")]
+pub const SESSION_TOKEN: &str = "synthetic-session-token-never-log";
+#[cfg(feature = "aws-source")]
+fn signed_auth(method: &str, uri: &Uri, h: &HeaderMap, body: &[u8], service: &str) -> bool {
+    let headers: std::collections::BTreeMap<_, _> = h
+        .iter()
+        .filter_map(|(k, v)| v.to_str().ok().map(|v| (k.as_str().into(), v.into())))
+        .collect();
+    if headers.get("x-amz-security-token").map(String::as_str) != Some(SESSION_TOKEN) {
+        return false;
+    }
+    let region = if service == "sqs" {
+        "us-east-1"
+    } else {
+        "eu-central-1"
+    };
+    [ACCESS_A, ACCESS_B].iter().any(|access| {
+        signature::verify(
+            method,
+            &uri.to_string(),
+            &headers,
+            body,
+            access,
+            SIGNING_SECRET,
+            service,
+            region,
+        )
+    })
+}
+#[cfg(feature = "aws-source")]
+fn local_auth(mut h: HeaderMap) -> HeaderMap {
+    h.insert(
+        "authorization",
+        axum::http::HeaderValue::from_static("Bearer synthetic-source-auth-never-log"),
+    );
+    h
+}
+#[cfg(feature = "aws-source")]
+async fn signed_queue(
+    State(state): State<Arc<Mutex<StateData>>>,
+    uri: Uri,
+    h: HeaderMap,
+    bytes: axum::body::Bytes,
+) -> Response {
+    if bytes.len() > 32 * 1024 || !signed_auth("POST", &uri, &h, &bytes, "sqs") {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let Ok(v) = serde_json::from_slice::<Value>(&bytes) else {
+        return StatusCode::BAD_REQUEST.into_response();
+    };
+    let Some(host) = h.get("host").and_then(|v| v.to_str().ok()) else {
+        return StatusCode::BAD_REQUEST.into_response();
+    };
+    if v["QueueUrl"] != format!("http://{host}/111122223333/fixture") {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    state.lock().await.signatures += 1;
+    queue(State(state), local_auth(h), Json(v)).await
+}
+#[cfg(feature = "aws-source")]
+async fn signed_object(
+    State(state): State<Arc<Mutex<StateData>>>,
+    h: HeaderMap,
+    uri: Uri,
+) -> Response {
+    if !signed_auth("GET", &uri, &h, b"", "s3") {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    if uri.path() != "/fixture-source-evidence/AWSLogs/fixture/caf%C3%A9%20%2B%20%25.json.gz"
+        || uri.query() != Some("versionId=fixture-version-001")
+    {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    state.lock().await.signatures += 1;
+    let translated: Result<Uri,_> = "/object?bucket=fixture-source-evidence&key=AWSLogs%2Ffixture%2Fcaf%C3%A9+%2B+%25.json.gz&versionId=fixture-version-001".parse();
+    let Ok(translated) = translated else {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    };
+    object(State(state), local_auth(h), translated).await
 }

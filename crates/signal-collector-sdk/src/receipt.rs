@@ -1,8 +1,10 @@
 //! Bounded, single-owner immutable source receipts with verified-prefix progress.
 //! Includes bounded gzip preparation, ACK control and guarded local reclamation.
-//! No network dispatch, source deletion or source proof.
+//! Explicit bounded source/HTTP seams; no source-object deletion or source proof.
 //! A caller timeout/cancellation may race publication: reopen to settle it.
 mod ack;
+#[cfg(feature = "aws-source")]
+mod aws;
 mod capture;
 mod discovery;
 mod driver;
@@ -17,6 +19,8 @@ pub use ack::{
     ReceiptAckCommit, ReceiptAckUpdate, SourceAckOutcome, SourceAckState, SourceAckTicket,
     SourceDelivery,
 };
+#[cfg(feature = "aws-source")]
+pub use aws::{AwsCredentialsProvider, AwsSourceClient, AwsSourceConfig, SigningCredentials};
 pub use capture::{
     CaptureError, CaptureFailure, CapturePreparation, CaptureStream, CaptureTransport,
     CapturedObject, MAX_CAPTURE_BYTES, capture_object,

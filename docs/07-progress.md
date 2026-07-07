@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 500, including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+default workspace gate has 500; the all-feature gate has 512 (11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -40,6 +40,35 @@ Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
 
+## Signed AWS source transport — 2026-10-08
+
+The optional `aws-source` SDK feature now provides bounded actual SQS JSON
+receive/delete and exact-version S3 GET using Amazon's SigV4 signer. The
+application supplies fresh credentials, trusted queue/endpoints and current
+binding; no environment/IMDS discovery, retry loop or new service is introduced.
+HTTPS is required except explicit numeric-loopback HTTP test opt-in. Actual
+response caps, finite context, no redirects/decompression/proxy and static errors
+hold malformed, denied, expired, throttled or uncertain operations. Delete
+checks the store-issued ticket's full binding before credentials/network.
+
+Focused review resolved URL-normalized keys/buckets and a reserved-character
+signing defect. The strengthened independent wire witness fails before the S3
+encoding correction and passes afterward; it also matches AWS's published GET
+signature vector. Exact key/version byte encoding preserves repeated slashes.
+The local signed-source/real-server test exercises throttling, rotating
+credentials, failed-delete durable intent, reopen/fresh redelivery without
+republishing and crash/restart with two durable rows/one finding/checkpoint two.
+
+All acceptance passes: default 500 and all-feature 512 tests, zero failures,
+fmt, strict default/all-feature all-target Clippy, 13-package guard and focused
+independent review. CI now checks optional features; remote CI is not executed.
+Twenty-two optional packages are added without replacing locked versions. The
+minimum is 1.94.1, matching the already pinned compiler, with no toolchain change.
+Evidence: `target/goal-execution-20261007/AWS-DELIVERY/signed-transport-validation.json`.
+AWS-DELIVERY is `passed_simulated`; continue COVERAGE-OBSERVERS. Real AWS/IAM/TLS,
+source proofs/completeness and stronger custody remain separate. Historical
+images, SBOMs and candidates keep their original bindings until final refresh.
+
 ## Bounded source delivery collector driver — 2026-10-08
 
 `collect_delivery` receives one bounded message/reference, refreshes the complete
@@ -67,9 +96,9 @@ fresh redelivery without redispatch and preserves two rows/one finding/checkpoin
 two through server crash/restart. All acceptance passes: 500 tests, zero failures,
 fmt, strict all-target Clippy and 13-package guard. Evidence:
 `target/goal-execution-20261007/AWS-DELIVERY/driver-validation.json`.
-Continue immediately with the actual signed AWS source transport adapter and local
-protocol/credential tests. AWS-DELIVERY remains in_progress; simulated source
-operations do not qualify SigV4/IAM/TLS/provider behavior or independent custody.
+At that acceptance the signed source adapter was next; its local acceptance is
+recorded above. Simulated operations do not qualify actual AWS/IAM/TLS/provider
+behavior or independent custody.
 Historical image/SBOM/candidate bindings remain unchanged.
 
 ## Source-to-real-server delivery simulation — 2026-10-08
