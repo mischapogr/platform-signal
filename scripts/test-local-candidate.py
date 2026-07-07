@@ -66,11 +66,13 @@ def fixture(root):
         write(root, name, 'reviewed fixture\n')
     for name in c.CHART_FILES:
         write(root, 'deploy/helm/signal/' + name, 'fixture chart\n')
+    for name in c.FIXTURE_FILES:
+        write(root, name, '{}\n')
     image = image_tar(root / 'fixture-image.tar')
     snapshot_name = c.EVIDENCE_ROOTS[0] + '/source-snapshot.json'
     image_name = c.EVIDENCE_ROOTS[0] + '/image.json'
     origin_name = c.EVIDENCE_ROOTS[0] + '/extraction/origin.json'
-    source = c.collect(root, tuple(c.TOP_FILES) + ('apps', 'crates', 'benchmarks', 'rules', 'deploy', 'tests/integration'), c.source_allowed)
+    source = c.collect(root, tuple(c.TOP_FILES) + ('apps', 'crates', 'benchmarks', 'rules', 'deploy', 'tests/integration', 'tests/fixtures', 'schemas'), c.source_allowed)
     snapshot = {'files': {name: c.file_info(root / name, c.SOURCE_CAP) for name in source}}
     write(root, snapshot_name, json.dumps(snapshot))
     write(root, image_name, json.dumps({'image': {'id': image, 'os': 'linux', 'architecture': 'amd64'}}))
@@ -128,6 +130,57 @@ def rebuild_archive(output, name, transform):
 
 
 class CandidateIntegrity(unittest.TestCase):
+    def test_bound_docker_inspection_array_prepares_and_verifies(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            image, review_path = fixture(root)
+            image_name = c.EVIDENCE_ROOTS[0] + '/image.json'
+            write(root, image_name, json.dumps([{'Id': image, 'Os': 'linux', 'Architecture': 'amd64'}]))
+            review = c.read_json(review_path)
+            review['artifact_sha256'][image_name] = c.file_info(root / image_name, c.EVIDENCE_CAP)['sha256']
+            c.write_json(review_path, review)
+            output = root / 'target/inspection-array'
+            with mock.patch.object(c, 'run', side_effect=fake_docker(root)), mock.patch.object(c.platform, 'system', return_value='Linux'), mock.patch.object(c.platform, 'machine', return_value='x86_64'):
+                c.prepare(image, review_path, output, root)
+            self.assertEqual(c.verify(output)['status'], 'verified')
+
+    def test_ambiguous_or_invalid_image_report_fails_closed(self):
+        for value in ([], [{}, {}], None, 'image', {}, {'image': []}):
+            with self.assertRaises(RuntimeError):
+                c.normalize_image_report(value)
+
+    def test_current_fixture_allowlist_excludes_unreviewed_data(self):
+        self.assertIn('crates/signal-coverage', c.MEMBERS)
+        for name in c.FIXTURE_FILES | c.SAMPLE_FILES:
+            self.assertTrue(c.source_allowed(name), name)
+        for name in ('tests/fixtures/private.json', 'tests/fixtures/source-coverage/private.json',
+                     'schemas/private.json', 'private/policy.json', 'examples/logs/company.json',
+                     'examples/logs/credentials.log', 'examples/private/policy.json'):
+            self.assertFalse(c.source_allowed(name), name)
+
+    def test_compile_time_fixture_missing_from_source_fails_closed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            fixture(root)
+            write(root, 'crates/signal-coverage/src/lib.rs',
+                  'const INPUT: &[u8] = include_bytes!("../../../tests/fixtures/source-coverage/backend-vectors.json");\n')
+            names = c.collect(root, tuple(c.TOP_FILES) + ('apps', 'crates', 'benchmarks', 'rules', 'deploy', 'tests', 'schemas'), c.source_allowed)
+            c.validate_workspace(names, lambda name: (root / name).read_text())
+            names.remove('tests/fixtures/source-coverage/backend-vectors.json')
+            with self.assertRaisesRegex(RuntimeError, 'missing compile-time source input'):
+                c.validate_workspace(names, lambda name: (root / name).read_text())
+
+    def test_historical_membership_supported_without_undeclared_current_crate(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            fixture(root)
+            (root / 'Cargo.toml').write_text('[workspace]\nmembers = ' + json.dumps(list(c.LEGACY_MEMBERS)) + '\n[workspace.package]\nversion = "' + c.VERSION + '"\n')
+            names = c.collect(root, tuple(c.TOP_FILES) + ('apps', 'crates', 'benchmarks', 'rules', 'deploy', 'tests', 'schemas'), c.source_allowed)
+            with self.assertRaisesRegex(RuntimeError, 'undeclared workspace member'):
+                c.validate_workspace(names, lambda name: (root / name).read_text())
+            names = [name for name in names if not name.startswith('crates/signal-coverage/')]
+            c.validate_workspace(names, lambda name: (root / name).read_text())
+
     def test_complete_offline_verification_and_reproducible_source(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

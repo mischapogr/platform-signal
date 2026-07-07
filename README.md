@@ -128,11 +128,20 @@ The security requirements are linked as three artifacts:
 SourceCoverage and the post-MVP roadmap while preserving the single-server MVP.
 The [synthetic requirement checker](scripts/check-security-requirements.py)
 validates the catalog and optionally exercises five existing predicates; source
-collection, coverage assessment and stateful detection remain proposed.
+collection, coverage-aware detection and stateful detection remain proposed.
 
 The [SourceCoverage v1 contract](docs/source-coverage-contract.md) formalizes
 bounded record/profile schemas and recovery fixtures. Its offline checker verifies
-structural cases; semantic assessment and a running observer remain next tasks.
+structural cases; the SDK now implements pure semantic validation and current/historical
+assessment. The standalone
+[`signal-coverage` library](crates/signal-coverage/README.md) now adds explicit
+local-root ownership, atomic prepared append, immutable receipts and bounded
+recovery/inspection. It passes local process-crash and cancellation tests without
+changing server admission or assessing live source coverage.
+The [intake/history contract](docs/source-coverage-history-contract.md) defines
+bounded retry/retention/correction and recovery expectations; its 56 storage cases
+are planned fixtures. Trusted intake and exact-byte receipt replay are next;
+corrections, pruning, scans and observers follow separately.
 
 ## First executable milestone
 
@@ -171,3 +180,5 @@ If a configured rule matches, Signal should also expose a finding through:
 ```bash
 curl http://localhost:8080/v1/findings
 ```
+
+The public [synthetic vendor log corpus](examples/logs/README.md) supplies 55 native/canonical reference cases across 11 AWS, Cloudflare, Microsoft 365, Cato VPN and FortiGate source families. Private overlays reuse these fixtures while retaining their own policy and response expectations.
