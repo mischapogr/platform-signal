@@ -5,6 +5,7 @@
 mod ack;
 mod capture;
 mod discovery;
+mod driver;
 mod format;
 mod http_publisher;
 mod preparation;
@@ -13,7 +14,8 @@ mod publisher;
 mod retirement;
 mod store;
 pub use ack::{
-    ReceiptAckCommit, ReceiptAckUpdate, SourceAckOutcome, SourceAckTicket, SourceDelivery,
+    ReceiptAckCommit, ReceiptAckUpdate, SourceAckOutcome, SourceAckState, SourceAckTicket,
+    SourceDelivery,
 };
 pub use capture::{
     CaptureError, CaptureFailure, CapturePreparation, CaptureStream, CaptureTransport,
@@ -22,6 +24,10 @@ pub use capture::{
 pub use discovery::{
     DiscoveryError, MAX_DISCOVERY_BYTES, MAX_DISCOVERY_REFERENCES, ObjectDiscovery, discover_object,
 };
+pub use driver::{
+    AckAuthorization, DeliveryError, DeliveryPolicy, DeliveryStep, QueueDelivery, SourceFailure,
+    SourceQueue, collect_delivery,
+};
 pub use http_publisher::HttpReceiptPublisher;
 pub use preparation::{
     OriginalCapture, PreparationError, ReceiptPreparation, ReceiptRetention, prepare_receipt,
@@ -29,7 +35,7 @@ pub use preparation::{
 pub use progress::{ReceiptAttempt, ReceiptProgress, ReceiptRecoveryGrant, ReceiptReplay};
 pub use publisher::{
     AdmissionReply, PreparedBatch, PublishFailure, PublishStep, ReceiptBatchLimits,
-    ReceiptPublisher, publish_receipt_batch,
+    ReceiptPublisher, publish_pinned_receipt_batch, publish_receipt_batch,
 };
 #[cfg(all(test, unix))]
 mod tests;

@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 492, including three source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+workspace gate has 500, including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,38 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Bounded source delivery collector driver — 2026-10-08
+
+`collect_delivery` receives one bounded message/reference, refreshes the complete
+trusted binding at side-effect seams, captures exact bytes, physically prepares
+M1 and publishes one retained batch. It waits for the full verified M2 prefix
+before the receipt store can issue a process-local ACK ticket. Lost intent is
+recovered uncertain under fresh application reconciliation; delete precedes a
+fresh authorized finish. Handles remain ephemeral. Source credentials, current
+history authentication, pin/retention policy, retry cadence and aggregate work
+budget belong to the application; the driver adds no loop/queue/worker/service.
+The read-only ACK-state getter reports validated control without asserting that
+provider redelivery is impossible.
+
+Review identified a same-binding receipt-substitution race across policy awaits.
+A deterministic public retirement/replacement regression fails before correction.
+Publication now checks exact store-issued receipt identity inside the replay used
+to construct the request; ACK replay checks it again. Physical control CAS fences
+later replacement. The corrected two-seam test prevents wrong publication/ACK and
+preserves the replacement's prefix/state; original payload is dropped before ACK
+I/O. Review has no remaining blocker/high.
+
+Seven SDK tests plus one new actual-source/real-server driver test pass. The latter
+settles uncertain deletion, reopens against the live fixture coordinator, accepts
+fresh redelivery without redispatch and preserves two rows/one finding/checkpoint
+two through server crash/restart. All acceptance passes: 500 tests, zero failures,
+fmt, strict all-target Clippy and 13-package guard. Evidence:
+`target/goal-execution-20261007/AWS-DELIVERY/driver-validation.json`.
+Continue immediately with the actual signed AWS source transport adapter and local
+protocol/credential tests. AWS-DELIVERY remains in_progress; simulated source
+operations do not qualify SigV4/IAM/TLS/provider behavior or independent custody.
+Historical image/SBOM/candidate bindings remain unchanged.
 
 ## Source-to-real-server delivery simulation — 2026-10-08
 
