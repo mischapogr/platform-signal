@@ -39,6 +39,32 @@ Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
 
+## Post-MVP CloudTrail source-receipt/profile design — 2026-10-07
+
+[The CloudTrail contract](29-cloudtrail-source-receipt.md) defines the next PS-02
+slice before an AWS adapter is implemented: trusted source scope, original-byte
+custody, pinned normalization revision/event IDs/bytes, and verified admission
+prefix progress. Source receipts are distinct from coverage-history receipts.
+HTTP M2 does not establish M3 protected evidence, M4 processing completion or
+source completeness. Source acknowledgement requires custody for the selected
+failure domain; local sync alone does not establish host/account-loss recovery.
+
+The offline fixture checker and independent mutation regressions qualify only
+the design's synthetic projections, identity/ACK witnesses and fixture inventory.
+Acceptance passes 41 native projections, four object and three native-identity
+comparisons, two prepared-byte pins, 19 ACK witnesses, and 26 independent tests
+with 262 rejection checks. The 19 custody scenarios are explicitly unexecuted.
+Crash, disk, fencing, cloud authentication, source proofs and native delivery
+remain implementation/qualification work. The current Rust runtime and 358-test
+workspace baseline are unchanged. Retained design evidence is under
+`target/cloudtrail-receipt-design-20261007/`.
+
+Next: implement one bounded Rust CloudTrail management-event normalizer/profile
+against the original synthetic payloads, including the explicit root-activity
+predicate correction and D01/D02 overlap. Then implement source custody/replay
+and S3/SQS delivery in separately reviewed slices. Neither the native normalizer
+nor the AWS adapter is implemented by this design acceptance.
+
 ## Post-MVP SourceCoverage bounded scans — 2026-10-07
 
 `CoverageStore::scan` reads one freshly authorized full binding at a fixed first-
@@ -81,8 +107,9 @@ is claimed; checked witnesses and examined rows are the bounded scope.
 Evidence: `target/source-coverage-scans-20261007/`. This isolated post-MVP library
 adds no dependency/schema/frozen-history encoding change or server/HTTP/cloud/
 source-observer integration. Existing ARM64/EKS/local-kind/remote-CI/released-
-dependency/publication gates remain open. Next: bounded CloudTrail source-receipt/
-normalization-profile design before the first S3/SQS adapter. The read-only MVP
+dependency/publication gates remain open. At this scan acceptance the next item
+was the bounded CloudTrail source-receipt/normalization-profile design, recorded
+above before the first S3/SQS adapter. The read-only MVP
 SecOps UI remains accepted; advanced SOC UX stays post-MVP.
 
 ## Post-MVP SourceCoverage identity-prefix pruning — 2026-10-07

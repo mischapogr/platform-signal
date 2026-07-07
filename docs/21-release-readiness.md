@@ -31,6 +31,16 @@ overlap/later-verification checks. Payload/identity-prefix pruning and bounded s
 coverage/358 workspace tests. Credential authentication and source observers remain open. This library is not integrated into the server and its proof does
 not promote earlier image/candidate evidence.
 
+The [CloudTrail source-receipt/profile design](29-cloudtrail-source-receipt.md)
+adds offline native projection, identity/ACK witnesses and planned custody cases.
+Local acceptance has 41 native projections, seven identity comparisons, two
+prepared pins, 19 ACK witnesses and 26 independent tests/262 rejection checks;
+19 custody scenarios remain unexecuted.
+It does not implement or qualify a Rust normalizer, source receipt store, AWS
+collector, protected archive or source observer. Runtime/build inputs are
+unchanged; the 358-test workspace result above remains the accepted prior baseline.
+Design evidence is under `target/cloudtrail-receipt-design-20261007/`.
+
 The public synthetic corpus covers 55 cases across 11 requested source families.
 The private overlay's version now matches `0.1.0-dev.0`; its three tests include
 all 55 real Rust event validations and one intended private IAM finding. This is

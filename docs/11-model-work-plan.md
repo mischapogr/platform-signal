@@ -24,7 +24,9 @@ The owner classifies minimal SecOps UI as MVP and advanced SOC UX as post-MVP,
 and explicitly authorizes the current agent team to continue item by item.
 [UI-01/UI-02](28-secops-ui.md) have local source/browser/process/container acceptance;
 current-image container/supply-chain/native checks also pass. PS-01 payload/identity pruning
-and bounded scans are accepted locally; the CloudTrail source-receipt/profile design is next; existing unavailable environment/release gates remain open. Keep
+and bounded scans are accepted locally. The [CloudTrail receipt/profile design](29-cloudtrail-source-receipt.md)
+sets the next bounded Rust normalizer/profile task; existing unavailable
+environment/release gates remain open. Keep
 one writer per coherent owned path set, independent focused review and a settled
 evidence pass. Do not overlap writers or treat permission to delegate as authority
 for publication, external resources or release claims.
@@ -51,8 +53,8 @@ these rows do not authorize parallel agents or blanket cloud implementation.
 
 | Next task scope | Recommended new-task route | Required acceptance boundary |
 | --- | --- | --- |
-| Post-MVP PS-02 CloudTrail source-receipt/normalization-profile design | Sol/high for custody/checkpoint/replay decisions | Accepted bounded SourceCoverage history and [ingestion audit](26-ingestion-architecture-audit.md); specify one bounded source delivery/object receipt with pinned prepared event IDs/bytes, normalizer revision, partial admission progress and acknowledgement/coverage semantics. Use CloudTrail management events as the first case; define missing/malformed/duplicate/restore/large-input fixtures and custody milestones before S3/SQS code. Keep source receipts distinct from coverage history, source proofs/credentials/private policy and live AWS qualification explicit |
-| PS-02 one source normalizer and predicate profile | Sol 6.1/medium or Sonnet/medium | Current source docs, original synthetic payload fixtures, field/type/provenance checks, missing/duplicate cases; authorized environment separately |
+| Post-MVP PS-02 bounded CloudTrail normalizer and predicate profile | Sol 6.1/medium or Sonnet/medium | [Receipt/profile design](29-cloudtrail-source-receipt.md) and original synthetic fixtures; implement bounded native management-record parsing and canonical projection, exact field/type/scope/provenance handling, malformed/missing/unsupported/new-minor cases, and independently review the explicit D01 action-filter correction with root StopLogging D01/D02 overlap. Run actual Rust raw-to-canonical-to-finding tests; offline oracle acceptance is not runtime proof. No source cursor, receipt store or AWS provisioning in this slice |
+| PS-02 source-receipt custody, then S3/SQS delivery | Sol/high for custody/checkpoint/replay decisions | Pinned original/prepared IDs/bytes/revision and separate verified-prefix progress; implement the design's bounded backend and crash/fault/restore/quota/ownership matrix before adapter delivery. Source receipts remain distinct from coverage history. Qualify selected ACK custody, source proofs/credentials/private policy and live AWS separately; existing M2 does not establish M3/M4 |
 | PS-03 public cursor runtime; private durable outbox as a separate task | Sol/high for replay/cursor/atomicity | Existing [25](25-findings-cursor-proposal.md) contract; divergent restore and delivery uncertainty; private paths need their own writable scope |
 | PS-04 one evidence/store publication contract or adapter | Sol/high for integrity/commit/recovery | Independent evidence authority, version/proof reference, retention permission and failure acceptance; no cloud provisioning from this design task |
 | PS-05 one window operator or state lookup; PS-06 one correlation | Sol/high for durability/event-time/replay | Finite key/event/byte/TTL bounds, lateness/dedup, revisioned inputs and crash-consistent findings/state/checkpoint |
@@ -216,8 +218,9 @@ have not been measured. Calibrate on Phase 3 before forecasting the remaining wo
 ## Remaining tasks in order
 
 UI-01/UI-02 and locally runnable current-image checks are accepted. Next is
-the bounded CloudTrail source-receipt/normalization-profile design, then one PS-02
-adapter slice at a time; source observers and advanced SOC workflows remain separate. Historical phase rows below retain their evidence and
+the bounded Rust CloudTrail normalizer/profile from [29](29-cloudtrail-source-receipt.md),
+then source-receipt custody and one PS-02 adapter slice at a time. Source observers
+and advanced SOC workflows remain separate. Historical phase rows below retain their evidence and
 do not override that priority or require completed phases to run again.
 
 Rows within a phase run in order unless their inputs already exist. The reviewer
