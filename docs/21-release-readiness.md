@@ -62,6 +62,14 @@ reports retain actual October 7 times. No revision is pushed, merged to `main`,
 tagged or published; no release version is selected. Local commits close no
 release gate.
 
+The [source-receipt/progress wire contract](30-source-receipt-contract.md) has
+separate offline acceptance: three immutable and 20 progress vectors, 27
+transition/seven reclaim cases, and 23 negative/relational tests with 180 rejection
+checks. Evidence is `target/cloudtrail-receipt-schema-20261007/`. These witnesses
+qualify schema/encoding decisions only, with focused writer review. They add no
+Rust runtime, filesystem custody, source ACK, cloud qualification or fresh
+independent source review. The previous 377-test Rust evidence retains its binding.
+
 ## Evidence ledger
 
 | ID | Observed proof | Exact source or retained artifact |

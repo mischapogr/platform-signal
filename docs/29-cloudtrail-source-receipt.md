@@ -85,7 +85,9 @@ own exact-byte collision, scope and retention contract.
 
 ## Bounded local receipt representation
 
-Proposed immutable local encoding, independent of a future storage backend:
+The exact metadata/progress schemas and binary vectors are now frozen in
+[30-source-receipt-contract.md](30-source-receipt-contract.md). The immutable
+layout remains independent of a future storage backend:
 
 ```text
 "SIGSRC01" || u32be(metadata_length) || u64be(original_length)
@@ -95,7 +97,8 @@ Proposed immutable local encoding, independent of a future storage backend:
            || SHA256(all preceding bytes)
 ```
 
-Metadata is version-1 UTF-8 JSON with sorted keys, compact encoding, no duplicate
+Metadata is version-1 canonical UTF-8 JSON as specified in [30](30-source-receipt-contract.md),
+with sorted keys, compact encoding, no duplicate
 keys/non-finite numbers, checked unsigned integers and bounded UTC times. It
 contains receipt UUID, complete trusted scope/revisions, original reference and
 hash, capture/preparation time, pinned normalizer definition fingerprint, ordered
@@ -107,8 +110,8 @@ and retained custody. Access tokens and queue handles never enter event payloads
 
 The immutable receipt checksum and hashes detect inconsistency; they are not
 signatures or administrator-resistant proof. Backend framing, exclusive owner,
-atomic publication, recovery, fault injection and golden binary vectors remain
-implementation gates. Only a completed sync/atomic publication exposes M1.
+atomic publication, recovery and fault injection remain implementation gates.
+Golden binary vectors now have offline acceptance, not backend qualification. Only a completed sync/atomic publication exposes M1.
 
 Progress is a separate atomic control record bound to receipt UUID/checksum,
 owner generation, ordered prepared IDs/content witnesses and verified M2 prefix
@@ -417,7 +420,8 @@ by trusted configuration, bounded to 128 bytes, with 128 recipient accounts and
 results requires aggregate capacity/ownership outside this helper.
 
 Actual Rust tests qualify this decoded-record mechanism; the offline checker
-still does not execute it or the custody scenarios. Receipt storage/adapter custody
-is the next bounded task, with backend/crash/fault-injection, quota, replay, ACK and authorized
+still does not execute it or the custody scenarios. The [wire/schema contract](30-source-receipt-contract.md) now has offline golden
+encoding and transition acceptance. Bounded local receipt storage/custody
+is the next task, with backend/crash/fault-injection, quota, replay, ACK and authorized
 environment gates; no cloud resources or current production protection follows
 from accepting this design.
