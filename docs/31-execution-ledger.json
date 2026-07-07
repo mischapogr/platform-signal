@@ -333,7 +333,7 @@
     {
       "id": "FINDINGS-CURSOR",
       "title": "Durable public findings cursor runtime",
-      "status": "pending",
+      "status": "passed_local",
       "dependencies": [
         "CORE"
       ],
@@ -341,11 +341,13 @@
         "Versioned bounded feed, stable cursor/identity, restart/duplicate/divergent-history tests."
       ],
       "evidence": [
-        "target/goal-execution-20261007/FINDINGS-CURSOR/"
+        "target/goal-execution-20261007/FINDINGS-CURSOR/validation.json",
+        "target/goal-execution-20261007/FINDINGS-CURSOR/independent-review.json"
       ],
       "references": [
         "docs/25-findings-cursor-proposal.md"
-      ]
+      ],
+      "notes": "Version-1 bounded append feed and exact-original prefix chain accepted locally; default557/all-feature580 and critical review pass. Current journal/list/identity preserved. Index preflight512 bytes per unique finding and server empty budget288. Consumed-prefix consistency only; no unseen suffix proof or fencing."
     },
     {
       "id": "OUTBOX",

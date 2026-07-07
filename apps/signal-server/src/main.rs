@@ -287,7 +287,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             settings.number("SIGNAL_FINDINGS_TIMEOUT_MS", 5000)? as u64,
         ),
     };
-    finding_config.validate()?;
+    finding_config.validate_feed()?;
     let finding_limit = finding_config.max_query_rows;
     let finding_bytes = finding_config.max_query_bytes;
     let finding_timeout = finding_config.operation_timeout.min(config.request_timeout);

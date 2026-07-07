@@ -11,6 +11,7 @@ use signal_findings::{
     DetectionSeverity, Finding, FindingContext, FindingError, FindingQuery, FindingStore,
 };
 use signal_ingest::{IngestConfig, authorized};
+use signal_protocol::findings_feed::{FeedQueryError, parse_findings_feed_query};
 use std::{collections::HashSet, io::Write, sync::Arc, time::Duration};
 use tokio_util::sync::CancellationToken;
 
@@ -34,6 +35,7 @@ pub fn router(
 ) -> Router {
     Router::new()
         .route("/v1/findings", get(findings))
+        .route("/v1/findings/feed", get(feed))
         .with_state(FindingState {
             store,
             auth,
@@ -55,6 +57,108 @@ impl Drop for CancelOnDrop {
 struct FindingResponse {
     schema_version: u16,
     findings: Vec<Finding>,
+}
+
+async fn feed(
+    State(state): State<FindingState>,
+    RawQuery(raw): RawQuery,
+    headers: HeaderMap,
+) -> Response {
+    let mut response = feed_inner(state, raw, headers).await;
+    response.headers_mut().insert(
+        "cache-control",
+        axum::http::HeaderValue::from_static("no-store"),
+    );
+    response
+}
+async fn feed_inner(state: FindingState, raw: Option<String>, headers: HeaderMap) -> Response {
+    if !authorized(&state.auth, &headers) {
+        return error(
+            StatusCode::UNAUTHORIZED,
+            "unauthorized",
+            "valid bearer token required",
+        );
+    }
+    let query = match parse_findings_feed_query(raw.as_deref().unwrap_or(""), state.limit) {
+        Ok(query) => query,
+        Err(FeedQueryError::InvalidQuery) => {
+            return error(
+                StatusCode::BAD_REQUEST,
+                "invalid_query",
+                "invalid feed query",
+            );
+        }
+        Err(FeedQueryError::InvalidCursor) => {
+            return error(
+                StatusCode::BAD_REQUEST,
+                "invalid_cursor",
+                "invalid findings cursor",
+            );
+        }
+        Err(FeedQueryError::UnsupportedCursorVersion) => {
+            return error(
+                StatusCode::BAD_REQUEST,
+                "unsupported_cursor_version",
+                "unsupported findings cursor version",
+            );
+        }
+    };
+    let cancellation = state.stopping.child_token();
+    let _guard = CancelOnDrop(cancellation.clone());
+    match state
+        .store
+        .feed(
+            query,
+            state.response_bytes,
+            FindingContext {
+                deadline: tokio::time::Instant::now() + state.timeout,
+                cancellation,
+            },
+        )
+        .await
+    {
+        Ok(bytes) => ([("content-type", "application/json")], bytes).into_response(),
+        Err(FindingError::CursorStreamMismatch) => error(
+            StatusCode::CONFLICT,
+            "cursor_stream_mismatch",
+            "findings cursor stream mismatch",
+        ),
+        Err(FindingError::CursorPositionUnavailable) => error(
+            StatusCode::CONFLICT,
+            "cursor_position_unavailable",
+            "findings cursor position unavailable",
+        ),
+        Err(FindingError::CursorHistoryMismatch) => error(
+            StatusCode::CONFLICT,
+            "cursor_history_mismatch",
+            "findings cursor history mismatch",
+        ),
+        Err(FindingError::PageBudgetExceeded) => error(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "page_budget_exceeded",
+            "findings feed page budget exceeded",
+        ),
+        Err(FindingError::Invalid(_)) => error(
+            StatusCode::BAD_REQUEST,
+            "invalid_query",
+            "invalid feed query",
+        ),
+        Err(FindingError::Full) => error(
+            StatusCode::TOO_MANY_REQUESTS,
+            "full",
+            "finding store capacity is full",
+        ),
+        Err(FindingError::Timeout) => error(
+            StatusCode::REQUEST_TIMEOUT,
+            "request_timeout",
+            "findings feed deadline exceeded",
+        ),
+        Err(_) => error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "unavailable",
+            "finding store unavailable",
+        ),
+    }
 }
 
 async fn findings(
@@ -263,5 +367,166 @@ mod tests {
         ] {
             assert!(parse(raw, 100).is_err(), "{raw}");
         }
+    }
+    type TestResult = Result<(), Box<dyn std::error::Error>>;
+    async fn http_fixture(
+        bytes: usize,
+    ) -> Result<(tempfile::TempDir, Arc<FindingStore>, Router), Box<dyn std::error::Error>> {
+        let temp = tempfile::tempdir()?;
+        let store = Arc::new(
+            FindingStore::open(
+                signal_findings::FindingConfig {
+                    directory: temp.path().into(),
+                    ..Default::default()
+                },
+                uuid::Uuid::new_v4(),
+            )
+            .await?,
+        );
+        let app = router(
+            store.clone(),
+            IngestConfig {
+                api_token: Some("synthetic-feed-token".into()),
+                ..Default::default()
+            },
+            3,
+            bytes,
+            Duration::from_secs(2),
+            CancellationToken::new(),
+        );
+        Ok((temp, store, app))
+    }
+    async fn request(
+        app: &Router,
+        path: &str,
+        token: Option<&str>,
+    ) -> Result<(StatusCode, serde_json::Value), Box<dyn std::error::Error>> {
+        use tower::ServiceExt;
+        let mut request = axum::http::Request::builder().uri(path);
+        if let Some(token) = token {
+            request = request.header("authorization", format!("Bearer {token}"));
+        }
+        let response = app
+            .clone()
+            .oneshot(request.body(axum::body::Body::empty())?)
+            .await?;
+        assert_eq!(
+            response
+                .headers()
+                .get("cache-control")
+                .and_then(|h| h.to_str().ok()),
+            Some("no-store")
+        );
+        let status = response.status();
+        let bytes = axum::body::to_bytes(response.into_body(), 65536).await?;
+        Ok((status, serde_json::from_slice(&bytes)?))
+    }
+    #[tokio::test]
+    async fn feed_http_authorizes_before_strict_query_and_never_echoes_input() -> TestResult {
+        let (_temp, store, app) = http_fixture(65536).await?;
+        assert_eq!(
+            request(
+                &app,
+                "/v1/findings/feed?after=private-secret-sentinel",
+                None
+            )
+            .await?
+            .0,
+            StatusCode::UNAUTHORIZED
+        );
+        for (query, code) in [
+            ("", "invalid_query"),
+            ("after=private-secret-sentinel", "invalid_cursor"),
+            ("after=begin&after=begin", "invalid_query"),
+            ("after=begin&limit=4", "invalid_query"),
+            ("after=%FF", "invalid_query"),
+            ("after=begin&severity=high", "invalid_query"),
+        ] {
+            let (status, body) = request(
+                &app,
+                &format!("/v1/findings/feed?{query}"),
+                Some("synthetic-feed-token"),
+            )
+            .await?;
+            assert_eq!(status, StatusCode::BAD_REQUEST);
+            assert_eq!(body["error"]["code"], code);
+            assert!(body.get("next_cursor").is_none());
+            assert!(!body.to_string().contains("private-secret-sentinel"));
+        }
+        let (status, empty) = request(
+            &app,
+            "/v1/findings/feed?after=begin",
+            Some("synthetic-feed-token"),
+        )
+        .await?;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(empty["schema_version"], 1);
+        assert_eq!(empty["findings"], serde_json::json!([]));
+        assert_eq!(empty["has_more"], false);
+        store
+            .shutdown(FindingContext::new(Duration::from_secs(2)))
+            .await?;
+        Ok(())
+    }
+    #[tokio::test]
+    async fn feed_http_restore_errors_do_not_return_replacement_progress() -> TestResult {
+        use signal_protocol::findings_feed::FindingsCursor;
+        let (_temp, store, app) = http_fixture(65536).await?;
+        let (_, empty) = request(
+            &app,
+            "/v1/findings/feed?after=begin",
+            Some("synthetic-feed-token"),
+        )
+        .await?;
+        let zero = FindingsCursor::decode(empty["next_cursor"].as_str().ok_or("cursor")?)?;
+        for (cursor, code) in [
+            (
+                FindingsCursor::initial(uuid::Uuid::new_v4())?,
+                "cursor_stream_mismatch",
+            ),
+            (
+                zero.advance(b"not a retained finding")?,
+                "cursor_position_unavailable",
+            ),
+        ] {
+            let (status, body) = request(
+                &app,
+                &format!("/v1/findings/feed?after={}", cursor.encode()),
+                Some("synthetic-feed-token"),
+            )
+            .await?;
+            assert_eq!(status, StatusCode::CONFLICT);
+            assert_eq!(body["error"]["code"], code);
+            assert!(body.get("next_cursor").is_none());
+        }
+        store
+            .shutdown(FindingContext::new(Duration::from_secs(2)))
+            .await?;
+        Ok(())
+    }
+    #[tokio::test]
+    async fn feed_http_budget_and_shutdown_are_static_without_progress() -> TestResult {
+        let (_temp, store, app) = http_fixture(100).await?;
+        let (status, body) = request(
+            &app,
+            "/v1/findings/feed?after=begin",
+            Some("synthetic-feed-token"),
+        )
+        .await?;
+        assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+        assert_eq!(body["error"]["code"], "page_budget_exceeded");
+        assert!(body.get("next_cursor").is_none());
+        store
+            .shutdown(FindingContext::new(Duration::from_secs(2)))
+            .await?;
+        let (status, body) = request(
+            &app,
+            "/v1/findings/feed?after=begin",
+            Some("synthetic-feed-token"),
+        )
+        .await?;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(body["error"]["code"], "unavailable");
+        Ok(())
     }
 }

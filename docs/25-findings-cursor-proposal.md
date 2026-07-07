@@ -1,13 +1,12 @@
 # Findings cursor contract proposal
 
-**Status:** Draft design, 2026-10-07. This is a proposed post-MVP contract for
-the [company integration walkthrough](24-company-integration-proposal.md).
-The route, cursor and store changes described below are not implemented. The
-existing findings API, journal format, finding identities and release gates
-remain the baseline.
+**Status:** Implemented and locally accepted, 2026-10-08. Version-1 public
+feed acceptance is recorded in `target/goal-execution-20261007/FINDINGS-CURSOR/validation.json`.
+Private consumption and destination delivery remain their separate OUTBOX item.
+Existing journal/finding/list contracts are preserved; release gates remain open.
 
 A consumer needs to read every durable finding without relying on event time.
-The proposed feed returns bounded pages in durable append order, with a cursor
+The feed returns bounded pages in durable append order, with a cursor
 that identifies a consumed history prefix. A stream ID and position identify
 where to continue; a digest of that prefix detects divergent history after
 restore. The server owns no consumer acknowledgements or delivery destinations.
@@ -27,9 +26,9 @@ fails closed. Recovery scans file order, validates frames and findings, and can
 truncate an incomplete final frame. It can encounter complete duplicate frames
 and excludes them from the unique finding index.
 
-The feed should reconstruct first-unique append positions from this journal,
+The feed reconstructs first-unique append positions from this journal,
 preserving existing bytes. This avoids a required disk-format change for the
-initial implementation. It still requires new bounded index accounting, recovery
+initial implementation. It uses bounded index accounting, recovery
 synchronization, protocol types, handler wiring and tests. Existing images and
 runtime campaigns do not qualify those changes.
 
@@ -61,7 +60,7 @@ reserialize old records to compute this digest. Complete identical duplicate
 frames are validated but do not enter the chain. Each distinct first occurrence
 advances both the logical position and digest.
 
-The proposed version-1 opaque token encodes these fixed fields:
+The version-1 opaque token encodes these fixed fields:
 
 | Field | Width |
 | --- | ---: |
@@ -81,12 +80,12 @@ readers can deliberately choose their own starting progress; the server does
 not enforce an exactly-once consumer history. Filesystem ownership remains
 within the existing trusted-host boundary.
 
-## Proposed HTTP interface
+## HTTP interface
 
 Add a separate bounded read at `GET /v1/findings/feed`. Preserve the existing
 `GET /v1/findings` route and its ordering and filters.
 
-| Parameter | Proposed meaning |
+| Parameter | Meaning |
 | --- | --- |
 | `after` | Required: a previously returned opaque cursor, or the explicit bootstrap value `begin` |
 | `limit` | Optional positive result bound; default `min(100, configured query-row maximum)`; cannot exceed that maximum |
@@ -131,11 +130,11 @@ There is no tail shortcut or server-side progress mutation.
 Authenticate and validate transport bounds before dispatching store work. Then
 validate token syntax/version, stream identity, available position and prefix
 digest. All errors contain static messages and no cursor, finding or token
-content. The proposed feed error envelope carries `schema_version: 1` and an
+content. The feed error envelope carries `schema_version: 1` and an
 `error` with a stable `code` and static `message`; it is separate from ingest
 admission counts and changes no existing response envelope.
 
-| HTTP status | Proposed code or condition | Consumer action |
+| HTTP status | Code or condition | Consumer action |
 | --- | --- | --- |
 | 400 | `invalid_query`, `invalid_cursor`, `unsupported_cursor_version` | Correct the request or use a compatible client; preserve stored progress |
 | 401 | Missing or invalid configured authentication | Restore authorized access; preserve progress |
@@ -242,27 +241,34 @@ state, and restoring delivery state does not undo external effects. Repeated
 pages or source admissions require the private stable delivery identities and
 destination-specific deduplication from the integration proposal.
 
-## Future acceptance and implementation packet
+## Implemented acceptance and upgrade limits
 
-Use generic findings and temporary owned stores for public tests. Extend current
-finding store tests for positions, deduplication, conflict, sync uncertainty,
-bounded reads and recovery. Add protocol/HTTP tests for canonical tokens, strict
-query parameters, authentication, static errors and page envelopes. A process
-gate should preserve a returned cursor across server restart and exercise late
-findings, more than one page, and an offline restore that regrows a different
-prefix to the same position. Acceptance must also cover oversized first records,
-index limits, cancellation and physical-worker permit retention.
+The public feed uses protocol types in `signal-protocol`, indexed reads on the
+existing findings worker, and monolith route wiring in `apps/signal-server`.
+Eighteen new protocol/store/HTTP/real-process checks pass, together with default
+557/all-feature580 tests, formatting, strict all-target Clippy and the 13-package
+boundary guard. Independent review has no unresolved blocker/high. Evidence:
+`target/goal-execution-20261007/FINDINGS-CURSOR/validation.json`.
 
-Candidate owned areas are `signal-findings` for bounded history indexing and
-reads, `signal-protocol` for dedicated feed contracts, `signal-ingest` for route
-wiring, and generic integration fixtures. Select exact files after the task
-starts; keep private consumer persistence and all company fixtures external.
-Check new hashing/encoding dependencies against the pinned toolchain and
-locked graph before making build changes.
+Three map indexes are conservatively charged at `FINDING_INDEX_BYTES = 512` per
+unique finding before allocation. Upgrade preflight needs `unique_findings * 512`
+index bytes (checked arithmetic), within the configured finite ceilings. The
+default 16 MiB index admits 32,768 unique findings, subject to earlier quotas.
+The journal format remains unchanged; an undersized index fails startup without
+exposing a partial history. Old binaries cannot serve the new feed; clients retain
+their cursor on rollback and do not fall back to timestamp watermarks.
 
-At code acceptance run focused regressions, `cargo fmt --check`, strict
-all-target workspace Clippy, `cargo test --workspace`, and
-`python3 scripts/check-workspace.py`, followed by the applicable focused review
-and process gate. Record local evidence separately from native ARM64, EKS,
-remote CI and released dependencies. This draft supplies a reviewable contract;
-it does not claim that those future tests or implementation have passed.
+Feed-enabled server startup calls `FindingConfig::validate_feed`: query memory
+must be at least 288 bytes, twice the 144-byte empty wire envelope. Cursor-free
+library use still supports smaller preexisting budgets; a feed call under such
+limits fails without progress. Page reads precharge conservative record decoding,
+vector/JSON allocations and output before reading, and preallocate final output
+to its counted complete upper bound. Actual encoded output has a separate caller
+cap, limited by the configured query budget. Returned buffers require caller
+concurrency budgeting; HTTP uses existing finite connections/lifetimes. Requested
+frames verify CRC, exact-byte prefix, finding ID and contract before return.
+
+These checks are local Linux AMD64 evidence, with generic owned fixtures. Native
+ARM64, actual EKS, remote CI, released dependencies and publication remain open.
+No continuous whole-history tamper scan, consumer ACK, pruning, unseen-suffix
+rollback proof or distributed fencing is claimed.

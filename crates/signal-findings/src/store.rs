@@ -1,4 +1,7 @@
 use crate::{DetectionSeverity, Finding, encode};
+use signal_protocol::findings_feed::{FindingsCursor, FindingsFeedQuery};
+#[path = "feed.rs"]
+mod feed;
 use chrono::{DateTime, Datelike, Utc};
 use std::{
     collections::{BTreeMap, HashMap},
@@ -35,6 +38,14 @@ fn frame_header(data: &[u8]) -> [u8; FINDING_FRAME_BYTES] {
 pub enum FindingError {
     #[error("invalid finding/configuration: {0}")]
     Invalid(&'static str),
+    #[error("findings cursor stream mismatch")]
+    CursorStreamMismatch,
+    #[error("findings cursor position unavailable")]
+    CursorPositionUnavailable,
+    #[error("findings cursor history mismatch")]
+    CursorHistoryMismatch,
+    #[error("findings feed page budget exceeded")]
+    PageBudgetExceeded,
     #[error("finding journal I/O failed")]
     Io(#[source] std::io::Error),
     #[error("finding journal corrupt: {0}")]
@@ -113,6 +124,17 @@ impl Default for FindingConfig {
     }
 }
 impl FindingConfig {
+    /// Required for deployments enabling the feed. Cursor-free library users may
+    /// retain smaller query budgets; those per-call feeds fail without progress.
+    pub fn validate_feed(&self) -> Result<(), FindingError> {
+        self.validate()?;
+        if self.max_query_bytes < 2 * signal_protocol::findings_feed::FINDINGS_FEED_EMPTY_BYTES {
+            return Err(FindingError::Invalid(
+                "feed requires an empty response budget",
+            ));
+        }
+        Ok(())
+    }
     pub fn validate(&self) -> Result<(), FindingError> {
         if self.directory.as_os_str().is_empty()
             || self.max_disk_bytes < 24
@@ -173,8 +195,14 @@ pub struct FindingMetrics {
     pub timeouts: u64,
     pub closed: bool,
 }
-// Conservative charge covers both map nodes, UUID/key copies and allocator overhead.
-const INDEX_BYTES: usize = 256;
+/// Upgrade preflight: each unique finding requires this conservative index charge.
+/// Covers three map nodes, HashMap spare buckets, UUID/keys, prefix digest and allocator overhead.
+pub const FINDING_INDEX_BYTES: usize = 512;
+const INDEX_BYTES: usize = FINDING_INDEX_BYTES;
+struct AppendEntry {
+    id: Uuid,
+    cursor: FindingsCursor,
+}
 struct Entry {
     offset: u64,
     len: usize,
@@ -185,6 +213,8 @@ struct Engine {
     ids: HashMap<Uuid, Entry>,
     order: BTreeMap<(DateTime<Utc>, Uuid), ()>,
     bytes: u64,
+    prefix: FindingsCursor,
+    append_order: BTreeMap<u64, AppendEntry>,
     config: FindingConfig,
 }
 fn safe_path(path: &Path, directory: bool) -> Result<(), FindingError> {
@@ -286,6 +316,8 @@ impl Engine {
             ids: HashMap::new(),
             order: BTreeMap::new(),
             bytes: bytes.max(24),
+            prefix: FindingsCursor::initial(stream).map_err(|_| FindingError::Invalid("stream"))?,
+            append_order: BTreeMap::new(),
             config,
         };
         let mut offset = 24;
@@ -343,10 +375,14 @@ impl Engine {
                 }
             } else {
                 engine.reserve(1)?;
-                engine.insert(&finding, offset + FINDING_FRAME_BYTES as u64, len);
+                engine.insert(&finding, offset + FINDING_FRAME_BYTES as u64, &data)?;
             }
             offset += FINDING_FRAME_BYTES as u64 + len as u64;
         }
+        context.check()?;
+        // Complete frames surviving a crash are not exposed until the validated
+        // retained journal has itself been synced, even if no tail was truncated.
+        engine.file.sync_all().map_err(io)?;
         context.check()?;
         Ok(engine)
     }
@@ -362,6 +398,10 @@ impl Engine {
             .len()
             .checked_add(count)
             .ok_or(FindingError::Quota)?;
+        self.prefix
+            .position()
+            .checked_add(u64::try_from(count).map_err(|_| FindingError::Quota)?)
+            .ok_or(FindingError::Quota)?;
         if rows > self.config.max_findings
             || rows
                 .checked_mul(INDEX_BYTES)
@@ -371,9 +411,20 @@ impl Engine {
         }
         Ok(())
     }
-    fn insert(&mut self, f: &Finding, offset: u64, len: usize) {
-        self.ids.insert(f.id, Entry { offset, len });
+    fn insert(&mut self, f: &Finding, offset: u64, data: &[u8]) -> Result<(), FindingError> {
+        let cursor = self.prefix.advance(data).map_err(|_| FindingError::Quota)?;
+        self.ids.insert(
+            f.id,
+            Entry {
+                offset,
+                len: data.len(),
+            },
+        );
         self.order.insert((f.created_at, f.id), ());
+        self.append_order
+            .insert(cursor.position(), AppendEntry { id: f.id, cursor });
+        self.prefix = cursor;
+        Ok(())
     }
     fn read(&mut self, e: &Entry) -> Result<Finding, FindingError> {
         self.file.seek(SeekFrom::Start(e.offset)).map_err(io)?;
@@ -434,7 +485,7 @@ impl Engine {
         self.file.sync_all().map_err(io)?;
         ctx.check()?;
         for (finding, data) in pending.values() {
-            self.insert(finding, self.bytes + FINDING_FRAME_BYTES as u64, data.len());
+            self.insert(finding, self.bytes + FINDING_FRAME_BYTES as u64, data)?;
             self.bytes += FINDING_FRAME_BYTES as u64 + data.len() as u64;
             receipt.inserted += 1;
         }
@@ -524,6 +575,7 @@ impl Shared {
 enum Operation {
     Append(Vec<Finding>),
     Query(FindingQuery),
+    Feed(FindingsFeedQuery, usize),
     Flush,
     Stop,
     #[cfg(test)]
@@ -537,7 +589,7 @@ impl Operation {
     fn mutation(&self) -> bool {
         match self {
             Self::Append(_) | Self::Flush => true,
-            Self::Query(_) | Self::Stop => false,
+            Self::Query(_) | Self::Feed(_, _) | Self::Stop => false,
             #[cfg(test)]
             Self::Pause(_, _, mutation) => *mutation,
         }
@@ -546,6 +598,7 @@ impl Operation {
 enum Reply {
     Receipt(FindingReceipt),
     Findings(Vec<Finding>),
+    Feed(Vec<u8>),
     Done,
 }
 struct Command {
@@ -646,6 +699,9 @@ impl FindingStore {
                                 Operation::Query(q) => {
                                     engine.query(q, &command.context).map(Reply::Findings)
                                 }
+                                Operation::Feed(q, max_bytes) => {
+                                    engine.feed(q, max_bytes, &command.context).map(Reply::Feed)
+                                }
                                 Operation::Flush => {
                                     command.started.store(true, Ordering::Release);
                                     engine
@@ -674,7 +730,15 @@ impl FindingStore {
                     {
                         worker_shared.fail();
                     }
-                    if matches!(result, Err(FindingError::Quota | FindingError::Conflict)) {
+                    if matches!(
+                        result,
+                        Err(FindingError::Quota
+                            | FindingError::Conflict
+                            | FindingError::PageBudgetExceeded
+                            | FindingError::CursorStreamMismatch
+                            | FindingError::CursorPositionUnavailable
+                            | FindingError::CursorHistoryMismatch)
+                    ) {
                         worker_shared.rejections.fetch_add(1, Ordering::Relaxed);
                     }
                     if let Ok(Reply::Receipt(receipt)) = &result {
@@ -814,6 +878,31 @@ impl FindingStore {
         }
         match self.command(Operation::Query(query), context).await? {
             Reply::Findings(f) => Ok(f),
+            _ => Err(FindingError::Closed),
+        }
+    }
+    /// A serialized version-1 append feed, bounded before decoding and output allocation.
+    /// The existing query budget covers decoded page and encoded output together.
+    /// Returned caller-owned buffers additionally require a caller concurrency budget;
+    /// the server uses its bounded transport connection count/lifetime.
+    pub async fn feed(
+        &self,
+        query: FindingsFeedQuery,
+        max_response_bytes: usize,
+        context: FindingContext,
+    ) -> Result<Vec<u8>, FindingError> {
+        if query.limit == 0 || query.limit > self.config.max_query_rows || max_response_bytes == 0 {
+            self.shared.rejections.fetch_add(1, Ordering::Relaxed);
+            return Err(FindingError::Invalid("feed query"));
+        }
+        match self
+            .command(
+                Operation::Feed(query, max_response_bytes.min(self.config.max_query_bytes)),
+                context,
+            )
+            .await?
+        {
+            Reply::Feed(bytes) => Ok(bytes),
             _ => Err(FindingError::Closed),
         }
     }
@@ -1116,3 +1205,7 @@ mod worker_tests {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "feed_tests.rs"]
+mod feed_tests;
