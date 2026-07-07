@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use signal_event::{Severity, SignalEvent};
 use thiserror::Error;
+use uuid::Uuid;
 
 use crate::API_SCHEMA_VERSION;
 
@@ -24,6 +25,9 @@ pub struct EventQuery {
     pub schema_version: u16,
     pub from: Option<DateTime<Utc>>,
     pub to: Option<DateTime<Utc>>,
+    /// Exact canonical event identity; independent admissions may share an ID.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_id: Option<Uuid>,
     pub contains: Option<String>,
     pub severity: Option<Severity>,
     /// Compatibility alias for source_type.
@@ -66,6 +70,7 @@ impl Default for EventQuery {
             schema_version: API_SCHEMA_VERSION,
             from: None,
             to: None,
+            event_id: None,
             contains: None,
             severity: None,
             source: None,
@@ -89,6 +94,8 @@ pub enum QueryValidationError {
     TooComplex,
     #[error("query filter exceeds the supported size limit")]
     InvalidFilter,
+    #[error("query event ID must be a non-nil canonical lowercase hyphenated UUID")]
+    InvalidEventId,
     #[error("query encoding is invalid")]
     InvalidEncoding,
     #[error("query parameter is unknown")]
@@ -130,6 +137,9 @@ impl EventQuery {
         if self.limit == 0 || self.limit > max_limit {
             return Err(QueryValidationError::InvalidLimit);
         }
+        if self.event_id.is_some_and(|id| id.is_nil()) {
+            return Err(QueryValidationError::InvalidEventId);
+        }
         if self.from.zip(self.to).is_some_and(|(from, to)| from >= to) {
             return Err(QueryValidationError::InvalidTimeRange);
         }
@@ -156,7 +166,7 @@ impl EventQuery {
         if self.attributes.len() > MAX_ATTRIBUTE_FILTERS {
             return Err(QueryValidationError::TooComplex);
         }
-        let mut total_bytes = 0;
+        let mut total_bytes = if self.event_id.is_some() { 36 } else { 0 };
         for value in [
             &self.contains,
             &self.source,
@@ -235,6 +245,14 @@ pub fn parse_event_query(raw: &str, max_limit: usize) -> Result<EventQuery, Quer
         match key.as_str() {
             "from" => query.from = Some(parse_timestamp(&value)?),
             "to" => query.to = Some(parse_timestamp(&value)?),
+            "event_id" => {
+                let id =
+                    Uuid::parse_str(&value).map_err(|_| QueryValidationError::InvalidEventId)?;
+                if id.is_nil() || id.hyphenated().to_string() != value {
+                    return Err(QueryValidationError::InvalidEventId);
+                }
+                query.event_id = Some(id);
+            }
             "contains" => query.contains = Some(value),
             "severity" => {
                 query.severity = Some(match value.as_str() {

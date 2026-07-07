@@ -22,7 +22,9 @@ full MVP release is complete.
 
 The owner classifies minimal SecOps UI as MVP and advanced SOC UX as post-MVP,
 and explicitly authorizes the current agent team to continue item by item.
-[UI-01/UI-02](28-secops-ui.md) are next before parked PS-01 payload pruning. Keep
+[UI-01/UI-02](28-secops-ui.md) have local source/browser/process/container acceptance;
+current-image container/supply-chain/native checks also pass. PS-01 payload pruning
+is the next library slice; existing unavailable environment/release gates remain open. Keep
 one writer per coherent owned path set, independent focused review and a settled
 evidence pass. Do not overlap writers or treat permission to delegate as authority
 for publication, external resources or release claims.
@@ -34,8 +36,8 @@ for publication, external resources or release claims.
 | Remaining MVP | Locally runnable current-source release checks | Record unavailable ARM64/EKS/remote-CI/released-dependency gates separately; no promotion from local proof |
 | Post-MVP | PS-01 pruning then selected PS-02–PS-06 slices | Existing frozen storage/retention contracts and a bounded task per slice; advanced SOC UX remains follow-on |
 
-UI-01 is implementation evidence, not completed UI acceptance; UI-02 and the
-existing external release gates remain required. S3/AWS/HA scope does not enter
+UI-01/UI-02 are accepted locally. Existing external release gates remain required;
+local acceptance is not a release approval. S3/AWS/HA scope does not enter
 MVP as a side effect of the product positioning or this UI requirement.
 
 ## Security requirements tasks — 2026-10-07
@@ -82,9 +84,9 @@ evidence and commits the immutable link atomically. Fourteen additional regressi
 include frozen-chain admission, quota/concurrency, target/link corruption, queued
 cancellation, process loss and pre-pruned fixture behavior. This is not runtime GC
 or complete history acceptance. Evidence: `target/source-coverage-corrections-20261007/`.
-UI-01 has local implementation/browser/process acceptance; continue UI-02 and
-remaining locally runnable MVP gates. Payload-prefix
-pruning is parked as post-MVP PS-01 rather than a core release prerequisite.
+UI-01/UI-02 have local implementation/browser/process/container acceptance; continue
+the next post-MVP PS-01 payload-prefix pruning slice after local MVP acceptance.
+Existing environment/release gates remain open and pruning is not their substitute.
 The current user authorizes a team with disjoint writer paths and focused review.
 An observer and live source coverage remain unimplemented; production
 state/retention/fencing is separate.
@@ -213,8 +215,8 @@ have not been measured. Calibrate on Phase 3 before forecasting the remaining wo
 
 ## Remaining tasks in order
 
-Current runnable priority is UI-01 → UI-02 → remaining local MVP gates, followed
-by bounded post-MVP items. Historical phase rows below retain their evidence and
+UI-01/UI-02 and locally runnable current-image checks are accepted. Next is
+PS-01 payload-prefix pruning, then separately bounded post-MVP items. Historical phase rows below retain their evidence and
 do not override that priority or require completed phases to run again.
 
 Rows within a phase run in order unless their inputs already exist. The reviewer

@@ -18,6 +18,7 @@
   function clear(kind) {
     el(`${kind}-results`).replaceChildren();
     el(detailIds[kind]).textContent = kind === 'findings' ? 'Select a finding.' : 'Select an event.';
+    if (kind === 'findings') el('finding-evidence').replaceChildren();
   }
   function disconnect(message = 'Disconnected') {
     generation++;
@@ -56,12 +57,19 @@
   }
 
   function params(kind) {
-    const from = new Date(el(`${kind}-from`).value);
-    const to = new Date(el(`${kind}-to`).value);
+    const fromInput = el(`${kind}-from`).value;
+    const toInput = el(`${kind}-to`).value;
+    const from = fromInput ? new Date(fromInput) : null;
+    const to = toInput ? new Date(toInput) : null;
     const limit = Number(el(`${kind}-limit`).value);
-    if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || from >= to) throw new Error('Choose a valid time range: From must precede To.');
+    const eventId = kind === 'events' ? el('events-id').value.trim() : '';
+    if (eventId && (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(eventId) || eventId === '00000000-0000-0000-0000-000000000000')) throw new Error('Event ID must be a non-empty canonical lowercase UUID.');
+    if ((!eventId && (!from || !to)) || (from && !Number.isFinite(from.getTime())) || (to && !Number.isFinite(to.getTime())) || (from && to && from >= to)) throw new Error('Choose a valid time range: From must precede To. Exact-ID searches may omit time bounds.');
     if (!Number.isInteger(limit) || limit < 1 || limit > MAX_ROWS) throw new Error('Result limit must be between 1 and 100.');
-    const result = new URLSearchParams({from: from.toISOString(), to: to.toISOString(), limit: String(limit)});
+    const result = new URLSearchParams({limit: String(limit)});
+    if (from) result.set('from', from.toISOString());
+    if (to) result.set('to', to.toISOString());
+    if (eventId) result.set('event_id', eventId);
     const fields = kind === 'findings' ? {severity: 'severity', rule: 'rule_id'} : {severity: 'severity', source: 'source_type', account: 'account', resource: 'resource_id', contains: 'contains'};
     for (const [field, name] of Object.entries(fields)) {
       const value = el(`${kind}-${field}`).value.trim();
@@ -176,10 +184,39 @@
       const button = document.createElement('button');
       button.type = 'button'; button.className = 'select-row'; button.textContent = 'Inspect';
       button.setAttribute('aria-label', `Inspect ${kind === 'findings' ? 'finding' : 'event'} ${index + 1}`);
-      button.addEventListener('click', () => { el(detailIds[kind]).textContent = raw; el(detailIds[kind]).focus(); });
+      button.addEventListener('click', () => {
+        el(detailIds[kind]).textContent = raw;
+        if (kind === 'findings') evidenceLinks(row.event_ids);
+        el(detailIds[kind]).focus();
+      });
       td.append(button); tr.append(td); fragment.append(tr);
     });
     el(`${kind}-results`).replaceChildren(fragment);
+  }
+
+  function evidenceLinks(ids) {
+    const container = el('finding-evidence');
+    container.replaceChildren();
+    if (!Array.isArray(ids)) return;
+    for (const id of ids.slice(0, MAX_ROWS)) {
+      if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) continue;
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'secondary evidence-link'; button.textContent = `Open event ${id}`;
+      button.addEventListener('click', () => {
+        el('events-tab').click();
+        for (const field of ['from', 'to', 'severity', 'source', 'account', 'resource', 'contains']) el(`events-${field}`).value = '';
+        el('events-id').value = id;
+        el('events-limit').value = String(MAX_ROWS);
+        el('events-id').focus();
+        void load('events');
+      });
+      container.append(button);
+    }
+    if (ids.length > MAX_ROWS) {
+      const note = document.createElement('p'); note.className = 'hint';
+      note.textContent = `Showing ${MAX_ROWS} evidence links; remaining IDs are in the complete finding detail and can be entered in Event search.`;
+      container.append(note);
+    }
   }
 
   async function load(kind) {
@@ -210,7 +247,7 @@
       const rows = rawRows(text, kind);
       render(kind, rows);
       el('connection-status').textContent = 'Connected';
-      status(kind, rows.length ? `${rows.length} records returned${rows.length === Number(el(`${kind}-limit`).value) ? ' · limit reached; narrow the interval to investigate further' : ''}.` : 'No records matched this search. Source coverage has not been assessed.');
+      status(kind, rows.length ? `${rows.length} records returned${rows.length === Number(el(`${kind}-limit`).value) ? ' · limit reached; narrow the interval to investigate further' : ''}.` : kind === 'events' && query.has('event_id') ? 'No matching retained event in this search scope. Evidence may be unavailable or outside the selected interval; this does not prove it never existed.' : 'No records matched this search. Source coverage has not been assessed.');
     } catch (error) {
       if (requestGeneration !== generation || active.get(kind) !== controller) return;
       clear(kind);
