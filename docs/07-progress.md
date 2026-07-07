@@ -1,6 +1,6 @@
 # Implementation progress
 
-## Current state — 2026-10-07
+## Current state — 2026-10-08
 
 Phases 0–7 are implemented and locally verified, including rules, durable
 findings, server wiring, the Compose demonstration, edge collection, generic
@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 454, including seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+workspace gate has 461, including seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -40,6 +40,30 @@ Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
 
+## Whole-object pinned receipt preparation — 2026-10-08
+
+OBJECT-READER is accepted locally. `prepare_receipt` computes original and native
+hashes, spans, dispositions and event mappings from actual bytes. Caller-pinned
+IDs, full binding, capture/preparation times, normalizer fingerprint and retention
+remain immutable. All records are validated before atomic preparation; encoded
+wire executes the existing decoder before exposure. Poison objects yield bounded
+original-only quarantine, while capture/time/cancellation failures preserve source
+responsibility. Replay uses the retained bytes; quarantine ACK remains denied.
+
+Seven new tests cover exact reproducible fixture encoding, malformed-late and
+foreign/empty/gzip quarantine, pins and bounds, publication/reopen, observation
+precision/offset equivalence and different-instant rejection, record/count limits
+and the aggregate 16 MiB payload ceiling. The timestamp correction compares parsed
+Event-v1 instants with canonical metadata; it rewrites no event bytes. Independent
+source review has no blocker/high. All workspace gates pass: 461 tests, zero
+failures, five process helpers run through parent tests; 13-package boundary guard.
+Evidence: `target/goal-execution-20261007/OBJECT-READER/validation.json`.
+
+Continue with AWS-DELIVERY discovery/capture/transport simulation. This acceptance
+provides no provider credentials, source completeness, independent custody or
+real-environment qualification. Previous images/SBOM/candidates keep their old
+source bindings until rebuilt in their planned release items.
+
 ## Bounded gzip/native-object reader — 2026-10-07
 
 The OBJECT-READER reader substep is accepted locally. `read_object` validates one
@@ -59,8 +83,8 @@ strict workspace Clippy, locked/offline workspace tests and the 13-package guard
 pass: 454 tests, zero failures. Evidence: `target/goal-execution-20261007/OBJECT-READER/reader-validation.json`.
 
 This is bounded parsing proof. Receipt encoding/quarantine, source capture proof,
-credentials, ACK and transport are separate. Continue immediately with pinned
-whole-object receipt preparation; OBJECT-READER remains in_progress in the ledger.
+credentials, ACK and transport are separate. At reader acceptance, pinned whole-object preparation was next; its later
+acceptance is recorded above.
 Earlier images/candidates retain their source/dependency bindings.
 
 ## Receipt retirement/reclamation and explicit slot replacement — 2026-10-07

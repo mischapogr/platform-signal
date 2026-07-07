@@ -155,7 +155,7 @@
     {
       "id": "OBJECT-READER",
       "title": "Bounded CloudTrail gzip object reader/preparation",
-      "status": "in_progress",
+      "status": "passed_local",
       "dependencies": [
         "RECEIPT-RECOVERY"
       ],
@@ -164,12 +164,13 @@
         "Atomic all-ordinal preparation and quarantine; expansion/malformed/duplicate/truncated fixtures."
       ],
       "evidence": [
-        "target/goal-execution-20261007/OBJECT-READER/"
+        "target/goal-execution-20261007/OBJECT-READER/validation.json",
+        "target/goal-execution-20261007/OBJECT-READER/preparation-independent-review.json"
       ],
       "references": [
         "docs/29-cloudtrail-source-receipt.md"
       ],
-      "notes": "Bounded gzip reader/span validation accepted with 454 workspace tests and independent review; pinned whole-object receipt encoding/quarantine remains runnable.",
+      "notes": "Complete bounded gzip/span reader and pinned deterministic receipt preparation accepted locally with 461 workspace tests and independent review. Original-only quarantine, aggregate output cap, timestamp instant pins and exact replay qualify; no transport/source authority or stronger custody.",
       "substeps": [
         {
           "id": "gzip-native-reader",
@@ -181,7 +182,11 @@
         },
         {
           "id": "receipt-preparation",
-          "status": "pending"
+          "status": "passed_local",
+          "evidence": [
+            "target/goal-execution-20261007/OBJECT-READER/validation.json",
+            "target/goal-execution-20261007/OBJECT-READER/preparation-independent-review.json"
+          ]
         }
       ]
     },

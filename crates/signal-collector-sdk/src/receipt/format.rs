@@ -232,7 +232,7 @@ pub(super) fn validate_binding(b: &Value) -> Result<(), ReceiptError> {
     }
     Ok(())
 }
-fn metadata(m: &Value) -> Result<Vec<&Value>, ReceiptError> {
+pub(super) fn metadata(m: &Value) -> Result<Vec<&Value>, ReceiptError> {
     fields(
         m,
         "schema_version receipt_id binding original prepared_at normalizer_sha256 retention object_disposition object_reasons records",
@@ -447,7 +447,6 @@ pub(super) fn decode(
             .map_err(|_| invalid("event JSON"))?;
         need(
             uuid(&v["id"])? == uuid(&r["prepared_id"])?
-                && v["observed_at"] == m["prepared_at"]
                 && v["attributes"]["evidence_ref"]
                     == format!(
                         "receipt://{}/record/{}",
@@ -479,6 +478,12 @@ pub(super) fn decode(
         );
         let mut event: SignalEvent = serde_json::from_value(v).map_err(|_| invalid("event v1"))?;
         event.attributes = attributes;
+        // Event v1 permits RFC3339 precision/offset representations. The metadata
+        // clock is canonical nanoseconds; compare instants without rewriting bytes.
+        need(
+            event.observed_at == time(&m["prepared_at"])?,
+            "event observation pin",
+        )?;
         event.validate().map_err(|_| invalid("event v1"))?;
         events.push(pos + 52..end);
         pos = end;

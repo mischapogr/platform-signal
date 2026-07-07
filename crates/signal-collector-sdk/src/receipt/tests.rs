@@ -702,3 +702,6 @@ mod ack_tests;
 
 #[path = "retirement_tests.rs"]
 mod retirement_tests;
+
+#[path = "preparation_tests.rs"]
+mod preparation_tests;
