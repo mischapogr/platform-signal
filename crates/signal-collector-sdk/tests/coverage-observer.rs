@@ -91,6 +91,171 @@ fn next_id(v: &mut Value) {
     v["record_id"] = "ecf5f7a0-a788-4e02-b8ee-b924e3e8bf4c".into();
 }
 #[test]
+fn profile_definition_roundtrip_and_component_set_are_exact() -> TestResult {
+    let fixture = fixture()?;
+    let original = fixture["profiles"][0].clone();
+    let profile = CoverageProfile::parse(&bytes(&original)?)?;
+    assert!(profile.same_definition(&CoverageProfile::parse(&profile.definition_bytes()?)?));
+    let mut ordered = original.clone();
+    ordered["required_components"]
+        .as_array_mut()
+        .ok_or("components")?
+        .reverse();
+    assert!(profile.same_definition(&CoverageProfile::parse(&bytes(&ordered)?)?));
+    for (key, value) in [
+        ("id", json!("other")),
+        ("revision", json!("new")),
+        ("requires_checkpoint", json!(false)),
+        ("max_interval_seconds", json!(61)),
+        ("max_verification_age_seconds", json!(61)),
+        ("max_clock_skew_seconds", json!(3)),
+        (
+            "required_components",
+            json!(["configuration", "scope", "continuity", "source_integrity"]),
+        ),
+    ] {
+        let mut changed = original.clone();
+        changed[key] = value;
+        assert!(!profile.same_definition(&CoverageProfile::parse(&bytes(&changed)?)?));
+    }
+    Ok(())
+}
+struct Sink {
+    mode: Option<Result<ReportCommit, ProbeFailure>>,
+    calls: AtomicUsize,
+    started: Notify,
+}
+#[signal_collector_sdk::extension]
+impl CoverageReportSink for Sink {
+    async fn commit(
+        &self,
+        report: &[u8],
+        profile: &CoverageProfile,
+        _: &ExtensionContext,
+    ) -> Result<ReportCommit, ProbeFailure> {
+        self.calls.fetch_add(1, Ordering::AcqRel);
+        self.started.notify_one();
+        assert!(report.len() <= MAX_RECORD_BYTES);
+        assert_eq!(profile.id(), "fixture-basic");
+        match self.mode {
+            Some(outcome) => outcome,
+            None => std::future::pending().await,
+        }
+    }
+}
+fn sink(mode: Option<Result<ReportCommit, ProbeFailure>>) -> Sink {
+    Sink {
+        mode,
+        calls: AtomicUsize::new(0),
+        started: Notify::new(),
+    }
+}
+#[tokio::test]
+async fn persisted_poll_adopts_only_after_commit_and_replay_cannot_heal() -> TestResult {
+    let (mut observer, current, record) = setup()?;
+    let probe = Probe::report(&record)?;
+    let replay = sink(Some(Ok(ReportCommit::Replayed)));
+    let result = observer
+        .poll_persisted(&probe, &replay, &bytes(&current)?, &ctx()?)
+        .await?;
+    assert_eq!(result.commit(), Some(ReportCommit::Replayed));
+    assert_eq!(observer.health(), ObserverHealth::Unknown);
+    assert_eq!(
+        result.assessment().reason_codes(),
+        &[CoverageReason::ObserverUnknown]
+    );
+    let accepted = sink(Some(Ok(ReportCommit::Accepted)));
+    assert_eq!(
+        observer
+            .poll_persisted(&probe, &accepted, &bytes(&current)?, &ctx()?)
+            .await?
+            .assessment()
+            .status(),
+        CoverageStatus::Verified
+    );
+    let original = observer.latest_bytes().ok_or("original")?.to_vec();
+    for failure in [
+        ProbeFailure::Denied,
+        ProbeFailure::Throttled,
+        ProbeFailure::Unavailable,
+        ProbeFailure::Malformed,
+    ] {
+        let failed = sink(Some(Err(failure)));
+        let mut changed = record.clone();
+        next_id(&mut changed);
+        assert!(
+            matches!(observer.poll_persisted(&Probe::report(&changed)?,&failed,&bytes(&current)?,&ctx()?).await,Err(ObserverError::Probe(e)) if e==failure)
+        );
+        assert_eq!(observer.latest_bytes(), Some(original.as_slice()));
+        assert_eq!(observer.health(), ObserverHealth::Unhealthy);
+        observer
+            .poll_persisted(&probe, &replay, &bytes(&current)?, &ctx()?)
+            .await?;
+        assert_eq!(observer.health(), ObserverHealth::Unhealthy);
+    }
+    Ok(())
+}
+struct CancelledCommit;
+#[signal_collector_sdk::extension]
+impl CoverageReportSink for CancelledCommit {
+    async fn commit(
+        &self,
+        _: &[u8],
+        _: &CoverageProfile,
+        context: &ExtensionContext,
+    ) -> Result<ReportCommit, ProbeFailure> {
+        context.cancellation().cancel();
+        Ok(ReportCommit::Accepted)
+    }
+}
+#[tokio::test]
+async fn cancellation_after_sink_completion_prevents_current_promotion() -> TestResult {
+    let (mut observer, current, record) = setup()?;
+    let probe = Probe::report(&record)?;
+    assert!(matches!(
+        observer
+            .poll_persisted(&probe, &CancelledCommit, &bytes(&current)?, &ctx()?)
+            .await,
+        Err(ObserverError::Operation(ExtensionError::Cancelled))
+    ));
+    assert!(observer.latest_bytes().is_none());
+    assert_eq!(observer.health(), ObserverHealth::Unhealthy);
+    Ok(())
+}
+#[tokio::test]
+async fn pending_durable_commit_cancels_or_drops_without_cache_promotion() -> TestResult {
+    for cancel in [false, true] {
+        let (mut observer, current, record) = setup()?;
+        let probe = Probe::report(&record)?;
+        let pending = sink(None);
+        let raw = bytes(&current)?;
+        let context = ctx()?;
+        {
+            let work = observer.poll_persisted(&probe, &pending, &raw, &context);
+            tokio::pin!(work);
+            tokio::select! { result=&mut work=>return Err(format!("early result: {}",result.is_ok()).into()), _=pending.started.notified()=>{} }
+            if cancel {
+                context.cancellation().cancel();
+                assert!(matches!(
+                    work.await,
+                    Err(ObserverError::Operation(ExtensionError::Cancelled))
+                ));
+            }
+        }
+        assert!(observer.latest_bytes().is_none());
+        assert_eq!(
+            observer.health(),
+            if cancel {
+                ObserverHealth::Unhealthy
+            } else {
+                ObserverHealth::Unknown
+            }
+        );
+        assert_eq!(pending.calls.load(Ordering::Acquire), 1);
+    }
+    Ok(())
+}
+#[test]
 fn report_bounds_and_trusted_profile_scope_precede_any_probe() -> TestResult {
     assert!(ProbeReport::new(&[]).is_err());
     assert!(ProbeReport::new(&vec![0; MAX_RECORD_BYTES + 1]).is_err());

@@ -40,6 +40,15 @@ checkpoint/gap/degraded-silence simulation. Evidence:
 `target/goal-execution-20261007/COVERAGE-OBSERVERS/native-probe-validation.json`.
 Actual AWS/source custody and all existing release exceptions remain open.
 
+The durable observer/history bridge is accepted locally: four new SDK and ten
+physical-history regressions, default 523/all-feature 546 tests and required
+format/lint/package gates pass. Independent review has no blocker/high. Exact
+profile/global identity precede cache adoption; replay cannot heal health.
+Evidence: `target/goal-execution-20261007/COVERAGE-OBSERVERS/history-bridge-validation.json`.
+Scoped server configuration/authentication, lifecycle/API/metrics and independent
+checkpoint/gap runtime simulation remain local work. No external or release gate
+is closed and no old candidate/SBOM/image is qualified for these new source inputs.
+
 Minimal SecOps UI is now an owner-selected MVP requirement. UI-01/UI-02 have
 local embedded-route, browser, exact-ID query, real-server/restart, current source
 export and real-container acceptance. See [the UI contract](28-secops-ui.md).
