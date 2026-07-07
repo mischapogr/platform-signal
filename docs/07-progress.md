@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 410, including 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+workspace gate has 422, including 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,35 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Receipt owner handover and checkpoint-gated recovery opening — 2026-10-07
+
+Two bounded RECEIPT-RECOVERY substeps are accepted locally. `transfer_owner`
+consumes the old store, checks full binding/exact prior control and an independently
+current application checkpoint under its physical lock, advances owner generation/
+control revision exactly once, preserves immutable bytes and prefix, resets the
+attempt, commits control and terminates the worker. Success waits for physical
+exit; timeout or lost reply retains the lock until actual exit. New owner reopen
+fences the old identity. `open_reconciled` requires the current trusted checkpoint
+before exposing a store; older consistent, foreign, empty or missing state is
+denied. Ordinary `open` retains its limited process-local assurance.
+
+Twelve new tests cover before/partial/completed sends, old/new owner replay and
+continued admission, full-scope/stale snapshot/current-witness denial, successor/
+generation bounds, three fault and three process-crash milestones, timeout/drop/
+cancellation and physical lock lifetime, plus checkpoint-gated boot. Independent
+source review accepted both substeps with no blocker/high. Required formatting,
+strict Clippy, locked/offline workspace and 13-package boundary checks pass: 422
+Rust tests, zero failures. Three ignored helpers are executed by parent crash
+tests. Evidence is `target/goal-execution-20261007/RECEIPT-RECOVERY/`.
+
+The trusted application authenticates and reconciles the external checkpoint;
+these constructors do not turn a copied checksum into authority. No source ACK,
+retirement/reclamation, remote fencing or stronger custody is implemented here.
+The finite ledger now places SOURCE-ACK control before retirement because the
+frozen reclaim guard requires confirmed ACK; no capability was added. Continue
+SOURCE-ACK, then finish RECEIPT-RECOVERY before object delivery. The Goal stays
+active; image/candidate/native/cloud/publication boundaries remain unchanged.
 
 ## Persistent Goal and verified source-receipt progress — 2026-10-07
 
