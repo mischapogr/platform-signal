@@ -1,9 +1,15 @@
 # Source receipt and progress encoding v1
 
-Status: **offline schema contract**, 2026-10-07. This freezes the proposed
+Status: **frozen schema contract**, 2026-10-07. The initial
+[Rust local store](../crates/signal-collector-sdk/src/receipt.rs) now has bounded
+process/filesystem evidence; the complete progress/custody protocol remains ahead.
+This freezes the proposed
 `SIGSRC01` framing in [29](29-cloudtrail-source-receipt.md) and introduces
-`SIGSCP01` progress. It does not implement a Rust store, source ACK, gzip reader,
-source proofs or AWS collection. The [fixture](../tests/fixtures/cloudtrail-receipt/contract.json)
+`SIGSCP01` progress. The schema witnesses do not implement source ACK, gzip
+parsing, source proofs
+or AWS collection. The bounded store accepts already prepared receipt bytes and
+initial controls only; it does not implement the full transition matrix. The
+[fixture](../tests/fixtures/cloudtrail-receipt/contract.json)
 and [checker](../scripts/check-cloudtrail-receipt-contract.py) are synthetic
 encoding/transition witnesses. They are separate from SourceCoverage history.
 
@@ -115,7 +121,8 @@ truncated frames, unknown version, duplicate prepared IDs or out-of-order mappin
 Framing is `36 + 52 * prepared_count + 32` bytes (53,316 at 1,024), within 64 KiB.
 All section sums and file length are checked before reads. Canonical event bytes
 remain opaque pinned payload for replay; before first publication a qualified
-preparer validates event v1, IDs, time, profile/revision and
+preparer validates event v1, IDs, time, profile/revision, the granted
+CloudTrail recipient account/region and
 `receipt://<receipt_id>/record/<ordinal>` against each descriptor. Never rewrite
 an old payload merely to match a current serializer. The final receipt digest
 is not embedded in events, avoiding a circular encoding. Checksums are accidental
@@ -193,9 +200,13 @@ custody. Neither successful deletion nor horizon expiry authorizes S3 deletion.
 The backend uses a private owned root and internally generated UUID filenames,
 never bucket/key/metadata text as a filesystem path. Hold the OS lock throughout
 inspection and mutation. Receipt construction writes one bounded preparation
-file; sync it, rename to the immutable UUID path, then sync the directory.
-Write/sync an initial progress replacement referencing that exact receipt;
-atomically replace the root's current control and sync the directory. **M1 is
+file; sync it, publish to the immutable UUID path without clobbering another
+entry, then sync the directory. The current initial-only local backend uses
+exclusive hard-link creation then temporary-name removal, with no second payload
+copy; a crash between them fails closed. Write/sync initial progress referencing
+that exact receipt; publish its first root-control name with the same exclusive
+no-clobber sequence and sync the directory. A later mutable backend atomically
+replaces an existing root control; this slice never overwrites one. **M1 is
 exposed only after this final control commit**, when both files are verified.
 A receipt filename or successfully synced temp alone does not expose M1.
 Progress replacements use the same temp/sync/atomic-replace/directory-sync order;
@@ -257,3 +268,22 @@ shutdown, conflicting restore and fresh-grant behavior need actual Rust/backend
 fault tests. The offline matrix checks decisions and binary witnesses only.
 Native ARM64, actual EKS/AWS, remote CI, released dependencies and publication
 remain the gates in [21](21-release-readiness.md).
+
+## Bounded initial-store evidence
+
+`receipt::ReceiptStore` now executes immutable decoding and initial publication/
+reopen behind a single bounded blocking worker. Twenty-one focused Rust tests
+cover three exact receipt/initial-control golden pairs, eight publication-stage
+process exits and eight injected fault paths, an actual destination-exists syscall
+failure, corruption/orphan/quota/lock/path/scope checks, queued cancellation,
+caller timeout and lost-reply durability. The helper process test is ignored in
+normal enumeration and is invoked explicitly by its parent test. Evidence is
+`target/source-receipt-store-20261007/`; review is focused writer review, not new
+independent source review. Earlier offline vectors remain their separate scope.
+
+The API refuses any non-initial progress on reopen and never rewrites retained
+preparation. Original gzip validity, object-record span derivation and authenticity
+remain preparer/source qualification work. The next slice implements atomic
+verified-prefix progress and replay, then retirement/takeover/restore qualification
+before source delivery. Process exits on the current filesystem do not establish
+power-loss/device/AZ/account durability or administrator-resistant proof.
