@@ -352,7 +352,7 @@
     {
       "id": "OUTBOX",
       "title": "Private transactional finding cursor/outbox and notification simulation",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "FINDINGS-CURSOR"
       ],
@@ -366,7 +366,22 @@
       "references": [
         "docs/25-findings-cursor-proposal.md",
         "docs/17-external-overlay.md"
-      ]
+      ],
+      "substeps": [
+        {
+          "id": "transactional-page-plan",
+          "status": "passed_local",
+          "evidence": [
+            "target/goal-execution-20261007/OUTBOX/transaction-validation/validation.json",
+            "target/goal-execution-20261007/OUTBOX/transaction-validation/overlay.log"
+          ]
+        },
+        {
+          "id": "bounded-dispatch-and-notification-simulation",
+          "status": "in_progress"
+        }
+      ],
+      "notes": "Private complete page/cursor transaction accepted locally with bounded physical ownership, EXTRA commit durability, immutable retained plan verification and 13 new regressions. Bounded dispatcher/notification simulation remains runnable; parent stays open."
     },
     {
       "id": "DISPOSITIONS",
