@@ -11,7 +11,8 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 358, including 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
+workspace gate has 377, including 16 CloudTrail parser/preparation tests, three native-to-finding
+profile tests, 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
 resource exhaustion before the application starts; the preceding image retains
@@ -39,6 +40,46 @@ Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
 
+## Post-MVP bounded CloudTrail record normalizer/profile — 2026-10-07
+
+`signal_collector_sdk::cloudtrail::normalize_record` now performs pure, bounded
+native management-record projection. Caller-provided scope, prepared UUIDs,
+receipt UUID/ordinal and observation time are validated; no IDs or clock values
+are generated. Original decoded record bytes are borrowed unchanged and hashed.
+Canonical event/bytes are immutable through the result API and capped at 64 KiB.
+The strict decoder bounds input at 256 KiB, depth at 16 and nodes at 16,384
+(keys included), checking before each child allocation. Duplicate decoded keys,
+malformed JSON/UTF-8, exponent overflow and trailing data reject explicitly.
+SerDe number-marker strings remain ordinary native object keys.
+
+All 41 original native cases execute in Rust, including typed scope, missing,
+unsupported, new-minor, wrong-service/event-type and native MFA handling. Sixteen
+SDK tests include two historical prepared-content pins, deterministic replay,
+exact size/depth/node boundaries, literal boolean conditions, 64 independent JSON
+models, large original integers and unknown-field retention without credential
+projection. Three rule-pipeline tests execute actual native→canonical→finding
+behavior. The D01 action filter is removed exactly as approved in the independent
+design review; root StopLogging yields D01+D02 and root console login without MFA
+D01+D03. Failed, missing and federated cases retain their negative expectations.
+
+Formatting, strict all-target Clippy and locked/offline workspace tests pass:
+377 Rust tests, zero failures; the 13-package guard and existing catalog/coverage/
+backend checks pass. The 26 independently authored offline mutation tests still
+pass all 262 rejection checks. This implementation used one writer and a focused
+writer review against the previously independently reviewed design/fixtures;
+it does not claim a new independent agent source review. Evidence and review
+scope are retained in `target/cloudtrail-normalizer-20261007/`.
+
+This helper is not wired into a collector or HTTP endpoint. Gzip/object parsing,
+durable receipt/quarantine, source ACK, native proof validation, source observers
+and authorized AWS qualification remain separate. No external dependency version,
+event/HTTP schema, workspace crate or service is added; SDK direct edges reuse
+existing `sha2`/`uuid`. Earlier image/candidate evidence retains its own bindings.
+
+Next: freeze source-receipt metadata/progress schemas, custody transitions and
+binary golden vectors, then implement bounded local receipt custody/replay before
+S3/SQS delivery. Keep fresh source review and external release gates explicit.
+
 ## Post-MVP CloudTrail source-receipt/profile design — 2026-10-07
 
 [The CloudTrail contract](29-cloudtrail-source-receipt.md) defines the next PS-02
@@ -55,12 +96,12 @@ Acceptance passes 41 native projections, four object and three native-identity
 comparisons, two prepared-byte pins, 19 ACK witnesses, and 26 independent tests
 with 262 rejection checks. The 19 custody scenarios are explicitly unexecuted.
 Crash, disk, fencing, cloud authentication, source proofs and native delivery
-remain implementation/qualification work. The current Rust runtime and 358-test
-workspace baseline are unchanged. Retained design evidence is under
+remain implementation/qualification work. At this design acceptance the Rust runtime and 358-test
+workspace baseline were unchanged. Retained design evidence is under
 `target/cloudtrail-receipt-design-20261007/`.
 
-Next: implement one bounded Rust CloudTrail management-event normalizer/profile
-against the original synthetic payloads, including the explicit root-activity
+The next item at this design acceptance was the bounded Rust CloudTrail
+management-event normalizer/profile, now recorded above, including the root-activity
 predicate correction and D01/D02 overlap. Then implement source custody/replay
 and S3/SQS delivery in separately reviewed slices. Neither the native normalizer
 nor the AWS adapter is implemented by this design acceptance.

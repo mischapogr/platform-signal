@@ -153,7 +153,7 @@ class DesignTampering(unittest.TestCase):
         self.reject(lambda d: case(d, "native_cases", "missing-event-id")["expected"].__setitem__("disposition", "emit"))
         self.reject(lambda d: case(d, "native_cases", "missing-actor")["expected"].__setitem__("reason_codes", []))
 
-    def test_current_and_planned_predicate_oracles_are_distinct(self):
+    def test_legacy_and_selected_predicate_oracles_are_distinct(self):
         value = case(self.original, "native_cases", "root-stop-logging")["expected"]
         self.assertEqual(value["catalog_matches"], ["SIG-D02"])
         self.assertEqual(value["proposed_matches"], ["SIG-D01", "SIG-D02"])

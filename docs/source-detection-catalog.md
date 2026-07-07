@@ -19,7 +19,9 @@ native MVP rules: SIG-D01, D02, D03, D05 and D07. Their 15 pre-normalized events
 can be submitted to the existing server; exactly five findings should persist
 and survive restart. The other 30 cases specify future acceptance and are not
 runtime tests. The fixture profile uses nested `attributes.security.*`, preserving
-the existing canonical event envelope; production normalization is not implemented.
+the existing canonical event envelope. The bounded pure CloudTrail record profile
+now has actual Rust native-to-canonical-to-finding tests; source collection and
+durable custody are not implemented. See [the profile contract](29-cloudtrail-source-receipt.md).
 
 ```bash
 python3 scripts/check-security-requirements.py

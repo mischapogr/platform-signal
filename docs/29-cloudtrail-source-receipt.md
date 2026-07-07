@@ -1,10 +1,11 @@
 # CloudTrail source receipt and normalization profile
 
-Status: PS-02 **design contract only**, 2026-10-07. This selects the next bounded
-Rust normalizer/profile task, followed separately by source-receipt custody and
-adapter implementation. No CloudTrail reader, source acknowledgement, durable
-SourceReceipt, new rule, cloud configuration or AWS qualification is implemented
-by this document or its offline fixtures.
+Status: PS-02 source custody remains a **design contract**, 2026-10-07. The pure
+[Rust management-record normalizer](../crates/signal-collector-sdk/src/cloudtrail.rs)
+and generic D01 predicate correction now have local fixture/test evidence.
+Source-receipt custody and adapter implementation remain separate work. No
+CloudTrail reader, source acknowledgement, durable SourceReceipt, cloud
+configuration or AWS qualification is implemented by the helper or offline fixtures.
 
 This addresses [A1–A4](26-ingestion-architecture-audit.md#findings-ordered-by-implementation-risk)
 using the existing [M0–M7 milestones](failure-domains.md#acknowledgement-milestones),
@@ -258,13 +259,15 @@ for Root/IAMUser. Missing/unsupported values are omitted. Federated/AssumedRole
 [AWS sign-in records](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-event-reference-aws-console-sign-in-events.html)
 support this separate classifier.
 
-The existing catalog's D01 rule also requires `security.action=resource.activity`.
-It currently misses a root `audit.stop` operation while D02 matches. The next
-Rust profile/rule slice must explicitly review a proposed D01 change to
-cloudtrail + successful supported outcome + Root without that action constraint;
-then root StopLogging may yield D01 and D02. Offline fixtures distinguish
-`catalog_matches` from `proposed_matches`. No rule is changed here, and unknown
-outcomes still cannot satisfy a success predicate. D02/D03/D05 use existing field
+The design snapshot's D01 rule required `security.action=resource.activity`,
+missing a root `audit.stop` operation while D02 matched. The selected generic
+catalog rule now uses cloudtrail + successful supported outcome + Root without
+that action constraint. Actual Rust native-to-finding tests verify root StopLogging
+produces D01 and D02. The independent design review approved this exact correction;
+the implementation removes only that action term. Offline fixture keys retain
+their historical meaning: `catalog_matches` is the legacy action-filter view,
+and `proposed_matches` is the now-selected profile. Unknown outcomes still cannot
+satisfy a success predicate. D02/D03/D05 use existing field
 paths. The older `examples/logs/aws-cloudtrail.json` illustrative profile is not
 a production normalizer or a replacement contract.
 
@@ -398,13 +401,23 @@ requires the relevant files, digest chain and validation process.
 [contract checker](../scripts/check-cloudtrail-source-contract.py) and independent
 [mutation regressions](../scripts/test-cloudtrail-source-contract.py) are design
 evidence only. They exercise synthetic native
-projection, exact hashes/identities, current-vs-proposed predicate expectations,
+projection, exact hashes/identities, legacy-vs-selected predicate expectations,
 verified-prefix witness rules and explicit custody failure expectations. They
 do not execute a Rust normalizer, source receipt store, S3/SQS delivery, protected
 archive, fencing, decompression implementation or AWS source coverage.
 
-The next task implements the bounded pure Rust normalizer/profile against these
-fixtures and reviews the explicit D01 change. Receipt storage/adapter custody is
-another task with backend/crash/fault-injection, quota, replay, ACK and authorized
+The pure Rust helper now executes all 41 native record cases with fixed caller
+identity/time and the selected generic predicates. It additionally bounds decoded
+record nodes at 16,384 (keys included) before child allocation, preserving the
+16-level/256 KiB limits. Two historical prepared pins are canonical-content
+witnesses; newly prepared bytes are deterministic, but their field ordering is
+not a license to rewrite existing pending receipt bytes. Source names are supplied
+by trusted configuration, bounded to 128 bytes, with 128 recipient accounts and
+64 regions (64 bytes each) at most. Result memory is per record; retaining multiple
+results requires aggregate capacity/ownership outside this helper.
+
+Actual Rust tests qualify this decoded-record mechanism; the offline checker
+still does not execute it or the custody scenarios. Receipt storage/adapter custody
+is the next bounded task, with backend/crash/fault-injection, quota, replay, ACK and authorized
 environment gates; no cloud resources or current production protection follows
 from accepting this design.
