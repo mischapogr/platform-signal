@@ -1,5 +1,6 @@
 use crate::{
-    CoverageConfig, CoverageError as Error, CoverageMetrics, PreparedObservation, Receipt,
+    AuthorizedBinding, CoverageConfig, CoverageError as Error, CoverageMetrics, CoverageSubmission,
+    IntakeContext, IntakeOutcome, PreparedObservation, Receipt,
     format::Timestamp,
     store::{Engine, StoredObservation},
 };
@@ -88,6 +89,7 @@ struct Shared {
     snapshot: Mutex<CoverageMetrics>,
     active_deadline: Mutex<Option<Instant>>,
     accepted: AtomicU64,
+    replayed: AtomicU64,
     rejected: AtomicU64,
     timeouts: AtomicU64,
     failures: AtomicU64,
@@ -135,13 +137,21 @@ impl Drop for ExitGuard {
 }
 enum Operation {
     Append(Box<PreparedObservation>),
+    Intake(Box<IntakeCommand>),
+    AuthorizedLoad(Uuid, Box<AuthorizedBinding>),
     Load(Uuid),
     Wake,
     #[cfg(test)]
     Pause(oneshot::Sender<()>, std::sync::mpsc::Receiver<()>, bool),
 }
+struct IntakeCommand {
+    submission: CoverageSubmission,
+    intake: IntakeContext,
+    reference: Option<Receipt>,
+}
 enum Value {
     Receipt(Box<Receipt>),
+    Intake(Box<IntakeOutcome>),
     Observation(Option<Box<StoredObservation>>),
     Done,
 }
@@ -188,6 +198,7 @@ impl CoverageStore {
             snapshot: Mutex::new(CoverageMetrics::default()),
             active_deadline: Mutex::new(None),
             accepted: AtomicU64::new(0),
+            replayed: AtomicU64::new(0),
             rejected: AtomicU64::new(0),
             timeouts: AtomicU64::new(0),
             failures: AtomicU64::new(0),
@@ -244,6 +255,12 @@ impl CoverageStore {
                                 Operation::Append(p) => engine
                                     .append(*p, &command.ctx)
                                     .map(|r| Value::Receipt(Box::new(r))),
+                                Operation::Intake(p) => engine
+                                    .submit(p.submission, p.intake, p.reference, &command.ctx)
+                                    .map(|r| Value::Intake(Box::new(r))),
+                                Operation::AuthorizedLoad(id, authority) => engine
+                                    .get_authorized(id, &authority, &command.ctx)
+                                    .map(|v| Value::Observation(v.map(Box::new))),
                                 Operation::Load(id) => engine
                                     .load(id, &command.ctx)
                                     .map(|v| Value::Observation(v.map(Box::new))),
@@ -279,6 +296,11 @@ impl CoverageStore {
                         }
                     } else if matches!(result, Ok(Value::Receipt(_))) {
                         increment(&worker_shared.accepted);
+                    } else if let Ok(Value::Intake(outcome)) = &result {
+                        match outcome.as_ref() {
+                            IntakeOutcome::Accepted(_) => increment(&worker_shared.accepted),
+                            IntakeOutcome::Replayed(_) => increment(&worker_shared.replayed),
+                        }
                     }
                     worker_shared.publish(engine.metrics());
                     if let Ok(mut deadline) = worker_shared.active_deadline.lock() {
@@ -319,6 +341,7 @@ impl CoverageStore {
             worker: Mutex::new(Some(worker)),
         })
     }
+    /// Low-level trusted append. The caller owns authorization, age and retention policy.
     pub async fn append(
         &self,
         p: PreparedObservation,
@@ -329,6 +352,69 @@ impl CoverageStore {
             .await?
         {
             Value::Receipt(r) => Ok(*r),
+            _ => Err(Error::Unavailable),
+        }
+    }
+    /// Admit a new assertion or replay the retained original under a current exact grant.
+    pub async fn submit(
+        &self,
+        submission: CoverageSubmission,
+        intake: IntakeContext,
+        context: OperationContext,
+    ) -> Result<IntakeOutcome, Error> {
+        self.intake_request(submission, intake, None, context).await
+    }
+    /// Reconcile an original receipt. Unavailable/divergent history never becomes admission.
+    pub async fn retry(
+        &self,
+        receipt: Receipt,
+        submission: CoverageSubmission,
+        intake: IntakeContext,
+        context: OperationContext,
+    ) -> Result<IntakeOutcome, Error> {
+        if let Err(error) = receipt.validate_reference() {
+            increment(&self.shared.rejected);
+            return Err(error);
+        }
+        if receipt.record_id != submission.record_id {
+            increment(&self.shared.rejected);
+            return Err(Error::ReceiptMismatch);
+        }
+        self.intake_request(submission, intake, Some(receipt), context)
+            .await
+    }
+    async fn intake_request(
+        &self,
+        submission: CoverageSubmission,
+        intake: IntakeContext,
+        reference: Option<Receipt>,
+        context: OperationContext,
+    ) -> Result<IntakeOutcome, Error> {
+        let command = IntakeCommand {
+            submission,
+            intake,
+            reference,
+        };
+        match self
+            .request(Operation::Intake(Box::new(command)), context)
+            .await?
+        {
+            Value::Intake(outcome) => Ok(*outcome),
+            _ => Err(Error::Unavailable),
+        }
+    }
+    /// Read retained historical evidence only after checking its full original binding.
+    pub async fn get_authorized(
+        &self,
+        id: Uuid,
+        authority: AuthorizedBinding,
+        context: OperationContext,
+    ) -> Result<Option<StoredObservation>, Error> {
+        match self
+            .request(Operation::AuthorizedLoad(id, Box::new(authority)), context)
+            .await?
+        {
+            Value::Observation(value) => Ok(value.map(|v| *v)),
             _ => Err(Error::Unavailable),
         }
     }
@@ -414,6 +500,7 @@ impl CoverageStore {
         m.command_capacity = self.sender.max_capacity();
         m.command_depth = m.command_capacity - self.sender.capacity();
         m.accepted = self.shared.accepted.load(Ordering::Relaxed);
+        m.replayed = self.shared.replayed.load(Ordering::Relaxed);
         m.rejected = self.shared.rejected.load(Ordering::Relaxed);
         m.timeouts = self.shared.timeouts.load(Ordering::Relaxed);
         m.failures = self.shared.failures.load(Ordering::Relaxed);
@@ -542,8 +629,12 @@ mod tests {
         let f = fixture()?;
         assert!(matches!(
             store
-                .append(
-                    prepared(&f["chains"][0]["commits"][0], &f)?,
+                .submit(
+                    crate::intake_tests::submission(&prepared(&f["chains"][0]["commits"][0], &f)?)?,
+                    crate::intake_tests::intake(
+                        &prepared(&f["chains"][0]["commits"][0], &f)?,
+                        "2026-10-07T00:05:30Z"
+                    )?,
                     OperationContext::new(Duration::from_millis(20))
                 )
                 .await,

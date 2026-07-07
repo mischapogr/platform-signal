@@ -9,6 +9,12 @@ and remaining required gates are recorded in the
 
 ### Implemented
 
+- Add trusted SourceCoverage intake/retry and authorized historical reads with
+  exact observer/full-binding grants, finite admission/retention policy and original
+  byte/receipt replay. Fixed deadlines, profile pins, sequence and clock floor
+  survive retries; full new-write quotas permit replay. Missing/divergent receipt
+  references reject. Credential authentication, correction admission, pruning,
+  scans and source/server integration remain separate.
 - Add 55 synthetic native/canonical examples across 11 vendor source families,
   separate log/finding severity metadata, hash bindings and fixture regressions.
 - Close current 13-package source exports over required compile-time JSON data
@@ -19,7 +25,7 @@ and remaining required gates are recorded in the
   bytes, profile pins, full bindings, immutable receipts and checked commit
   prefixes under one local owner. Eighteen focused tests cover frozen encodings,
   restart, process-crash boundaries, cancellation, corruption, page/count/byte
-  exhaustion and closed relocation. Trusted intake/retry, corrections, pruning,
+  exhaustion and closed relocation. Corrections, pruning,
   scans and server/source integration remain separate tasks.
 - Pure SourceCoverage v1 validation and current/historical assessment in the
   generic SDK: bounded strict JSON, exact bindings/profiles, nanosecond time

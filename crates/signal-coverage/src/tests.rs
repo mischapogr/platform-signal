@@ -387,10 +387,24 @@ async fn child_process_crash_boundaries_preserve_acknowledged_prefix() -> TestRe
             )
             .await?;
         if stage == "after_commit" {
+            let p = prepared(&f["chains"][0]["commits"][1], &f)?;
+            let original = second.ok_or("lost-response row")?.receipt;
             assert_eq!(
-                second.ok_or("lost-response row")?.receipt.prefix_digest,
+                original.prefix_digest,
                 string(&f["chains"][0]["commits"][1]["prefix_digest"])?
             );
+            assert_eq!(
+                recovered
+                    .retry(
+                        original.clone(),
+                        crate::intake_tests::submission(&p)?,
+                        crate::intake_tests::intake(&p, "2026-10-07T00:06:31Z")?,
+                        ctx()
+                    )
+                    .await?,
+                IntakeOutcome::Replayed(original)
+            );
+            assert_eq!(recovered.metrics().committed_sequence, 2);
         } else {
             assert!(second.is_none());
         }
