@@ -11,7 +11,7 @@ This reconciles [product scope](27-product-architecture.md),
 [current progress](07-progress.md) and [release gates](21-release-readiness.md).
 The newer progress/routing acceptance supersedes old “UI then pruning” next-step
 text: UI-01/UI-02, coverage pruning/scans and initial source receipts are done.
-OBJECT-READER is accepted locally; AWS-DELIVERY now has local signed-transport/delivery simulation acceptance; COVERAGE-OBSERVERS now has simulated independent checkpoint/gap/quiet/degraded-silence runtime acceptance. Native CloudTrail continuity/checkpoint/digest adapters remain unimplemented and unqualified; applicable proof work remains within EVIDENCE. FINDINGS-CURSOR is accepted locally. Private OUTBOX transactional-page-plan is passed_local; bounded dispatch/notification simulation is in progress and the parent remains open.
+OBJECT-READER is accepted locally; AWS-DELIVERY now has local signed-transport/delivery simulation acceptance; COVERAGE-OBSERVERS now has simulated independent checkpoint/gap/quiet/degraded-silence runtime acceptance. Native CloudTrail continuity/checkpoint/digest adapters remain unimplemented and unqualified; applicable proof work remains within EVIDENCE. FINDINGS-CURSOR is accepted locally. Private OUTBOX transactional plans and bounded dispatch/notification simulations are accepted (passed_simulated); next is DISPOSITIONS.
 
 ## Execution and evidence
 
@@ -59,7 +59,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | AWS-DELIVERY | passed_simulated | SOURCE-ACK, OBJECT-READER | CloudTrail S3/SQS collector and local delivery simulation |
 | COVERAGE-OBSERVERS | passed_simulated | COVERAGE, AWS-DELIVERY | Source observers, health and SDK/server integration |
 | FINDINGS-CURSOR | passed_local | CORE | Durable public findings cursor runtime |
-| OUTBOX | in_progress | FINDINGS-CURSOR | Private transactional finding cursor/outbox and notification simulation |
+| OUTBOX | passed_simulated | FINDINGS-CURSOR | Private transactional finding cursor/outbox and notification simulation |
 | DISPOSITIONS | pending | OUTBOX | Disposition/outcome backend seam |
 | EVIDENCE | pending | AWS-DELIVERY | Independent protected original route and validation simulation |
 | S3-QUERY | pending | CORE | Object-backed Parquet and committed query manifests |
