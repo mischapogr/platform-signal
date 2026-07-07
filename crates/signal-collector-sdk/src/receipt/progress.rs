@@ -13,6 +13,19 @@ pub struct ReceiptProgress {
     pub(super) value: Value,
 }
 impl ReceiptProgress {
+    /// Read-only syntax check for bounded application reconciliation after payload
+    /// removal. This does not acquire a lock, attest history or authorize mutation.
+    /// Authenticate continuity independently, then open_reconciled rechecks it.
+    pub fn inspect_retirement_control(
+        bytes: &[u8],
+        owner: Uuid,
+        generation: u64,
+    ) -> Result<Self, ReceiptError> {
+        if bytes.len() > CONTROL_LIMIT {
+            return Err(ReceiptError::Invalid("control bytes"));
+        }
+        super::retirement::decode(bytes.to_vec(), owner, generation)
+    }
     pub fn revision(&self) -> u64 {
         // Decoding establishes unsigned revision; Value indexing does not panic.
         self.value["revision"].as_u64().unwrap_or_default()
@@ -94,12 +107,14 @@ pub(super) fn encode(value: &Value) -> Result<Vec<u8>, ReceiptError> {
     raw.extend_from_slice(&Sha256::digest(&raw));
     Ok(raw)
 }
-pub(super) fn decode(
+pub(super) fn parse(
     bytes: Vec<u8>,
-    r: &StoredReceipt,
     owner: Uuid,
     generation: u64,
 ) -> Result<ReceiptProgress, ReceiptError> {
+    if owner.is_nil() || generation == 0 {
+        return Err(ReceiptError::Owner);
+    }
     if !(44..=CONTROL_LIMIT).contains(&bytes.len()) || bytes[..8] != *b"SIGSCP01" {
         return Err(invalid("control frame"));
     }
@@ -118,6 +133,21 @@ pub(super) fn decode(
         || number(&value["owner_generation"])? != generation
     {
         return Err(ReceiptError::Owner);
+    }
+    Ok(ReceiptProgress { bytes, value })
+}
+
+pub(super) fn decode(
+    bytes: Vec<u8>,
+    r: &StoredReceipt,
+    owner: Uuid,
+    generation: u64,
+) -> Result<ReceiptProgress, ReceiptError> {
+    let ReceiptProgress { bytes, value } = parse(bytes, owner, generation)?;
+    if value["retirement"]["state"] != "active" {
+        let p = super::retirement::decode(bytes, owner, generation)?;
+        super::retirement::verify_receipt(&p, r)?;
+        return Ok(p);
     }
     if value["custody"]["status"] != "local_only" || value["retirement"]["state"] != "active" {
         return Err(ReceiptError::UnsupportedProgress);

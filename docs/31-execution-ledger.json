@@ -86,7 +86,7 @@
     {
       "id": "RECEIPT-RECOVERY",
       "title": "Retirement, owner takeover and restore reconciliation",
-      "status": "in_progress",
+      "status": "passed_local",
       "dependencies": [
         "RECEIPT-PROGRESS",
         "SOURCE-ACK"
@@ -96,12 +96,14 @@
         "Exclusive lock plus generation fencing; divergent or unknown restore holds side effects; bounded crash/fault matrix."
       ],
       "evidence": [
-        "target/goal-execution-20261007/RECEIPT-RECOVERY/"
+        "target/goal-execution-20261007/RECEIPT-RECOVERY/validation.json",
+        "target/goal-execution-20261007/RECEIPT-RECOVERY/retirement/validation.json",
+        "target/goal-execution-20261007/RECEIPT-RECOVERY/retirement/independent-review.json"
       ],
       "references": [
         "docs/30-source-receipt-contract.md"
       ],
-      "notes": "Local owner handover and checkpoint-gated opening implemented; retirement/reclamation remains pending confirmed-ACK control. Checkpoint authentication stays a trusted application seam; ordinary open retains process-local scope.",
+      "notes": "Handover, checkpoint-gated restore opening, bounded retirement/reclamation and explicit new UUID slot replacement accepted locally. Fresh independent checkpoint authentication remains application-owned; unknown temp/orphan states hold. No stronger custody or remote fencing.",
       "substeps": [
         {
           "id": "owner-handover",
@@ -119,9 +121,12 @@
         },
         {
           "id": "retirement-reclamation",
-          "status": "pending",
+          "status": "passed_local",
           "dependencies": [
             "SOURCE-ACK"
+          ],
+          "evidence": [
+            "target/goal-execution-20261007/RECEIPT-RECOVERY/retirement/validation.json"
           ]
         }
       ]
