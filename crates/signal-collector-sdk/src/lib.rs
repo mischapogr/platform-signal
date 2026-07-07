@@ -14,6 +14,7 @@ use thiserror::Error;
 use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
+pub mod cloudtrail;
 pub mod coverage;
 mod providers;
 pub use providers::{

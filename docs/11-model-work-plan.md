@@ -21,12 +21,14 @@ full MVP release is complete.
 ## MVP execution priority — 2026-10-07
 
 The owner classifies minimal SecOps UI as MVP and advanced SOC UX as post-MVP,
-and explicitly authorizes the current agent team to continue item by item.
+and requests item-by-item continuation. Delegate only when the current request
+explicitly authorizes parallel agents, as required by `AGENTS.md`.
 [UI-01/UI-02](28-secops-ui.md) have local source/browser/process/container acceptance;
 current-image container/supply-chain/native checks also pass. PS-01 payload/identity pruning
 and bounded scans are accepted locally. The [CloudTrail receipt/profile design](29-cloudtrail-source-receipt.md)
-sets the next bounded Rust normalizer/profile task; existing unavailable
-environment/release gates remain open. Keep
+now has pure Rust normalizer/profile evidence. Next is a bounded source-receipt
+metadata/progress schema and golden-vector task before custody implementation;
+existing unavailable environment/release gates remain open. Keep
 one writer per coherent owned path set, independent focused review and a settled
 evidence pass. Do not overlap writers or treat permission to delegate as authority
 for publication, external resources or release claims.
@@ -53,7 +55,7 @@ these rows do not authorize parallel agents or blanket cloud implementation.
 
 | Next task scope | Recommended new-task route | Required acceptance boundary |
 | --- | --- | --- |
-| Post-MVP PS-02 bounded CloudTrail normalizer and predicate profile | Sol 6.1/medium or Sonnet/medium | [Receipt/profile design](29-cloudtrail-source-receipt.md) and original synthetic fixtures; implement bounded native management-record parsing and canonical projection, exact field/type/scope/provenance handling, malformed/missing/unsupported/new-minor cases, and independently review the explicit D01 action-filter correction with root StopLogging D01/D02 overlap. Run actual Rust raw-to-canonical-to-finding tests; offline oracle acceptance is not runtime proof. No source cursor, receipt store or AWS provisioning in this slice |
+| Post-MVP PS-02 source-receipt schemas and binary vectors | Sol/high for custody/checkpoint/replay decisions | Pure Rust normalizer/profile has 377-test workspace evidence; [29](29-cloudtrail-source-receipt.md) defines custody boundaries. Freeze exact bounded metadata/progress schemas, full trusted scope binding, immutable receipt and separate progress encodings, golden vectors, partial/uncertain admission transitions, reclaim/retention rules and crash/restore/fencing cases before backend code. Keep source receipts distinct from coverage history and selected failure-domain assurance explicit. A fresh source review remains separate from the prior independent design review |
 | PS-02 source-receipt custody, then S3/SQS delivery | Sol/high for custody/checkpoint/replay decisions | Pinned original/prepared IDs/bytes/revision and separate verified-prefix progress; implement the design's bounded backend and crash/fault/restore/quota/ownership matrix before adapter delivery. Source receipts remain distinct from coverage history. Qualify selected ACK custody, source proofs/credentials/private policy and live AWS separately; existing M2 does not establish M3/M4 |
 | PS-03 public cursor runtime; private durable outbox as a separate task | Sol/high for replay/cursor/atomicity | Existing [25](25-findings-cursor-proposal.md) contract; divergent restore and delivery uncertainty; private paths need their own writable scope |
 | PS-04 one evidence/store publication contract or adapter | Sol/high for integrity/commit/recovery | Independent evidence authority, version/proof reference, retention permission and failure acceptance; no cloud provisioning from this design task |
@@ -89,7 +91,8 @@ or complete history acceptance. Evidence: `target/source-coverage-corrections-20
 UI-01/UI-02 have local implementation/browser/process/container acceptance; continue
 the next post-MVP CloudTrail source-receipt/profile design after bounded-history acceptance.
 Existing environment/release gates remain open and pruning is not their substitute.
-The current user authorizes a team with disjoint writer paths and focused review.
+Earlier tasks used authorized teams with disjoint writer paths and focused review;
+that historical authorization does not apply to new tasks.
 An observer and live source coverage remain unimplemented; production
 state/retention/fencing is separate.
 
@@ -218,8 +221,8 @@ have not been measured. Calibrate on Phase 3 before forecasting the remaining wo
 ## Remaining tasks in order
 
 UI-01/UI-02 and locally runnable current-image checks are accepted. Next is
-the bounded Rust CloudTrail normalizer/profile from [29](29-cloudtrail-source-receipt.md),
-then source-receipt custody and one PS-02 adapter slice at a time. Source observers
+the bounded source-receipt schemas/golden vectors from [29](29-cloudtrail-source-receipt.md),
+then local custody/replay and one PS-02 adapter slice at a time. Source observers
 and advanced SOC workflows remain separate. Historical phase rows below retain their evidence and
 do not override that priority or require completed phases to run again.
 

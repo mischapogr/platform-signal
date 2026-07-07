@@ -223,8 +223,9 @@ def current_catalog():
         return strict_json(stream.read(MAX_FILE_BYTES + 1))
 
 
-def catalog_matches(security):
-    # Check exact already-authored equality witnesses, not a generic rules interpreter.
+def catalog_matches(security, legacy=True):
+    # Preserve the design's legacy action-filter witness alongside the selected
+    # D01 profile. This models predicates; Rust tests qualify native normalization.
     catalog = current_catalog()
     result = []
     for detection in catalog["detections"]:
@@ -234,6 +235,8 @@ def catalog_matches(security):
         event = {"source": {"type": "cloudtrail"}, "attributes": {"security": security}}
         def witness(term):
             return set(term) == {"field", "eq"} and type(path_value(event, term["field"])) is type(term["eq"]) and path_value(event, term["field"]) == term["eq"]
+        if legacy and detection["id"] == "SIG-D01" and security.get("action") != "resource.activity":
+            continue
         if all(witness(t) for t in match.get("all", [])) and ("any" not in match or any(witness(t) for t in match["any"])):
             result.append(detection["id"])
     return result
@@ -320,7 +323,7 @@ def projection_witness(native, route, raw_sha, ordinal):
         else:
             security["outcome"] = outcome
     current = catalog_matches(security)
-    future = sorted(set(current) | ({"SIG-D01"} if security.get("actor_kind") == "Root" and security.get("outcome") == "success" and "action" in security else set()))
+    future = catalog_matches(security, legacy=False)
     return {"disposition": "emit_indeterminate" if reasons else "emit", "reason_codes": reasons,
             "security": security, "cloudtrail": cloud, "catalog_matches": current, "proposed_matches": future}
 
