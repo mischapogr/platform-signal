@@ -2735,6 +2735,7 @@ dependencies = [
  "chrono",
  "flate2",
  "libc",
+ "reqwest",
  "serde",
  "serde_json",
  "sha2",
