@@ -17,6 +17,12 @@ enum Operation {
     Replay(ReceiptBinding),
     Advance(ReceiptBinding, ReceiptProgress, u32, ReceiptAttempt),
     Transfer(ReceiptBinding, ReceiptProgress, ReceiptRecoveryGrant, Uuid),
+    Ack(
+        ReceiptBinding,
+        ReceiptProgress,
+        ReceiptRecoveryGrant,
+        ReceiptAckUpdate,
+    ),
 }
 enum Answer {
     Published(ReceiptInfo),
@@ -24,6 +30,7 @@ enum Answer {
     Replayed(Option<ReceiptReplay>),
     Advanced(ReceiptProgress),
     Transferred,
+    Ack(ReceiptAckCommit),
 }
 struct Command {
     op: Operation,
@@ -110,6 +117,9 @@ impl ReceiptStore {
                         Operation::Transfer(binding, expected, grant, owner) => engine
                             .transfer(&binding, expected, grant, owner, &command.ctx, &wm)
                             .map(|()| Answer::Transferred),
+                        Operation::Ack(binding, expected, grant, update) => engine
+                            .ack(&binding, expected, grant, update, &command.ctx, &wm)
+                            .map(Answer::Ack),
                         Operation::Inspect(binding) => engine.read(&command.ctx).and_then(|r| {
                             if r.as_ref()
                                 .is_some_and(|r| r.metadata["binding"] != binding.0)
@@ -241,6 +251,29 @@ impl ReceiptStore {
             .await?
         {
             Answer::Advanced(p) => Ok(p),
+            _ => Err(ReceiptError::Closed),
+        }
+    }
+    /// Commit a bounded ACK transition with fresh independently current authority.
+    /// Intent's ticket is exposed only after physical control publication succeeds.
+    /// Finish uses a fresh token even if admission advanced since ticket issuance.
+    pub async fn acknowledge(
+        &self,
+        binding: ReceiptBinding,
+        expected: ReceiptProgress,
+        grant: ReceiptRecoveryGrant,
+        update: ReceiptAckUpdate,
+        ctx: ExtensionContext,
+    ) -> Result<ReceiptAckCommit, ReceiptError> {
+        if let Err(e) = update.validate_bounds() {
+            self.metrics.rejected.fetch_add(1, Ordering::AcqRel);
+            return Err(e);
+        }
+        match self
+            .request(Operation::Ack(binding, expected, grant, update), ctx)
+            .await?
+        {
+            Answer::Ack(result) => Ok(result),
             _ => Err(ReceiptError::Closed),
         }
     }
@@ -636,6 +669,38 @@ impl Engine {
         self.generation = generation;
         metrics.owner_transfers.fetch_add(1, Ordering::AcqRel);
         Ok(())
+    }
+    fn ack(
+        &mut self,
+        binding: &ReceiptBinding,
+        expected: ReceiptProgress,
+        grant: ReceiptRecoveryGrant,
+        update: ReceiptAckUpdate,
+        ctx: &ExtensionContext,
+        metrics: &Metrics,
+    ) -> Result<ReceiptAckCommit, ReceiptError> {
+        let replay = self
+            .replay(binding, ctx)?
+            .ok_or(ReceiptError::StaleProgress)?;
+        if replay.progress.bytes != expected.bytes {
+            return Err(ReceiptError::StaleProgress);
+        }
+        if grant.binding != *binding {
+            return Err(ReceiptError::Scope);
+        }
+        if grant.control_checksum != replay.progress.checksum() {
+            return Err(ReceiptError::History);
+        }
+        let (next, ticket) = ack::replacement(&replay, update, self.owner, self.generation)?;
+        self.replace_control(&next.bytes, ctx)?;
+        metrics.progress_updates.fetch_add(1, Ordering::AcqRel);
+        Ok(match ticket {
+            Some(ticket) => ReceiptAckCommit::Intent {
+                ticket,
+                progress: next,
+            },
+            None => ReceiptAckCommit::Settled(next),
+        })
     }
     fn replace_control(
         &mut self,

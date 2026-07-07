@@ -58,7 +58,7 @@ fn hash(v: &Value) -> Result<[u8; 32], ReceiptError> {
 pub(super) fn hex(b: &[u8]) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
 }
-fn time(v: &Value) -> Result<DateTime<Utc>, ReceiptError> {
+pub(super) fn time(v: &Value) -> Result<DateTime<Utc>, ReceiptError> {
     let s = string(v, 30, false)?;
     need(
         s.len() == 30

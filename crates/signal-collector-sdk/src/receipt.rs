@@ -1,9 +1,13 @@
 //! Bounded, single-owner immutable source receipts with verified-prefix progress.
-//! No network dispatch, source ACK, reclamation, gzip or source proof.
+//! No network dispatch, source deletion, reclamation, gzip or source proof.
 //! A caller timeout/cancellation may race publication: reopen to settle it.
+mod ack;
 mod format;
 mod progress;
 mod store;
+pub use ack::{
+    ReceiptAckCommit, ReceiptAckUpdate, SourceAckOutcome, SourceAckTicket, SourceDelivery,
+};
 pub use progress::{ReceiptAttempt, ReceiptProgress, ReceiptRecoveryGrant, ReceiptReplay};
 #[cfg(all(test, unix))]
 mod tests;
@@ -47,7 +51,7 @@ pub enum ReceiptError {
     IdentityConflict,
     #[error("receipt publication or recovery is uncertain")]
     Uncertain,
-    #[error("custody, ACK or retirement progress is not supported by this store slice")]
+    #[error("custody or retirement progress is not supported by this store slice")]
     UnsupportedProgress,
     #[error("receipt progress snapshot is stale or belongs to another receipt")]
     StaleProgress,
@@ -55,6 +59,8 @@ pub enum ReceiptError {
     History,
     #[error("invalid admission response; no prefix committed")]
     InvalidResponse,
+    #[error("source acknowledgement preconditions or ticket do not match")]
+    Ack,
     #[error("receipt operation cancelled; mutation outcome may be uncertain")]
     Cancelled,
     #[error("receipt deadline expired; mutation outcome may be uncertain")]

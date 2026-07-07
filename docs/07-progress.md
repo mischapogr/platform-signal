@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 422, including 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+workspace gate has 436, including 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,34 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Durable process-local source ACK control — 2026-10-07
+
+SOURCE-ACK is implemented as a bounded SDK control mechanism. A fresh full-binding,
+exact-prior-control and independently current checkpoint authorize every transition.
+Explicit process-local selection commits intent before returning an ephemeral ticket;
+its handle is never serialized or logged. Finish consumes the receipt/owner/generation/
+attempt/delivery-bound ticket with fresh current progress, so intervening admission
+updates do not strand a valid intent. Lost tickets/replies recover to uncertain;
+redelivery requires a new attempt/current adapter handle and preserves exact preparation.
+Both fixed horizons, selected M2, active retirement and all quarantine exclusions
+fail closed. Stronger custody is excluded; emitted indeterminate records remain eligible.
+
+Fourteen new tests cover provider response shape, redelivery, exact reopen/payload
+preservation, stale binding/checkpoint/ticket, owner fencing, M2 and nanosecond time
+limits, corruption, three fault stages, six intent/result process-crash stages,
+queue/cancellation and timeout/lost caller with physical lock lifetime. Review found
+reopen M2/intent-budget/first-ACK gaps; rechecksummed regressions now enforce them.
+Independent follow-up source review accepts the slice with no blocker/high.
+Formatting, strict workspace/all-target Clippy, locked/offline workspace tests
+and the 13-package boundary guard pass: 436 tests, zero failures. Four ignored
+subprocess helpers are exercised by parent tests. Evidence and acceptance logs:
+`target/goal-execution-20261007/SOURCE-ACK/`.
+
+This is trusted-adapter response-shape and surviving-local-filesystem evidence.
+It does not execute source deletion, prove handle freshness/authenticity, establish
+stronger custody or close AWS/ARM64/cloud/release gates. Continue immediately with
+RECEIPT-RECOVERY retirement/reclamation, then bounded object reading/delivery.
 
 ## Receipt owner handover and checkpoint-gated recovery opening — 2026-10-07
 
