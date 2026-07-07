@@ -60,6 +60,25 @@ unfinished. Native continuity/digest proofs remain unimplemented/unqualified;
 current source inputs require fresh final package/SBOM/image/candidate evidence.
 Real AWS/ARM64/EKS/vendor/remote-CI/publication gates are unchanged.
 
+Four actual-source/monolith HTTP simulations derive reports from separate bounded
+synthetic source truth, rather than from successful telemetry admission. They
+verify quiet coverage, a missing capture position despite HTTP 202, fresh backfill
+correction with preserved historical failure, denied/throttled/malformed/oversize
+source responses, blind intervals, expiry and arrival without renewed verification.
+Lost history responses retain exact intent; server/observer restart and replay
+cannot heal supervision. Scope/profile alias denials preserve original history.
+
+Default 539/all-feature 562 tests pass, with zero failures and five existing
+ignored helpers; format, strict Clippy and package checks pass. Independent review
+has no blocker/high after two test-helper lifecycle corrections: owned bootstrap
+children have a finite deadline, and source-task shutdown retains ownership through
+abort/join. Evidence: `target/goal-execution-20261007/COVERAGE-OBSERVERS/runtime-validation.json`.
+COVERAGE-OBSERVERS is passed_simulated; native CloudTrail checkpoint/continuity/
+digest adapters remain unimplemented/unqualified. Applicable proof work remains
+within EVIDENCE; simulation closes no real environment gate. Server history health
+stays unknown without application-owned independent supervision. Next is the
+bounded public findings cursor; historical artifacts need fresh final qualification.
+
 Minimal SecOps UI is now an owner-selected MVP requirement. UI-01/UI-02 have
 local embedded-route, browser, exact-ID query, real-server/restart, current source
 export and real-container acceptance. See [the UI contract](28-secops-ui.md).

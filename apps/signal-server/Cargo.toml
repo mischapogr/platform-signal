@@ -60,3 +60,7 @@ path = "../../tests/integration/cloudtrail-delivery.rs"
 [[test]]
 name = "coverage-server"
 path = "../../tests/integration/coverage-server.rs"
+
+[[test]]
+name = "coverage-runtime"
+path = "../../tests/integration/coverage-runtime.rs"
