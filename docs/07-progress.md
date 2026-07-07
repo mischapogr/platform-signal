@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-default workspace gate has 559; the all-feature gate has 582 (11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+default workspace gate has 571; the all-feature gate has 603 (12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 106 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,33 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Native CloudTrail byte proofs and read-only capture — 2026-10-08
+
+EVIDENCE now has an accepted native mechanism slice: exact uncompressed-byte RSA
+digest validation, complete referenced-log hashing, version/owner pins and
+conservative anchored/bootstrap/unanchored/gapped/backfill classification. The
+optional signed regional-key and exact-version S3 adapters retain native metadata,
+finite responses, one active request and cancellation without retry/latest fallback.
+The independent OpenSSL baseline and twelve proof/nine local HTTP regressions pass.
+
+Public default571/all-feature603 and private37 tests pass, zero failures. Required
+fmt, strict default/all-feature Clippy, package guard, private build and the local
+overlay SIGKILL/SIGTERM recovery gate pass. Independent review has no remaining
+blocker/high after the exact-time and owned-test-server lifecycle corrections.
+Existing ignored subprocess helpers keep their parent-invoked scope. Evidence:
+`target/goal-execution-20261007/EVIDENCE/native-validation/validation.json`,
+`native-private-validation/validation.json` and `native-review.json` there.
+Only existing locked ring/base64 dependency edges were added; no package version
+or selected release changed. See [protected evidence contract](38-protected-evidence-contract.md).
+
+EVIDENCE remains in_progress. Independent durable proof checkpoints/coverage,
+whole-receipt custody and required ACK, protected-route outage/proof/crash recovery
+still need implementation and acceptance. These read-only byte proofs neither
+establish complete collection nor close real AWS/Object Lock/IAM/KMS/native ARM64,
+actual EKS/vendor/remote-CI/released-dependency/publication or final-candidate gates.
+Continue EVIDENCE with the independently verified custody seam and retained proof
+checkpoint/route integration; process-local quarantine ACK remains denied.
 
 ## Scoped audited disposition backend — 2026-10-08
 
@@ -151,7 +178,8 @@ has no blocker/high after two test-helper lifecycle corrections: owned bootstrap
 children have a finite deadline, and source-task shutdown retains ownership through
 abort/join. Evidence: `target/goal-execution-20261007/COVERAGE-OBSERVERS/runtime-validation.json`.
 COVERAGE-OBSERVERS is passed_simulated; native CloudTrail checkpoint/continuity/
-digest adapters remain unimplemented/unqualified. Applicable proof work remains
+digest adapters were unimplemented/unqualified at that acceptance. Native byte-proof
+mechanisms now have the EVIDENCE acceptance above; independent durable proof work remains
 within EVIDENCE; simulation closes no real environment gate. Server history health
 stays unknown without application-owned independent supervision. Next is the
 bounded public findings cursor; historical artifacts need fresh final qualification.
@@ -177,8 +205,9 @@ Evidence: `target/goal-execution-20261007/COVERAGE-OBSERVERS/server-integration-
 No new locked package/version or service is added; the server now consumes the
 existing coverage crate. Existing package/image/SBOM reports remain historical.
 COVERAGE-OBSERVERS stays in progress for independent checkpoint/gap/quiet/degraded
-runtime simulation; native continuity/digest proofs remain unimplemented and
-unqualified. Scoped credential configuration is startup-pinned; live OIDC/RBAC,
+runtime simulation; native continuity/digest proofs were unimplemented and
+unqualified at that acceptance. See the later EVIDENCE native mechanism acceptance
+above; independent durable proof integration stays pending. Scoped credential configuration is startup-pinned; live OIDC/RBAC,
 secure transport and security auditing remain their separate pending ledger items.
 
 ## Durable observer/history bridge — 2026-10-08

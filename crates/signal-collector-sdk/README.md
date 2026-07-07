@@ -207,3 +207,21 @@ version and expected-owner checks and accepts ACK tickets only for the same
 full binding. Default dependencies require no AWS SDK. See the delivery contract
 for supported source capacity and local signed-wire/runtime evidence; real AWS
 and independent protected custody remain separate qualification gates.
+
+## Native CloudTrail byte proofs
+
+`cloudtrail::proof` verifies bounded native RSA digests over exact uncompressed
+bytes, then independently checks every referenced log before producing delivery
+evidence. Ordered chains distinguish bootstrap, unanchored, temporal gaps,
+anchored continuity and backfill-only evidence. Source configuration/category
+coverage stays separate. A restored checkpoint requires independently trusted
+retention/history; parsing does not grant authority or prevent rollback.
+
+Optional `cloudtrail::proof::aws` adapters use the existing SigV4 transport for
+regional keys and exact-version native S3 body/metadata capture, with finite
+responses, one active request, cancellation and no retries/latest fallback.
+Trusted endpoints, scope and credentials come from the application. The validator
+runs on its caller's bounded blocking worker; retained copies need aggregate
+budgets. See [protected evidence contract](../../docs/38-protected-evidence-contract.md).
+Independent receipt custody, required ACK and actual AWS qualification remain
+separate from these read-only byte-proof mechanisms.

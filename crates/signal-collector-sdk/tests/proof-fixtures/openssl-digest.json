@@ -1,0 +1,17 @@
+{
+  "awsAccountId": "111122223333",
+  "digestStartTime": "2026-07-09T18:00:00Z",
+  "digestEndTime": "2026-07-09T19:00:00Z",
+  "digestS3Bucket": "synthetic-evidence",
+  "digestS3Object": "AWSLogs/111122223333/CloudTrail-Digest/eu-central-1/2026/07/09/111122223333_CloudTrail-Digest_eu-central-1_synthetic_trail_eu-west-1_20260709T190000Z.json.gz",
+  "digestPublicKeyFingerprint": "0123456789abcdef0123456789abcdef",
+  "digestSignatureAlgorithm": "SHA256withRSA",
+  "newestEventTime": null,
+  "oldestEventTime": null,
+  "previousDigestS3Bucket": null,
+  "previousDigestS3Object": null,
+  "previousDigestHashValue": null,
+  "previousDigestHashAlgorithm": null,
+  "previousDigestSignature": null,
+  "logFiles": []
+}
