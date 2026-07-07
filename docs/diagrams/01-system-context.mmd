@@ -1,6 +1,6 @@
 %% PLATFORM::SIGNAL system context. Target view; see docs/27-product-architecture.md.
 %% Thick arrow = native protected delivery that bypasses observability; dashed = reference, policy or review.
-flowchart TB
+flowchart LR
     subgraph SOURCES["Evidence sources"]
         AWS["AWS audit<br/>+ service logs"]
         K8S["Kubernetes<br/>audit + state"]
@@ -10,12 +10,10 @@ flowchart TB
     SIGNAL["PLATFORM::SIGNAL<br/>capture, admit, normalize,<br/>detect, query, findings<br/>modular Rust monolith"]
     IDP["Company IdP<br/>OIDC sign-in"]
     TEAM["DevOps - SecOps<br/>Architects"]
-    subgraph STATE["Customer-owned AWS storage"]
-        TELE[("Telemetry S3<br/>Parquet + manifests")]
-        CTRL[("Control state<br/>Small: local<br/>Standard: HA PostgreSQL")]
-        ORIG[("Security-owned S3<br/>protected originals")]
-    end
-    OVERLAY["Private overlay<br/>policy, routing,<br/>ownership"]
+    TELE[("Telemetry S3<br/>Parquet + manifests")]
+    CTRL[("Control state<br/>Small: local, Standard: HA PostgreSQL")]
+    ORIG[("Security-owned S3<br/>protected originals")]
+    OVERLAY["Private overlay<br/>policy, routing"]
     DEST["Alert + ticket<br/>destinations"]
     AWS --> SIGNAL
     K8S --> SIGNAL
