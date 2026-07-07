@@ -60,6 +60,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "json", "registry"] }
 uuid = { version = "1", features = ["v4", "v5", "serde"] }
 rusqlite = { version = "=0.40.2", default-features = false, features = ["bundled", "limits", "hooks"] }
+ring = "=0.17.14"
 sha2 = "=0.11.0"
 base64 = "=0.22.1"
 signal-event = { path = "crates/signal-event" }

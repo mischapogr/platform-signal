@@ -7,6 +7,33 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Native CloudTrail byte proofs and read-only capture — 2026-10-08
+
+EVIDENCE now has an accepted native mechanism slice: exact uncompressed-byte RSA
+digest validation, complete referenced-log hashing, version/owner pins and
+conservative anchored/bootstrap/unanchored/gapped/backfill classification. The
+optional signed regional-key and exact-version S3 adapters retain native metadata,
+finite responses, one active request and cancellation without retry/latest fallback.
+The independent OpenSSL baseline and twelve proof/nine local HTTP regressions pass.
+
+Public default571/all-feature603 and private37 tests pass, zero failures. Required
+fmt, strict default/all-feature Clippy, package guard, private build and the local
+overlay SIGKILL/SIGTERM recovery gate pass. Independent review has no remaining
+blocker/high after the exact-time and owned-test-server lifecycle corrections.
+Existing ignored subprocess helpers keep their parent-invoked scope. Evidence:
+`target/goal-execution-20261007/EVIDENCE/native-validation/validation.json`,
+`native-private-validation/validation.json` and `native-review.json` there.
+Only existing locked ring/base64 dependency edges were added; no package version
+or selected release changed. See [protected evidence contract](38-protected-evidence-contract.md).
+
+EVIDENCE remains in_progress. Independent durable proof checkpoints/coverage,
+whole-receipt custody and required ACK, protected-route outage/proof/crash recovery
+still need implementation and acceptance. These read-only byte proofs neither
+establish complete collection nor close real AWS/Object Lock/IAM/KMS/native ARM64,
+actual EKS/vendor/remote-CI/released-dependency/publication or final-candidate gates.
+Continue EVIDENCE with the independently verified custody seam and retained proof
+checkpoint/route integration; process-local quarantine ACK remains denied.
+
 ## Scoped audited disposition backend — 2026-10-08
 
 DISPOSITIONS is passed_local. Public version-1 outcomes, stable finding references,
@@ -123,7 +150,8 @@ HTTP deadline, SIGKILL/reopen and startup credential rotation preserve originals
 receipts and unknown current health. Evidence:
 `target/goal-execution-20261007/COVERAGE-OBSERVERS/server-integration-validation.json`.
 Independent checkpoint/gap/quiet/degraded-silence simulation remains locally
-unfinished. Native continuity/digest proofs remain unimplemented/unqualified;
+unfinished. Native continuity/digest proofs were unimplemented/unqualified at that acceptance;
+see the later native EVIDENCE acceptance above;
 current source inputs require fresh final package/SBOM/image/candidate evidence.
 Real AWS/ARM64/EKS/vendor/remote-CI/publication gates are unchanged.
 
@@ -141,7 +169,8 @@ has no blocker/high after two test-helper lifecycle corrections: owned bootstrap
 children have a finite deadline, and source-task shutdown retains ownership through
 abort/join. Evidence: `target/goal-execution-20261007/COVERAGE-OBSERVERS/runtime-validation.json`.
 COVERAGE-OBSERVERS is passed_simulated; native CloudTrail checkpoint/continuity/
-digest adapters remain unimplemented/unqualified. Applicable proof work remains
+digest adapters were unimplemented/unqualified at that acceptance. Native byte-proof
+mechanisms now have the EVIDENCE acceptance above; independent durable proof work remains
 within EVIDENCE; simulation closes no real environment gate. Server history health
 stays unknown without application-owned independent supervision. Next is the
 bounded public findings cursor; historical artifacts need fresh final qualification.

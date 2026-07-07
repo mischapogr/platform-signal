@@ -11,7 +11,7 @@ This reconciles [product scope](27-product-architecture.md),
 [current progress](07-progress.md) and [release gates](21-release-readiness.md).
 The newer progress/routing acceptance supersedes old “UI then pruning” next-step
 text: UI-01/UI-02, coverage pruning/scans and initial source receipts are done.
-OBJECT-READER is accepted locally; AWS-DELIVERY now has local signed-transport/delivery simulation acceptance; COVERAGE-OBSERVERS now has simulated independent checkpoint/gap/quiet/degraded-silence runtime acceptance. Native CloudTrail continuity/checkpoint/digest adapters remain unimplemented and unqualified; applicable proof work remains within EVIDENCE. FINDINGS-CURSOR is accepted locally. Private OUTBOX transactional plans and bounded dispatch/notification simulations are accepted (passed_simulated); DISPOSITIONS is accepted locally; next is EVIDENCE.
+OBJECT-READER is accepted locally; AWS-DELIVERY now has local signed-transport/delivery simulation acceptance; COVERAGE-OBSERVERS now has simulated independent checkpoint/gap/quiet/degraded-silence runtime acceptance. Native CloudTrail byte-proof and signed key/exact-version capture mechanisms pass locally; independent durable proof checkpoint/coverage and custody/route integration remain unfinished within EVIDENCE. Real AWS stays unqualified. FINDINGS-CURSOR is accepted locally. Private OUTBOX transactional plans and bounded dispatch/notification simulations are accepted (passed_simulated); DISPOSITIONS is accepted locally; next is EVIDENCE.
 
 ## Execution and evidence
 
@@ -61,7 +61,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | FINDINGS-CURSOR | passed_local | CORE | Durable public findings cursor runtime |
 | OUTBOX | passed_simulated | FINDINGS-CURSOR | Private transactional finding cursor/outbox and notification simulation |
 | DISPOSITIONS | passed_local | OUTBOX | Disposition/outcome backend seam |
-| EVIDENCE | pending | AWS-DELIVERY | Independent protected original route and validation simulation |
+| EVIDENCE | in_progress | AWS-DELIVERY | Independent protected original route and validation simulation |
 | S3-QUERY | pending | CORE | Object-backed Parquet and committed query manifests |
 | RETENTION | pending | S3-QUERY, EVIDENCE | Selective query acceleration, retention and cost controls |
 | SECURITY-ACCESS | pending | CORE | OIDC/trusted identity, scoped credentials and RBAC |

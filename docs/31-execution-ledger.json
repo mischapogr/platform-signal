@@ -328,7 +328,7 @@
           ]
         }
       ],
-      "notes": "Bounded state, regional signed configuration observation, durable bridge and scoped monolith history accepted locally. Independent synthetic source truth/checkpoint/gap/quiet/degraded-silence composition accepted simulated with default539/all-feature562 gates. API current health stays unknown; replay/arrival cannot heal independent supervision. Native CloudTrail continuity/checkpoint/digest adapters remain unimplemented and unqualified; applicable proof implementation stays in EVIDENCE acceptance. Real environment and release gates remain open."
+      "notes": "Bounded state, regional signed configuration observation, durable bridge and scoped monolith history accepted locally. Independent synthetic source truth/checkpoint/gap/quiet/degraded-silence composition accepted simulated with default539/all-feature562 gates. API current health stays unknown; replay/arrival cannot heal independent supervision. Native byte-proof/read-only signed key/S3 mechanisms now have local EVIDENCE acceptance; independent durable proof checkpoint/coverage integration remains pending there. Real AWS proof remains unqualified. Real environment and release gates remain open."
     },
     {
       "id": "FINDINGS-CURSOR",
@@ -423,7 +423,7 @@
     {
       "id": "EVIDENCE",
       "title": "Independent protected original route and validation simulation",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "AWS-DELIVERY"
       ],
@@ -437,6 +437,25 @@
       "references": [
         "docs/logical-architecture.md",
         "docs/failure-domains.md"
+      ],
+      "substeps": [
+        {
+          "id": "protected-evidence-and-independent-custody-contract",
+          "status": "passed_local"
+        },
+        {
+          "id": "bounded-native-cloudtrail-proof-and-continuity-validation",
+          "status": "in_progress",
+          "notes": "Native immutable RSA digest/log/complete-reference/chain evidence and read-only SigV4 regional-key/exact-version S3 capture pass local source acceptance with default571/all-feature603/private37 gates and review. Independent durable proof checkpoint/coverage integration remains unfinished; no complete collection or real AWS qualification.",
+          "evidence": [
+            "target/goal-execution-20261007/EVIDENCE/native-validation/validation.json",
+            "target/goal-execution-20261007/EVIDENCE/native-review.json"
+          ]
+        },
+        {
+          "id": "independent-route-custody-ack-and-outage-simulation",
+          "status": "pending"
+        }
       ]
     },
     {
