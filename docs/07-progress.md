@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 468, including seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+workspace gate has 477, including eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,36 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Exact-version bounded capture and owned preparation — 2026-10-08
+
+AWS-DELIVERY's capture substep passes local acceptance. `CaptureTransport` supplies
+an application-authenticated stream with actual response version. `capture_object`
+checks fresh full binding before open, response version and bounded headers, then
+caps actual bytes at 8 MiB through EOF using finite cancellation/deadline reads.
+Typed denied/missing/restore/throttle/outage/read failures retain source work.
+`publish_capture` rechecks binding/preflights pins and uses the existing physical
+receipt worker for preparation and atomic publication. A retained exact full
+scope/bucket/key/version and byte match reuses pinned preparation and progress;
+changed bytes fail closed and a distinct object/version cannot evict the slot.
+
+Eight capture tests execute caps/EOF, fresh scope before open/publication, stream
+failures and live cancellation, exact replay after reopen with changed supplied
+pins, identity conflicts, quarantine/preflight and lost caller/queued cancellation
+with physical lock retention. Workspace acceptance exposed an existing lock
+lifetime defect during handover: a fork-inherited open description can retain
+flock after the worker closes its File. A deterministic alias test fails before
+and passes after an acquired-owner explicit unlock guard, including error paths
+before Engine construction. Review accepts the correction without weakening
+handover tests. Failed and corrected runs remain in evidence.
+
+Formatting, strict workspace Clippy, locked/offline default-parallel tests and
+13-package guard pass: 477 tests, zero failures; SDK has 93 passing library tests
+and five parent-executed subprocess helpers. Evidence:
+`target/goal-execution-20261007/AWS-DELIVERY/capture-validation.json`.
+Continue with delivery/replay/queue simulation. Authentication, header bounds and
+owned-I/O cancellation remain transport duties; no actual AWS/SigV4/IAM, queue ACK,
+stronger custody or source completeness is established by this seam.
 
 ## Bounded direct S3 discovery — 2026-10-08
 

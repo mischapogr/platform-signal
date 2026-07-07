@@ -3,6 +3,7 @@
 //! No network dispatch, source deletion or source proof.
 //! A caller timeout/cancellation may race publication: reopen to settle it.
 mod ack;
+mod capture;
 mod discovery;
 mod format;
 mod preparation;
@@ -11,6 +12,10 @@ mod retirement;
 mod store;
 pub use ack::{
     ReceiptAckCommit, ReceiptAckUpdate, SourceAckOutcome, SourceAckTicket, SourceDelivery,
+};
+pub use capture::{
+    CaptureError, CaptureFailure, CapturePreparation, CaptureStream, CaptureTransport,
+    CapturedObject, MAX_CAPTURE_BYTES, capture_object,
 };
 pub use discovery::{
     DiscoveryError, MAX_DISCOVERY_BYTES, MAX_DISCOVERY_REFERENCES, ObjectDiscovery, discover_object,

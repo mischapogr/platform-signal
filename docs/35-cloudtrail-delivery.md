@@ -31,3 +31,38 @@ Direct discovery has local acceptance with seven new focused tests, 468 workspac
 tests, formatting, strict Clippy and 13-package guard. Independent review has no
 blocker/high. Evidence: `target/goal-execution-20261007/AWS-DELIVERY/discovery-validation.json`
 and `discovery-independent-review.json`. Capture/delivery remain in progress.
+
+## Exact version capture and owned preparation
+
+`CaptureTransport` is an authenticated application-owned stream seam. It must
+bound headers, request the exact key/version with expected bucket owner, preserve
+compressed bytes, avoid untrusted redirects and cancel owned I/O when dropped.
+It supplies the actual response version; copying request metadata is insufficient
+source proof. Credentials, SigV4/STS and provider deployment are separate adapters.
+The helper does not select endpoints or derive authority from native content.
+
+`capture_object` compares the immutable discovery binding with fresh trusted
+application input before opening, checks response version and bounded ETag,
+then reads to actual EOF in bounded chunks. Empty/over-8-MiB captures fail; the
+notification's declared size is diagnostic. Each open/read uses one finite
+cancellation/deadline context. Typed denial/missing/restore/throttle/outage/read
+errors retain source responsibility without producing M1 or source ACK. There is
+no retry loop or new background worker; caller bounds active invocations/captures.
+
+`publish_capture` rechecks fresh binding and preflights bounded pins before the
+existing capacity-one receipt worker prepares and atomically publishes. Its
+physical owner survives lost callers. Capture identity/digest cannot be replaced
+through caller original metadata. Known replay compares full trusted scope,
+bucket/key/version and exact compressed bytes before reusing retained preparation,
+progress, IDs, times and fingerprint. Changed bytes under that identity fail
+closed; another version/object holds as occupied, never evicts. Replay does not
+rerun normalization. Source capture before publication has no durable local
+receipt and keeps source replay responsibility. No stronger custody is implied.
+
+Capture/publication has local acceptance: eight capture regressions plus one
+inherited-description lock regression, 477 workspace tests, zero failures and
+independent source review. The acquired OwnerLock explicitly unlocks only when its
+physical owner ends, including opening-error paths. Caller loss cannot release a
+live worker lock. Retained alias reproduces the former lock-after-exit defect.
+Evidence: `target/goal-execution-20261007/AWS-DELIVERY/capture-validation.json`.
+Delivery/replay/queue simulation remains runnable; no source ACK in this substep.

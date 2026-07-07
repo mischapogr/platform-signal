@@ -6,7 +6,7 @@ fn gzip(raw: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     g.write_all(raw)?;
     g.finish()
 }
-fn plan(count: usize) -> Result<ReceiptPreparation, Box<dyn std::error::Error>> {
+pub(super) fn plan(count: usize) -> Result<ReceiptPreparation, Box<dyn std::error::Error>> {
     let f = fixture()?;
     let m = &f["receipt_vectors"][0]["metadata"];
     let o = &m["original"];
@@ -36,7 +36,7 @@ fn plan(count: usize) -> Result<ReceiptPreparation, Box<dyn std::error::Error>> 
             .collect(),
     })
 }
-fn original() -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+pub(super) fn original() -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let f = fixture()?;
     unhex(
         f["receipt_vectors"][0]["original_hex"]

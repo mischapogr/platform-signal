@@ -49,15 +49,7 @@ fn at(t: &DateTime<Utc>) -> Result<String, PreparationError> {
     format::time(&text.clone().into())?;
     Ok(text)
 }
-fn base(
-    plan: &ReceiptPreparation,
-    original: &[u8],
-    ctx: &ExtensionContext,
-) -> Result<Value, PreparationError> {
-    check(ctx)?;
-    if original.is_empty() || original.len() > 8 * 1024 * 1024 {
-        return Err(ObjectReadError::CaptureLimit.into());
-    }
+pub(super) fn validate_plan_bounds(plan: &ReceiptPreparation) -> Result<(), PreparationError> {
     if plan.receipt_id.is_nil()
         || plan.event_ids.len() > 1024
         || plan.event_ids.iter().any(Uuid::is_nil)
@@ -84,6 +76,26 @@ fn base(
     {
         return Err(invalid());
     }
+    Ok(())
+}
+pub(super) fn receipt_error(e: PreparationError) -> ReceiptError {
+    match e {
+        PreparationError::Receipt(e) => e,
+        PreparationError::Source(ObjectReadError::Cancelled) => ReceiptError::Cancelled,
+        PreparationError::Source(ObjectReadError::Timeout) => ReceiptError::Timeout,
+        _ => ReceiptError::Invalid("object preparation"),
+    }
+}
+fn base(
+    plan: &ReceiptPreparation,
+    original: &[u8],
+    ctx: &ExtensionContext,
+) -> Result<Value, PreparationError> {
+    check(ctx)?;
+    if original.is_empty() || original.len() > 8 * 1024 * 1024 {
+        return Err(ObjectReadError::CaptureLimit.into());
+    }
+    validate_plan_bounds(plan)?;
     let mut hash = Sha256::new();
     for chunk in original.chunks(65536) {
         check(ctx)?;

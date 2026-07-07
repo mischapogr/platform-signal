@@ -31,6 +31,7 @@ pub enum DiscoveryError {
 /// Its digest binds exact discovery bytes but is not a signature. In-memory only.
 pub struct ObjectDiscovery {
     bucket: String,
+    bucket_owner: String,
     key: String,
     version_id: String,
     etag: Option<String>,
@@ -41,6 +42,9 @@ pub struct ObjectDiscovery {
 impl ObjectDiscovery {
     pub fn bucket(&self) -> &str {
         &self.bucket
+    }
+    pub fn expected_bucket_owner(&self) -> &str {
+        &self.bucket_owner
     }
     pub fn key(&self) -> &str {
         &self.key
@@ -186,6 +190,7 @@ pub fn discover_object(
         if discovered.is_none() {
             discovered = Some(ObjectDiscovery {
                 bucket: bucket.to_owned(),
+                bucket_owner: text(&binding.0["bucket_owner"], 12)?.to_owned(),
                 key,
                 version_id: version.to_owned(),
                 etag,

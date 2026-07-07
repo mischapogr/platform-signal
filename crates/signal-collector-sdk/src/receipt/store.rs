@@ -13,6 +13,7 @@ use tokio::{
 
 enum Operation {
     Publish(Vec<u8>, ReceiptBinding),
+    Prepare(Box<(Vec<u8>, ReceiptPreparation)>),
     Inspect(ReceiptBinding),
     Replay(ReceiptBinding),
     Advance(ReceiptBinding, ReceiptProgress, u32, ReceiptAttempt),
@@ -36,6 +37,34 @@ enum Operation {
         ReceiptProgress,
         ReceiptRecoveryGrant,
     ),
+}
+
+#[cfg(all(test, unix))]
+mod owner_lock_tests {
+    use super::*;
+
+    #[test]
+    fn physical_owner_exit_releases_lock_even_with_inherited_description()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let d = tempfile::tempdir()?;
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(d.path(), fs::Permissions::from_mode(0o700))?;
+        let config = ReceiptConfig::new(d.path().to_owned(), MIN_QUOTA_BYTES)?;
+        let ctx = ExtensionContext::new(
+            tokio_util::sync::CancellationToken::new(),
+            std::time::Duration::from_secs(5),
+        )?;
+        let owner = Uuid::new_v4();
+        let engine = Engine::open(config.clone(), owner, 1, None, &ctx)?;
+        // dup and fork share the open description used by Linux flock. Retain
+        // an alias without forking a multithreaded test runtime.
+        let inherited = engine.lock.try_clone()?;
+        drop(engine);
+        let successor = Engine::open(config, owner, 1, None, &ctx)?;
+        drop(inherited);
+        drop(successor);
+        Ok(())
+    }
 }
 enum Answer {
     Published(ReceiptInfo),
@@ -121,6 +150,9 @@ impl ReceiptStore {
                     match command.op {
                         Operation::Publish(bytes, binding) => engine
                             .publish(bytes, &binding, &command.ctx, &wm)
+                            .map(Answer::Published),
+                        Operation::Prepare(input) => engine
+                            .prepare_publish(input.0, input.1, &command.ctx, &wm)
                             .map(Answer::Published),
                         Operation::Replay(binding) => {
                             engine.replay(&binding, &command.ctx).map(Answer::Replayed)
@@ -240,6 +272,37 @@ impl ReceiptStore {
     ) -> Result<Option<StoredReceipt>, ReceiptError> {
         match self.request(Operation::Inspect(binding), ctx).await? {
             Answer::Inspected(r) => Ok(r),
+            _ => Err(ReceiptError::Closed),
+        }
+    }
+    /// Prepare and publish on the existing single physical worker. A retained
+    /// exact scope/bucket/key/version plus exact bytes reuses its preparation even
+    /// if supplied IDs, times or normalizer fingerprint changed. Different bytes
+    /// under that identity fail closed; another object never evicts the slot.
+    /// Caller authenticates the fresh grant. Errors/timeouts can race publication.
+    pub async fn publish_capture(
+        &self,
+        capture: CapturedObject,
+        pins: CapturePreparation,
+        fresh: ReceiptBinding,
+        ctx: ExtensionContext,
+    ) -> Result<ReceiptInfo, ReceiptError> {
+        if let Err(e) = check(&ctx) {
+            self.metrics.rejected.fetch_add(1, Ordering::AcqRel);
+            return Err(e);
+        }
+        let input = match capture.into_plan(pins, &fresh) {
+            Ok(input) => input,
+            Err(e) => {
+                self.metrics.rejected.fetch_add(1, Ordering::AcqRel);
+                return Err(e);
+            }
+        };
+        match self
+            .request(Operation::Prepare(Box::new(input)), ctx)
+            .await?
+        {
+            Answer::Published(info) => Ok(info),
             _ => Err(ReceiptError::Closed),
         }
     }
@@ -427,10 +490,34 @@ enum State {
 struct Engine {
     config: ReceiptConfig,
     root: File,
-    lock: File,
+    lock: OwnerLock,
     owner: Uuid,
     generation: u64,
     poisoned: bool,
+}
+/// Explicitly release the physical owner's lock before closing its descriptor.
+/// A concurrent fork can briefly inherit the same open description before exec;
+/// closing only our File would then leave flock held beyond this worker's exit.
+struct OwnerLock(File);
+impl OwnerLock {
+    fn acquire(file: File) -> Result<Self, ReceiptError> {
+        file.try_lock().map_err(|_| ReceiptError::Locked)?;
+        Ok(Self(file))
+    }
+}
+impl std::ops::Deref for OwnerLock {
+    type Target = File;
+    fn deref(&self) -> &File {
+        &self.0
+    }
+}
+impl Drop for OwnerLock {
+    fn drop(&mut self) {
+        // The physical worker owns this open description exclusively. It is
+        // released only after its work ends; File drop still closes the handle
+        // if the operating system rejects explicit unlocking.
+        let _ = self.0.unlock();
+    }
 }
 fn options() -> OpenOptions {
     let mut o = OpenOptions::new();
@@ -501,7 +588,7 @@ impl Engine {
         if lock.metadata().map_err(io_error)?.len() != 0 {
             return Err(ReceiptError::Root);
         }
-        lock.try_lock().map_err(|_| ReceiptError::Locked)?;
+        let lock = OwnerLock::acquire(lock)?;
         root.sync_all().map_err(io_error)?;
         check(ctx)?;
         let engine = Self {
@@ -1089,5 +1176,35 @@ impl Engine {
             metrics.admitted.fetch_add(1, Ordering::AcqRel);
         }
         result
+    }
+    fn prepare_publish(
+        &mut self,
+        original: Vec<u8>,
+        plan: ReceiptPreparation,
+        ctx: &ExtensionContext,
+        metrics: &Metrics,
+    ) -> Result<ReceiptInfo, ReceiptError> {
+        self.stable(ctx)?;
+        if let Some(old) = self.read(ctx)? {
+            if old.metadata["binding"] != plan.binding.0 {
+                return Err(ReceiptError::Scope);
+            }
+            let o = &old.metadata["original"];
+            if o["bucket"] != plan.original.bucket
+                || o["key"] != plan.original.key
+                || o["version_id"] != plan.original.version_id
+            {
+                return Err(ReceiptError::Occupied);
+            }
+            if old.original_bytes() != original {
+                return Err(ReceiptError::IdentityConflict);
+            }
+            check(ctx)?;
+            metrics.replays.fetch_add(1, Ordering::AcqRel);
+            return Ok(old.info);
+        }
+        let binding = plan.binding.clone();
+        let wire = prepare_receipt(&original, plan, ctx).map_err(preparation::receipt_error)?;
+        self.publish(wire, &binding, ctx, metrics)
     }
 }
