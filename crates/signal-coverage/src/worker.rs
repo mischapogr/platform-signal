@@ -1,6 +1,7 @@
 use crate::{
     AuthorizedBinding, CoverageConfig, CoverageError as Error, CoverageMetrics, CoverageSubmission,
-    IntakeContext, IntakeOutcome, PreparedObservation, Receipt,
+    IntakeContext, IntakeOutcome, PayloadPruneBudget, PayloadPruneOutcome, PreparedObservation,
+    Receipt,
     format::Timestamp,
     store::{Engine, StoredObservation},
 };
@@ -93,6 +94,9 @@ struct Shared {
     rejected: AtomicU64,
     timeouts: AtomicU64,
     failures: AtomicU64,
+    payload_prune_operations: AtomicU64,
+    payloads_pruned: AtomicU64,
+    payload_bytes_pruned: AtomicU64,
 }
 impl Shared {
     fn fail(&self) {
@@ -108,8 +112,11 @@ impl Shared {
     }
 }
 fn increment(value: &AtomicU64) {
+    increment_by(value, 1);
+}
+fn increment_by(value: &AtomicU64, amount: u64) {
     let _ = value.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
-        Some(v.saturating_add(1))
+        Some(v.saturating_add(amount))
     });
 }
 struct AbortGuard {
@@ -140,6 +147,7 @@ enum Operation {
     Intake(Box<IntakeCommand>),
     AuthorizedLoad(Uuid, Box<AuthorizedBinding>),
     Load(Uuid),
+    PrunePayloads(Timestamp, PayloadPruneBudget),
     Wake,
     #[cfg(test)]
     Pause(oneshot::Sender<()>, std::sync::mpsc::Receiver<()>, bool),
@@ -153,6 +161,7 @@ enum Value {
     Receipt(Box<Receipt>),
     Intake(Box<IntakeOutcome>),
     Observation(Option<Box<StoredObservation>>),
+    PayloadPrune(PayloadPruneOutcome),
     Done,
 }
 struct Response {
@@ -166,7 +175,7 @@ struct Command {
     permit: Option<Arc<OwnedSemaphorePermit>>,
 }
 
-/// Single worker and private root owner. No service, retry-success policy, pruning or scan API.
+/// Single worker and private root owner. No service, observers or scan API.
 pub struct CoverageStore {
     sender: mpsc::Sender<Command>,
     shared: Arc<Shared>,
@@ -202,6 +211,9 @@ impl CoverageStore {
             rejected: AtomicU64::new(0),
             timeouts: AtomicU64::new(0),
             failures: AtomicU64::new(0),
+            payload_prune_operations: AtomicU64::new(0),
+            payloads_pruned: AtomicU64::new(0),
+            payload_bytes_pruned: AtomicU64::new(0),
         });
         let startup = WorkContext::new(
             OperationContext::new(config.operation_timeout),
@@ -264,6 +276,9 @@ impl CoverageStore {
                                 Operation::Load(id) => engine
                                     .load(id, &command.ctx)
                                     .map(|v| Value::Observation(v.map(Box::new))),
+                                Operation::PrunePayloads(now, budget) => engine
+                                    .prune_payloads(now, budget, &command.ctx)
+                                    .map(Value::PayloadPrune),
                                 Operation::Wake => Ok(Value::Done),
                                 #[cfg(test)]
                                 Operation::Pause(started, release, mutation) => {
@@ -301,6 +316,15 @@ impl CoverageStore {
                             IntakeOutcome::Accepted(_) => increment(&worker_shared.accepted),
                             IntakeOutcome::Replayed(_) => increment(&worker_shared.replayed),
                         }
+                    } else if let Ok(Value::PayloadPrune(outcome)) = &result
+                        && outcome.pruned_records > 0
+                    {
+                        increment(&worker_shared.payload_prune_operations);
+                        increment_by(&worker_shared.payloads_pruned, outcome.pruned_records);
+                        increment_by(
+                            &worker_shared.payload_bytes_pruned,
+                            outcome.pruned_raw_bytes,
+                        );
                     }
                     worker_shared.publish(engine.metrics());
                     if let Ok(mut deadline) = worker_shared.active_deadline.lock() {
@@ -429,6 +453,27 @@ impl CoverageStore {
             _ => Err(Error::Unavailable),
         }
     }
+    /// Reclaim only the expired global payload prefix under a trusted receiver clock.
+    /// Identities, immutable receipts, pins and correction links remain retained.
+    /// Reclamation is logical; SQLite page reuse does not promise physical erasure.
+    pub async fn prune_payloads(
+        &self,
+        now: Timestamp,
+        budget: PayloadPruneBudget,
+        context: OperationContext,
+    ) -> Result<PayloadPruneOutcome, Error> {
+        if let Err(error) = budget.validate(&self.config) {
+            increment(&self.shared.rejected);
+            return Err(error);
+        }
+        match self
+            .request(Operation::PrunePayloads(now, budget), context)
+            .await?
+        {
+            Value::PayloadPrune(outcome) => Ok(outcome),
+            _ => Err(Error::Unavailable),
+        }
+    }
     async fn request(
         &self,
         operation: Operation,
@@ -501,6 +546,9 @@ impl CoverageStore {
         m.command_depth = m.command_capacity - self.sender.capacity();
         m.accepted = self.shared.accepted.load(Ordering::Relaxed);
         m.replayed = self.shared.replayed.load(Ordering::Relaxed);
+        m.payload_prune_operations = self.shared.payload_prune_operations.load(Ordering::Relaxed);
+        m.payloads_pruned = self.shared.payloads_pruned.load(Ordering::Relaxed);
+        m.payload_bytes_pruned = self.shared.payload_bytes_pruned.load(Ordering::Relaxed);
         m.rejected = self.shared.rejected.load(Ordering::Relaxed);
         m.timeouts = self.shared.timeouts.load(Ordering::Relaxed);
         m.failures = self.shared.failures.load(Ordering::Relaxed);
@@ -707,6 +755,143 @@ mod tests {
         assert_eq!(target.raw, Some(failed.raw));
         assert_eq!(store.metrics().committed_sequence, 1);
         assert_eq!(store.metrics().operations_in_flight, 0);
+        assert!(store.metrics().available);
+        store.shutdown(context()).await?;
+        Ok(())
+    }
+    #[tokio::test]
+    async fn queued_pruning_timeout_and_cancellation_preserve_original_payload_and_marker()
+    -> TestResult {
+        let t = tempfile::tempdir()?;
+        let store = Arc::new(
+            CoverageStore::initialize(
+                cfg(t.path().join("coverage"), 3),
+                Uuid::new_v4(),
+                clock("2026-10-07T00:05:29Z")?,
+            )
+            .await?,
+        );
+        let f = fixture()?;
+        let original = prepared(&f["chains"][0]["commits"][0], &f)?;
+        let receipt = store.append(original.clone(), context()).await?;
+        let before = store.metrics();
+        let (started, wait) = oneshot::channel();
+        let (release, blocked) = std::sync::mpsc::sync_channel(1);
+        let task_store = store.clone();
+        let task = tokio::spawn(async move {
+            task_store
+                .request(Operation::Pause(started, blocked, false), context())
+                .await
+        });
+        wait.await?;
+        assert!(matches!(
+            store
+                .prune_payloads(
+                    clock(&receipt.replay_until)?,
+                    PayloadPruneBudget {
+                        max_records: 1,
+                        max_raw_bytes: original.raw.len() as u64,
+                    },
+                    OperationContext::new(Duration::from_millis(20)),
+                )
+                .await,
+            Err(Error::Timeout)
+        ));
+        assert_eq!(store.metrics().operations_in_flight, 2);
+        let cancellation_context = context();
+        let cancellation = cancellation_context.cancellation.clone();
+        let cancel_store = store.clone();
+        let prune_now = clock(&receipt.replay_until)?;
+        let prune_bytes = original.raw.len() as u64;
+        let cancel_task = tokio::spawn(async move {
+            cancel_store
+                .prune_payloads(
+                    prune_now,
+                    PayloadPruneBudget {
+                        max_records: 1,
+                        max_raw_bytes: prune_bytes,
+                    },
+                    cancellation_context,
+                )
+                .await
+        });
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while store.metrics().command_depth < 2 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await?;
+        cancellation.cancel();
+        assert!(matches!(cancel_task.await?, Err(Error::Cancelled)));
+        assert_eq!(store.metrics().operations_in_flight, 3);
+        release.send(())?;
+        task.await??;
+        let retained = store
+            .load(original.record_id(), context())
+            .await?
+            .ok_or("original")?;
+        assert_eq!(retained.raw, Some(original.raw));
+        assert_eq!(retained.receipt, receipt);
+        let after = store.metrics();
+        assert_eq!(after.payload_pruned_through, 0);
+        assert_eq!(after.ledger_bytes, before.ledger_bytes);
+        assert_eq!(after.payload_prune_operations, 0);
+        assert_eq!(after.operations_in_flight, 0);
+        assert!(after.available);
+        store.shutdown(context()).await?;
+        Ok(())
+    }
+    #[tokio::test]
+    async fn invalid_pruning_budget_rejects_before_saturated_worker_dispatch() -> TestResult {
+        let t = tempfile::tempdir()?;
+        let config = cfg(t.path().join("coverage"), 1);
+        let store = Arc::new(
+            CoverageStore::initialize(
+                config.clone(),
+                Uuid::new_v4(),
+                clock("2026-10-07T00:05:29Z")?,
+            )
+            .await?,
+        );
+        let (started, wait) = oneshot::channel();
+        let (release, blocked) = std::sync::mpsc::sync_channel(1);
+        let task_store = store.clone();
+        let task = tokio::spawn(async move {
+            task_store
+                .request(Operation::Pause(started, blocked, false), context())
+                .await
+        });
+        wait.await?;
+        for budget in [
+            PayloadPruneBudget {
+                max_records: 0,
+                max_raw_bytes: 1,
+            },
+            PayloadPruneBudget {
+                max_records: 1,
+                max_raw_bytes: 0,
+            },
+            PayloadPruneBudget {
+                max_records: config.max_payloads + 1,
+                max_raw_bytes: 1,
+            },
+            PayloadPruneBudget {
+                max_records: 1,
+                max_raw_bytes: config.max_ledger_bytes + 1,
+            },
+        ] {
+            assert!(matches!(
+                store
+                    .prune_payloads(clock("2026-10-07T00:05:29Z")?, budget, context())
+                    .await,
+                Err(Error::Invalid(_))
+            ));
+        }
+        assert_eq!(store.metrics().operations_in_flight, 1);
+        assert_eq!(store.metrics().command_depth, 0);
+        assert_eq!(store.metrics().rejected, 4);
+        release.send(())?;
+        task.await??;
         assert!(store.metrics().available);
         store.shutdown(context()).await?;
         Ok(())
