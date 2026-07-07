@@ -2733,11 +2733,13 @@ version = "0.1.0-dev.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "libc",
  "serde",
  "serde_json",
  "sha2",
  "signal-event",
  "signal-protocol",
+ "tempfile",
  "thiserror",
  "tokio",
  "tokio-util",

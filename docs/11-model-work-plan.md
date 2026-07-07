@@ -28,7 +28,7 @@ current-image container/supply-chain/native checks also pass. PS-01 payload/iden
 and bounded scans are accepted locally. The [CloudTrail receipt/profile design](29-cloudtrail-source-receipt.md)
 now has pure Rust normalizer/profile evidence and an
 [offline wire/schema contract](30-source-receipt-contract.md). Next is bounded
-local receipt publication/reopen/ownership/quota before progress/replay;
+atomic verified-prefix progress/replay after bounded local publication/reopen;
 existing unavailable environment/release gates remain open. Keep
 one writer per coherent owned path set, independent focused review and a settled
 evidence pass. Do not overlap writers or treat permission to delegate as authority
@@ -56,7 +56,7 @@ these rows do not authorize parallel agents or blanket cloud implementation.
 
 | Next task scope | Recommended new-task route | Required acceptance boundary |
 | --- | --- | --- |
-| Post-MVP PS-02 bounded local immutable receipt store | Sol/high for custody/checkpoint/replay decisions | [30](30-source-receipt-contract.md) freezes SIGSRC01/SIGSCP01 fields, limits, binary pins and custody/reclaim transitions. Implement one local owner/one receipt, full-grant comparison, bounded preparation/publication/reopen, corrupt/missing input rejection and quota accounting. Verify sync/rename/directory-sync and crash/ownership/cancellation cases with real Rust/filesystem tests. Do not add source transport or stronger custody claims. Follow with atomic progress/replay and retirement qualification; offline vectors are not backend proof and fresh source review remains separate |
+| Post-MVP PS-02 atomic verified-prefix progress/replay | Sol/high for custody/checkpoint/replay decisions | Initial immutable publication/reopen has 398-test workspace evidence. [30](30-source-receipt-contract.md) freezes SIGSCP01 prefix/revision/previous-checksum and custody/ACK/retirement fields. Add one bounded progress update and immutable suffix-read contract, actual verified-response authority seam, full grant/owner and exact prior-state comparison, atomic replacement/sync, uncertain-response/commit and cancelled/queued/crash tests. No source ACK or stronger custody from M2 alone. Follow with retirement/takeover/restore qualification before transport; fresh independent source review remains separate |
 | PS-02 source-receipt custody, then S3/SQS delivery | Sol/high for custody/checkpoint/replay decisions | Pinned original/prepared IDs/bytes/revision and separate verified-prefix progress; implement the design's bounded backend and crash/fault/restore/quota/ownership matrix before adapter delivery. Source receipts remain distinct from coverage history. Qualify selected ACK custody, source proofs/credentials/private policy and live AWS separately; existing M2 does not establish M3/M4 |
 | PS-03 public cursor runtime; private durable outbox as a separate task | Sol/high for replay/cursor/atomicity | Existing [25](25-findings-cursor-proposal.md) contract; divergent restore and delivery uncertainty; private paths need their own writable scope |
 | PS-04 one evidence/store publication contract or adapter | Sol/high for integrity/commit/recovery | Independent evidence authority, version/proof reference, retention permission and failure acceptance; no cloud provisioning from this design task |
@@ -222,8 +222,8 @@ have not been measured. Calibrate on Phase 3 before forecasting the remaining wo
 ## Remaining tasks in order
 
 UI-01/UI-02 and locally runnable current-image checks are accepted. Next is
-the bounded local immutable receipt store from [30](30-source-receipt-contract.md),
-then atomic progress/replay/reclaim and one PS-02 adapter slice at a time. Source observers
+atomic verified-prefix progress/replay from [30](30-source-receipt-contract.md),
+then retirement/takeover/restore qualification and one PS-02 adapter slice at a time. Source observers
 and advanced SOC workflows remain separate. Historical phase rows below retain their evidence and
 do not override that priority or require completed phases to run again.
 

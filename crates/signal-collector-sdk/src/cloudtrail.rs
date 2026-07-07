@@ -196,16 +196,7 @@ pub fn normalize_record<'a>(
     if raw.len() > MAX_RECORD_BYTES {
         return Err(NormalizeError::RecordBytesExceeded);
     }
-    std::str::from_utf8(raw).map_err(|_| NormalizeError::InvalidJson)?;
-    // Charge containers, values and decoded keys before each allocation. Decode
-    // values directly so arbitrary_precision's private number-map convention
-    // cannot reinterpret a source object with a coincidentally matching key.
-    let native = Guard {
-        bytes: raw,
-        at: 0,
-        nodes: 0,
-    }
-    .decode()?;
+    let native = decode_json(raw, MAX_RECORD_BYTES, MAX_JSON_DEPTH, MAX_JSON_NODES)?;
     let hash: [u8; 32] = Sha256::digest(raw).into();
     let rejected = |reason| NormalizedRecord {
         original: raw,
@@ -517,10 +508,34 @@ fn outcome(v: &Value, console: bool) -> Option<&'static str> {
 
 /// Strict bounded decoder. Every container/key/value is charged before allocation,
 /// with no size_hint-driven reserve or arbitrary_precision object conversion.
+// Shared strict decoder: bounds are checked before each child allocation.
+// Direct object decoding preserves serde arbitrary_precision marker keys literally.
+pub(crate) fn decode_json(
+    raw: &[u8],
+    bytes: usize,
+    depth: usize,
+    nodes: usize,
+) -> Result<Value, NormalizeError> {
+    if raw.len() > bytes {
+        return Err(NormalizeError::RecordBytesExceeded);
+    }
+    std::str::from_utf8(raw).map_err(|_| NormalizeError::InvalidJson)?;
+    Guard {
+        bytes: raw,
+        at: 0,
+        nodes: 0,
+        max_depth: depth,
+        max_nodes: nodes,
+    }
+    .decode()
+}
+
 struct Guard<'a> {
     bytes: &'a [u8],
     at: usize,
     nodes: usize,
+    max_depth: usize,
+    max_nodes: usize,
 }
 impl Guard<'_> {
     fn decode(mut self) -> Result<Value, NormalizeError> {
@@ -549,7 +564,7 @@ impl Guard<'_> {
         Ok(())
     }
     fn node(&mut self) -> Result<(), NormalizeError> {
-        if self.nodes == MAX_JSON_NODES {
+        if self.nodes == self.max_nodes {
             return Err(NormalizeError::JsonNodesExceeded);
         }
         self.nodes += 1;
@@ -581,7 +596,7 @@ impl Guard<'_> {
         self.node()?;
         match self.bytes.get(self.at).copied() {
             Some(b'{') => {
-                if depth == MAX_JSON_DEPTH {
+                if depth == self.max_depth {
                     return Err(NormalizeError::JsonDepthExceeded);
                 }
                 self.at += 1;
@@ -612,7 +627,7 @@ impl Guard<'_> {
                 }
             }
             Some(b'[') => {
-                if depth == MAX_JSON_DEPTH {
+                if depth == self.max_depth {
                     return Err(NormalizeError::JsonDepthExceeded);
                 }
                 self.at += 1;

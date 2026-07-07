@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 377, including 16 CloudTrail parser/preparation tests, three native-to-finding
+workspace gate has 398, including 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -40,6 +40,41 @@ Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
 
+## Post-MVP bounded initial source-receipt store — 2026-10-07
+
+`signal_collector_sdk::receipt` now validates the frozen immutable format and
+publishes/reopens one receipt with its exact initial `SIGSCP01` control. One
+physical blocking worker holds the private-root OS lock, with queue capacity one,
+deadline/cancellation checks and counters. Full current scope and pinned owner/
+generation are required. Payloads remain unchanged; initial namespace creation
+uses exclusive hard-link/unlink rather than overwriting an injected destination.
+Only verified receipt plus durably published root control exposes local admission.
+
+Twenty-one new focused tests execute three exact receipt/control golden pairs,
+eight publication-stage process exits and eight fault-injection boundaries.
+Actual filesystem checks cover EEXIST no-clobber, corruption/missing/orphan data,
+quota, lock/hardlink/symlink/root-inode/permissions, denied binding and occupied
+slot. Queued cancellation, bounded queue rejection, caller timeout and lost
+caller after publication retain the physical lock/work until settled. The shared
+strict JSON decoder keeps previous CloudTrail behavior while giving metadata and
+event readers explicit finite budgets and preserving literal number-marker keys.
+
+Formatting, strict all-target Clippy and locked/offline workspace gates pass
+398 Rust tests; the crash helper is intentionally ignored in normal enumeration
+and invoked by its parent. The 13-package guard and existing security/native/
+receipt contracts pass; offline regression counts remain 26/262 and 23/180.
+Evidence/focused writer review is `target/source-receipt-store-20261007/`.
+Existing `libc` and test-only `tempfile` dependencies are reused without changing
+external versions, event/HTTP v1, crate count or the server data plane.
+
+This slice accepts already prepared bytes; no gzip object parser, source transport,
+mutable progress, ACK, takeover or reclamation is implemented. Non-initial
+controls and unresolved publication fail closed. It proves bounded local process
+recovery on the current filesystem, not host/power/device/AZ/account loss, source
+proof or live coverage. Fresh independent source review and release gates remain
+open. Next: atomic verified-prefix progress and replay, then retirement/takeover/
+restore acceptance before source transport.
+
 ## Post-MVP source-receipt/progress encoding contract — 2026-10-07
 
 [The v1 wire contract](30-source-receipt-contract.md) now freezes exact
@@ -62,9 +97,9 @@ this is not independent source review. Focused writer review/evidence is under
 This is an offline contract and checker; no Rust store, gzip/object reader, source
 ACK or AWS path is implemented. The previous 377-test Rust workspace and 13-package
 baseline are unchanged; no Rust/build input changed or new runtime campaign ran.
-Fresh source review and external release gates remain open. Next: implement one
-bounded local receipt publication/reopen/ownership/quota slice, followed by atomic
-progress/replay and crash/reclaim qualification before source transport.
+Fresh source review and external release gates remain open. The next initial-store
+slice at this schema acceptance is now recorded above; atomic progress/replay and
+crash/reclaim qualification remain ahead of source transport.
 
 ## Post-MVP bounded CloudTrail record normalizer/profile — 2026-10-07
 
