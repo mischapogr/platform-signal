@@ -2,6 +2,15 @@
 
 ## 1. Architectural intent
 
+The [product architecture and design envelope](27-product-architecture.md) is the
+target baseline for small and mid-sized AWS-centric organizations. It settles
+four optional role families, Small/Standard/Scale profiles, S3 telemetry with
+separate control state, selective query acceleration, reliability/security
+requirements and measured resource budgets. The component descriptions below
+remain logical boundaries; they do not imply deployed services or qualified HA.
+Current behavior and release proof remain in [progress](07-progress.md) and the
+[release audit](21-release-readiness.md).
+
 Signal is a lightweight event/log platform focused on:
 
 - application logs;
@@ -61,6 +70,10 @@ The platform should favor simple components, stable contracts and cheap storage 
 
 The OSS repository contains **mechanisms**.
 The company repository contains **policy and environment**.
+
+Generic opt-in detection reference packs may be public, with source preconditions,
+fixtures and investigation guidance. Company rule activation, thresholds,
+exceptions, sensitive content and response routing remain private.
 
 ---
 
