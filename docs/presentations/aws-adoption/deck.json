@@ -157,9 +157,10 @@
       ],
       "notes": "This is the same diagram that is checked into docs/logical-architecture.md. F1 to F7 are failure domains, not services. Drawing detection and query separately does not make them independently available today. Native CloudTrail originals reach security-owned storage through native delivery so an observability outage is not their sole capture dependency. The Kubernetes and host protected adapters and the coverage observer are proposed. Click the diagram to open it full size, copy the Mermaid, or download SVG/PNG for Miro or Slack.",
       "diagram": {
-        "mermaid": "02-logical-architecture",
+        "mermaid": "08-logical-overview",
         "label": "Responsibilities with failure domains F1 to F7",
-        "description": "Target routing view. Original evidence bypasses observability; live detection does not wait for archive validation, but pending or failed validation stays visible."
+        "description": "Target routing view. Original evidence bypasses observability; live detection does not wait for archive validation, but pending or failed validation stays visible.",
+        "detail": "02-logical-architecture"
       }
     },
     {
@@ -221,9 +222,10 @@
       ],
       "notes": "Only M2 (synced WAL admission, HTTP 202) and M4 (processing checkpoint) are current. M1, M3, M5, M6 and M7 are proposed. The milestones need not occur in numeric order: native AWS originals can reach M3 before SIGNAL reads them, and live detection can reach M4 while M3 validation is pending. A lost response can hide a successful admission, so retry the exact prepared identity.",
       "diagram": {
-        "mermaid": "04-acknowledgement-milestones",
+        "mermaid": "09-custody-ladder",
         "label": "Acknowledgement milestones M0 to M7 across failure domains",
-        "description": "Sequence view of custody. Current: M2 and M4. Proposed: M1, M3, M5, M6, M7."
+        "description": "Sequence view of custody. Current: M2 and M4. Proposed: M1, M3, M5, M6, M7.",
+        "detail": "04-acknowledgement-milestones"
       }
     },
     {

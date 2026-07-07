@@ -1,0 +1,31 @@
+%% Slide-sized overview of 02-logical-architecture.mmd. F1-F7 are failure domains, not services.
+flowchart LR
+    SRC["Sources (F1)<br/>AWS, K8s,<br/>hosts, SaaS"]
+    COL["Collectors + agent<br/>(F1)"]
+    WAL["Admission + WAL<br/>(F2)"]
+    NORM["Normalize, identity,<br/>provenance (F3)"]
+    DET["Detection + durable<br/>findings (F5)"]
+    DLV["Delivery +<br/>disposition (F7)"]
+    OBS["Redact, sample, route<br/>+ Parquet (F3)"]
+    QRY["Query + hot cache<br/>(F4)"]
+    PROT["Protected adapters<br/>proposed (F6)"]
+    SEC[("Security-owned<br/>evidence storage<br/>+ source proofs (F6)")]
+    COVER["Coverage observer<br/>proposed, F1-F7"]
+    SRC --> COL --> WAL --> NORM
+    NORM --> DET --> DLV
+    NORM --> OBS --> QRY
+    COL --> PROT --> SEC
+    SRC ==>|"native original delivery"| SEC
+    SEC -.->|"validated replay"| NORM
+    COVER -.-> NORM
+    classDef source fill:#fff7ed,stroke:#c2410c,color:#431407
+    classDef collector fill:#eff6ff,stroke:#1d4ed8,color:#172554
+    classDef core fill:#ecfdf5,stroke:#047857,color:#022c22
+    classDef evidence fill:#fef2f2,stroke:#b91c1c,color:#450a0a
+    classDef people fill:#f5f3ff,stroke:#6d28d9,color:#2e1065
+    classDef store fill:#f1f5f9,stroke:#334155,color:#0f172a
+    class SRC source
+    class COL,PROT collector
+    class WAL,NORM,DET,DLV,OBS,QRY core
+    class SEC evidence
+    class COVER store

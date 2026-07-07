@@ -6,6 +6,7 @@ Run from any directory: python3 build.py. Earlier PPTX/PDF exports are historica
 """
 import argparse
 import csv
+import datetime
 import html
 import json
 import re
@@ -15,6 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 REPO_BLOB = "https://github.com/mischapogr/platform-signal/blob/main"
 DATA = json.loads((ROOT / "deck.json").read_text())
+FOOTER_DATE = datetime.date.fromisoformat(DATA["date"]).strftime("%d %b %Y").upper()
 MODEL = json.loads((ROOT / "cost-model.json").read_text())
 BASELINE = json.loads(subprocess.check_output([
     "node", "-e", "const m=require(process.argv[1]);const c=require(process.argv[2]);console.log(JSON.stringify(c.evaluate(m)));",
@@ -91,19 +93,26 @@ def check_diagrams():
         raise SystemExit(f"run docs/diagrams/render.sh: no SVG for {missing}")
 
 
-def diagram_block(d):
-    """Embed a pre-rendered Mermaid SVG; keep its source for copy/export in the browser."""
-    name = d["mermaid"]
+def prepared_svg(name, label):
     svg = (DIAGRAMS / "dist" / f"{name}.svg").read_text()
-    source = (DIAGRAMS / f"{name}.mmd").read_text()
     root = re.match(r'<svg\b[^>]*>', svg).group(0)
     tag = re.sub(r'\s(width|height|class|role|aria-roledescription)="[^"]*"', '', root)
-    tag = tag[:-1] + f' class="diagram" role="img" aria-label="{html.escape(d["label"], quote=True)}">'
-    svg = tag + svg[len(root):]
-    link = f'{REPO_BLOB}/docs/diagrams/{name}.mmd'
-    return (f'<figure class="figure" data-diagram="{name}"><button class="zoom" type="button" aria-label="Open diagram full size">{svg}</button>'
+    tag = tag[:-1] + f' class="diagram" role="img" aria-label="{html.escape(label, quote=True)}">'
+    return tag + svg[len(root):]
+
+
+def diagram_block(d):
+    """Embed a pre-rendered Mermaid SVG. An optional `detail` diagram opens when the slide diagram is enlarged."""
+    name = d["mermaid"]
+    detail = d.get("detail")
+    shown = detail or name
+    source = (DIAGRAMS / f"{shown}.mmd").read_text()
+    extra = f'<template class="detail">{prepared_svg(detail, d["label"] + " (full detail)")}</template>' if detail else ''
+    link = f'{REPO_BLOB}/docs/diagrams/{shown}.mmd'
+    hint = f' Enlarge for the full detail diagram.' if detail else ''
+    return (f'<figure class="figure" data-diagram="{shown}"><button class="zoom" type="button" aria-label="Open diagram full size">{prepared_svg(name, d["label"])}</button>{extra}'
             f'<script type="text/plain" class="mmd">{html.escape(source)}</script>'
-            f'<figcaption>{esc(d["description"])} <a href="{link}" target="_blank" rel="noopener">Mermaid source</a></figcaption></figure>')
+            f'<figcaption>{esc(d["description"])}{hint} <a href="{link}" target="_blank" rel="noopener">Mermaid source</a></figcaption></figure>')
 
 
 def chart_svg(name):
@@ -154,12 +163,12 @@ button:hover{border-color:var(--accent)}:focus-visible{outline:3px solid var(--a
 .slide.active{display:grid}.eyebrow{font-size:14px;letter-spacing:2.2px;text-transform:uppercase;color:var(--accent)}h1{font-size:43px;line-height:1.08;letter-spacing:-1.4px;margin:0;max-width:1150px}.subtitle{font-size:21px;color:var(--muted);line-height:1.4;margin:0;max-width:1120px}
 .body{min-height:0;display:flex;flex-direction:column;justify-content:center;gap:20px}.cards{display:grid;grid-template-columns:repeat(var(--cols),1fr);gap:18px}.card{border:1px solid var(--line);background:var(--panel);padding:23px 24px;border-radius:9px}.card h2{font-size:22px;color:var(--accent);margin:0 0 16px}.card ul{margin:0;padding-left:20px}.card li{font-size:20px;line-height:1.34;margin-bottom:13px}.card li:last-child{margin-bottom:0}
 .callout{font-size:19px;line-height:1.35;border-left:4px solid var(--accent);padding:10px 15px;background:#e6f4f1;margin:0}.footer{font-size:10.5px;color:var(--muted);display:flex;gap:16px;align-items:end;line-height:1.45}.footer .citations{flex:1}.footer .page{white-space:nowrap;font-size:12px}
-.hero{--bg:#0b1f33;--ink:#f2f6fb;--muted:#c3d2e3;--accent:#5eead4;color:var(--ink);background:radial-gradient(ellipse at 90% 30%,#134e4a 0,transparent 55%),var(--bg)}.hero h1{font-size:78px;letter-spacing:-3px;line-height:1.03;margin:10px 0}.hero .subtitle{max-width:830px;font-size:25px}.hero .body{justify-content:end}.hero-mark{font-size:15px;letter-spacing:5px;color:var(--muted)}.hero .callout{background:#0f2f3a;color:var(--ink)}.zoom::after{content:"Click to enlarge · copy Mermaid / SVG / PNG";display:block;font-size:12px;color:var(--muted);text-align:right}.callout:empty,.subtitle:empty{display:none}.figure figcaption{max-height:2.8em;overflow:hidden}.hero .footer a{color:#99f6e4}.hero .footer{color:var(--muted)}
+.hero{--bg:#0b1f33;--ink:#f2f6fb;--muted:#c3d2e3;--accent:#5eead4;color:var(--ink);background:radial-gradient(ellipse at 90% 30%,#134e4a 0,transparent 55%),var(--bg)}.hero h1{font-size:78px;letter-spacing:-3px;line-height:1.03;margin:10px 0}.hero .subtitle{max-width:830px;font-size:25px}.hero .body{justify-content:end}.hero-mark{font-size:15px;letter-spacing:5px;color:var(--muted)}.hero .callout{background:#0f2f3a;color:var(--ink)}.zoom::after{content:"Click to enlarge · copy Mermaid / SVG / PNG";display:block;font-size:12px;color:var(--muted);text-align:right}.callout:empty{border:0;background:none;padding:0}.figure figcaption{max-height:2.8em;overflow:hidden}.hero .footer a{color:#99f6e4}.hero .footer{color:var(--muted)}
 .flow{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}.node{position:relative;background:#eaf2fb;border:1px solid #bcd0e6;border-radius:9px;padding:20px;min-height:116px}.node h2{font-size:20px;margin:0 0 12px;color:var(--accent)}.node p{font-size:17px;line-height:1.4;margin:0;color:var(--ink)}.node:not(:last-child)::after{content:'→';position:absolute;right:-23px;top:42px;font-size:27px;color:var(--accent)}.accounts .node::after{display:none}.flow-slide .card{padding:18px}.flow-slide .card h2{font-size:19px;margin-bottom:12px}.flow-slide .card li{font-size:18px}
 table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:18px;line-height:1.3}th{text-align:left;color:var(--accent);background:#eaf2fb;padding:13px 15px;border-bottom:2px solid #9fb3c8}td{vertical-align:top;padding:15px;border-bottom:1px solid var(--line)}tbody tr:nth-child(even){background:#f8fafc}td:first-child{font-weight:bold}table.cols-4 th:first-child{width:20%}table.cols-3 th:first-child{width:22%}
 .refs{display:grid;grid-template-columns:1fr 1fr;gap:9px 28px}.ref{font-size:16px;line-height:1.2;padding:5px 0;border-bottom:1px solid var(--line)}.ref small{display:block;font-size:10px;color:var(--muted);overflow-wrap:anywhere;margin-top:5px}
 .diagram,.chart{width:100%;max-height:380px;display:block}.dense table{font-size:16px}.dense th,.dense td{padding:10px 12px}.cols-5 th:first-child{width:31%}.calculator{display:grid;gap:12px}.calc-controls{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.calc-controls label{font-size:13px;color:var(--muted);display:grid;gap:5px}.calc-controls select{font-size:16px;padding:7px;background:var(--panel);color:var(--ink);border:1px solid #9fb3c8;border-radius:4px;min-width:0}.calc-controls .check{display:flex;align-items:center;gap:8px}.calc-controls input{width:18px;height:18px}.calc-results{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}.calc-result{background:var(--panel);padding:15px;border:1px solid var(--line);border-radius:8px}.calc-result h2{font-size:17px;margin:0 0 12px;color:var(--accent)}.calc-result strong{font-size:26px;display:block;margin-bottom:9px}.calc-result p{font-size:14px;line-height:1.4;margin:6px 0;color:var(--muted)}.calc-result .total{color:var(--ink)}.calc-context{font-size:14px;color:var(--muted);line-height:1.4;margin:0}.calc-controls button{font-size:13px}.diagram-desc{font-size:14px;line-height:1.4;color:var(--muted);margin:0}
-.figure{margin:0;display:grid;gap:8px;min-height:0}.zoom{border:1px solid var(--line);background:#fff;padding:8px;border-radius:9px;cursor:zoom-in;display:block;width:100%}.zoom .diagram{width:100%;height:auto;max-height:372px;display:block;margin:0 auto}.figure figcaption{font-size:13px;line-height:1.4;color:var(--muted)}
+.figure{margin:0;display:grid;gap:8px;min-height:0}.zoom{border:1px solid var(--line);background:#fff;padding:8px;border-radius:9px;cursor:zoom-in;display:block;width:100%}.zoom .diagram{width:100%;height:auto;max-height:400px;display:block;margin:0 auto}.figure figcaption{font-size:13px;line-height:1.4;color:var(--muted)}
 #zoom{width:min(96vw,1700px);max-height:94vh}#zoom .zoom-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}#zoom .zoom-view{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px;max-height:74vh}#zoom .zoom-view svg{display:block;width:100%;min-width:900px;height:auto}#zoom-status{font-size:13px;color:var(--muted)}
 .notice{font-size:12px;line-height:1.45;color:var(--muted);margin:0}
 #notes{position:absolute;right:0;top:56px;bottom:0;width:370px;overflow:auto;padding:26px;background:var(--panel);border-left:1px solid var(--line);font-size:17px;line-height:1.6}#notes h2{color:var(--accent);font-size:20px}body.with-notes #stage{right:370px}[hidden]{display:none!important}dialog{width:min(720px,90vw);max-height:85vh;overflow:auto;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:28px}dialog::backdrop{background:#000b}.outline{display:grid;gap:8px}.outline button{text-align:left}#help{font-size:13px;color:var(--muted)}
@@ -183,7 +192,7 @@ window.addEventListener('resize',resize);window.addEventListener('hashchange',()
 const initial=Number(location.hash.replace('#slide-',''));show(Number.isInteger(initial)&&initial>0?initial-1:0);
 
 const zoomDialog=document.querySelector('#zoom'),zoomView=document.querySelector('#zoom-view'),zoomStatus=document.querySelector('#zoom-status');let zoomFigure=null;
-document.querySelectorAll('.figure .zoom').forEach(b=>b.onclick=()=>{zoomFigure=b.closest('.figure');zoomView.replaceChildren(b.querySelector('svg').cloneNode(true));zoomStatus.textContent=zoomFigure.dataset.diagram;zoomDialog.showModal();});
+document.querySelectorAll('.figure .zoom').forEach(b=>b.onclick=()=>{zoomFigure=b.closest('.figure');const full=zoomFigure.querySelector('template.detail');zoomView.replaceChildren((full?full.content.querySelector('svg'):b.querySelector('svg')).cloneNode(true));zoomStatus.textContent=zoomFigure.dataset.diagram;zoomDialog.showModal();});
 document.querySelector('#zoom-close').onclick=()=>zoomDialog.close();
 const mmd=()=>zoomFigure.querySelector('.mmd').textContent;
 const svgText=()=>{const n=zoomView.querySelector('svg').cloneNode(true);n.setAttribute('xmlns','http://www.w3.org/2000/svg');return new XMLSerializer().serializeToString(n);};
@@ -251,7 +260,7 @@ def build_html():
             controls+='<label class="check"><input type="checkbox" checked data-cost-option="sourceDelivery">Include CloudWatch source delivery</label><button id="reset-costs">Reset baseline</button>'
             results=''.join(f'<article class="calc-result"><h2>{s["accounts"]:,} AWS account{"s" if s["accounts"] != 1 else ""}</h2><strong class="aws-value"></strong><p class="direct-value"></p><p class="source-value"></p><p class="budget-value"></p><p class="traffic-value"></p><p class="labor-value"></p><p class="loaded-value total"></p></article>' for s in BASELINE)
             body+='<div class="calculator"><div class="calc-controls">'+controls+'</div><div class="calc-results" aria-live="polite">'+results+'</div><p class="calc-context">US East (N. Virginia) · no discounts/tax. AWS + labor excludes the 40% reserve. Traffic controls do not auto-size workers or labor. Other slides show the frozen baseline; reset before comparing them.</p></div>'
-        rendered.append(f'<section id="slide-{i}" class="{classes}" aria-label="Slide {i}: {html.escape(slide["title"], quote=True)}" data-notes="{html.escape(slide["notes"], quote=True)}"><div class="eyebrow">{esc(slide["eyebrow"])}</div><h1>{esc(slide["title"])}</h1><p class="subtitle">{esc(slide.get("subtitle", ""))}</p><div class="body">{body}</div><p class="callout">{esc(slide.get("callout", ""))}</p><footer class="footer"><div class="citations">{source_links(slide.get("sources", []))}</div><span class="page">SIGNAL · 07 JUL 2026 · {i:02d}/{len(DATA["slides"])}</span></footer></section>')
+        rendered.append(f'<section id="slide-{i}" class="{classes}" aria-label="Slide {i}: {html.escape(slide["title"], quote=True)}" data-notes="{html.escape(slide["notes"], quote=True)}"><div class="eyebrow">{esc(slide["eyebrow"])}</div><h1>{esc(slide["title"])}</h1><p class="subtitle">{esc(slide.get("subtitle", ""))}</p><div class="body">{body}</div><p class="callout">{esc(slide.get("callout", ""))}</p><footer class="footer"><div class="citations">{source_links(slide.get("sources", []))}</div><span class="page">SIGNAL · {FOOTER_DATE} · {i:02d}/{len(DATA["slides"])}</span></footer></section>')
         outline.append(f'<button data-slide="{i-1}">{i:02d} · {esc(slide["title"].replace(chr(10), " "))}</button>')
         markdown += [f'## {i:02d}. {slide["title"].replace(chr(10), " ")}', '', slide.get("subtitle", ""), '']
         for c in slide.get("cards", []):

@@ -10,6 +10,7 @@ render natively on GitHub and import into whiteboard and chat tools. The
 | [02-logical-architecture](02-logical-architecture.mmd) | Responsibilities with failure domains F1–F7 | Target; same diagram as [logical-architecture.md](../logical-architecture.md) |
 | [03-aws-account-topology](03-aws-account-topology.mmd) | Workload, observability and security accounts | Target Standard profile |
 | [04-acknowledgement-milestones](04-acknowledgement-milestones.mmd) | M0–M7 custody milestones | M2 and M4 current, others proposed |
+| [08-logical-overview](08-logical-overview.mmd), [09-custody-ladder](09-custody-ladder.mmd) | Slide-sized overviews of 02 and 04; the deck shows these and opens the full diagram when enlarged | Same status as the diagrams they summarize |
 | [05-onboarding-coverage](05-onboarding-coverage.mmd), [06-restore-workflow](06-restore-workflow.mmd), [07-upgrade-workflow](07-upgrade-workflow.mmd) | Operational workflows | Target; need separate qualification |
 
 Diagrams show responsibilities, not release, capacity or qualification claims. Update the
