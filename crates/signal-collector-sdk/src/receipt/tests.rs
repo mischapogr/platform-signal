@@ -5,6 +5,8 @@ use std::{fs, os::unix::fs::PermissionsExt, time::Duration};
 use store::Stage;
 use tokio_util::sync::CancellationToken;
 type TestResult = Result<(), Box<dyn std::error::Error>>;
+#[path = "capture_tests.rs"]
+mod capture_tests;
 #[path = "discovery_tests.rs"]
 mod discovery_tests;
 fn ctx() -> ExtensionContext {
