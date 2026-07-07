@@ -1,0 +1,1618 @@
+{
+  "title": "PLATFORM::SIGNAL — AWS adoption",
+  "date": "2026-07-07",
+  "slides": [
+    {
+      "eyebrow": "Architecture & adoption · DevOps / SecOps / Architects",
+      "title": "Your telemetry.\nYour context.\nYour control.",
+      "subtitle": "PLATFORM::SIGNAL: an AWS-first log and security telemetry platform built around an OSS core and private company policy.",
+      "kind": "hero",
+      "callout": "Decision today: evaluate a bounded pilot. Production adoption depends on qualification.",
+      "sources": [
+        "product",
+        "readiness"
+      ],
+      "notes": "Allow 40–45 minutes plus discussion. This is an architecture and adoption presentation, not a released-product sales pitch. The core exists and has local AMD64 evidence. S3, Standard HA, production access controls and end-to-end AWS collection remain target capabilities. The deck uses an invented company scenario and no private account, policy or customer data."
+    },
+    {
+      "eyebrow": "The adoption thesis",
+      "title": "Control is the reason to evaluate",
+      "subtitle": "A good fit when a shared platform/security team needs a focused evidence workflow and can own its operation.",
+      "cards": [
+        {
+          "title": "DevOps",
+          "items": [
+            "Search operational events with account and resource context.",
+            "Recover admitted events after process restarts.",
+            "Make pressure, rejection and capacity visible."
+          ]
+        },
+        {
+          "title": "SecOps",
+          "items": [
+            "Inspect a finding and its retained source events.",
+            "Keep sensitive detections and routing private.",
+            "Target: verify source coverage and preserve independent originals."
+          ]
+        },
+        {
+          "title": "Architects",
+          "items": [
+            "Stable event contracts and replaceable storage seams.",
+            "Start with one process; split after measured need.",
+            "Target: separate telemetry, control state and security trust."
+          ]
+        }
+      ],
+      "callout": "A pilot must prove value, operating effort and total cost; savings are a hypothesis.",
+      "sources": [
+        "product",
+        "architecture",
+        "ui"
+      ],
+      "notes": "The shared benefit is one vocabulary for resource, time and evidence. Each team still has different permissions and duties. Search does not replace incident ownership. Self-hosting transfers platform availability, dependency updates and detection maintenance to the adopter. Do not infer lower cost from Rust or object storage alone."
+    },
+    {
+      "eyebrow": "Readiness · evidence snapshot",
+      "title": "A working core; an unfinished product",
+      "cards": [
+        {
+          "title": "Implemented locally",
+          "items": [
+            "Authenticated HTTP → synced WAL → Parquet → findings.",
+            "Bounded file/stdin agent and at-least-once replay.",
+            "Read-only UI: findings, search and exact event-ID navigation.",
+            "Local source-coverage library and CloudTrail record normalizer."
+          ]
+        },
+        {
+          "title": "Target / follow-on work",
+          "items": [
+            "S3 publication and object-backed custody receipts.",
+            "Live AWS adapters and independent coverage observers.",
+            "OIDC/RBAC, mTLS and durable notification delivery.",
+            "Shared control state, fenced ownership and stateful detections."
+          ]
+        },
+        {
+          "title": "Qualification still open",
+          "items": [
+            "Native ARM64 and actual EKS runtime.",
+            "Remote CI and released overlay dependencies.",
+            "Current-image kind gate blocked by host resources.",
+            "Unpublished dev candidate; no production scale guarantee."
+          ]
+        }
+      ],
+      "callout": "Local Linux AMD64 proof does not establish AWS production readiness.",
+      "sources": [
+        "progress",
+        "readiness"
+      ],
+      "notes": "The current progress record reports 377 passing Rust workspace tests, but test count is not a capacity or release claim. The CloudTrail normalizer is a bounded pure helper, not a deployed collector. Coverage storage has isolated local evidence, not live source-health inference. Historical container and benchmark results remain bound to their own inputs; do not claim all later source changes ran in those images."
+    },
+    {
+      "eyebrow": "Illustrative company · not a supported capacity",
+      "title": "A 450-person company running on AWS",
+      "cards": [
+        {
+          "title": "Environment",
+          "items": [
+            "12 AWS accounts across two Regions.",
+            "Two EKS clusters plus EC2 and managed services.",
+            "Eight platform engineers and three security engineers.",
+            "Assume 50 GB/day of selected canonical telemetry."
+          ]
+        },
+        {
+          "title": "Problem to investigate",
+          "items": [
+            "Operational logs and audit evidence have different owners.",
+            "Company resource context is repeated across tools.",
+            "Retention and query cost need clearer budgets.",
+            "Teams need a common path from alert to evidence."
+          ]
+        },
+        {
+          "title": "Pilot scope",
+          "items": [
+            "One nonproduction account and one application.",
+            "Use existing HTTP/file paths for the first core exercise.",
+            "Add native CloudTrail delivery only after its adapter is qualified.",
+            "Keep existing detections and archives authoritative."
+          ]
+        }
+      ],
+      "callout": "Company size is context. Size the system by bytes, bursts, queries and rule state.",
+      "sources": [
+        "product",
+        "readiness"
+      ],
+      "notes": "These assumptions are hypothetical and deliberately within the Small planning category. They do not imply that today's binary supports 50 GB/day. Initial tests use a measured selected rate, not the whole company volume. The two Regions require distinct source and recovery decisions; a single regional pilot does not demonstrate regional disaster recovery."
+    },
+    {
+      "eyebrow": "Target architecture · logical flow",
+      "title": "One evidence workflow, four optional roles",
+      "kind": "diagram",
+      "callout": "Roles describe placement and permissions. They do not require four new services today.",
+      "sources": [
+        "product",
+        "logical"
+      ],
+      "notes": "The implementation remains a modular Rust monolith. The server owns ingest, storage, query, rules and findings. Agent and signalctl exist; collector and gateway are target role families. Native audit originals can bypass observability and enter a security-owned archive directly. The boxes do not imply fault isolation or implemented adapters.",
+      "diagram": {
+        "id": "core",
+        "label": "Target telemetry, control state and independent protected evidence",
+        "nodes": [
+          {
+            "id": "source",
+            "x": 0,
+            "y": 30,
+            "w": 235,
+            "h": 100,
+            "title": "Sources",
+            "detail": "AWS / hosts / EKS\nSelected SaaS / syslog"
+          },
+          {
+            "id": "capture",
+            "x": 280,
+            "y": 30,
+            "w": 235,
+            "h": 100,
+            "title": "Capture roles",
+            "detail": "Scoped collector / agent\nOptional gateway"
+          },
+          {
+            "id": "server",
+            "x": 560,
+            "y": 30,
+            "w": 245,
+            "h": 100,
+            "title": "SIGNAL server",
+            "detail": "Admit / normalize / detect\nQuery / findings / API"
+          },
+          {
+            "id": "ui",
+            "x": 860,
+            "y": 30,
+            "w": 300,
+            "h": 100,
+            "title": "Team investigation",
+            "detail": "Canonical event context\nPrivate delivery / response"
+          },
+          {
+            "id": "objects",
+            "x": 280,
+            "y": 245,
+            "w": 260,
+            "h": 100,
+            "title": "Telemetry S3",
+            "detail": "Immutable Parquet\nCommitted manifests"
+          },
+          {
+            "id": "control",
+            "x": 570,
+            "y": 245,
+            "w": 270,
+            "h": 100,
+            "title": "Control state",
+            "detail": "Small: local state\nStandard: HA PostgreSQL"
+          },
+          {
+            "id": "originals",
+            "x": 900,
+            "y": 245,
+            "w": 260,
+            "h": 100,
+            "title": "Security-owned S3",
+            "detail": "Independent originals\nRetention / validation"
+          }
+        ],
+        "edges": [
+          {
+            "from": "source",
+            "to": "capture"
+          },
+          {
+            "from": "capture",
+            "to": "server"
+          },
+          {
+            "from": "server",
+            "to": "ui"
+          },
+          {
+            "from": "server",
+            "to": "objects",
+            "path": "M620,130 L620,195 L410,195 L410,245",
+            "label": "publish",
+            "lx": 450,
+            "ly": 188
+          },
+          {
+            "from": "server",
+            "to": "control",
+            "label": "fenced progress",
+            "lx": 710,
+            "ly": 200
+          },
+          {
+            "from": "source",
+            "to": "originals",
+            "path": "M115,130 L115,220 L1030,220 L1030,245",
+            "label": "native protected delivery bypasses observability",
+            "lx": 145,
+            "ly": 213
+          }
+        ],
+        "description": "Target: normalize once, keep telemetry and control authority separate, and preserve protected originals through independent delivery. Today: one local-filesystem server; target adapters and stores remain pending.",
+        "groups": []
+      }
+    },
+    {
+      "eyebrow": "Current core · durability semantics",
+      "title": "HTTP 202 is admission, not completion",
+      "kind": "flow",
+      "nodes": [
+        [
+          "Bounded agent",
+          "Capture / spool\nRetry with duplicate tolerance"
+        ],
+        [
+          "202 / M2",
+          "Accepted prefix\nSynced local server WAL"
+        ],
+        [
+          "Processing / M4",
+          "Parquet → rules → findings\nThen advance checkpoint"
+        ],
+        [
+          "Read-only UI",
+          "Inspect retained results\nNo delivery receipt implied"
+        ]
+      ],
+      "cards": [
+        {
+          "title": "What replay protects",
+          "items": [
+            "Admitted records survive qualified process-restart scenarios; checkpoints follow required persistence."
+          ]
+        },
+        {
+          "title": "What retries mean",
+          "items": [
+            "Lost responses can hide successful admission. Independent resubmission can create duplicate records."
+          ]
+        },
+        {
+          "title": "What is still missing",
+          "items": [
+            "202 provides neither S3 custody nor protected originals, complete coverage or analyst acknowledgement."
+          ]
+        }
+      ],
+      "sources": [
+        "failure",
+        "readiness"
+      ],
+      "notes": "M2 is synced WAL, M3 is protected evidence and validation, M4 is processing completion, M5/M6 are delivery plan and destination receipt, M7 is analyst outcome. These milestones need not occur in numerical order. Parquet can be query-visible before finding persistence succeeds; checkpoint advancement then stops. At-least-once processing is not globally exactly-once ingest."
+    },
+    {
+      "eyebrow": "Shared model · public mechanisms / private policy",
+      "title": "A company application depends on OSS",
+      "cards": [
+        {
+          "title": "Public PLATFORM::SIGNAL",
+          "items": [
+            "Canonical event, transport and findings contracts.",
+            "WAL, storage, query and rule mechanisms.",
+            "Collector/enricher SDK and generic adapters as added.",
+            "Target: generic opt-in detection packs with fixtures and preconditions."
+          ]
+        },
+        {
+          "title": "Private company application",
+          "items": [
+            "Account topology, IAM, environments and ownership.",
+            "Enabled rules, thresholds, exceptions and sensitive detections.",
+            "Alert routing, incident integration and deployment values.",
+            "Retention policy, evidence access and private fixtures."
+          ]
+        }
+      ],
+      "callout": "Dependency direction: company → versioned public contracts. OSS never imports company policy.",
+      "sources": [
+        "architecture",
+        "overlay",
+        "product"
+      ],
+      "notes": "This is a code and trust boundary, not a claim of a commercial premium edition. The public workspace is Apache-2.0. The target profiles do not license-gate security. A company can contribute a generic hook while keeping its policy private. Today integration uses separate source checkouts and trusted in-process extensions; it is not a dynamic plugin marketplace or sandbox. Qualification against released dependencies is still open."
+    },
+    {
+      "eyebrow": "Shared model · contracts and upgrades",
+      "title": "Share context without making it authority",
+      "cards": [
+        {
+          "title": "Canonical event",
+          "items": [
+            "Version, ID, event/observation times, source and severity.",
+            "Message plus nested attributes; optional resource and trace IDs.",
+            "Private metadata enriches the event through public seams."
+          ]
+        },
+        {
+          "title": "Company context",
+          "items": [
+            "Resolve resource → service → owner → environment.",
+            "Pin schema, normalizer and rule revisions for replay.",
+            "Validate private metadata in the company application."
+          ]
+        },
+        {
+          "title": "Access and change",
+          "items": [
+            "Producer attributes never grant authorization.",
+            "Target RBAC must verify trusted account/resource scope.",
+            "Test upgrades in both repositories and rehearse restore."
+          ]
+        }
+      ],
+      "callout": "Stable public mechanisms reduce forks; the adopter still owns private policy correctness.",
+      "sources": [
+        "architecture",
+        "product",
+        "overlay"
+      ],
+      "notes": "A service tag supplied by a producer is useful context, not proof of who is allowed to read an account. Do not add company-specific fields to the OSS envelope. The current extension model trusts cooperative application code. The owner must qualify version compatibility and restore before an operational upgrade. Current same-binary restore proof does not establish cross-version migration."
+    },
+    {
+      "eyebrow": "AWS reference · target placement",
+      "title": "Keep evidence outside the processing account",
+      "kind": "diagram",
+      "callout": "Native original delivery and security administration stay independent of processing. AWS qualification remains pending.",
+      "sources": [
+        "product",
+        "logical",
+        "objectlock"
+      ],
+      "notes": "Separate AWS accounts help only when administration, delivery, credentials and recovery are also independent. Object Lock protects retained object versions; it does not establish source completeness or authenticity. The topology is proposed, not deployed. Choose EC2/container hosts if the company has no Kubernetes operations; use EKS when it already operates clusters. Never create a cluster simply to satisfy this drawing.",
+      "diagram": {
+        "id": "aws",
+        "label": "AWS deployment and trust architecture",
+        "nodes": [
+          {
+            "id": "audit",
+            "x": 20,
+            "y": 95,
+            "w": 240,
+            "h": 95,
+            "title": "Native AWS audit",
+            "detail": "CloudTrail / control audit\nOriginal object identity"
+          },
+          {
+            "id": "agent",
+            "x": 20,
+            "y": 245,
+            "w": 240,
+            "h": 95,
+            "title": "Workload capture",
+            "detail": "Host / pod agents\nScoped source credentials"
+          },
+          {
+            "id": "server",
+            "x": 350,
+            "y": 105,
+            "w": 220,
+            "h": 95,
+            "title": "SIGNAL workers",
+            "detail": "One owner per partition\nBounded intake / replay"
+          },
+          {
+            "id": "ui",
+            "x": 590,
+            "y": 105,
+            "w": 200,
+            "h": 95,
+            "title": "API + UI",
+            "detail": "Trusted IdP identity\nScoped access checks"
+          },
+          {
+            "id": "norm",
+            "x": 350,
+            "y": 245,
+            "w": 220,
+            "h": 95,
+            "title": "Telemetry S3",
+            "detail": "Parquet / manifests\nCache is rebuildable"
+          },
+          {
+            "id": "db",
+            "x": 590,
+            "y": 245,
+            "w": 200,
+            "h": 95,
+            "title": "Control DB",
+            "detail": "Pins / receipts / findings\nBackup + fencing"
+          },
+          {
+            "id": "originals",
+            "x": 870,
+            "y": 115,
+            "w": 280,
+            "h": 95,
+            "title": "Protected originals",
+            "detail": "Restricted security-owned S3\nIndependent validation"
+          }
+        ],
+        "edges": [
+          {
+            "from": "audit",
+            "to": "server"
+          },
+          {
+            "from": "agent",
+            "to": "server",
+            "path": "M260,290 L305,290 L305,150 L350,150"
+          },
+          {
+            "from": "server",
+            "to": "ui"
+          },
+          {
+            "from": "server",
+            "to": "norm"
+          },
+          {
+            "from": "server",
+            "to": "db",
+            "path": "M460,200 L460,225 L690,225 L690,245"
+          },
+          {
+            "from": "audit",
+            "to": "originals",
+            "path": "M140,95 L140,60 L1010,60 L1010,115",
+            "label": "independent native delivery",
+            "lx": 415,
+            "ly": 55
+          }
+        ],
+        "description": "Standard target: workers across three AZs, object publication plus fenced control commits. One-account scenario cannot provide a separate security-account failure boundary.",
+        "groups": [
+          {
+            "x": 0,
+            "y": 0,
+            "w": 280,
+            "h": 370,
+            "label": "WORKLOAD ACCOUNTS"
+          },
+          {
+            "x": 330,
+            "y": 75,
+            "w": 480,
+            "h": 295,
+            "label": "OBSERVABILITY ACCOUNT · TARGET"
+          },
+          {
+            "x": 850,
+            "y": 75,
+            "w": 326,
+            "h": 295,
+            "label": "SECURITY ACCOUNT · TARGET"
+          }
+        ]
+      }
+    },
+    {
+      "eyebrow": "Deployment profiles · design categories",
+      "title": "Begin Small. Earn Standard with evidence.",
+      "table": {
+        "headers": [
+          "Profile",
+          "Planning envelope",
+          "Target topology",
+          "Availability boundary"
+        ],
+        "rows": [
+          [
+            "Small",
+            "<100 GB/day; ~≤20 accounts",
+            "One server; S3 + local control; only needed collectors",
+            "Single writer; host/maintenance outages accepted"
+          ],
+          [
+            "Standard",
+            "100 GB–2 TB/day; ~20–100 accounts",
+            "Three servers; S3 + HA PostgreSQL; fenced ownership",
+            "Target one server/AZ failure survival"
+          ],
+          [
+            "Scale",
+            "~2–5 TB/day upper design range",
+            "Independently sized workers after measured contention",
+            "Qualification specific to each workload"
+          ]
+        ]
+      },
+      "callout": "Today's chart enforces one replica. Setting replicas to three does not implement Standard.",
+      "sources": [
+        "product",
+        "readiness"
+      ],
+      "notes": "These are planning envelopes, not achieved capacity, license tiers or sizing guarantees. Standard requires immutable objects, committed manifests and monotonically fenced ownership; a lease or load balancer is insufficient. Initial target server budgets are 2–4 vCPU/4–8 GiB Small and 4–8 vCPU/8–16 GiB per Standard node, to be validated. Existing finite local campaigns do not qualify them."
+    },
+    {
+      "eyebrow": "Shared investigation · illustrative scenario",
+      "title": "From control tampering to useful evidence",
+      "kind": "flow",
+      "nodes": [
+        [
+          "Native record",
+          "CloudTrail StopLogging\nScope + original reference"
+        ],
+        [
+          "Normalize + detect",
+          "Canonical event\nRoot / tampering predicate"
+        ],
+        [
+          "Investigate",
+          "Finding → exact event ID\nAccount / resource / owner"
+        ],
+        [
+          "Company action",
+          "Triage + incident ownership\nRecovery / recorded outcome"
+        ]
+      ],
+      "cards": [
+        {
+          "title": "DevOps",
+          "items": [
+            "Identify the affected account/service; check intended changes and restore collection."
+          ]
+        },
+        {
+          "title": "SecOps",
+          "items": [
+            "Inspect native context and archive evidence; determine intent and incident response."
+          ]
+        },
+        {
+          "title": "Coverage",
+          "items": [
+            "Target: show missing audit intervals explicitly. Zero findings alone does not prove safety."
+          ]
+        }
+      ],
+      "callout": "Native normalizer/predicate tests exist. Live delivery, coverage and notification remain pending.",
+      "sources": [
+        "progress",
+        "failure",
+        "ui",
+        "catalog"
+      ],
+      "notes": "The local normalizer and rule-profile tests include root activity and logging tampering. Do not represent them as a live AWS detector. Current UI can navigate a finding to exact retained canonical rows; those rows are not proof of original vendor bytes. A future workflow needs original-byte custody and validation. Notification and analyst outcome are separate, proposed steps."
+    },
+    {
+      "title": "Workflow: verify coverage before enabling rules",
+      "eyebrow": "Operating workflows · target unless explicitly current",
+      "kind": "diagram",
+      "diagram": {
+        "id": "onboard",
+        "label": "Workflow: verify coverage before enabling rules",
+        "nodes": [
+          {
+            "id": "0",
+            "x": 0,
+            "y": 35,
+            "w": 260,
+            "h": 110,
+            "title": "Discover scope",
+            "detail": "Accounts / log categories\nPrivate ownership mapping"
+          },
+          {
+            "id": "1",
+            "x": 300,
+            "y": 35,
+            "w": 260,
+            "h": 110,
+            "title": "Grant least privilege",
+            "detail": "Source roles / access tests\nIndependent evidence policy"
+          },
+          {
+            "id": "2",
+            "x": 600,
+            "y": 35,
+            "w": 260,
+            "h": 110,
+            "title": "Verify collection",
+            "detail": "Known test events + continuity\nObserver self-health"
+          },
+          {
+            "id": "3",
+            "x": 900,
+            "y": 35,
+            "w": 260,
+            "h": 110,
+            "title": "Activate detections",
+            "detail": "Only supported rule packs\nCompany routing / tuning"
+          },
+          {
+            "id": "fail",
+            "x": 450,
+            "y": 240,
+            "w": 300,
+            "h": 100,
+            "title": "Fix gaps; keep disabled",
+            "detail": "Retain independent originals\nInvestigate and record limits"
+          }
+        ],
+        "edges": [
+          {
+            "from": "0",
+            "to": "1"
+          },
+          {
+            "from": "1",
+            "to": "2"
+          },
+          {
+            "from": "2",
+            "to": "3"
+          },
+          {
+            "from": "2",
+            "to": "fail",
+            "path": "M730,145 L730,200 L600,200 L600,240",
+            "label": "failed validation",
+            "lx": 745,
+            "ly": 193
+          },
+          {
+            "from": "fail",
+            "to": "1",
+            "path": "M450,290 L285,290 L285,90 L300,90"
+          }
+        ],
+        "description": "Inventory → permission checks → positive collection/continuity proof → supported detections. Unknown coverage blocks a clean-security claim.",
+        "groups": []
+      },
+      "callout": "Automation reduces routine effort only when permissions, source adapters, upgrades and recovery paths are qualified.",
+      "sources": [
+        "product",
+        "failure",
+        "readiness"
+      ],
+      "notes": "Inventory → permission checks → positive collection/continuity proof → supported detections. Unknown coverage blocks a clean-security claim. This is an operational workflow design, not evidence of a deployed observer, distributed control store or automated upgrade system. A published core alone does not fulfill these prerequisites."
+    },
+    {
+      "title": "Workflow: restore data and control together",
+      "eyebrow": "Operating workflows · target unless explicitly current",
+      "kind": "diagram",
+      "diagram": {
+        "id": "restore",
+        "label": "Workflow: restore data and control together",
+        "nodes": [
+          {
+            "id": "0",
+            "x": 0,
+            "y": 35,
+            "w": 260,
+            "h": 110,
+            "title": "Stop / fence writers",
+            "detail": "Stop intake; keep source copies\nSelect supported recovery point"
+          },
+          {
+            "id": "1",
+            "x": 300,
+            "y": 35,
+            "w": 260,
+            "h": 110,
+            "title": "Preserve restore set",
+            "detail": "Objects + control backup\nRule / schema / receipt pins"
+          },
+          {
+            "id": "2",
+            "x": 600,
+            "y": 35,
+            "w": 260,
+            "h": 110,
+            "title": "Verify + replay",
+            "detail": "Check identities and versions\nReplay accepted progress"
+          },
+          {
+            "id": "3",
+            "x": 900,
+            "y": 35,
+            "w": 260,
+            "h": 110,
+            "title": "Resume / reconcile",
+            "detail": "Compare evidence + findings\nReconcile delivery uncertainty"
+          },
+          {
+            "id": "fail",
+            "x": 450,
+            "y": 240,
+            "w": 300,
+            "h": 100,
+            "title": "Mismatch: fail closed",
+            "detail": "Retain independent originals\nInvestigate and record limits"
+          }
+        ],
+        "edges": [
+          {
+            "from": "0",
+            "to": "1"
+          },
+          {
+            "from": "1",
+            "to": "2"
+          },
+          {
+            "from": "2",
+            "to": "3"
+          },
+          {
+            "from": "2",
+            "to": "fail",
+            "path": "M730,145 L730,200 L600,200 L600,240",
+            "label": "failed validation",
+            "lx": 745,
+            "ly": 193
+          }
+        ],
+        "description": "A restore must preserve object versions and workflow state. Local same-binary rehearsal exists; this full AWS workflow requires separate qualification.",
+        "groups": []
+      },
+      "callout": "Automation reduces routine effort only when permissions, source adapters, upgrades and recovery paths are qualified.",
+      "sources": [
+        "product",
+        "failure",
+        "readiness"
+      ],
+      "notes": "A restore must preserve object versions and workflow state. Local same-binary rehearsal exists; this full AWS workflow requires separate qualification. This is an operational workflow design, not evidence of a deployed observer, distributed control store or automated upgrade system. A published core alone does not fulfill these prerequisites."
+    },
+    {
+      "title": "Workflow: qualify changes before rollout",
+      "eyebrow": "Operating workflows · target unless explicitly current",
+      "kind": "diagram",
+      "diagram": {
+        "id": "upgrade",
+        "label": "Workflow: qualify changes before rollout",
+        "nodes": [
+          {
+            "id": "0",
+            "x": 0,
+            "y": 35,
+            "w": 260,
+            "h": 110,
+            "title": "Pin the release",
+            "detail": "Signed inputs / rule revisions\nSupported upgrade path"
+          },
+          {
+            "id": "1",
+            "x": 300,
+            "y": 35,
+            "w": 260,
+            "h": 110,
+            "title": "Test in staging",
+            "detail": "Replay / query / access checks\nBackup and restore rehearsal"
+          },
+          {
+            "id": "2",
+            "x": 600,
+            "y": 35,
+            "w": 260,
+            "h": 110,
+            "title": "Canary + compare",
+            "detail": "Observe errors and lag\nValidate old/new contracts"
+          },
+          {
+            "id": "3",
+            "x": 900,
+            "y": 35,
+            "w": 260,
+            "h": 110,
+            "title": "Roll out in bounds",
+            "detail": "Progressively replace workers\nRetain rollback evidence"
+          },
+          {
+            "id": "fail",
+            "x": 450,
+            "y": 240,
+            "w": 300,
+            "h": 100,
+            "title": "Rollback or stop",
+            "detail": "Retain independent originals\nInvestigate and record limits"
+          }
+        ],
+        "edges": [
+          {
+            "from": "0",
+            "to": "1"
+          },
+          {
+            "from": "1",
+            "to": "2"
+          },
+          {
+            "from": "2",
+            "to": "3"
+          },
+          {
+            "from": "2",
+            "to": "fail",
+            "path": "M730,145 L730,200 L600,200 L600,240",
+            "label": "failed validation",
+            "lx": 745,
+            "ly": 193
+          }
+        ],
+        "description": "Target operational workflow after a stable release. Rollback depends on a supported state/schema path; irreversible migrations require restore, not blind binary reversal.",
+        "groups": []
+      },
+      "callout": "Automation reduces routine effort only when permissions, source adapters, upgrades and recovery paths are qualified.",
+      "sources": [
+        "product",
+        "failure",
+        "readiness"
+      ],
+      "notes": "Target operational workflow after a stable release. Rollback depends on a supported state/schema path; irreversible migrations require restore, not blind binary reversal. This is an operational workflow design, not evidence of a deployed observer, distributed control store or automated upgrade system. A published core alone does not fulfill these prerequisites."
+    },
+    {
+      "eyebrow": "Enterprise comparison · functional fit",
+      "title": "Established products cover more ground today",
+      "table": {
+        "headers": [
+          "Option",
+          "Primary strength",
+          "Consider when…",
+          "SIGNAL comparison"
+        ],
+        "rows": [
+          [
+            "Splunk Enterprise Security",
+            "Broad SIEM investigation, risk-based alerting and response ecosystem",
+            "A mature SOC needs rich security workflows",
+            "SIGNAL has predicates and read-only evidence UI; broad SOC workflows remain future"
+          ],
+          [
+            "Elastic Security",
+            "Search platform with correlation, threshold and other detection types",
+            "You need flexible search and established detection tooling",
+            "SIGNAL targets selective Parquet scans; stateful detection is pending"
+          ],
+          [
+            "Datadog Cloud SIEM",
+            "Cloud security investigation within a broad observability platform",
+            "Fast managed onboarding and shared vendor tooling matter",
+            "SIGNAL emphasizes self-hosted ownership; more engineering stays with adopter"
+          ]
+        ]
+      },
+      "callout": "Comparison is a qualitative fit assessment, not a benchmark or feature-equivalence claim.",
+      "sources": [
+        "splunk",
+        "splunkrba",
+        "elastic",
+        "elasticrules",
+        "datadog",
+        "readiness"
+      ],
+      "notes": "Vendor capabilities depend on edition, configuration and contract. These are different products with different scopes. Splunk supports self-managed and cloud options; Elastic supports self-managed and cloud; do not label all incumbents SaaS-only. Datadog also has a BYOC log-management offering, so data ownership is not unique to SIGNAL. The comparative judgment is our inference from documented scope."
+    },
+    {
+      "eyebrow": "Enterprise comparison · AWS and log platforms",
+      "title": "Some alternatives are complementary",
+      "table": {
+        "headers": [
+          "Option",
+          "What it provides",
+          "Tradeoff / fit judgment",
+          "Relationship to SIGNAL"
+        ],
+        "rows": [
+          [
+            "CloudWatch Logs + GuardDuty + Security Lake",
+            "Managed log query, threat detection and an S3/OCSF security lake",
+            "Multiple services to integrate; AWS is the natural center",
+            "Preserve native protections. Any SIGNAL subscriber/adapter needs design and proof"
+          ],
+          [
+            "Grafana Loki",
+            "Log aggregation with label indexing and compressed chunks",
+            "Good log-first option; broader security workflow needs other tooling",
+            "Evaluate for operational logs before building a new stack"
+          ],
+          [
+            "PLATFORM::SIGNAL",
+            "Locally proven Rust core; target shared AWS log/security workflow",
+            "Private policy and focused mechanisms; adopter owns product gaps",
+            "Pilot a specific unmet need rather than replace the estate"
+          ]
+        ]
+      },
+      "callout": "S3, Parquet and data ownership are useful design choices; other platforms offer them too.",
+      "sources": [
+        "cloudwatch",
+        "guardduty",
+        "securitylake",
+        "loki",
+        "product"
+      ],
+      "notes": "Security Lake normalizes supported security data into OCSF Parquet in the customer's AWS account. SIGNAL's canonical event schema is different: an adapter is required, and none is claimed here. GuardDuty is a managed threat detector, not a general application-log search engine. Loki is a logging system, not an equivalent complete SIEM. AWS native services can remain authoritative while SIGNAL is evaluated."
+    },
+    {
+      "eyebrow": "Enterprise comparison · commercial and operating model",
+      "title": "Compare total ownership, not the license alone",
+      "table": {
+        "headers": [
+          "Option",
+          "Cost structure to validate",
+          "Work retained by the company"
+        ],
+        "rows": [
+          [
+            "Splunk",
+            "Ingest/workload/activity options; ES package and contract quote",
+            "Source onboarding, detection tuning; infrastructure if self-managed"
+          ],
+          [
+            "Elastic",
+            "Deployment resources and chosen subscription/features",
+            "Schemas, detections and tuning; cluster operations if self-managed"
+          ],
+          [
+            "Datadog",
+            "Log/SIEM plans, retention and other enabled products",
+            "Collection scope, integration, detections and response policy"
+          ],
+          [
+            "AWS native stack",
+            "Log ingest/store/scan, detector/lake fees and downstream services",
+            "Cross-service configuration, permissions and investigation workflow"
+          ],
+          [
+            "SIGNAL",
+            "Apache-2.0 core + AWS infrastructure + engineering/support",
+            "Runtime, upgrades, adapter maintenance, security and detection content"
+          ]
+        ]
+      },
+      "callout": "No like-for-like quote or capacity trial has been run. No percentage saving is claimed.",
+      "sources": [
+        "splunkpricing",
+        "elastic",
+        "datadogpricing",
+        "awspricing",
+        "lakepricing",
+        "product"
+      ],
+      "notes": "Commercial pages change; verify quotes at procurement. Datadog's current public pricing and billing documentation are not perfectly aligned on SIEM units, so this deck deliberately omits unit prices. Elastic costs depend on deployment and subscription. An open core does not provide a contracted support SLA by itself. Include migration and the engineering needed to finish target features when comparing SIGNAL today."
+    },
+    {
+      "eyebrow": "Business case · benefits to prove",
+      "title": "Why the example company might adopt",
+      "cards": [
+        {
+          "title": "Data and policy control",
+          "items": [
+            "Choose storage and retention in its AWS environment.",
+            "Keep sensitive policy, topology and routing private.",
+            "Inspect public mechanisms and contribute generic improvements."
+          ]
+        },
+        {
+          "title": "Focused team workflow",
+          "items": [
+            "Use shared resource context for operations and security.",
+            "Build detections around company services and owners.",
+            "Target independently recoverable evidence and visible coverage gaps."
+          ]
+        },
+        {
+          "title": "Architecture discipline",
+          "items": [
+            "Start with a small modular deployment.",
+            "Avoid mandatory broker or search-cluster tiers in the target.",
+            "Measure selective query acceleration before adding indexes."
+          ]
+        }
+      ],
+      "callout": "Adopt when measured control and workflow benefits justify the engineering responsibility.",
+      "sources": [
+        "product",
+        "architecture"
+      ],
+      "notes": "Target storage and retention control is an opportunity, not a completed integration. Open code may reduce dependency on a vendor-specific query/storage system, but switching still costs money: event mapping, private enrichment, rules and operational processes are investments. Rust and Parquet are implementation choices; neither proves reliability, low memory or cheap operation for the customer's workload."
+    },
+    {
+      "eyebrow": "Business case · costs and risks",
+      "title": "Why the company might choose another option",
+      "cards": [
+        {
+          "title": "Product maturity",
+          "items": [
+            "AWS/SaaS adapters and durable notification are incomplete.",
+            "No advanced cases, SOAR, full APM or broad integrations today.",
+            "No supported production capacity or qualified Standard HA."
+          ]
+        },
+        {
+          "title": "Operating responsibility",
+          "items": [
+            "Company owns on-call, dependencies and restore acceptance.",
+            "Small has one writer and an explicit outage boundary.",
+            "Unindexed historical scans may exceed query budgets."
+          ]
+        },
+        {
+          "title": "Security and economics",
+          "items": [
+            "Production authorization and transport controls need work.",
+            "No established commercial support promise in this checkout.",
+            "Engineering and migration can outweigh license savings."
+          ]
+        }
+      ],
+      "callout": "If mature SOC workflows or managed service accountability are immediate requirements, buy them.",
+      "sources": [
+        "product",
+        "readiness"
+      ],
+      "notes": "This is the central decision constraint. A small security team should not become an accidental platform vendor. Existing enterprise solutions may be the lower-cost choice after staffing and time-to-value are included. Target security controls must pass before production access; putting the current static-token API behind an IdP does not automatically establish per-scope authorization."
+    },
+    {
+      "title": "Account count is an inventory assumption",
+      "eyebrow": "Scale scenarios · fictional organizations",
+      "table_model": "inventory",
+      "callout": "EC2 excludes EKS nodes; count Aurora once. The 1,000-account case is outside the target envelope.",
+      "sources": [
+        "costmodel",
+        "product"
+      ],
+      "notes": "Resource counts describe an illustrative selected estate, not a discovered organization or empirical average. Counts include the organization’s central accounts where they exist. Only the 1-account case lacks an independent security account. The 1000-account case is beyond the design envelope. Pods are running monitored workload units, not additional EC2 nodes. Aurora reader/writer instances are not also counted under other RDS. Business workload compute and database prices are excluded from SIGNAL cost."
+    },
+    {
+      "title": "Separate workload resources from SIGNAL resources",
+      "eyebrow": "Scale scenarios · supporting inventory",
+      "table_model": "inventory-other",
+      "callout": "Existing EKS control planes and workload databases are not incremental SIGNAL infrastructure.",
+      "sources": [
+        "costmodel",
+        "ekspricing",
+        "product"
+      ],
+      "notes": "The scenario allocates c6i.xlarge Linux workers to SIGNAL for costing, not as a capacity prescription: 1 server; 1 server+1 collector; 3 servers+2 collectors; ten 100-account cells. 100 and 1000 accounts use 1/10 separate Multi-AZ PostgreSQL control DB deployments with 200 GiB each. These are not the workload RDS instances above. Cells are independent hypothetical deployments, with no implemented cross-cell federation. Add a dedicated SIGNAL EKS cluster only if desired; the base uses EC2/container hosts. Existing EKS standard-support control-plane fees alone would be $73/$146/$1460/$14600 per 730-hour month, excluding workers and add-ons."
+    },
+    {
+      "title": "Derive messages from source bytes and size",
+      "eyebrow": "Telemetry model · assumptions, not observations",
+      "table": {
+        "headers": [
+          "Source class",
+          "Daily bytes per entity",
+          "Mean canonical message"
+        ],
+        "rows": [
+          [
+            "EC2 / selected EKS pod logs",
+            "0.50 / 0.15 GB per host/pod",
+            "1,000 bytes"
+          ],
+          [
+            "EKS audit / AWS management",
+            "0.50 / 0.20 GB per cluster/account",
+            "3,000 bytes"
+          ],
+          [
+            "Selected database logs",
+            "1.00 GB per Aurora/RDS instance",
+            "2,000 bytes"
+          ],
+          [
+            "Lambda / bucket / load-balancer",
+            "0.05 / 0.02 / 0.20 GB per entity",
+            "1,000 bytes"
+          ]
+        ]
+      },
+      "callout": "messages/day = Σ(source GB/day × 1,000,000,000 ÷ mean canonical bytes/message).",
+      "sources": [
+        "costmodel"
+      ],
+      "notes": "Daily GB are decimal; billing storage is converted to GiB. Message sizes are canonical JSON-equivalent payload means, not vendor object sizes, HTTP framing or compressed wire bytes. Planning ranges: application 0.5–4 KB, database 1–8 KB, audit 2–12 KB; these ranges are assumptions, not a measured percentile distribution. Per-event caps still apply. This selected mix excludes blanket VPC Flow Logs, S3 CloudTrail data-event coverage, full database query auditing, traces, metrics and SaaS/network sources. Bucket events refer to selected application/native event messages, not blanket paid CloudTrail object data events. Change volume and size together when discovery finds a different mix."
+    },
+    {
+      "title": "The example estates produce very different loads",
+      "eyebrow": "Telemetry model · calculated baseline",
+      "table_model": "traffic",
+      "callout": "5× bursts are 60-second planning stress cases. Neither sustained rates nor bursts are qualified here.",
+      "sources": [
+        "costmodel",
+        "product"
+      ],
+      "notes": "Each monthly message total is daily messages ×30: about 233.5M, 1.533B, 15.33B and 153.3B. Canonical monthly volumes are 292.5 GB, 1.833 TB, 18.33 TB and 183.3 TB. Baseline searchable retention is 90 days at 25% stored/input ratio; protected originals are a separate 30% input subset retained 365 days at 50% stored/input. These steady-state quantities are not first-month ramp-up usage. The 1000-account case averages 6.11 TB/day and a 5× burst is approximately 296K EPS, outside the current 5-TB/day and 200K burst-experiment envelope. At that size use no capacity claim without new design and qualification."
+    },
+    {
+      "title": "Workload bytes dominate the scale question",
+      "eyebrow": "Graph · canonical GB/day, logarithmic axis",
+      "chart": "volume",
+      "callout": "The 1,000-account case is a ten-cell cost extrapolation; one global deployment is not promised.",
+      "sources": [
+        "costmodel",
+        "product"
+      ],
+      "notes": "Bars show calculated canonical uncompressed GB/day from the explicit inventory and source assumptions. Axis is logarithmic so all four scenarios remain visible. Employee or AWS account count does not imply traffic. Quieter accounts can have little traffic; one busy account can exceed this entire estate. Resources, message sizes, rules and query concurrency determine sizing."
+    },
+    {
+      "title": "Estimate monthly AWS cost in USD",
+      "eyebrow": "Interactive scenario calculator · after qualified stable product",
+      "kind": "calculator",
+      "callout": "Planning estimate, not a quote or capacity guarantee. The 1,000-account case remains outside scope.",
+      "sources": [
+        "costmodel",
+        "ratesnapshot",
+        "product"
+      ],
+      "notes": "Controls operate offline and update only this calculator. Static tables and graphs elsewhere show the frozen baseline. Direct SIGNAL infrastructure includes compute, disks, snapshots, control DB, retained telemetry/originals, requests, KMS/secrets, ALB, selected private API endpoints, cross-AZ allowance, optional SQS source transport and a monitoring allowance. Source delivery adds selected CloudWatch ingest/storage. Turn that off if already budgeted and retained independently: it does not mean collection is free. Labor is a separate assumed fully loaded rate. Compute/disk allocation may be multiplied; changing traffic alone does not prove those nodes are sufficient. No planned capacity, labor hours or database shape is auto-qualified."
+    },
+    {
+      "title": "The baseline bill is traceable by category",
+      "eyebrow": "Monthly AWS estimate · USD · 730 compute hours / 30 traffic days",
+      "table_model": "cost",
+      "callout": "1,000 accounts is an extrapolation. Excludes workload bills, support, tax and regional disaster recovery.",
+      "sources": [
+        "costmodel",
+        "ratesnapshot"
+      ],
+      "notes": "Amounts are rounded for presentation; unrounded values drive totals. Direct SIGNAL subtotal is about $234/$508/$2692/$26921. Optional source delivery is about $53/$262/$2621/$26206. Total is about $288/$770/$5313/$53127. Source charges assume custom Standard CloudWatch rates without free tiers or negotiated/vended-log reductions, and conservatively charge 7 days of source storage without a separate compression discount. Avoid double-counting these costs if already on the workload bill. Baseline S3 Standard retention is mature steady state. +40% is a planning reserve, not a statistical confidence interval or an upper bound."
+    },
+    {
+      "title": "Prices and allocations are separate inputs",
+      "eyebrow": "Price baseline · us-east-1 · checked 7 July 2026",
+      "cards": [
+        {
+          "title": "Verified unit prices",
+          "items": [
+            "Linux c6i.xlarge: $0.17/hour; gp3: $0.08/GiB-month.",
+            "S3 Standard: $0.023 / $0.022 / $0.021 per GiB-month by tier.",
+            "PostgreSQL db.m6i.large Multi-AZ: $0.356/hour + $0.23/GiB-month.",
+            "CloudWatch custom Standard ingest: $0.50/GiB; storage: $0.03/GiB-month."
+          ]
+        },
+        {
+          "title": "Explicit planning choices",
+          "items": [
+            "90 days normalized at 25%; 365 days originals at 30% × 50%.",
+            "S3 files: target 16 MiB normalized / 1 MiB original; count small-file floors.",
+            "Private EC2 hosting; optional ALB and five API endpoint services per AZ.",
+            "No free-tier/discount savings; monitoring allowance is an assumption."
+          ]
+        }
+      ],
+      "callout": "Regional product records and rate codes are retained in pricing-snapshot.json; assumptions remain editable.",
+      "sources": [
+        "ratesnapshot",
+        "s3pricing",
+        "rdspricing",
+        "ec2pricing"
+      ],
+      "notes": "Selected regional AWS price-list files were downloaded and filtered, retaining product SKU, rate code, publicationDate, source URL and full-file SHA256. Exact c6i.xlarge, gp3, snapshot, RDS Multi-AZ, S3, CloudWatch, KMS, SQS and Secrets Manager rates are pinned. ELB, PrivateLink and transfer rates use official pricing pages. Native ARM64 prices are not substituted without runtime qualification. c6i.xlarge has 4 vCPU/8 GiB; counts are a costing allocation, not a throughput claim. RDS price includes the Multi-AZ deployment; do not multiply standby compute/storage again."
+    },
+    {
+      "title": "AWS spend rises with the selected estate",
+      "eyebrow": "Graph · monthly AWS baseline, logarithmic axis",
+      "chart": "cost",
+      "callout": "Total includes direct SIGNAL AWS and selected source delivery; labor is separate.",
+      "sources": [
+        "costmodel",
+        "ratesnapshot"
+      ],
+      "notes": "This graph uses the same calculator engine as the tables and interactive view. Total baseline amounts are rounded only for display. After stable release, the estate must still qualify queries, burst recovery, access controls and capacity. 1000 accounts are modeled as ten independent 100-account cells with conservative per-cell S3 price tiers, not one globally available service."
+    },
+    {
+      "title": "Retention, delivery and routing can change the bill",
+      "eyebrow": "Sensitivity · estimate deltas, not vendor savings claims",
+      "cards": [
+        {
+          "title": "Storage and source policy",
+          "items": [
+            "30→90 days searchable adds 60 × stored normalized daily bytes.",
+            "365-day originals can cost more than searchable Parquet.",
+            "CloudWatch source delivery may already be on the workload bill."
+          ]
+        },
+        {
+          "title": "Network and deployment",
+          "items": [
+            "A new EKS cluster adds $73/month in standard support, plus workers.",
+            "NAT adds $32.85/month per gateway + $0.045/GiB processed.",
+            "Cross-Region copies, internet egress and extra endpoints add separately."
+          ]
+        },
+        {
+          "title": "Workload contention",
+          "items": [
+            "Doubling modeled EC2 + disks adds capacity cost; it does not prove capacity.",
+            "Queries scan about 469 GiB/account/month in this example.",
+            "Query CPU, caches and burst headroom need measured sizing."
+          ]
+        }
+      ],
+      "callout": "Excluded high-volume sources and blanket flow/data-event logging can overwhelm this estimate.",
+      "sources": [
+        "costmodel",
+        "ekspricing",
+        "natpricing",
+        "privatelink"
+      ],
+      "notes": "The baseline includes a modeled 25% one-pass cross-AZ share at $0.02/GiB combined endpoints, not all possible hops. Same-region S3 gateway access needs no NAT. Five interface services per AZ are an illustrative subset; ECR/SSM deployment needs can add more. ALB LCU calculation uses a minimum 1/cell and a processed-byte assumption; real connections/rules can be larger. No Athena scan fee is charged: SIGNAL queries use the allocated compute and S3 GETs. Native originals are one selected management-event copy; additional trails and data events have separate fees. Read detailed exclusions before using the headline totals."
+    },
+    {
+      "title": "Budget recurring work after a stable release",
+      "eyebrow": "Operations · estimated scheduled person-hours/month",
+      "table_model": "hours",
+      "callout": "Requires automated rollout, scoped adapters, managed DB, monitoring and rehearsed runbooks for the selected profile.",
+      "sources": [
+        "costmodel",
+        "product"
+      ],
+      "notes": "These bands are engineering planning judgments, not operational telemetry or a vendor support SLA. Release maintenance includes applying qualified releases and checking dependencies, not writing new platform features or serving as upstream maintainer. Backup/restore effort is an amortized monthly average of scheduled exercises. Source configuration covers normal additions and credential/access checks within the assumed stable estate. New adapters, major migrations, audits and outages are separate project/incident work. Ten isolated cells create shared tooling plus repeated verification; the hours are not simply ten times the 100-account case."
+    },
+    {
+      "title": "Platform effort and detection work need separate owners",
+      "eyebrow": "Staffing · post-stable-release planning bands",
+      "table_model": "staffing",
+      "callout": "Hours ÷160 = effort FTE, not a 24/7 roster. The 1,000-account case is a planning extrapolation.",
+      "sources": [
+        "costmodel"
+      ],
+      "notes": "Detection/policy work includes enabling supported packs, exceptions, tuning and periodic quality review; it excludes investigating every security finding and incident response. Loaded labor at $100/hour is an editable budget assumption, not an AWS price or salary benchmark. Scheduled total hours: 10–20, 20–40, 64–128 and 240–480 per month, equivalent to 0.06–0.13, 0.13–0.25, 0.40–0.80 and 1.5–3.0 FTE effort. Assign at least a primary and a backup operator even at fractional effort; 24/7 coverage requires an established shared rota or funded additional staffing. Assume the stable release covers the selected capabilities; a core-only release does not meet that premise. Fully loaded totals add baseline AWS and labor without the 40% AWS reserve."
+    },
+    {
+      "eyebrow": "Reliability · target budgets",
+      "title": "An outage budget has a storage price",
+      "cards": [
+        {
+          "title": "Spool sizing example",
+          "items": [
+            "50 GB/day ≈ 0.579 MB/s of canonical input.",
+            "Four hours ≈ 8.33 GB; 2× reserve ≈ 16.67 GB.",
+            "Illustrative only: measure persisted bytes and per-shard peaks."
+          ]
+        },
+        {
+          "title": "Catch-up requirement",
+          "items": [
+            "Replay throughput must exceed new arrivals.",
+            "Backlog / (replay rate − arrival rate) gives catch-up time.",
+            "Expiry or exhausted capacity means an explicit coverage gap."
+          ]
+        },
+        {
+          "title": "Standard objectives",
+          "items": [
+            "99.9% monthly control/API availability is a target.",
+            "RPO 0 applies only to acknowledged object-backed custody in the tested model.",
+            "Server/AZ failover objective: provisional 15 minutes."
+          ]
+        }
+      ],
+      "callout": "Local WAL, protected originals, detection freshness and notification lag have separate guarantees.",
+      "sources": [
+        "product",
+        "failure"
+      ],
+      "notes": "At the illustrative input rate, four hours is one sixth of the day. If measured persisted bytes differ, spool allocation must change. Fleet disk totals do not guarantee capacity for a hot source or shard. Today's 202 does not implement the target object-backed custody guarantee. 99.9% allows 43.2 minutes in a 30-day month; report platform-caused throttling and planned disruption under the target measurement definition. Region/account recovery is separate."
+    },
+    {
+      "eyebrow": "Adoption · proposed pilot stages",
+      "title": "Make the first commitment small and reversible",
+      "table": {
+        "headers": [
+          "Stage",
+          "Work",
+          "Exit evidence"
+        ],
+        "rows": [
+          [
+            "1 · Define",
+            "One use case, owners, data classification and incumbent baseline",
+            "Fixed scope, cost ceiling, query/lag targets and rollback path"
+          ],
+          [
+            "2 · Core lab",
+            "Existing file/HTTP ingestion + UI + private rules; synthetic failures",
+            "Admission/replay, exact evidence navigation and operator effort"
+          ],
+          [
+            "3 · AWS slice",
+            "Only after source adapter, custody and security qualification",
+            "Native source → original → canonical event → finding → delivery"
+          ],
+          [
+            "4 · Decide",
+            "Run matched workload, tune detections and rehearse restore",
+            "Compare TCO/SLOs; expand, continue bounded work or stop"
+          ]
+        ]
+      },
+      "callout": "No fixed production date: missing capabilities and external gates determine the schedule.",
+      "sources": [
+        "product",
+        "readiness"
+      ],
+      "notes": "This deck authorizes no AWS provisioning. The proposal can begin with a local lab on existing core mechanisms. Actual AWS work needs environment authority and qualified source semantics. Define deletion/retention and privacy rules before forwarding real logs. Keep incumbent collection running, and preserve independent originals, until the acceptance decision. Stop if source coverage, access isolation or recovery cannot be proved."
+    },
+    {
+      "eyebrow": "Adoption · proposed acceptance",
+      "title": "Measure outcomes before expanding",
+      "table": {
+        "headers": [
+          "Owner",
+          "Proposed measurement",
+          "Expansion gate"
+        ],
+        "rows": [
+          [
+            "DevOps",
+            "Selected-rate replay + restart; p95 ≤3 s for agreed bounded queries",
+            "No missing admitted records in tested failures; ≤4 routine operator hours/week after setup"
+          ],
+          [
+            "SecOps",
+            "Fixture attacks, native evidence and denied cross-scope access",
+            "Every agreed positive/negative case passes; coverage gaps are visible"
+          ],
+          [
+            "Architects",
+            "Restore, custody/fencing for selected profile, native platform gates",
+            "Documented recovery and security controls; no unqualified scale claim"
+          ],
+          [
+            "Shared",
+            "Fully loaded TCO and actionable findings reviewed weekly",
+            "Owners accept benefit/cost against the incumbent baseline"
+          ]
+        ]
+      },
+      "callout": "These are proposed pilot criteria for agreement, not current performance results or product SLAs.",
+      "sources": [
+        "product",
+        "readiness"
+      ],
+      "notes": "The three-second query and four-hour weekly effort targets are illustrative choices for discussion. Fix query selectivity, data age, concurrency and hardware before testing. Set numeric native source delay, admitted-to-finding and delivery lag targets after source discovery; they cannot share one unconditional deadline. Access-denial and live coverage tests require the target controls, not just today's token check."
+    },
+    {
+      "eyebrow": "Decision",
+      "title": "Choose ownership deliberately",
+      "cards": [
+        {
+          "title": "Evaluate SIGNAL when…",
+          "items": [
+            "AWS and company-specific context dominate the need.",
+            "Focused log/security workflows are sufficient initially.",
+            "An engineering owner can fund qualification and operation."
+          ]
+        },
+        {
+          "title": "Prefer an established platform when…",
+          "items": [
+            "Broad integrations and mature SOC work must work now.",
+            "Managed support and availability are purchase requirements.",
+            "The team cannot sustain platform and detection maintenance."
+          ]
+        }
+      ],
+      "callout": "Recommended next step: a bounded core lab, followed by an AWS pilot only when its gates pass.",
+      "sources": [
+        "product",
+        "readiness"
+      ],
+      "notes": "The recommendation is conditional on the hypothetical company's goals. Do not replace GuardDuty or a working SIEM to justify this project. Agree one high-value use case and compare measured alternatives. Successful adoption means improved evidence quality or operating economics with accepted responsibility, rather than adding another tool."
+    },
+    {
+      "eyebrow": "Appendix · source and claim map",
+      "title": "Architecture claims come from the checkout",
+      "kind": "references",
+      "references": [
+        "product",
+        "architecture",
+        "logical",
+        "failure",
+        "overlay",
+        "ui",
+        "progress",
+        "readiness",
+        "catalog"
+      ],
+      "callout": "Snapshot: 7 July 2026. Current evidence and target decisions have different authority.",
+      "notes": "Read the product architecture for future direction, progress and release readiness for current proof, and failure domains for acknowledgement semantics. Sources link to repository documents beside this presentation. Concurrent work can change the checkout after this snapshot; regenerate or review the deck before treating it as a newer readiness report."
+    },
+    {
+      "eyebrow": "Appendix · official vendor sources",
+      "title": "Compare documented scope; request real quotes",
+      "kind": "references",
+      "references": [
+        "splunk",
+        "splunkrba",
+        "splunkpricing",
+        "elastic",
+        "elasticrules",
+        "datadog",
+        "datadogpricing",
+        "cloudwatch",
+        "guardduty",
+        "securitylake",
+        "loki",
+        "objectlock",
+        "awspricing",
+        "lakepricing"
+      ],
+      "callout": "Official sources checked 7 July 2026. Comparative fit judgments are our inference; no vendor benchmark was run.",
+      "notes": "Context7 was consulted for Amazon S3, but returned general documentation rather than the needed Object Lock details; direct primary AWS documentation supplied those details. Source URLs are also clickable in the PowerPoint notes and HTML. Vendor editions and prices can change. This comparison deliberately avoids unsupported performance rankings, universal cost claims and precise price units."
+    },
+    {
+      "title": "AWS price sources and the reproducible model",
+      "eyebrow": "Appendix · rate snapshot and explicit assumptions",
+      "kind": "references",
+      "references": [
+        "costmodel",
+        "ratesnapshot",
+        "ec2pricing",
+        "s3pricing",
+        "rdspricing",
+        "ekspricing",
+        "elbpricing",
+        "privatelink",
+        "natpricing",
+        "kmspricing",
+        "secretspricing",
+        "trailpricing"
+      ],
+      "callout": "Price snapshot: 7 July 2026. Units, rates, formulas, source assumptions and staffing exclusions are retained.",
+      "notes": "The linked source files and detailed model note allow independent arithmetic review. Full-file price-list hashes bind the retained selected records to the downloaded AWS regional files, which remain in the local evidence folder where retained. USD estimates are hypothetical on-demand budgets without tax or contractual discounts. No supportable scale claim follows from cost arithmetic."
+    }
+  ],
+  "sources": {
+    "product": [
+      "Target product architecture / profiles / budgets",
+      "../../27-product-architecture.md"
+    ],
+    "architecture": [
+      "Architecture / canonical event / OSS boundary",
+      "../../01-architecture.md"
+    ],
+    "logical": [
+      "Logical architecture and trust boundaries",
+      "../../logical-architecture.md"
+    ],
+    "failure": [
+      "Failure domains and M0–M7 custody semantics",
+      "../../failure-domains.md"
+    ],
+    "overlay": [
+      "External company overlay integration",
+      "../../17-external-overlay.md"
+    ],
+    "ui": [
+      "Read-only SecOps UI contract",
+      "../../28-secops-ui.md"
+    ],
+    "progress": [
+      "Current implementation and local evidence",
+      "../../07-progress.md"
+    ],
+    "readiness": [
+      "Release readiness and open qualification gates",
+      "../../21-release-readiness.md"
+    ],
+    "catalog": [
+      "Source/detection requirements catalog",
+      "../../source-detection-catalog.md"
+    ],
+    "splunk": [
+      "Splunk Enterprise Security",
+      "https://www.splunk.com/en_us/products/enterprise-security.html"
+    ],
+    "splunkrba": [
+      "Splunk risk-based alerting",
+      "https://help.splunk.com/en/splunk-enterprise-security-7/risk-based-alerting/7.3/introduction/about-risk-based-alerting-in-splunk-enterprise-security"
+    ],
+    "splunkpricing": [
+      "Splunk pricing options",
+      "https://www.splunk.com/en_us/products/pricing.html"
+    ],
+    "elastic": [
+      "Elastic Security scope and deployment",
+      "https://www.elastic.co/docs/solutions/security"
+    ],
+    "elasticrules": [
+      "Elastic detection rule types",
+      "https://www.elastic.co/docs/solutions/security/detect-and-alert/using-the-rule-ui"
+    ],
+    "datadog": [
+      "Datadog Cloud SIEM",
+      "https://www.datadoghq.com/product/cloud-siem/"
+    ],
+    "datadogpricing": [
+      "Datadog pricing by product",
+      "https://www.datadoghq.com/pricing/"
+    ],
+    "cloudwatch": [
+      "CloudWatch Logs scope",
+      "https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/WhatIsCloudWatchLogs.html"
+    ],
+    "guardduty": [
+      "GuardDuty scope",
+      "https://docs.aws.amazon.com/guardduty/latest/ug/what-is-guardduty.html"
+    ],
+    "securitylake": [
+      "Security Lake / S3 / OCSF / Parquet",
+      "https://docs.aws.amazon.com/security-lake/latest/userguide/what-is-security-lake.html"
+    ],
+    "loki": [
+      "Grafana Loki architecture overview",
+      "https://grafana.com/docs/loki/latest/get-started/overview/"
+    ],
+    "objectlock": [
+      "S3 Object Lock retained-version protection",
+      "https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock.html"
+    ],
+    "awspricing": [
+      "CloudWatch pricing dimensions",
+      "https://aws.amazon.com/cloudwatch/pricing/"
+    ],
+    "lakepricing": [
+      "Security Lake pricing dimensions",
+      "https://aws.amazon.com/security-lake/pricing/"
+    ],
+    "costmodel": [
+      "Scenario model / math / labor assumptions",
+      "cost-assumptions.md"
+    ],
+    "ratesnapshot": [
+      "Pinned AWS regional rate records",
+      "pricing-snapshot.json"
+    ],
+    "ec2pricing": [
+      "EC2 / EBS regional pricing",
+      "https://aws.amazon.com/ec2/pricing/on-demand/"
+    ],
+    "s3pricing": [
+      "S3 storage and request pricing",
+      "https://aws.amazon.com/s3/pricing/"
+    ],
+    "rdspricing": [
+      "RDS PostgreSQL pricing",
+      "https://aws.amazon.com/rds/postgresql/pricing/"
+    ],
+    "ekspricing": [
+      "EKS control-plane pricing",
+      "https://aws.amazon.com/eks/pricing/"
+    ],
+    "elbpricing": [
+      "Elastic Load Balancing pricing",
+      "https://aws.amazon.com/elasticloadbalancing/pricing/"
+    ],
+    "privatelink": [
+      "PrivateLink interface endpoint pricing",
+      "https://aws.amazon.com/privatelink/pricing/"
+    ],
+    "natpricing": [
+      "VPC / NAT pricing",
+      "https://aws.amazon.com/vpc/pricing/"
+    ],
+    "kmspricing": [
+      "KMS pricing",
+      "https://aws.amazon.com/kms/pricing/"
+    ],
+    "secretspricing": [
+      "Secrets Manager pricing",
+      "https://aws.amazon.com/secrets-manager/pricing/"
+    ],
+    "trailpricing": [
+      "CloudTrail management-copy cost boundary",
+      "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-trail-manage-costs.html"
+    ]
+  }
+}
