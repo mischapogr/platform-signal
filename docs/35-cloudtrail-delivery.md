@@ -1,6 +1,6 @@
 # CloudTrail delivery and local simulation
 
-AWS-DELIVERY remains in progress in the frozen execution ledger. One reference
+AWS-DELIVERY is passed_simulated in the frozen execution ledger. One reference
 per message is the first qualified capacity; no additional service is required.
 
 The first substep validates a direct S3 notification in at most 256 KiB, depth 16,
@@ -155,6 +155,59 @@ correction; no alternate source delivery is accidentally acknowledged.
 Seven SDK regressions and one additional real-server driver test pass with all
 workspace acceptance: 500 tests, zero failures, independent review resolved.
 Evidence: `target/goal-execution-20261007/AWS-DELIVERY/driver-validation.json`.
-A signed AWS source transport still needs local protocol/credential qualification;
+At driver acceptance signed AWS transport still needed local qualification;
+its later acceptance appears below.
 actual AWS/permission/source-completeness and independent custody gates remain
 external or separately planned. The fixture coordinator is not a restore witness.
+
+
+## Optional signed AWS source transport
+
+Enable `signal-collector-sdk`'s `aws-source` feature for `AwsSourceClient`.
+`AwsSourceConfig` pins a commercial queue ARN/owner, queue URL, S3 region/endpoint
+and finite visibility. `AwsCredentialsProvider` supplies bounded current
+credentials for each request; credentials must outlive the remaining operation
+budget. The adapter does not discover credentials or assume roles automatically.
+One invocation issues one request with no retry loop. Application code owns
+AssumeRole/STS/provider acquisition, aggregate concurrency and polling cadence.
+
+SQS uses the AWS JSON ReceiveMessage/DeleteMessage targets and requests one
+message. Replies are capped at actual 2 MiB before bounded decoding; Body stays
+at 256 KiB, ID at 128 bytes and ephemeral handle at 16 KiB. Malformed/duplicate
+JSON, multi-message replies, known error envelopes, denial/throttle/outage and
+expired credentials never become idle success. Delete checks the ticket's full
+binding before I/O and caps the actual reply at 64 KiB. Only 200 with an empty
+body is confirmed response handling; stale-handle success and later redelivery
+remain possible. Source errors leave physical intent recoverable, not confirmed.
+
+S3 requests exact key/version and expected owner with path-style HTTPS, streamed
+bounded original bytes and actual response version. It rejects URL-lossy key
+segments/control bytes and invalid AWS bucket spelling before credentials.
+Explicit AWS URI byte encoding preserves key slashes/repeated separators and
+encodes reserved/UTF-8 bytes and version query values. Generic URL encoding is
+insufficient, as the retained before-fix regression demonstrates. Source restore,
+throttle, permission, missing-version and outage errors hold work. Redirects,
+proxy lookup and automatic decompression are disabled. Numeric-loopback HTTP
+requires an explicit test-only opt-in. Signing traces are locally suppressed;
+credentials, payloads and receipt handles are never formatted in errors/logs.
+
+Amazon's official signer is optional; no existing locked package version is
+replaced. The declared Rust minimum now equals the already pinned 1.94.1.
+The server forwards the feature for integration qualification; this adds no
+collector startup mode, credentials or private configuration to the monolith.
+
+```bash
+cargo test -p signal-collector-sdk --features aws-source --locked --offline aws_tests
+cargo test -p signal-server --features aws-source --locked --offline --test cloudtrail-delivery
+cargo test --workspace --all-features --locked --offline
+```
+
+Eleven SDK regressions and one additional signed-source/real-server test pass;
+default 500/all-feature 512 workspace tests, formatting, strict Clippy, package
+guard and independent source review all pass. CI now includes optional features.
+The independent wire witness also matches the [published AWS GET vector](https://docs.aws.amazon.com/AmazonS3/latest/developerguide/sig-v4-header-based-auth.html).
+Evidence: `target/goal-execution-20261007/AWS-DELIVERY/signed-transport-validation.json`
+and `signed-transport-independent-review.json`. This is synthetic local protocol
+proof, not actual AWS signature acceptance, TLS/IAM/KMS/permissions, source
+configuration/digest/coverage or host/account-loss custody qualification.
+Continue COVERAGE-OBSERVERS without closing EXT-AWS or the evidence-plane item.

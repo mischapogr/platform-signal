@@ -47,7 +47,10 @@ correction have 477-test acceptance; retained-byte batch publication has 485-tes
 acceptance. Configured HTTP transport has four actual TCP regressions and 489-test
 acceptance. Three source/real-server delivery simulations have 492-test acceptance.
 The bounded collector driver has 500-test acceptance with seven SDK regressions
-and one actual-source/real-server test. Signed AWS source transport is next;
+and one actual-source/real-server test. Optional signed AWS source transport now
+has default500/all-feature512 acceptance, including an independent AWS signature
+vector/wire witness and signed-source/real-server fault/recovery test. AWS-DELIVERY
+is passed_simulated; COVERAGE-OBSERVERS is next;
 existing unavailable environment/release gates remain open. Keep
 one writer per coherent owned path set, independent focused review and a settled
 evidence pass. Do not overlap writers or treat permission to delegate as authority
@@ -240,11 +243,12 @@ have not been measured. Calibrate on Phase 3 before forecasting the remaining wo
 
 ## Remaining tasks in order
 
-UI-01/UI-02 and locally runnable current-image checks are accepted. Next is
-atomic verified-prefix progress/replay from [30](30-source-receipt-contract.md),
-then retirement/takeover/restore qualification and one PS-02 adapter slice at a time. Source observers
-and advanced SOC workflows remain separate. Historical phase rows below retain their evidence and
-do not override that priority or require completed phases to run again.
+The finite [execution ledger](31-execution-ledger.md) controls the remaining order.
+Receipt progress/recovery/object preparation and AWS delivery are accepted
+locally or simulated; COVERAGE-OBSERVERS is next, then dependency-ready findings
+cursor/outbox and the remaining planned capabilities. Advanced SOC UX remains
+post-MVP. Historical phase rows below retain evidence and do not require
+completed phases to run again.
 
 Rows within a phase run in order unless their inputs already exist. The reviewer
 checks the concrete files and evidence, including untracked files. Cheap fixture

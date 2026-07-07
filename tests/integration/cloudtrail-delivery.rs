@@ -7,6 +7,9 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 #[path = "cloudtrail-delivery/server.rs"]
 mod server;
+#[cfg(feature = "aws-source")]
+#[path = "../support/aws_signature.rs"]
+mod signature;
 #[path = "cloudtrail-delivery/source.rs"]
 mod source;
 type TestResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -657,6 +660,143 @@ async fn bounded_collector_driver_runs_real_source_and_ingest_then_recovers_unce
         .await?,
         DeliveryStep::Idle
     ));
+    store.close(ctx()?).await?;
+    srv.crash()?;
+    srv.start().await?;
+    srv.persisted(2, 2).await?;
+    srv.assert_redacted()?;
+    mock.close().await?;
+    Ok(())
+}
+
+#[cfg(feature = "aws-source")]
+struct RuntimeCredentials(std::sync::atomic::AtomicUsize);
+#[cfg(feature = "aws-source")]
+#[signal_collector_sdk::extension]
+impl AwsCredentialsProvider for RuntimeCredentials {
+    async fn credentials(&self, _: &ExtensionContext) -> Result<SigningCredentials, SourceFailure> {
+        let n = self.0.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+        SigningCredentials::new(
+            if n == 0 {
+                source::ACCESS_A
+            } else {
+                source::ACCESS_B
+            },
+            source::SIGNING_SECRET,
+            Some(source::SESSION_TOKEN),
+            None,
+        )
+    }
+}
+#[cfg(feature = "aws-source")]
+#[tokio::test]
+async fn signed_aws_adapter_drives_real_server_throttle_rotation_and_redelivery_recovery()
+-> TestResult {
+    let d = tempfile::tempdir()?;
+    let cfg = config(&d)?;
+    let b = binding()?;
+    let mut store = ReceiptStore::open(cfg.clone(), OWNER, 1, ctx()?).await?;
+    let mock = source::LocalSource::start(original()?, notification()).await?;
+    let credentials =
+        std::sync::Arc::new(RuntimeCredentials(std::sync::atomic::AtomicUsize::new(0)));
+    let src = AwsSourceClient::new(
+        AwsSourceConfig::new(
+            "arn:aws:sqs:us-east-1:111122223333:fixture",
+            &format!("{}/111122223333/fixture", mock.url),
+            "eu-central-1",
+            &mock.url,
+            30,
+            true,
+        )?,
+        credentials.clone(),
+        Duration::from_secs(1),
+    )?;
+    let runtime = tempfile::tempdir()?;
+    let mut srv = server::Server::new(runtime.path())?;
+    srv.start().await?;
+    let publish = publisher(&srv.url, true)?;
+    let policy = LocalPolicy { binding: b.clone() };
+    mock.state.lock().await.fault = "object_throttle";
+    assert!(matches!(
+        collect_delivery(
+            &store,
+            &src,
+            &src,
+            &publish,
+            &policy,
+            ReceiptBatchLimits::default(),
+            ctx()?
+        )
+        .await,
+        Err(DeliveryError::Capture(CaptureError::Source(
+            CaptureFailure::Throttled
+        )))
+    ));
+    assert_eq!(mock.state.lock().await.deletes, 0);
+    assert!(store.replay(b.clone(), ctx()?).await?.is_none());
+    mock.expire().await;
+    mock.state.lock().await.fault = "delete_uncertain";
+    // A failed remote delete leaves the physical intent for recovery. The
+    // driver returns an error instead of inventing a confirmed source result.
+    assert!(matches!(
+        collect_delivery(
+            &store,
+            &src,
+            &src,
+            &publish,
+            &policy,
+            ReceiptBatchLimits::default(),
+            ctx()?
+        )
+        .await,
+        Err(DeliveryError::Source(SourceFailure::Unavailable))
+    ));
+    let r = store
+        .replay(b.clone(), ctx()?)
+        .await?
+        .ok_or("retained receipt")?;
+    assert_eq!(r.progress().verified_prefix(), 2);
+    assert_eq!(r.progress().source_ack_state(), SourceAckState::Intent);
+    let receipt = r.receipt().info();
+    let p = r.progress().clone();
+    srv.persisted(2, 2).await?;
+    let events = srv.rows("events").await?;
+    store.close(ctx()?).await?;
+    store = ReceiptStore::open_reconciled(cfg, OWNER, 1, grant(b.clone(), &p)?, ctx()?).await?;
+    mock.state.lock().await.fault = "none";
+    mock.expire().await;
+    let recovered = collect_delivery(
+        &store,
+        &src,
+        &src,
+        &publish,
+        &policy,
+        ReceiptBatchLimits::default(),
+        ctx()?,
+    )
+    .await?;
+    assert!(
+        matches!(recovered,DeliveryStep::Settled {receipt: current,progress} if current==receipt && progress.source_ack_state()==SourceAckState::Confirmed)
+    );
+    assert_eq!(srv.rows("events").await?, events);
+    assert_eq!(srv.checkpoint()?, 2);
+    assert!(!mock.state.lock().await.pending);
+    assert_eq!(mock.state.lock().await.deletes, 2);
+    assert!(matches!(
+        collect_delivery(
+            &store,
+            &src,
+            &src,
+            &publish,
+            &policy,
+            ReceiptBatchLimits::default(),
+            ctx()?
+        )
+        .await?,
+        DeliveryStep::Idle
+    ));
+    assert_eq!(mock.state.lock().await.signatures, 9);
+    assert_eq!(credentials.0.load(std::sync::atomic::Ordering::Acquire), 9);
     store.close(ctx()?).await?;
     srv.crash()?;
     srv.start().await?;
