@@ -299,7 +299,12 @@
         },
         {
           "id": "independent-source-probes",
-          "status": "pending"
+          "status": "in_progress",
+          "configuration_observation_status": "passed_local",
+          "evidence": [
+            "target/goal-execution-20261007/COVERAGE-OBSERVERS/native-probe-validation.json",
+            "target/goal-execution-20261007/COVERAGE-OBSERVERS/native-probe-independent-review.json"
+          ]
         },
         {
           "id": "store-server-integration",
@@ -310,7 +315,7 @@
           "status": "pending"
         }
       ],
-      "notes": "Bounded observer state accepted locally with nine regressions and independent review. Native independent probes, history/server wiring and end-to-end degraded-silence simulation remain local work."
+      "notes": "Bounded observer state and regional signed CloudTrail configuration observation accepted. Native point reads cannot verify continuity/digests/checkpoints/quiet completeness. Independent checkpoint/gap simulation and physical history/server integration remain local work; continue integration without claiming full source coverage."
     },
     {
       "id": "FINDINGS-CURSOR",

@@ -29,6 +29,17 @@ remain local unfinished work. Evidence:
 `target/goal-execution-20261007/COVERAGE-OBSERVERS/observer-validation.json`.
 This acceptance does not change source proof, live-environment or release gates.
 
+Regional CloudTrail configuration observation is accepted locally with eleven
+native-source regressions and eleven unchanged S3/SQS signed-wire regressions.
+Current gates pass default 509/all-feature 532 tests, strict Clippy/fmt/package
+guard and focused independent review. Native point configuration checks retain
+unknown continuity/digest/checkpoint/quiet completeness. Malformed selector and
+existing query-test timing corrections have retained failing-before evidence.
+COVERAGE-OBSERVERS stays open for history/server integration and independent
+checkpoint/gap/degraded-silence simulation. Evidence:
+`target/goal-execution-20261007/COVERAGE-OBSERVERS/native-probe-validation.json`.
+Actual AWS/source custody and all existing release exceptions remain open.
+
 Minimal SecOps UI is now an owner-selected MVP requirement. UI-01/UI-02 have
 local embedded-route, browser, exact-ID query, real-server/restart, current source
 export and real-container acceptance. See [the UI contract](28-secops-ui.md).

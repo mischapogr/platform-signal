@@ -4,7 +4,7 @@
 //! A caller timeout/cancellation may race publication: reopen to settle it.
 mod ack;
 #[cfg(feature = "aws-source")]
-mod aws;
+pub(crate) mod aws;
 mod capture;
 mod discovery;
 mod driver;
