@@ -1,0 +1,981 @@
+{
+  "schema_version": 1,
+  "frozen_at": "2026-10-07",
+  "goal_thread": "01a114a3-112b-7303-8105-e668f4ec2684",
+  "baseline_revision": "bfa8c2ed677771519cbaad8ffccc6259f9bb12c4",
+  "branch": "develop",
+  "scope": "Existing five-document plan, finite local implementation and simulations; real external gates retained.",
+  "items": [
+    {
+      "id": "CORE",
+      "title": "Core phases 0\u20138, bounded phase 10 and minimal SecOps UI",
+      "status": "passed_local",
+      "dependencies": [],
+      "acceptance": [
+        "Retain accepted local source/runtime/browser evidence; do not rerun unchanged campaigns."
+      ],
+      "evidence": [
+        "target/source-receipt-store-20261007/validation.json",
+        "docs/21-release-readiness.md"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "COVERAGE",
+      "title": "Bounded SourceCoverage history/intake/corrections/pruning/scans",
+      "status": "passed_local",
+      "dependencies": [
+        "CORE"
+      ],
+      "acceptance": [
+        "Retain validated finite history and ownership contracts; live observers are separate."
+      ],
+      "evidence": [
+        "target/source-coverage-scans-20261007/",
+        "docs/21-release-readiness.md"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "RECEIPT-BASE",
+      "title": "CloudTrail normalization/profile and initial receipt store",
+      "status": "passed_local",
+      "dependencies": [
+        "CORE"
+      ],
+      "acceptance": [
+        "Preserve original/prepared bytes and initial synced control, bounded worker and exclusive owner."
+      ],
+      "evidence": [
+        "target/source-receipt-store-20261007/validation.json",
+        "target/cloudtrail-normalizer-20261007/"
+      ],
+      "references": [
+        "docs/29-cloudtrail-source-receipt.md",
+        "docs/30-source-receipt-contract.md",
+        "docs/07-progress.md"
+      ]
+    },
+    {
+      "id": "RECEIPT-PROGRESS",
+      "title": "Atomic verified-prefix progress and immutable suffix replay",
+      "status": "passed_local",
+      "dependencies": [
+        "RECEIPT-BASE"
+      ],
+      "acceptance": [
+        "Share the existing admission verifier; full binding/owner/exact prior-control comparison.",
+        "Bounded atomic replace + file/directory sync; verify partial/uncertain responses, stale updates, timeout/cancel/queue/crash/reopen.",
+        "Never infer source ACK or protected custody from M2."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/validation.json",
+        "target/goal-execution-20261007/independent-review.json"
+      ],
+      "references": [
+        "docs/30-source-receipt-contract.md",
+        "docs/11-model-work-plan.md"
+      ]
+    },
+    {
+      "id": "RECEIPT-RECOVERY",
+      "title": "Retirement, owner takeover and restore reconciliation",
+      "status": "pending",
+      "dependencies": [
+        "RECEIPT-PROGRESS"
+      ],
+      "acceptance": [
+        "Qualify retention guards, intent/unlink/sync/complete and new-slot publication.",
+        "Exclusive lock plus generation fencing; divergent or unknown restore holds side effects; bounded crash/fault matrix."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/RECEIPT-RECOVERY/"
+      ],
+      "references": [
+        "docs/30-source-receipt-contract.md"
+      ]
+    },
+    {
+      "id": "SOURCE-ACK",
+      "title": "Source acknowledgement and selected custody seam",
+      "status": "pending",
+      "dependencies": [
+        "RECEIPT-RECOVERY"
+      ],
+      "acceptance": [
+        "Durable intent before delete, fresh delivery handle/authority, uncertainty/redelivery preserve preparation.",
+        "Explicit process-only vs independently verified custody; quarantine and revoked-grant denials."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/SOURCE-ACK/"
+      ],
+      "references": [
+        "docs/29-cloudtrail-source-receipt.md",
+        "docs/30-source-receipt-contract.md"
+      ]
+    },
+    {
+      "id": "OBJECT-READER",
+      "title": "Bounded CloudTrail gzip object reader/preparation",
+      "status": "pending",
+      "dependencies": [
+        "RECEIPT-RECOVERY"
+      ],
+      "acceptance": [
+        "Bound compressed/decoded bytes, records and spans before allocation; verify exact record hashes/native IDs.",
+        "Atomic all-ordinal preparation and quarantine; expansion/malformed/duplicate/truncated fixtures."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/OBJECT-READER/"
+      ],
+      "references": [
+        "docs/29-cloudtrail-source-receipt.md"
+      ]
+    },
+    {
+      "id": "AWS-DELIVERY",
+      "title": "CloudTrail S3/SQS collector and local delivery simulation",
+      "status": "pending",
+      "dependencies": [
+        "SOURCE-ACK",
+        "OBJECT-READER"
+      ],
+      "acceptance": [
+        "End-to-end source to receipt to M2 replay with duplicates, throttling, visibility expiry, denied scope and checkpoint recovery.",
+        "No credentials/private topology in public core; original versions retained."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/AWS-DELIVERY/"
+      ],
+      "references": [
+        "docs/26-ingestion-architecture-audit.md",
+        "docs/29-cloudtrail-source-receipt.md"
+      ]
+    },
+    {
+      "id": "COVERAGE-OBSERVERS",
+      "title": "Source observers, health and SDK/server integration",
+      "status": "pending",
+      "dependencies": [
+        "COVERAGE",
+        "AWS-DELIVERY"
+      ],
+      "acceptance": [
+        "Independent expected-stream/config/last-observed/checkpoint/gap observations and visible degraded silence.",
+        "Bound observer state; live evidence not inferred from collector success."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/COVERAGE-OBSERVERS/"
+      ],
+      "references": [
+        "docs/source-coverage-contract.md",
+        "docs/source-detection-catalog.md"
+      ]
+    },
+    {
+      "id": "FINDINGS-CURSOR",
+      "title": "Durable public findings cursor runtime",
+      "status": "pending",
+      "dependencies": [
+        "CORE"
+      ],
+      "acceptance": [
+        "Versioned bounded feed, stable cursor/identity, restart/duplicate/divergent-history tests."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/FINDINGS-CURSOR/"
+      ],
+      "references": [
+        "docs/25-findings-cursor-proposal.md"
+      ]
+    },
+    {
+      "id": "OUTBOX",
+      "title": "Private transactional finding cursor/outbox and notification simulation",
+      "status": "pending",
+      "dependencies": [
+        "FINDINGS-CURSOR"
+      ],
+      "acceptance": [
+        "Atomic cursor/outbox advancement; destination retries, uncertain response, duplicate identity, quotas and restart.",
+        "Keep destination policy/private data in separately authorized writable overlay."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/OUTBOX/"
+      ],
+      "references": [
+        "docs/25-findings-cursor-proposal.md",
+        "docs/17-external-overlay.md"
+      ]
+    },
+    {
+      "id": "DISPOSITIONS",
+      "title": "Disposition/outcome backend seam",
+      "status": "pending",
+      "dependencies": [
+        "OUTBOX"
+      ],
+      "acceptance": [
+        "Persist audited true/benign/false positive and incident outcomes with stable finding references and scope checks."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/DISPOSITIONS/"
+      ],
+      "references": [
+        "docs/source-detection-catalog.md",
+        "docs/27-product-architecture.md"
+      ]
+    },
+    {
+      "id": "EVIDENCE",
+      "title": "Independent protected original route and validation simulation",
+      "status": "pending",
+      "dependencies": [
+        "AWS-DELIVERY"
+      ],
+      "acceptance": [
+        "Full source/proof/version/retention binding, separate authority and restricted access.",
+        "Observability-plane outage, proof failure and recovery tests; local proof never certifies Object Lock/IAM."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/EVIDENCE/"
+      ],
+      "references": [
+        "docs/logical-architecture.md",
+        "docs/failure-domains.md"
+      ]
+    },
+    {
+      "id": "S3-QUERY",
+      "title": "Object-backed Parquet and committed query manifests",
+      "status": "pending",
+      "dependencies": [
+        "CORE"
+      ],
+      "acceptance": [
+        "Bounded idempotent object publication, committed manifests, pruning/query/restart and orphan recovery.",
+        "Source originals distinct from query copies; PUT alone is not committed custody."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/S3-QUERY/"
+      ],
+      "references": [
+        "docs/12-phase3-storage.md",
+        "docs/27-product-architecture.md"
+      ]
+    },
+    {
+      "id": "RETENTION",
+      "title": "Selective query acceleration, retention and cost controls",
+      "status": "pending",
+      "dependencies": [
+        "S3-QUERY",
+        "EVIDENCE"
+      ],
+      "acceptance": [
+        "Explicit raw/query retention and safe reachability-aware reclamation; partition/projection pruning and scan budgets.",
+        "Caches rebuildable; measure before adding optional field index; protected originals not deleted by query policy."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/RETENTION/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "SECURITY-ACCESS",
+      "title": "OIDC/trusted identity, scoped credentials and RBAC",
+      "status": "pending",
+      "dependencies": [
+        "CORE"
+      ],
+      "acceptance": [
+        "Local identity-provider simulation; no identity-header bypass, expiry/revocation and cross-scope denials on ingest/query/evidence/findings/admin."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/SECURITY-ACCESS/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "SECURITY-TRANSPORT",
+      "title": "mTLS and credential/certificate rotation",
+      "status": "pending",
+      "dependencies": [
+        "SECURITY-ACCESS"
+      ],
+      "acceptance": [
+        "Local TLS endpoints; failed chain/rotation/revocation tests and outbound-only agents; bounded network budgets."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/SECURITY-TRANSPORT/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "SECURITY-AUDIT",
+      "title": "Restricted independent audit and secrets/encryption integration seams",
+      "status": "pending",
+      "dependencies": [
+        "SECURITY-ACCESS",
+        "EVIDENCE"
+      ],
+      "acceptance": [
+        "Audit access/config/rule/admin changes to separate destination; outage health independent of failed plane.",
+        "Local secret/rotation/restore and encrypted-storage configuration checks; never log secrets."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/SECURITY-AUDIT/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "SMALL-PILOT",
+      "title": "Small source\u2192evidence\u2192finding\u2192notification simulation",
+      "status": "pending",
+      "dependencies": [
+        "AWS-DELIVERY",
+        "COVERAGE-OBSERVERS",
+        "OUTBOX",
+        "EVIDENCE",
+        "S3-QUERY",
+        "SECURITY-TRANSPORT"
+      ],
+      "acceptance": [
+        "One reproducible installation and full replay/restart/denial/outage run with preserved evidence and actual counts."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/SMALL-PILOT/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "SHARED-CONTRACT",
+      "title": "PostgreSQL shared-control schema, transactions, fencing and migration contract",
+      "status": "pending",
+      "dependencies": [
+        "SMALL-PILOT"
+      ],
+      "acceptance": [
+        "Freeze bounded receipt/catalog/state/ownership schemas and separate engine/private roles; explicit migration and restore contract."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/SHARED-CONTRACT/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "SHARED-RUNTIME",
+      "title": "Shared-control implementation and local PostgreSQL qualification",
+      "status": "pending",
+      "dependencies": [
+        "SHARED-CONTRACT"
+      ],
+      "acceptance": [
+        "Transactional monotonically fenced partition ownership, stale-owner rejection, manifest/checkpoint/outbox coherence and bounded metadata."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/SHARED-RUNTIME/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "OBJECT-CUSTODY",
+      "title": "Versioned object-backed custody receipt",
+      "status": "pending",
+      "dependencies": [
+        "SHARED-RUNTIME",
+        "S3-QUERY"
+      ],
+      "acceptance": [
+        "Accessible retained object plus committed idempotent owner-checked control; producer retains copy until verified custody.",
+        "202 remains M2; crash/uncertainty/duplicate ownership tests."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/OBJECT-CUSTODY/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "STANDARD-RECOVERY",
+      "title": "Standard ownership, failover and consistent restore simulation",
+      "status": "pending",
+      "dependencies": [
+        "OBJECT-CUSTODY",
+        "SECURITY-AUDIT"
+      ],
+      "acceptance": [
+        "Controlled one-server/domain loss and stale owners, consistent objects/control backup and restore.",
+        "Measure recovery/RPO in stated local model; no automatic three-replica change before gates."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/STANDARD-RECOVERY/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "ONBOARDING",
+      "title": "Secure scoped onboarding and coverage/detection activation",
+      "status": "pending",
+      "dependencies": [
+        "COVERAGE-OBSERVERS",
+        "SECURITY-ACCESS",
+        "SHARED-RUNTIME"
+      ],
+      "acceptance": [
+        "Connected/verified coverage/active detections states; missing permissions/categories/state visibly block unsupported detections."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/ONBOARDING/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "CLOUDWATCH",
+      "title": "Bounded CloudWatch managed-log intake",
+      "status": "pending",
+      "dependencies": [
+        "SMALL-PILOT"
+      ],
+      "acceptance": [
+        "Native push/bulk intake simulation with checkpoints, exact originals and declared coverage; RDS/EKS-control/ECS profiles remain explicit."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/CLOUDWATCH/"
+      ],
+      "references": [
+        "docs/26-ingestion-architecture-audit.md"
+      ]
+    },
+    {
+      "id": "AWS-PROFILES",
+      "title": "AWS RDS/ALB/NLB/ECS/VPC/DNS/WAF/security-event profiles",
+      "status": "pending",
+      "dependencies": [
+        "CLOUDWATCH",
+        "OBJECT-READER"
+      ],
+      "acceptance": [
+        "Implement only sources selected by existing ingestion plan/catalog; raw positives/negatives/missing/duplicates normalize consistently.",
+        "Each source has explicit delivery/coverage preconditions; synthetic samples alone are insufficient."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/AWS-PROFILES/"
+      ],
+      "references": [
+        "docs/26-ingestion-architecture-audit.md",
+        "docs/source-detection-catalog.md"
+      ]
+    },
+    {
+      "id": "EKS-AUDIT",
+      "title": "EKS/Kubernetes audit adapter",
+      "status": "pending",
+      "dependencies": [
+        "CLOUDWATCH"
+      ],
+      "acceptance": [
+        "Audit-stage/verb/resource/identity normalization and baseline D05/D07 fixtures; separate control-plane capture from node logs."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/EKS-AUDIT/"
+      ],
+      "references": [
+        "docs/source-detection-catalog.md",
+        "docs/26-ingestion-architecture-audit.md"
+      ]
+    },
+    {
+      "id": "K8S-CONTEXT",
+      "title": "Node/workload context and cluster collector mode",
+      "status": "pending",
+      "dependencies": [
+        "EKS-AUDIT"
+      ],
+      "acceptance": [
+        "Bounded metadata/watch reconciliation and node-local collection; scoped API permissions and churn tests on local Kubernetes."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/K8S-CONTEXT/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "HOST-AUTH",
+      "title": "Selected host/runtime and authentication source profiles",
+      "status": "pending",
+      "dependencies": [
+        "SMALL-PILOT"
+      ],
+      "acceptance": [
+        "Explicit sensor coverage and authentication fields; no runtime-security claims from file logs alone."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/HOST-AUTH/"
+      ],
+      "references": [
+        "docs/source-detection-catalog.md"
+      ]
+    },
+    {
+      "id": "SYSLOG",
+      "title": "Site TCP/TLS syslog and FortiGate normalization",
+      "status": "pending",
+      "dependencies": [
+        "SECURITY-TRANSPORT",
+        "SOURCE-ACK"
+      ],
+      "acceptance": [
+        "Bounded framing/source identity/local spool, WAN outage replay and severity fixtures; legacy UDP explicitly best effort."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/SYSLOG/"
+      ],
+      "references": [
+        "docs/26-ingestion-architecture-audit.md"
+      ]
+    },
+    {
+      "id": "M365",
+      "title": "Selected Microsoft 365 audit/authentication API feeds",
+      "status": "pending",
+      "dependencies": [
+        "SMALL-PILOT"
+      ],
+      "acceptance": [
+        "Finite paged API checkpoints, token refresh, 429/outage/retry/dedup and declared feed coverage; local provider simulation."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/M365/"
+      ],
+      "references": [
+        "docs/26-ingestion-architecture-audit.md"
+      ]
+    },
+    {
+      "id": "CATO",
+      "title": "Cato API event collection",
+      "status": "pending",
+      "dependencies": [
+        "M365"
+      ],
+      "acceptance": [
+        "Bounded pagination/checkpoints/security normalization and provider-specific replay/retention failures; local simulation."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/CATO/"
+      ],
+      "references": [
+        "docs/26-ingestion-architecture-audit.md"
+      ]
+    },
+    {
+      "id": "CLOUDFLARE",
+      "title": "Cloudflare object-delivery normalization",
+      "status": "pending",
+      "dependencies": [
+        "OBJECT-READER",
+        "SMALL-PILOT"
+      ],
+      "acceptance": [
+        "Reuse bounded object intake; pin selected schema/coverage and positive/negative/malformed fixtures."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/CLOUDFLARE/"
+      ],
+      "references": [
+        "docs/26-ingestion-architecture-audit.md"
+      ]
+    },
+    {
+      "id": "BASELINES",
+      "title": "Versioned generic baseline predicate packs",
+      "status": "pending",
+      "dependencies": [
+        "EKS-AUDIT",
+        "AWS-PROFILES"
+      ],
+      "acceptance": [
+        "D01/D02/D03/D05/D07 source preconditions, fixtures, explanation/confidence/investigation defaults; actual enablement/thresholds stay private."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/BASELINES/"
+      ],
+      "references": [
+        "docs/source-detection-catalog.md"
+      ]
+    },
+    {
+      "id": "WINDOW",
+      "title": "First bounded window detector D10",
+      "status": "pending",
+      "dependencies": [
+        "FINDINGS-CURSOR",
+        "HOST-AUTH",
+        "COVERAGE-OBSERVERS"
+      ],
+      "acceptance": [
+        "Finite key/event/byte/TTL bounds, event-time/watermark/lateness/overflow and replay; atomic state/finding/checkpoint recovery."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/WINDOW/"
+      ],
+      "references": [
+        "docs/source-detection-catalog.md"
+      ]
+    },
+    {
+      "id": "STATE",
+      "title": "Scoped state lookup detectors D04/D06/D08/D09/D12/D13",
+      "status": "pending",
+      "dependencies": [
+        "WINDOW",
+        "BASELINES"
+      ],
+      "acceptance": [
+        "Each supported rule has source/state preconditions, pinned revision and bounded fixtures/replay.",
+        "Effective IAM/RBAC requires explicitly limited semantics, not universal permission solving."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/STATE/"
+      ],
+      "references": [
+        "docs/source-detection-catalog.md"
+      ]
+    },
+    {
+      "id": "SENSOR-HEALTH",
+      "title": "Independent missing-telemetry detector D15",
+      "status": "pending",
+      "dependencies": [
+        "COVERAGE-OBSERVERS",
+        "WINDOW"
+      ],
+      "acceptance": [
+        "Independent observer, no healthy silence on gaps; bounded heartbeat/lateness/failure-path evidence."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/SENSOR-HEALTH/"
+      ],
+      "references": [
+        "docs/source-detection-catalog.md"
+      ]
+    },
+    {
+      "id": "CORRELATION",
+      "title": "Bounded multi-stream episodes D11/D14",
+      "status": "pending",
+      "dependencies": [
+        "STATE",
+        "DISPOSITIONS",
+        "CATO",
+        "M365",
+        "SYSLOG"
+      ],
+      "acceptance": [
+        "One join/episode at a time; late/duplicate/missing streams, bounded state, crash recovery, stable evidence/incident identities.",
+        "Correlation does not establish causal root cause."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/CORRELATION/"
+      ],
+      "references": [
+        "docs/source-detection-catalog.md"
+      ]
+    },
+    {
+      "id": "SOC-UX",
+      "title": "Planned advanced SOC case/disposition/workbench workflows",
+      "status": "pending",
+      "dependencies": [
+        "CORRELATION",
+        "DISPOSITIONS",
+        "SECURITY-ACCESS"
+      ],
+      "acceptance": [
+        "Bounded persisted case/assignment/disposition/evidence views with audited permissions and actual browser/restart tests.",
+        "Response automation stays explicit opt-in; no broad new SOAR platform."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/SOC-UX/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/28-secops-ui.md"
+      ]
+    },
+    {
+      "id": "PROFILE-LOAD",
+      "title": "Resource/profile and controlled-outage qualification",
+      "status": "pending",
+      "dependencies": [
+        "STANDARD-RECOVERY",
+        "CORRELATION"
+      ],
+      "acceptance": [
+        "Workload manifests with bytes/cardinality/rules/query/steady/burst/latency/RSS/catch-up evidence.",
+        "Agent 30-minute budgets and finite 15-minute/1-hour/4-hour outage campaigns; 24-hour steady campaign if local resources permit.",
+        "Unsupported scale claims remain visibly unqualified; do not fake native measurements."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/PROFILE-LOAD/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "SCALE-DECISION",
+      "title": "Measured Scale profile worker-separation decision",
+      "status": "pending",
+      "dependencies": [
+        "PROFILE-LOAD"
+      ],
+      "acceptance": [
+        "Record contention/permission/recovery evidence; separate workers only if measurements justify it.",
+        "No split required if evidence does not justify it; decision must be documented."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/SCALE-DECISION/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "KIND",
+      "title": "Current-revision local Kubernetes persistence/restart gate",
+      "status": "pending",
+      "dependencies": [
+        "CORE"
+      ],
+      "acceptance": [
+        "Repair only owned/local resource preconditions; pass chart PVC/persistence/restart using qualified current image."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/KIND/"
+      ],
+      "references": [
+        "docs/21-release-readiness.md",
+        "docs/19-packaging.md"
+      ]
+    },
+    {
+      "id": "RELEASE-REVIEW",
+      "title": "Independent source review and resolve findings",
+      "status": "pending",
+      "dependencies": [
+        "RECEIPT-PROGRESS"
+      ],
+      "acceptance": [
+        "Review durability/replay/cancellation/scope/quotas and production hazards; retain review evidence per accepted slice."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/RELEASE-REVIEW/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "RELEASE-TRUST",
+      "title": "SBOM, provenance and signed release/rule verification",
+      "status": "pending",
+      "dependencies": [
+        "BASELINES",
+        "SECURITY-TRANSPORT"
+      ],
+      "acceptance": [
+        "Reproducible inventory/provenance and local test-key sign/verify/tamper/rejection; real publication credentials excluded."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/RELEASE-TRUST/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "UPGRADE",
+      "title": "Supported migration/rollback/restore local rehearsals",
+      "status": "pending",
+      "dependencies": [
+        "SHARED-RUNTIME",
+        "STANDARD-RECOVERY"
+      ],
+      "acceptance": [
+        "Explicit version/state compatibility and consistent restore; fail closed on incompatible or divergent history."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/UPGRADE/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "LOCAL-CANDIDATE",
+      "title": "Final current-revision local release candidate",
+      "status": "pending",
+      "dependencies": [
+        "SOC-UX",
+        "SCALE-DECISION",
+        "KIND",
+        "RELEASE-REVIEW",
+        "RELEASE-TRUST",
+        "UPGRADE"
+      ],
+      "acceptance": [
+        "Applicable fmt/strict Clippy/workspace/boundary/process/browser/container/supply-chain gates pass.",
+        "Source/config/image/evidence hashes aligned; offline relocation/package verification, SBOM and release notes retained.",
+        "Version remains owner-controlled; local candidate explicitly not full production release."
+      ],
+      "evidence": [
+        "target/goal-execution-20261007/LOCAL-CANDIDATE/"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "EXT-ARM64",
+      "title": "Native ARM64 qualification",
+      "status": "external_pending",
+      "dependencies": [],
+      "acceptance": [
+        "Actual native build/runtime/container/Kubernetes/load evidence."
+      ],
+      "evidence": [
+        "docs/21-release-readiness.md"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "EXT-AWS",
+      "title": "Actual AWS/EKS/storage/IAM/KMS/Object Lock qualification",
+      "status": "external_pending",
+      "dependencies": [],
+      "acceptance": [
+        "Authorized real cloud source/deployment/identity/storage/protected-retention and restart evidence."
+      ],
+      "evidence": [
+        "docs/21-release-readiness.md"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "EXT-VENDORS",
+      "title": "Live SaaS/network-provider qualification",
+      "status": "external_pending",
+      "dependencies": [],
+      "acceptance": [
+        "Authorized actual feeds, feed coverage/permissions/retention and source-capture evidence."
+      ],
+      "evidence": [
+        "docs/21-release-readiness.md"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "EXT-CI",
+      "title": "Remote CI for reviewed revision",
+      "status": "external_pending",
+      "dependencies": [],
+      "acceptance": [
+        "Required remote native jobs and retained artifacts matching reviewed revision."
+      ],
+      "evidence": [
+        "docs/21-release-readiness.md"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "EXT-DEPENDENCY",
+      "title": "Private overlay against actual released public dependency",
+      "status": "external_pending",
+      "dependencies": [],
+      "acceptance": [
+        "Real released version and locked external graph build/runtime evidence."
+      ],
+      "evidence": [
+        "docs/21-release-readiness.md"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    },
+    {
+      "id": "EXT-PUBLICATION",
+      "title": "Owner-directed version, publication and main merge",
+      "status": "external_pending",
+      "dependencies": [],
+      "acceptance": [
+        "Required external gates passed and publication/push/main merge authority; production signing keys remain owner-held."
+      ],
+      "evidence": [
+        "docs/21-release-readiness.md"
+      ],
+      "references": [
+        "docs/27-product-architecture.md",
+        "docs/04-implementation-plan.md"
+      ]
+    }
+  ]
+}

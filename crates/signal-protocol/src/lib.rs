@@ -7,6 +7,11 @@ use std::{future::Future, pin::Pin};
 use thiserror::Error;
 use uuid::Uuid;
 
+mod admission;
+pub use admission::{
+    AdmissionDisposition, AdmissionOutcome, InvalidAdmissionResponse, verify_admission_response,
+};
+
 pub mod query;
 pub use query::{
     AttributeFilter, EventQuery, EventQueryResponse, QueryMetadata, QueryOrder,
