@@ -1,0 +1,45 @@
+{
+  "region": "us-east-1",
+  "currency": "USD",
+  "checked": "2026-07-07",
+  "defaults": {"traffic": 1, "searchDays": 90, "originalDays": 365, "compression": 0.25, "hourlyLabor": 100, "sourceDelivery": true, "computeMultiplier": 1},
+  "rates": {
+    "ec2Hour": 0.17, "ebsGiBMonth": 0.08, "snapshotGiBMonth": 0.05,
+    "rdsMultiAZHour": 0.356, "rdsMultiAZGiBMonth": 0.23,
+    "s3Tiers": [[51200, 0.023], [512000, 0.022], [null, 0.021]],
+    "s3Put": 0.000005, "s3Get": 0.0000004,
+    "kmsKeyMonth": 1, "kmsRequest": 0.000003,
+    "secretMonth": 0.40, "secretRequest": 0.000005,
+    "sqsRequest": 0.0000004, "cloudwatchIngestGiB": 0.50, "cloudwatchStoreGiBMonth": 0.03,
+    "albHour": 0.0225, "albLCUHour": 0.008,
+    "endpointAZHour": 0.01, "endpointGiB": 0.01,
+    "crossAZGiBCombined": 0.02, "eksClusterHour": 0.10,
+    "natHour": 0.045, "natGiB": 0.045
+  },
+  "assumptions": {
+    "computeHours": 730, "trafficDays": 30, "burstFactor": 5,
+    "originalFraction": 0.30, "originalCompression": 0.50,
+    "normalizedObjectMiB": 16, "originalObjectMiB": 1,
+    "queriesPerAccountDay": 10, "filesPerQuery": 100, "queryFileMiB": 16,
+    "snapshotFraction": 0.50, "cloudwatchDays": 7,
+    "apiEndpointServices": 5, "apiEndpointGiBPerCellMonth": 5,
+    "crossAZFraction": 0.25, "awsBudgetReserve": 0.40,
+    "fteHoursMonth": 160,
+    "sourceProfiles": [
+      {"key": "ec2", "label": "EC2 host/application logs", "entity": "ec2", "gbDayEach": 0.5, "meanBytes": 1000, "delivery": "agent"},
+      {"key": "pods", "label": "EKS selected pod logs", "entity": "pods", "gbDayEach": 0.15, "meanBytes": 1000, "delivery": "agent"},
+      {"key": "eksAudit", "label": "EKS control-plane audit", "entity": "eks", "gbDayEach": 0.5, "meanBytes": 3000, "delivery": "cloudwatch"},
+      {"key": "database", "label": "Selected database logs", "entity": "dbInstances", "gbDayEach": 1, "meanBytes": 2000, "delivery": "cloudwatch"},
+      {"key": "lambda", "label": "Lambda application logs", "entity": "lambda", "gbDayEach": 0.05, "meanBytes": 1000, "delivery": "cloudwatch"},
+      {"key": "cloudtrail", "label": "AWS management/audit events", "entity": "accounts", "gbDayEach": 0.2, "meanBytes": 3000, "delivery": "native"},
+      {"key": "s3", "label": "Selected bucket events", "entity": "buckets", "gbDayEach": 0.02, "meanBytes": 1000, "delivery": "selected-app"},
+      {"key": "loadbalancer", "label": "Selected load-balancer logs", "entity": "loadbalancers", "gbDayEach": 0.2, "meanBytes": 1000, "delivery": "native"}
+    ]
+  },
+  "scenarios": [
+    {"accounts": 1, "label": "Single-account", "ec2": 5, "eks": 1, "nodes": 3, "pods": 20, "auroraClusters": 1, "auroraInstances": 2, "rdsInstances": 1, "lambda": 5, "buckets": 5, "loadbalancers": 1, "servers": 1, "collectors": 0, "cells": 1, "azs": 1, "ebsGiB": 100, "controlDBs": 0, "controlDBGiBEach": 0, "keys": 3, "secrets": 3, "monitoringAllowance": 20, "platformHours": [6,12], "detectionHours": [4,8], "operationBands": [[2,4],[1,2],[1,2],[1,2],[1,2]], "boundary": "Single account: no independent security-account failure boundary."},
+    {"accounts": 10, "label": "Small organization", "ec2": 40, "eks": 2, "nodes": 12, "pods": 120, "auroraClusters": 4, "auroraInstances": 8, "rdsInstances": 8, "lambda": 30, "buckets": 30, "loadbalancers": 10, "servers": 1, "collectors": 1, "cells": 1, "azs": 1, "ebsGiB": 300, "controlDBs": 0, "controlDBGiBEach": 0, "keys": 3, "secrets": 6, "monitoringAllowance": 50, "platformHours": [12,24], "detectionHours": [8,16], "operationBands": [[4,8],[2,4],[2,4],[2,4],[2,4]], "boundary": "Small single-writer profile; independent evidence account, no server HA."},
+    {"accounts": 100, "label": "Standard planning case", "ec2": 400, "eks": 20, "nodes": 120, "pods": 1200, "auroraClusters": 40, "auroraInstances": 80, "rdsInstances": 80, "lambda": 300, "buckets": 300, "loadbalancers": 100, "servers": 3, "collectors": 2, "cells": 1, "azs": 3, "ebsGiB": 1900, "controlDBs": 1, "controlDBGiBEach": 200, "keys": 3, "secrets": 12, "monitoringAllowance": 150, "platformHours": [40,80], "detectionHours": [24,48], "operationBands": [[10,20],[8,16],[6,12],[10,20],[6,12]], "boundary": "Three target servers with fenced ownership; capacity must be qualified."},
+    {"accounts": 1000, "label": "Out-of-envelope extrapolation", "ec2": 4000, "eks": 200, "nodes": 1200, "pods": 12000, "auroraClusters": 400, "auroraInstances": 800, "rdsInstances": 800, "lambda": 3000, "buckets": 3000, "loadbalancers": 1000, "servers": 30, "collectors": 20, "cells": 10, "azs": 3, "ebsGiB": 19000, "controlDBs": 10, "controlDBGiBEach": 200, "keys": 30, "secrets": 120, "monitoringAllowance": 1500, "platformHours": [160,320], "detectionHours": [80,160], "operationBands": [[40,80],[32,64],[24,48],[40,80],[24,48]], "boundary": "Ten separately qualified 100-account cells; no federation or capacity promise."}
+  ]
+}
