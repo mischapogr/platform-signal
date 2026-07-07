@@ -8,6 +8,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use std::{collections::BTreeMap, fmt};
 use thiserror::Error;
 
+#[cfg(feature = "aws-source")]
+pub mod cloudtrail;
 pub mod observer;
 
 pub const MAX_RECORD_BYTES: usize = 65_536;

@@ -11,7 +11,7 @@ This reconciles [product scope](27-product-architecture.md),
 [current progress](07-progress.md) and [release gates](21-release-readiness.md).
 The newer progress/routing acceptance supersedes old “UI then pruning” next-step
 text: UI-01/UI-02, coverage pruning/scans and initial source receipts are done.
-OBJECT-READER is accepted locally; AWS-DELIVERY now has local signed-transport/delivery simulation acceptance; COVERAGE-OBSERVERS is in progress with bounded state accepted; native probes and server integration are next.
+OBJECT-READER is accepted locally; AWS-DELIVERY now has local signed-transport/delivery simulation acceptance; COVERAGE-OBSERVERS is in progress with bounded state and regional configuration observation accepted; independent checkpoint/gap simulation and server integration remain.
 
 ## Execution and evidence
 

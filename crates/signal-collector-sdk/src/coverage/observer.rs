@@ -15,6 +15,8 @@ pub enum ProbeFailure {
     Unavailable,
     #[error("observer source unsupported")]
     Unsupported,
+    #[error("observer source response malformed")]
+    Malformed,
 }
 #[derive(Debug, Error)]
 pub enum ObserverError {

@@ -6,7 +6,9 @@ primitives and trusted application-grant intake/retry are implemented.
 [ADR-015](adr/015-source-coverage-store.md) records prepared append, immutable
 receipts, recovery, full-binding authorized reads, original-byte replay and bounded
 correction admission, bounded payload/identity-prefix pruning and fixed-frontier
-scans. Source observers remain **unimplemented**;
+scans. Bounded observer state and regional CloudTrail configuration observation
+now have local acceptance in [the observer contract](36-source-observers.md);
+complete independent checkpoint/gap simulation and server integration remain open;
 the complete 56-outcome state machine remains planned. This
 contract selects responsibilities and acceptance. The local backend and
 exact encodings are selected in ADR-015;
