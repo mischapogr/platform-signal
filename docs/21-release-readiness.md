@@ -49,6 +49,17 @@ Scoped server configuration/authentication, lifecycle/API/metrics and independen
 checkpoint/gap runtime simulation remain local work. No external or release gate
 is closed and no old candidate/SBOM/image is qualified for these new source inputs.
 
+Scoped monolith coverage intake/history/bootstrap/lifecycle now pass default535/
+all-feature558 tests, twelve new focused/real-process checks and required local
+format/lint/package gates. Source review has no blocker/high. Actual stalled-body
+HTTP deadline, SIGKILL/reopen and startup credential rotation preserve originals,
+receipts and unknown current health. Evidence:
+`target/goal-execution-20261007/COVERAGE-OBSERVERS/server-integration-validation.json`.
+Independent checkpoint/gap/quiet/degraded-silence simulation remains locally
+unfinished. Native continuity/digest proofs remain unimplemented/unqualified;
+current source inputs require fresh final package/SBOM/image/candidate evidence.
+Real AWS/ARM64/EKS/vendor/remote-CI/publication gates are unchanged.
+
 Minimal SecOps UI is now an owner-selected MVP requirement. UI-01/UI-02 have
 local embedded-route, browser, exact-ID query, real-server/restart, current source
 export and real-container acceptance. See [the UI contract](28-secops-ui.md).

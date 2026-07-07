@@ -3082,6 +3082,7 @@ name = "signal-server"
 version = "0.1.0-dev.0"
 dependencies = [
  "axum",
+ "chrono",
  "flate2",
  "reqwest",
  "serde",
@@ -3091,6 +3092,7 @@ dependencies = [
  "sha2",
  "signal-buffer",
  "signal-collector-sdk",
+ "signal-coverage",
  "signal-event",
  "signal-findings",
  "signal-ingest",

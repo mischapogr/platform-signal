@@ -154,3 +154,88 @@ default 523/all-feature 546 workspace gates and independent review pass. Evidenc
 This bridges libraries only. Server scoped authentication/configuration, request
 budgets, lifecycle, metrics and runtime gap/degraded-silence qualification remain
 open; no stored row is automatically selected as current source health.
+
+## Scoped monolith coverage history API
+
+Coverage is optional in the existing `signal-server`, with no extra service or
+message broker. `coverage.config` in strict server YAML (or
+`SIGNAL_COVERAGE_CONFIG`) names a closed version-1 JSON configuration read through
+the existing one-worker, one-slot configuration reader. That file is capped at
+64 KiB. Names, full bindings, profile definitions, authority revisions and actual
+age/retention policy are deployment-owned; no company values are shipped in core.
+
+The JSON contains `schema_version: 1`, `directory`, `limits` and `scopes`.
+`limits` explicitly supplies the existing `CoverageConfig` fields except the
+path, with `operation_timeout_ms` for duration. The library validates all finite
+payload/identity/binding/ledger/database/journal/operation/memory/VM bounds.
+Each of at most 32 scopes contains `binding_json`, `profile_json`,
+`authority_revision`, `token_env`, `max_report_age_seconds`,
+`max_clock_skew_seconds`, `payload_retention_seconds` and
+`identity_retention_seconds`. Embedded JSON strings use the existing version-1
+binding/profile parsers, preserving their budgets and duplicate-field checks.
+`profile_json` is required; explicit null retires new writes while allowing
+currently authorized exact retained replay. Configured profile ID/revision must
+match its binding. Conflicting definitions under one configured ID/revision fail
+configuration validation. A conflicting retained definition rejects physical new
+admission; it never replaces a pin used by historical reads.
+
+A scope token resolves only from its explicitly named environment variable.
+Tokens are unique, 16–4096 ASCII graphic bytes; complete bindings are also unique.
+They must differ from the generic API token. No token has a Debug/serialization
+path. One token authenticates exactly one full binding and observer; every read
+and write issues a fresh exact grant from that authenticated startup-pinned
+configuration. Names in a report confer no authority. Rotation/revocation or
+policy changes require restart in this first adapter; live OIDC/RBAC and secure
+transport remain their separate planned items. Restrict deployment reachability
+until those trust gates are qualified.
+
+`signal-server --initialize-coverage [--config PATH]` explicitly creates a new
+history identity and exits without opening HTTP/WAL/event services. It requires
+a configured coverage file and an existing parent directory. Normal startup
+only opens existing history. Missing, corrupt, already owned or partially
+initialized roots fail; neither operation silently recreates or clears history.
+The underlying private root, permissions, lock, transaction, physical-worker,
+uncertain-outcome and reopen contracts remain unchanged.
+
+| Route | Contract |
+| --- | --- |
+| `POST /v1/coverage/records/{record_id}` | Exact original JSON body, canonical nonnil UUID path, optional single `correction_of` UUID query. `201 accepted` or `200 replayed` returns the original durable receipt. This is coverage-history admission, separate from event M2 and source proof validation. |
+| `GET /v1/coverage/records/{record_id}` | Exact authorized receipt, original JSON as a UTF-8 string (or null when pruned), and the retained `profile_json` definition. No current-catalog reinterpretation. |
+| `GET /v1/coverage/history[?cursor=…]` | One record per finite page at the first page's committed frontier, opaque full-binding cursor, pruning markers and actual scan work. Sparse/terminal pages are not proof of healthy collection or absence of source events. |
+| `GET /v1/coverage/metrics` | Authenticated aggregate store/request depths, capacities, accepts, replays, rejections, timeouts and failures. No source content, credentials, binding identity or proof reference. |
+
+Authentication precedes request-body reads. Duplicate Authorization headers fail.
+Original bodies are capped at 64 KiB and must have exactly one
+`Content-Type: application/json`; content encoding is rejected. Query strings
+are capped at 16 KiB with strict percent/UTF-8/schema/duplicate checks. The HTTP
+adapter limits canonical binding bytes to 6 KiB at startup so every supported
+full-binding cursor fits the URL/header budget; the library's larger binding
+format remains unchanged. Four HTTP operation slots cover body reads through
+serialization. Each physical store keeps its existing operation/command limits.
+Actual serialized replies are capped at 512 KiB, including JSON escaping and
+cursor overhead. Completed response buffers are further bounded by the existing
+transport connection budget and lifetime timeout; the HTTP operation lease does
+not claim to cover network writes. Successful/error coverage responses use
+`Cache-Control: no-store`; errors are static and never echo input.
+
+Requests own a child cancellation guard and finite deadline capped at ten
+seconds and the configured server request timeout. Shutdown cancels coverage
+admission before draining transport, then shuts down the same physical history
+worker under the shared shutdown deadline. Enabled unavailable history makes
+server readiness false; quota exhaustion is visible without replacing the worker.
+The optional disabled path preserves existing event ingest semantics.
+
+Every history/intake/metric reply currently exposes `current_health: unknown`.
+API success, exact replay, receipt position or a selected stored assertion cannot
+heal observer supervision. Independently supervised checkpoint/gap/quiet-stream
+runtime acceptance remains separate. Do not choose the most recently appended
+history row as current health. These routes preserve originals and pins; they do
+not authenticate native proofs or establish protected independent custody.
+
+This monolith slice passes eleven API/configuration tests and one real process
+bootstrap/HTTP deadline/SIGKILL/reopen/rotation test. Default535/all-feature558
+workspace tests, strict format/lint/package gates and focused source review pass.
+Evidence: `target/goal-execution-20261007/COVERAGE-OBSERVERS/server-integration-validation.json`.
+Current health remains unknown without qualified independent application
+supervision. Native source continuity/digest proof adapters remain unimplemented
+and unqualified; they are not made real by this local history/server acceptance.

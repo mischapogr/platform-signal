@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-default workspace gate has 523; the all-feature gate has 546 (11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+default workspace gate has 535; the all-feature gate has 558 (11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 106 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,31 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Scoped monolith coverage integration — 2026-10-08
+
+The existing server now opens optional bounded coverage history under explicit
+startup configuration. A separate bootstrap command creates a new identity and
+exits; missing/existing/locked history is never silently recreated. Observer
+tokens authenticate unique exact bindings, independently of the event API token.
+Authenticated original-byte intake/replay/corrections, exact retained-profile
+reads, bounded frontier scans and aggregate resource metrics stay in the monolith.
+Every response reports current health unknown: receipt/API success, replay and
+scan exhaustion cannot promote source supervision.
+
+Eleven API/configuration regressions and one real server process test cover
+scope denial, strict input/body/output/resource limits, original bytes/pins,
+retired-profile replay, finite paging/frontier, quota, cancellation, explicit
+bootstrap and actual stalled-body deadline/SIGKILL/restart/credential rotation.
+Default 535/all-feature 558 tests, zero failures, five existing ignored helpers,
+strict format/lint/package gates and focused independent source review pass.
+Evidence: `target/goal-execution-20261007/COVERAGE-OBSERVERS/server-integration-validation.json`.
+No new locked package/version or service is added; the server now consumes the
+existing coverage crate. Existing package/image/SBOM reports remain historical.
+COVERAGE-OBSERVERS stays in progress for independent checkpoint/gap/quiet/degraded
+runtime simulation; native continuity/digest proofs remain unimplemented and
+unqualified. Scoped credential configuration is startup-pinned; live OIDC/RBAC,
+secure transport and security auditing remain their separate pending ledger items.
 
 ## Durable observer/history bridge — 2026-10-08
 
