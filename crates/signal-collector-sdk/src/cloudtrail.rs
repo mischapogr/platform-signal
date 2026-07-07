@@ -13,6 +13,8 @@ use uuid::Uuid;
 
 pub const PROFILE_ID: &str = "cloudtrail-management";
 pub const PROFILE_REVISION: &str = "v1";
+mod object;
+pub use object::{CloudTrailObject, ObjectReadError, read_object};
 pub const MAX_RECORD_BYTES: usize = 256 * 1024;
 pub const MAX_EVENT_BYTES: usize = 64 * 1024;
 pub const MAX_JSON_DEPTH: usize = 16;
