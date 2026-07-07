@@ -1,0 +1,758 @@
+[
+  {
+    "accounts": 1,
+    "label": "Single-account",
+    "ec2": 5,
+    "eks": 1,
+    "nodes": 3,
+    "pods": 20,
+    "auroraClusters": 1,
+    "auroraInstances": 2,
+    "rdsInstances": 1,
+    "lambda": 5,
+    "buckets": 5,
+    "loadbalancers": 1,
+    "servers": 1,
+    "collectors": 0,
+    "cells": 1,
+    "azs": 1,
+    "ebsGiB": 100,
+    "controlDBs": 0,
+    "controlDBGiBEach": 0,
+    "keys": 3,
+    "secrets": 3,
+    "monitoringAllowance": 20,
+    "platformHours": [
+      6,
+      12
+    ],
+    "detectionHours": [
+      4,
+      8
+    ],
+    "operationBands": [
+      [
+        2,
+        4
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        1,
+        2
+      ]
+    ],
+    "boundary": "Single account: no independent security-account failure boundary.",
+    "dbInstances": 3,
+    "sources": [
+      {
+        "key": "ec2",
+        "label": "EC2 host/application logs",
+        "entity": "ec2",
+        "gbDayEach": 0.5,
+        "meanBytes": 1000,
+        "delivery": "agent",
+        "count": 5,
+        "gbDay": 2.5,
+        "messagesDay": 2500000
+      },
+      {
+        "key": "pods",
+        "label": "EKS selected pod logs",
+        "entity": "pods",
+        "gbDayEach": 0.15,
+        "meanBytes": 1000,
+        "delivery": "agent",
+        "count": 20,
+        "gbDay": 3,
+        "messagesDay": 3000000
+      },
+      {
+        "key": "eksAudit",
+        "label": "EKS control-plane audit",
+        "entity": "eks",
+        "gbDayEach": 0.5,
+        "meanBytes": 3000,
+        "delivery": "cloudwatch",
+        "count": 1,
+        "gbDay": 0.5,
+        "messagesDay": 166666.66666666666
+      },
+      {
+        "key": "database",
+        "label": "Selected database logs",
+        "entity": "dbInstances",
+        "gbDayEach": 1,
+        "meanBytes": 2000,
+        "delivery": "cloudwatch",
+        "count": 3,
+        "gbDay": 3,
+        "messagesDay": 1500000
+      },
+      {
+        "key": "lambda",
+        "label": "Lambda application logs",
+        "entity": "lambda",
+        "gbDayEach": 0.05,
+        "meanBytes": 1000,
+        "delivery": "cloudwatch",
+        "count": 5,
+        "gbDay": 0.25,
+        "messagesDay": 250000
+      },
+      {
+        "key": "cloudtrail",
+        "label": "AWS management/audit events",
+        "entity": "accounts",
+        "gbDayEach": 0.2,
+        "meanBytes": 3000,
+        "delivery": "native",
+        "count": 1,
+        "gbDay": 0.2,
+        "messagesDay": 66666.66666666667
+      },
+      {
+        "key": "s3",
+        "label": "Selected bucket events",
+        "entity": "buckets",
+        "gbDayEach": 0.02,
+        "meanBytes": 1000,
+        "delivery": "selected-app",
+        "count": 5,
+        "gbDay": 0.1,
+        "messagesDay": 100000
+      },
+      {
+        "key": "loadbalancer",
+        "label": "Selected load-balancer logs",
+        "entity": "loadbalancers",
+        "gbDayEach": 0.2,
+        "meanBytes": 1000,
+        "delivery": "native",
+        "count": 1,
+        "gbDay": 0.2,
+        "messagesDay": 200000
+      }
+    ],
+    "gbDay": 9.749999999999998,
+    "messagesDay": 7783333.333333334,
+    "meanBytes": 1252.6766595289075,
+    "eps": 90.08487654320989,
+    "burstEPS": 450.4243827160494,
+    "normalizedGiB": 204.30888980627057,
+    "originalGiB": 497.15163186192507,
+    "puts": 51289.63993072509,
+    "gets": 76201.05028152466,
+    "queryScannedGiB": 468.75,
+    "components": {
+      "compute": 124.10000000000001,
+      "disks": 10.500000000000002,
+      "control": 0,
+      "s3": 16.133591998368498,
+      "requests": 0.28692861976623535,
+      "security": 4.593422070636749,
+      "network": 58.815,
+      "transport": 0.05021095275878905,
+      "monitoring": 20
+    },
+    "directAWS": 234.4791536415303,
+    "sourceDelivery": 53.120311349630356,
+    "totalAWS": 287.59946499116063,
+    "budgetAWS": 402.63925098762485,
+    "laborHours": [
+      10,
+      20
+    ],
+    "laborUSD": [
+      1000,
+      2000
+    ],
+    "fte": [
+      0.0625,
+      0.125
+    ],
+    "fullyLoaded": [
+      1287.5994649911606,
+      2287.599464991161
+    ],
+    "existingEKSControlPlane": 73,
+    "spoolGiB": 3.0267983675003047
+  },
+  {
+    "accounts": 10,
+    "label": "Small organization",
+    "ec2": 40,
+    "eks": 2,
+    "nodes": 12,
+    "pods": 120,
+    "auroraClusters": 4,
+    "auroraInstances": 8,
+    "rdsInstances": 8,
+    "lambda": 30,
+    "buckets": 30,
+    "loadbalancers": 10,
+    "servers": 1,
+    "collectors": 1,
+    "cells": 1,
+    "azs": 1,
+    "ebsGiB": 300,
+    "controlDBs": 0,
+    "controlDBGiBEach": 0,
+    "keys": 3,
+    "secrets": 6,
+    "monitoringAllowance": 50,
+    "platformHours": [
+      12,
+      24
+    ],
+    "detectionHours": [
+      8,
+      16
+    ],
+    "operationBands": [
+      [
+        4,
+        8
+      ],
+      [
+        2,
+        4
+      ],
+      [
+        2,
+        4
+      ],
+      [
+        2,
+        4
+      ],
+      [
+        2,
+        4
+      ]
+    ],
+    "boundary": "Small single-writer profile; independent evidence account, no server HA.",
+    "dbInstances": 16,
+    "sources": [
+      {
+        "key": "ec2",
+        "label": "EC2 host/application logs",
+        "entity": "ec2",
+        "gbDayEach": 0.5,
+        "meanBytes": 1000,
+        "delivery": "agent",
+        "count": 40,
+        "gbDay": 20,
+        "messagesDay": 20000000
+      },
+      {
+        "key": "pods",
+        "label": "EKS selected pod logs",
+        "entity": "pods",
+        "gbDayEach": 0.15,
+        "meanBytes": 1000,
+        "delivery": "agent",
+        "count": 120,
+        "gbDay": 18,
+        "messagesDay": 18000000
+      },
+      {
+        "key": "eksAudit",
+        "label": "EKS control-plane audit",
+        "entity": "eks",
+        "gbDayEach": 0.5,
+        "meanBytes": 3000,
+        "delivery": "cloudwatch",
+        "count": 2,
+        "gbDay": 1,
+        "messagesDay": 333333.3333333333
+      },
+      {
+        "key": "database",
+        "label": "Selected database logs",
+        "entity": "dbInstances",
+        "gbDayEach": 1,
+        "meanBytes": 2000,
+        "delivery": "cloudwatch",
+        "count": 16,
+        "gbDay": 16,
+        "messagesDay": 8000000
+      },
+      {
+        "key": "lambda",
+        "label": "Lambda application logs",
+        "entity": "lambda",
+        "gbDayEach": 0.05,
+        "meanBytes": 1000,
+        "delivery": "cloudwatch",
+        "count": 30,
+        "gbDay": 1.5,
+        "messagesDay": 1500000
+      },
+      {
+        "key": "cloudtrail",
+        "label": "AWS management/audit events",
+        "entity": "accounts",
+        "gbDayEach": 0.2,
+        "meanBytes": 3000,
+        "delivery": "native",
+        "count": 10,
+        "gbDay": 2,
+        "messagesDay": 666666.6666666666
+      },
+      {
+        "key": "s3",
+        "label": "Selected bucket events",
+        "entity": "buckets",
+        "gbDayEach": 0.02,
+        "meanBytes": 1000,
+        "delivery": "selected-app",
+        "count": 30,
+        "gbDay": 0.6,
+        "messagesDay": 600000
+      },
+      {
+        "key": "loadbalancer",
+        "label": "Selected load-balancer logs",
+        "entity": "loadbalancers",
+        "gbDayEach": 0.2,
+        "meanBytes": 1000,
+        "delivery": "native",
+        "count": 10,
+        "gbDay": 2,
+        "messagesDay": 2000000
+      }
+    ],
+    "gbDay": 61.1,
+    "messagesDay": 51100000,
+    "meanBytes": 1195.6947162426613,
+    "eps": 591.4351851851852,
+    "burstEPS": 2957.175925925926,
+    "normalizedGiB": 1280.335709452629,
+    "originalGiB": 3115.483559668064,
+    "puts": 327112.75329589844,
+    "gets": 591012.7532958984,
+    "queryScannedGiB": 4687.5,
+    "components": {
+      "compute": 248.20000000000002,
+      "disks": 31.500000000000004,
+      "control": 0,
+      "s3": 101.10384318977594,
+      "requests": 1.8719688677978519,
+      "security": 8.176276519775392,
+      "network": 66.63191423416137,
+      "transport": 0.3146553039550781,
+      "monitoring": 50
+    },
+    "directAWS": 507.79865811546574,
+    "sourceDelivery": 262.0602026581764,
+    "totalAWS": 769.8588607736422,
+    "budgetAWS": 1077.8024050830988,
+    "laborHours": [
+      20,
+      40
+    ],
+    "laborUSD": [
+      2000,
+      4000
+    ],
+    "fte": [
+      0.125,
+      0.25
+    ],
+    "fullyLoaded": [
+      2769.858860773642,
+      4769.858860773642
+    ],
+    "existingEKSControlPlane": 146,
+    "spoolGiB": 18.967936436335247
+  },
+  {
+    "accounts": 100,
+    "label": "Standard planning case",
+    "ec2": 400,
+    "eks": 20,
+    "nodes": 120,
+    "pods": 1200,
+    "auroraClusters": 40,
+    "auroraInstances": 80,
+    "rdsInstances": 80,
+    "lambda": 300,
+    "buckets": 300,
+    "loadbalancers": 100,
+    "servers": 3,
+    "collectors": 2,
+    "cells": 1,
+    "azs": 3,
+    "ebsGiB": 1900,
+    "controlDBs": 1,
+    "controlDBGiBEach": 200,
+    "keys": 3,
+    "secrets": 12,
+    "monitoringAllowance": 150,
+    "platformHours": [
+      40,
+      80
+    ],
+    "detectionHours": [
+      24,
+      48
+    ],
+    "operationBands": [
+      [
+        10,
+        20
+      ],
+      [
+        8,
+        16
+      ],
+      [
+        6,
+        12
+      ],
+      [
+        10,
+        20
+      ],
+      [
+        6,
+        12
+      ]
+    ],
+    "boundary": "Three target servers with fenced ownership; capacity must be qualified.",
+    "dbInstances": 160,
+    "sources": [
+      {
+        "key": "ec2",
+        "label": "EC2 host/application logs",
+        "entity": "ec2",
+        "gbDayEach": 0.5,
+        "meanBytes": 1000,
+        "delivery": "agent",
+        "count": 400,
+        "gbDay": 200,
+        "messagesDay": 200000000
+      },
+      {
+        "key": "pods",
+        "label": "EKS selected pod logs",
+        "entity": "pods",
+        "gbDayEach": 0.15,
+        "meanBytes": 1000,
+        "delivery": "agent",
+        "count": 1200,
+        "gbDay": 180,
+        "messagesDay": 180000000
+      },
+      {
+        "key": "eksAudit",
+        "label": "EKS control-plane audit",
+        "entity": "eks",
+        "gbDayEach": 0.5,
+        "meanBytes": 3000,
+        "delivery": "cloudwatch",
+        "count": 20,
+        "gbDay": 10,
+        "messagesDay": 3333333.3333333335
+      },
+      {
+        "key": "database",
+        "label": "Selected database logs",
+        "entity": "dbInstances",
+        "gbDayEach": 1,
+        "meanBytes": 2000,
+        "delivery": "cloudwatch",
+        "count": 160,
+        "gbDay": 160,
+        "messagesDay": 80000000
+      },
+      {
+        "key": "lambda",
+        "label": "Lambda application logs",
+        "entity": "lambda",
+        "gbDayEach": 0.05,
+        "meanBytes": 1000,
+        "delivery": "cloudwatch",
+        "count": 300,
+        "gbDay": 15,
+        "messagesDay": 15000000
+      },
+      {
+        "key": "cloudtrail",
+        "label": "AWS management/audit events",
+        "entity": "accounts",
+        "gbDayEach": 0.2,
+        "meanBytes": 3000,
+        "delivery": "native",
+        "count": 100,
+        "gbDay": 20,
+        "messagesDay": 6666666.666666667
+      },
+      {
+        "key": "s3",
+        "label": "Selected bucket events",
+        "entity": "buckets",
+        "gbDayEach": 0.02,
+        "meanBytes": 1000,
+        "delivery": "selected-app",
+        "count": 300,
+        "gbDay": 6,
+        "messagesDay": 6000000
+      },
+      {
+        "key": "loadbalancer",
+        "label": "Selected load-balancer logs",
+        "entity": "loadbalancers",
+        "gbDayEach": 0.2,
+        "meanBytes": 1000,
+        "delivery": "native",
+        "count": 100,
+        "gbDay": 20,
+        "messagesDay": 20000000
+      }
+    ],
+    "gbDay": 611,
+    "messagesDay": 511000000,
+    "meanBytes": 1195.6947162426613,
+    "eps": 5914.351851851852,
+    "burstEPS": 29571.759259259263,
+    "normalizedGiB": 12803.35709452629,
+    "originalGiB": 31154.83559668064,
+    "puts": 3271127.5329589844,
+    "gets": 5910127.532958984,
+    "queryScannedGiB": 46875,
+    "components": {
+      "compute": 620.5,
+      "disks": 199.50000000000003,
+      "control": 305.88,
+      "s3": 1011.0384318977594,
+      "requests": 18.719688677978517,
+      "security": 35.38756519775391,
+      "network": 347.89985630512234,
+      "transport": 3.1465530395507812,
+      "monitoring": 150
+    },
+    "directAWS": 2692.0720951181647,
+    "sourceDelivery": 2620.602026581764,
+    "totalAWS": 5312.674121699929,
+    "budgetAWS": 7437.7437703799,
+    "laborHours": [
+      64,
+      128
+    ],
+    "laborUSD": [
+      6400,
+      12800
+    ],
+    "fte": [
+      0.4,
+      0.8
+    ],
+    "fullyLoaded": [
+      11712.674121699929,
+      18112.67412169993
+    ],
+    "existingEKSControlPlane": 1460,
+    "spoolGiB": 189.67936436335245
+  },
+  {
+    "accounts": 1000,
+    "label": "Out-of-envelope extrapolation",
+    "ec2": 4000,
+    "eks": 200,
+    "nodes": 1200,
+    "pods": 12000,
+    "auroraClusters": 400,
+    "auroraInstances": 800,
+    "rdsInstances": 800,
+    "lambda": 3000,
+    "buckets": 3000,
+    "loadbalancers": 1000,
+    "servers": 30,
+    "collectors": 20,
+    "cells": 10,
+    "azs": 3,
+    "ebsGiB": 19000,
+    "controlDBs": 10,
+    "controlDBGiBEach": 200,
+    "keys": 30,
+    "secrets": 120,
+    "monitoringAllowance": 1500,
+    "platformHours": [
+      160,
+      320
+    ],
+    "detectionHours": [
+      80,
+      160
+    ],
+    "operationBands": [
+      [
+        40,
+        80
+      ],
+      [
+        32,
+        64
+      ],
+      [
+        24,
+        48
+      ],
+      [
+        40,
+        80
+      ],
+      [
+        24,
+        48
+      ]
+    ],
+    "boundary": "Ten separately qualified 100-account cells; no federation or capacity promise.",
+    "dbInstances": 1600,
+    "sources": [
+      {
+        "key": "ec2",
+        "label": "EC2 host/application logs",
+        "entity": "ec2",
+        "gbDayEach": 0.5,
+        "meanBytes": 1000,
+        "delivery": "agent",
+        "count": 4000,
+        "gbDay": 2000,
+        "messagesDay": 2000000000
+      },
+      {
+        "key": "pods",
+        "label": "EKS selected pod logs",
+        "entity": "pods",
+        "gbDayEach": 0.15,
+        "meanBytes": 1000,
+        "delivery": "agent",
+        "count": 12000,
+        "gbDay": 1800,
+        "messagesDay": 1800000000
+      },
+      {
+        "key": "eksAudit",
+        "label": "EKS control-plane audit",
+        "entity": "eks",
+        "gbDayEach": 0.5,
+        "meanBytes": 3000,
+        "delivery": "cloudwatch",
+        "count": 200,
+        "gbDay": 100,
+        "messagesDay": 33333333.333333332
+      },
+      {
+        "key": "database",
+        "label": "Selected database logs",
+        "entity": "dbInstances",
+        "gbDayEach": 1,
+        "meanBytes": 2000,
+        "delivery": "cloudwatch",
+        "count": 1600,
+        "gbDay": 1600,
+        "messagesDay": 800000000
+      },
+      {
+        "key": "lambda",
+        "label": "Lambda application logs",
+        "entity": "lambda",
+        "gbDayEach": 0.05,
+        "meanBytes": 1000,
+        "delivery": "cloudwatch",
+        "count": 3000,
+        "gbDay": 150,
+        "messagesDay": 150000000
+      },
+      {
+        "key": "cloudtrail",
+        "label": "AWS management/audit events",
+        "entity": "accounts",
+        "gbDayEach": 0.2,
+        "meanBytes": 3000,
+        "delivery": "native",
+        "count": 1000,
+        "gbDay": 200,
+        "messagesDay": 66666666.666666664
+      },
+      {
+        "key": "s3",
+        "label": "Selected bucket events",
+        "entity": "buckets",
+        "gbDayEach": 0.02,
+        "meanBytes": 1000,
+        "delivery": "selected-app",
+        "count": 3000,
+        "gbDay": 60,
+        "messagesDay": 60000000
+      },
+      {
+        "key": "loadbalancer",
+        "label": "Selected load-balancer logs",
+        "entity": "loadbalancers",
+        "gbDayEach": 0.2,
+        "meanBytes": 1000,
+        "delivery": "native",
+        "count": 1000,
+        "gbDay": 200,
+        "messagesDay": 200000000
+      }
+    ],
+    "gbDay": 6110,
+    "messagesDay": 5110000000.000001,
+    "meanBytes": 1195.6947162426611,
+    "eps": 59143.51851851853,
+    "burstEPS": 295717.59259259264,
+    "normalizedGiB": 128033.57094526291,
+    "originalGiB": 311548.3559668064,
+    "puts": 32711275.329589844,
+    "gets": 59101275.329589844,
+    "queryScannedGiB": 468750,
+    "components": {
+      "compute": 6205,
+      "disks": 1995.0000000000002,
+      "control": 3058.8,
+      "s3": 10110.384318977594,
+      "requests": 187.19688677978516,
+      "security": 353.87565197753906,
+      "network": 3478.9985630512238,
+      "transport": 31.465530395507812,
+      "monitoring": 1500
+    },
+    "directAWS": 26920.720951181647,
+    "sourceDelivery": 26206.020265817642,
+    "totalAWS": 53126.74121699929,
+    "budgetAWS": 74377.437703799,
+    "laborHours": [
+      240,
+      480
+    ],
+    "laborUSD": [
+      24000,
+      48000
+    ],
+    "fte": [
+      1.5,
+      3
+    ],
+    "fullyLoaded": [
+      77126.74121699929,
+      101126.74121699929
+    ],
+    "existingEKSControlPlane": 14600,
+    "spoolGiB": 1896.7936436335247
+  }
+]

@@ -1,0 +1,970 @@
+{
+  "checked": "2026-07-07",
+  "currency": "USD",
+  "region": "us-east-1",
+  "records": [
+    {
+      "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEC2/current/us-east-1/index.json",
+      "publicationDate": "2026-10-07T16:54:08Z",
+      "sha256": "16b2a6f883a35b0e49722f8cc8df19de0174f7585287eb8fe9a7ff46adbb915a",
+      "selected": [
+        {
+          "sku": "JG3KUJMBRGHV3N8G",
+          "attributes": {
+            "servicecode": "AmazonEC2",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "storageMedia": "SSD-backed",
+            "volumeType": "General Purpose",
+            "maxVolumeSize": "64 TiB",
+            "maxIopsvolume": "80000",
+            "maxThroughputvolume": "2000 MiB/s",
+            "usagetype": "EBS:VolumeUsage.gp3",
+            "operation": "",
+            "regionCode": "us-east-1",
+            "servicename": "Amazon Elastic Compute Cloud",
+            "volumeApiName": "gp3"
+          },
+          "price": {
+            "rateCode": "JG3KUJMBRGHV3N8G.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$0.08 per GB-month of General Purpose (gp3) provisioned storage - US East (N. Virginia)",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "GB-Mo",
+            "pricePerUnit": {
+              "USD": "0.0800000000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "7U7TWP44UP36AT3R",
+          "attributes": {
+            "servicecode": "AmazonEC2",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "storageMedia": "Amazon S3",
+            "usagetype": "EBS:SnapshotUsage",
+            "operation": "",
+            "regionCode": "us-east-1",
+            "servicename": "Amazon Elastic Compute Cloud"
+          },
+          "price": {
+            "rateCode": "7U7TWP44UP36AT3R.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$0.05 per GB-Month of snapshot data stored - US East (Northern Virginia)",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "GB-Mo",
+            "pricePerUnit": {
+              "USD": "0.0500000000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "JPN4K2NQVRWGTQGS",
+          "attributes": {
+            "servicecode": "AmazonEC2",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "instanceType": "c6i.xlarge",
+            "currentGeneration": "Yes",
+            "instanceFamily": "Compute optimized",
+            "vcpu": "4",
+            "physicalProcessor": "Intel Xeon 8375C (Ice Lake)",
+            "clockSpeed": "3.5 GHz",
+            "memory": "8 GiB",
+            "storage": "EBS only",
+            "networkPerformance": "Up to 12500 Megabit",
+            "processorArchitecture": "64-bit",
+            "tenancy": "Shared",
+            "operatingSystem": "Linux",
+            "licenseModel": "No License required",
+            "usagetype": "BoxUsage:c6i.xlarge",
+            "operation": "RunInstances",
+            "availabilityzone": "NA",
+            "capacitystatus": "Used",
+            "classicnetworkingsupport": "false",
+            "dedicatedEbsThroughput": "Up to 10000 Mbps",
+            "dedicatedEbsThroughputDescription": "1250 Mbps",
+            "ecu": "NA",
+            "enhancedNetworkingSupported": "Yes",
+            "gpuMemory": "NA",
+            "instanceFamilyCategory": "Compute Optimized",
+            "intelAvxAvailable": "Yes",
+            "intelAvx2Available": "Yes",
+            "intelTurboAvailable": "Yes",
+            "marketoption": "OnDemand",
+            "normalizationSizeFactor": "8",
+            "preInstalledSw": "NA",
+            "processorFeatures": "Intel AVX; Intel AVX2; Intel AVX512; Intel Turbo",
+            "regionCode": "us-east-1",
+            "servicename": "Amazon Elastic Compute Cloud",
+            "vpcnetworkingsupport": "true"
+          },
+          "price": {
+            "rateCode": "JPN4K2NQVRWGTQGS.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$0.17 per On Demand Linux c6i.xlarge Instance Hour",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "Hrs",
+            "pricePerUnit": {
+              "USD": "0.1700000000"
+            },
+            "appliesTo": []
+          }
+        }
+      ]
+    },
+    {
+      "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/awskms/current/us-east-1/index.json",
+      "publicationDate": "2026-09-11T12:46:01Z",
+      "sha256": "5d3a92a5efff96123b2197bc7575c0a79598ceca0d1abe3d695c0588ba8ea1d0",
+      "selected": [
+        {
+          "sku": "U553K98XGDXCYHWS",
+          "attributes": {
+            "servicecode": "awskms",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "usagetype": "us-east-1-KMS-Keys",
+            "operation": "",
+            "regionCode": "us-east-1",
+            "servicename": "AWS Key Management Service"
+          },
+          "price": {
+            "rateCode": "U553K98XGDXCYHWS.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$1 per customer managed KMS key version in US East (N. Virginia)",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "Keys",
+            "pricePerUnit": {
+              "USD": "1.0000000000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "NNYDKMC6UDJC5BNA",
+          "attributes": {
+            "servicecode": "awskms",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "group": "awskms-Requests-GenerateDatakeyPair-ECC",
+            "groupDescription": "AWS KMS API Requests GenerateDatakeyPair ECC",
+            "usagetype": "us-east-1-KMS-Requests-GenerateDatakeyPair-ECC",
+            "operation": "",
+            "regionCode": "us-east-1",
+            "servicename": "AWS Key Management Service"
+          },
+          "price": {
+            "rateCode": "NNYDKMC6UDJC5BNA.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$0.1 per 10000 ECC Generate Data Key Pair Requests in US East (N. Virginia)",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "Requests",
+            "pricePerUnit": {
+              "USD": "0.0000100000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "K6RTGXAZD26D3JJQ",
+          "attributes": {
+            "servicecode": "awskms",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "group": "awskms-Requests-GenerateDatakeyPair-RSA",
+            "groupDescription": "AWS KMS API Requests GenerateDatakeyPair RSA",
+            "usagetype": "us-east-1-KMS-Requests-GenerateDatakeyPair-RSA",
+            "operation": "",
+            "regionCode": "us-east-1",
+            "servicename": "AWS Key Management Service"
+          },
+          "price": {
+            "rateCode": "K6RTGXAZD26D3JJQ.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$12 per 10000 RSA Generate Data Key Pair Requests in US East (N. Virginia)",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "Requests",
+            "pricePerUnit": {
+              "USD": "0.0012000000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "D2442XTM4G9ABTHW",
+          "attributes": {
+            "servicecode": "awskms",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "group": "aws-kms-Requests-Asymmetric-RSA_2048",
+            "groupDescription": "AWS KMS Asymmetric Requests RSA_2048",
+            "usagetype": "us-east-1-KMS-Requests-Asymmetric-RSA_2048",
+            "operation": "",
+            "regionCode": "us-east-1",
+            "servicename": "AWS Key Management Service"
+          },
+          "price": {
+            "rateCode": "D2442XTM4G9ABTHW.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$0.03 per 10000 KMS RSA 2048 requests in US East (N. Virgina)",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "Requests",
+            "pricePerUnit": {
+              "USD": "0.0000030000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "MS4387UGYYR785BJ",
+          "attributes": {
+            "servicecode": "awskms",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "group": "awskms-Requests-Asymmetric",
+            "groupDescription": "AWS KMS Asymmetric Requests except RSA_2048API",
+            "usagetype": "us-east-1-KMS-Requests-Asymmetric",
+            "operation": "",
+            "regionCode": "us-east-1",
+            "servicename": "AWS Key Management Service"
+          },
+          "price": {
+            "rateCode": "MS4387UGYYR785BJ.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$0.15 per 10000 KMS Asymmetric Requests excluding RSA 2048 in US East (N. Virginia)",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "Requests",
+            "pricePerUnit": {
+              "USD": "0.0000150000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "VTFSAGP364M6QE4A",
+          "attributes": {
+            "servicecode": "awskms",
+            "location": "Any",
+            "locationType": "Other",
+            "group": "awskms-Requests",
+            "groupDescription": "Monthly free usage of KMS API Requests",
+            "usagetype": "Global-KMS-Requests",
+            "operation": "",
+            "regionCode": "",
+            "servicename": "AWS Key Management Service"
+          },
+          "price": {
+            "rateCode": "VTFSAGP364M6QE4A.A429C66SYZ.7K6Z2V4Y4Q",
+            "description": "$0.00 per request - Monthly Global Free Tier for KMS requests",
+            "beginRange": "0",
+            "endRange": "20000",
+            "unit": "Requests",
+            "pricePerUnit": {
+              "USD": "0.0000000000"
+            },
+            "appliesTo": [
+              "A3247YR2SJRYKDEX",
+              "MFEBZPX8NHM5FY7Z",
+              "GAG46BCKTJNCPRCD",
+              "H4VQ25AJP5STBY2V",
+              "MG69RRR3V9FG2YMF",
+              "WCDV7H2SEWSQDPHE",
+              "2S77H5MZU5BVWEXS",
+              "GKJ2WA9PUPY889NV",
+              "8XH9DBV4329CDSSS",
+              "74AFRTWKY4BVPBF7",
+              "22NGFM2U7FQGBC49",
+              "EZCZH4NG992U5FTR",
+              "XV5CERB5VJ728MSB",
+              "KHS2JMB7WKYW8C7Z",
+              "GNYCWMXMCTZC5JHT",
+              "Y2YQ2HC2B26TT67Y",
+              "UM499D63PU3S76VD",
+              "5Y7QS22JD2KZBNBG",
+              "9XXHSZC4PS7S6AY2",
+              "UBKP744W7HW7MT76",
+              "GKZE5RA8VKSV68NC",
+              "H9GF6XQC7UBUWPRJ",
+              "49JKURJSSQHXXAKH",
+              "4H6XVYZMMD8MKVZD",
+              "7AVHXGCZK6D9ARBK",
+              "3QRVDNCQFVZRB88M",
+              "HZSWET2JVDK3QKYM",
+              "N8ZHDTY86X2AN7DE",
+              "MPVASE9XEU8AVWM6",
+              "23PVFMNC6R4J3AB6",
+              "QCRBRVP4WHFE4RN9",
+              "SE9KXT6M6JTP7E4W",
+              "2V8H8RKD5G49TF84",
+              "ERNZKT7S85V564AK",
+              "SN4PUPSHPREACEHV",
+              "ZXP6ZS4WWG9FNXHG",
+              "EVSMZX4D7HGSBAQF"
+            ]
+          }
+        },
+        {
+          "sku": "MFEBZPX8NHM5FY7Z",
+          "attributes": {
+            "servicecode": "awskms",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "group": "awskms-APIRequest-All",
+            "groupDescription": "All AWS KMS API requests",
+            "usagetype": "us-east-1-KMS-Requests",
+            "operation": "",
+            "regionCode": "us-east-1",
+            "servicename": "AWS Key Management Service"
+          },
+          "price": {
+            "rateCode": "MFEBZPX8NHM5FY7Z.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$0.03 per 10000 KMS requests in US East (N. Virginia)",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "Requests",
+            "pricePerUnit": {
+              "USD": "0.0000030000"
+            },
+            "appliesTo": []
+          }
+        }
+      ]
+    },
+    {
+      "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonCloudWatch/current/us-east-1/index.json",
+      "publicationDate": "2026-10-07T11:55:40Z",
+      "sha256": "56cc88ec0074530e7a14c232c17e3bda0807468f1724c6a746e19f0f0330f5f5",
+      "selected": [
+        {
+          "sku": "JRHJQ2UMPUB5K73A",
+          "attributes": {
+            "servicecode": "AmazonCloudWatch",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "storageMedia": "Amazon S3",
+            "group": "Amazon CloudWatch Standard Storage pricing legacy",
+            "groupDescription": "Amazon CloudWatch Logs Storage Legacy version",
+            "usagetype": "TimedStorage-ByteHrs",
+            "operation": "",
+            "regionCode": "us-east-1",
+            "servicename": "AmazonCloudWatch",
+            "version": "Legacy"
+          },
+          "price": {
+            "rateCode": "JRHJQ2UMPUB5K73A.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$0.03 per GB-mo of log storage - US East (Northern Virginia)",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "GB-Mo",
+            "pricePerUnit": {
+              "USD": "0.0300000000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "96K55R2PV3ZZZ3AM",
+          "attributes": {
+            "servicecode": "AmazonCloudWatch",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "group": "Ingested Logs",
+            "groupDescription": "Existing system, application, and custom log files",
+            "usagetype": "DataProcessing-Bytes",
+            "operation": "PutLogEvents",
+            "logsDestination": "Amazon CloudWatch Logs",
+            "regionCode": "us-east-1",
+            "servicename": "AmazonCloudWatch",
+            "version": "Legacy"
+          },
+          "price": {
+            "rateCode": "96K55R2PV3ZZZ3AM.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$0.50 per GB custom log data ingested in Standard log class - US East (Northern Virginia)",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "GB",
+            "pricePerUnit": {
+              "USD": "0.5000000000"
+            },
+            "appliesTo": []
+          }
+        }
+      ]
+    },
+    {
+      "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSSecretsManager/current/us-east-1/index.json",
+      "publicationDate": "2026-09-11T12:46:10Z",
+      "sha256": "496d97748defb355700e90a56d999d9170be82b1e8afa6a099b3998accf113b3",
+      "selected": [
+        {
+          "sku": "BJ3PQ9BYGU6P632F",
+          "attributes": {
+            "servicecode": "AWSSecretsManager",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "group": "AWSSecretsManager-Secret",
+            "usagetype": "USE1-AWSSecretsManager-Secrets",
+            "operation": "",
+            "regionCode": "us-east-1",
+            "servicename": "AWS Secrets Manager"
+          },
+          "price": {
+            "rateCode": "BJ3PQ9BYGU6P632F.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$0.40 per Secret",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "Secrets",
+            "pricePerUnit": {
+              "USD": "0.4000000000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "4MDZ5VNEJPMUTG9B",
+          "attributes": {
+            "servicecode": "AWSSecretsManager",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "group": "AWSSecretsManager-APIRequest",
+            "usagetype": "USE1-AWSSecretsManagerAPIRequest",
+            "operation": "",
+            "regionCode": "us-east-1",
+            "servicename": "AWS Secrets Manager"
+          },
+          "price": {
+            "rateCode": "4MDZ5VNEJPMUTG9B.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$0.05 per 10000 API Requests",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "API Requests",
+            "pricePerUnit": {
+              "USD": "0.0000050000"
+            },
+            "appliesTo": []
+          }
+        }
+      ]
+    },
+    {
+      "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSQueueService/current/us-east-1/index.json",
+      "publicationDate": "2026-09-11T12:46:07Z",
+      "sha256": "787061c859b2ed47c2249b0b54516230b9d245b76ab41d87ce11f449a27813dc",
+      "selected": [
+        {
+          "sku": "VUY9G3EK3YXBUD92",
+          "attributes": {
+            "servicecode": "AWSQueueService",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "group": "SQS-APIRequest-Tier1",
+            "groupDescription": "Amazon SQS Requests",
+            "usagetype": "Requests-Fair-RBP",
+            "operation": "",
+            "queueType": "Fair",
+            "regionCode": "us-east-1",
+            "servicename": "Amazon Simple Queue Service"
+          },
+          "price": {
+            "rateCode": "VUY9G3EK3YXBUD92.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$0.10 per million Amazon SQS fair queue requests in US East (N. Virginia)",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "Requests",
+            "pricePerUnit": {
+              "USD": "0.0000001000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "624ZQ7K46KHFAD9Y",
+          "attributes": {
+            "servicecode": "AWSQueueService",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "group": "SQS-APIRequest-Tier1",
+            "groupDescription": "Amazon SQS Requests",
+            "usagetype": "Requests-FIFO-RBP",
+            "operation": "",
+            "messageDeliveryFrequency": "Exactly Once",
+            "messageDeliveryOrder": "Guaranteed",
+            "queueType": "FIFO (first-in, first-out)",
+            "regionCode": "us-east-1",
+            "servicename": "Amazon Simple Queue Service"
+          },
+          "price": {
+            "rateCode": "624ZQ7K46KHFAD9Y.JRTCKXETXF.VXGXCWQKTY",
+            "description": "$0.50 per million Amazon SQS FIFO requests in Tier1 in US East (N Virginia)",
+            "beginRange": "0",
+            "endRange": "100000000000",
+            "unit": "Requests",
+            "pricePerUnit": {
+              "USD": "0.0000005000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "624ZQ7K46KHFAD9Y",
+          "attributes": {
+            "servicecode": "AWSQueueService",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "group": "SQS-APIRequest-Tier1",
+            "groupDescription": "Amazon SQS Requests",
+            "usagetype": "Requests-FIFO-RBP",
+            "operation": "",
+            "messageDeliveryFrequency": "Exactly Once",
+            "messageDeliveryOrder": "Guaranteed",
+            "queueType": "FIFO (first-in, first-out)",
+            "regionCode": "us-east-1",
+            "servicename": "Amazon Simple Queue Service"
+          },
+          "price": {
+            "rateCode": "624ZQ7K46KHFAD9Y.JRTCKXETXF.9JVYQWEJJY",
+            "description": "$0.40 per million Amazon SQS FIFO requests in Tier2 in US East (N Virginia)",
+            "beginRange": "100000000000",
+            "endRange": "200000000000",
+            "unit": "Requests",
+            "pricePerUnit": {
+              "USD": "0.0000004000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "624ZQ7K46KHFAD9Y",
+          "attributes": {
+            "servicecode": "AWSQueueService",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "group": "SQS-APIRequest-Tier1",
+            "groupDescription": "Amazon SQS Requests",
+            "usagetype": "Requests-FIFO-RBP",
+            "operation": "",
+            "messageDeliveryFrequency": "Exactly Once",
+            "messageDeliveryOrder": "Guaranteed",
+            "queueType": "FIFO (first-in, first-out)",
+            "regionCode": "us-east-1",
+            "servicename": "Amazon Simple Queue Service"
+          },
+          "price": {
+            "rateCode": "624ZQ7K46KHFAD9Y.JRTCKXETXF.27HCEGFCXT",
+            "description": "$0.35 per million Amazon SQS FIFO requests in Tier3 in US East (N Virginia)",
+            "beginRange": "200000000000",
+            "endRange": "Inf",
+            "unit": "Requests",
+            "pricePerUnit": {
+              "USD": "0.0000003500"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "MNCJEPJRCSC9RFY2",
+          "attributes": {
+            "servicecode": "AWSQueueService",
+            "location": "Any",
+            "locationType": "AWS Region",
+            "group": "SQS-APIRequest-Tier1",
+            "groupDescription": "Amazon SQS Requests",
+            "usagetype": "Global-Requests",
+            "operation": "",
+            "queueType": "Any",
+            "regionCode": "",
+            "servicename": "Amazon Simple Queue Service"
+          },
+          "price": {
+            "rateCode": "MNCJEPJRCSC9RFY2.A429C66SYZ.SB2VSFF4TP",
+            "description": "First 1,000,000 Amazon SQS Requests per month are free",
+            "beginRange": "0",
+            "endRange": "1000000",
+            "unit": "Requests",
+            "pricePerUnit": {
+              "USD": "0.0000000000"
+            },
+            "appliesTo": [
+              "YEXXSM3VA68K4F6Y",
+              "8RN6B8U4MERHRXP3",
+              "R9ENKEPD2X3ZS4WG",
+              "5Y72GBZYEX3K6HZD",
+              "3C4VGZ5GZ59FW48C",
+              "SS8QW3CYKK8KB24U",
+              "92UK6XB5N9F9XQ2D",
+              "JZ9B9GSHQJS48GP9",
+              "4PRFSQSZPBHH5P62",
+              "QNZ8TGCKNKNRUPGW",
+              "ZCM368RUDWCG67TA",
+              "UGEAHPS9QMJQF3K4",
+              "ZSV7PSV36PVSDE32",
+              "KW4DYRNE4YX3KP4D",
+              "TW38AR2BPP3PKCZB",
+              "DNX4ZACK32GSXC3Q",
+              "29ABJHHVVR63QR62",
+              "9C8YFGPNBKF9HP9A",
+              "BP4TRN8B3DYN8SQZ",
+              "PVF7MDBNRK7V9S5H",
+              "7DSEXZJZCF4MMFKF",
+              "9EZTQJC84BRJ8CHZ",
+              "KJR94VEEKG8JZ5NQ",
+              "YH5ZUTMAG8WSV8TJ",
+              "DCC8QT7E77VUV235",
+              "VUKA5PPX25AYTAAV",
+              "G95FST5FTYV3JSRX",
+              "PR5QUY752RRGMYJC",
+              "5Q2SBURHPCGERHBD",
+              "RC6UWG9P2K8KHYDB",
+              "6WH88PFBNCJ83VC5",
+              "4GAC7KSBWB2RF3VB",
+              "KKYU8N9BXAT9BX78",
+              "BT8RVHST6VNCHUCN",
+              "57Y46ZQ5U7FA2Z5Z",
+              "D8K2W3D7HJHVWMFG",
+              "PV7WUTW3NXR2794P",
+              "3FFU2JU83EB5H7UP",
+              "4FXA3SQAS69KUCQ6",
+              "WXF9K2K46U6ZR9US",
+              "Y6JJ7JBXQG364CH7",
+              "YUQ6HZRBKZKTYUHN",
+              "RCTKWXYG5375R322",
+              "SZST2W5PJZXVA4GF",
+              "6HPTR2MP4ZFUUGNV",
+              "PAHYVTQK8UZB4C9Q",
+              "EK4A5UXS9GZFVTBD",
+              "7VNHS7AMZAP5RXND",
+              "Y8W4TKQWYZFDM9BG",
+              "SNCBHWU9JQQ5FM7G",
+              "EDTTE6DBKU582ME9",
+              "SSZJAF3K6XY544ES",
+              "J72GSUBUNE9DNT9B",
+              "6H4FT9UZM5YGT53K",
+              "ZJG565KXXBERH5R4",
+              "5H8P99CKXY68YUT5",
+              "FUGS4872HHERGU2K",
+              "U9U3WGB3P2FBYDRZ",
+              "FDRQYHYC2RR56944",
+              "FKZ8P3YM3G69V3KQ",
+              "7JDCXCCHVYH99G79",
+              "QC48Q5XRV72KG29M",
+              "HSP76GSZN55FQXBC",
+              "GZ4K2VVYZYCA2NTU",
+              "SQUU378BX6EJ8NEF",
+              "MMJQEHWUA3GBM3US",
+              "P3CJY2XWAQJRARVP",
+              "XYPZ7BUEGH4GTEUG",
+              "8MSPNYX7NRACMDH7",
+              "X7T4FVGEF8N3VZCP",
+              "EAQ7C37E8H4G9TA2",
+              "RQZVF8C5J25UDYJZ",
+              "624ZQ7K46KHFAD9Y",
+              "V6ENB53VG52BZXU5"
+            ]
+          }
+        },
+        {
+          "sku": "8RN6B8U4MERHRXP3",
+          "attributes": {
+            "servicecode": "AWSQueueService",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "group": "SQS-APIRequest-Tier1",
+            "groupDescription": "Amazon SQS Requests",
+            "usagetype": "Requests-RBP",
+            "operation": "",
+            "messageDeliveryFrequency": "At Least Once",
+            "messageDeliveryOrder": "Not Guaranteed",
+            "queueType": "Standard",
+            "regionCode": "us-east-1",
+            "servicename": "Amazon Simple Queue Service"
+          },
+          "price": {
+            "rateCode": "8RN6B8U4MERHRXP3.JRTCKXETXF.VXGXCWQKTY",
+            "description": "$0.40 per million Amazon SQS standard requests in Tier1 in US East (N Virginia)",
+            "beginRange": "0",
+            "endRange": "100000000000",
+            "unit": "Requests",
+            "pricePerUnit": {
+              "USD": "0.0000004000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "8RN6B8U4MERHRXP3",
+          "attributes": {
+            "servicecode": "AWSQueueService",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "group": "SQS-APIRequest-Tier1",
+            "groupDescription": "Amazon SQS Requests",
+            "usagetype": "Requests-RBP",
+            "operation": "",
+            "messageDeliveryFrequency": "At Least Once",
+            "messageDeliveryOrder": "Not Guaranteed",
+            "queueType": "Standard",
+            "regionCode": "us-east-1",
+            "servicename": "Amazon Simple Queue Service"
+          },
+          "price": {
+            "rateCode": "8RN6B8U4MERHRXP3.JRTCKXETXF.9JVYQWEJJY",
+            "description": "$0.30 per million Amazon SQS standard requests in Tier2 in US East (N Virginia)",
+            "beginRange": "100000000000",
+            "endRange": "200000000000",
+            "unit": "Requests",
+            "pricePerUnit": {
+              "USD": "0.0000003000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "8RN6B8U4MERHRXP3",
+          "attributes": {
+            "servicecode": "AWSQueueService",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "group": "SQS-APIRequest-Tier1",
+            "groupDescription": "Amazon SQS Requests",
+            "usagetype": "Requests-RBP",
+            "operation": "",
+            "messageDeliveryFrequency": "At Least Once",
+            "messageDeliveryOrder": "Not Guaranteed",
+            "queueType": "Standard",
+            "regionCode": "us-east-1",
+            "servicename": "Amazon Simple Queue Service"
+          },
+          "price": {
+            "rateCode": "8RN6B8U4MERHRXP3.JRTCKXETXF.27HCEGFCXT",
+            "description": "$0.24 per million Amazon SQS standard requests in Tier3 in US East (N Virginia)",
+            "beginRange": "200000000000",
+            "endRange": "Inf",
+            "unit": "Requests",
+            "pricePerUnit": {
+              "USD": "0.0000002400"
+            },
+            "appliesTo": []
+          }
+        }
+      ]
+    },
+    {
+      "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonRDS/current/us-east-1/index.json",
+      "publicationDate": "2026-10-06T22:40:50Z",
+      "sha256": "79222b863d148fa1d3178a36440c0811e3aa489ae04af8a10e4aa56a26a8ae0b",
+      "selected": [
+        {
+          "sku": "UMU6Q57372UWUC2B",
+          "attributes": {
+            "servicecode": "AmazonRDS",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "instanceType": "db.m6i.large",
+            "currentGeneration": "Yes",
+            "instanceFamily": "General purpose",
+            "vcpu": "2",
+            "physicalProcessor": "Intel Xeon Scalable Ice Lake",
+            "memory": "8 GiB",
+            "storage": "EBS Only",
+            "networkPerformance": "Up to 12.5 Gbps",
+            "processorArchitecture": "x86",
+            "engineCode": "14",
+            "databaseEngine": "PostgreSQL",
+            "licenseModel": "No license required",
+            "deploymentOption": "Multi-AZ",
+            "usagetype": "Multi-AZUsage:db.m6i.large",
+            "operation": "CreateDBInstance:0014",
+            "instanceTypeFamily": "M6i",
+            "normalizationSizeFactor": "8",
+            "regionCode": "us-east-1",
+            "servicename": "Amazon Relational Database Service",
+            "unbundledLicensing": "FALSE"
+          },
+          "price": {
+            "rateCode": "UMU6Q57372UWUC2B.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$ 0.356 per RDS db.m6i.large Multi-AZ instance hour (or partial hour) running PostgreSQL",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "Hrs",
+            "pricePerUnit": {
+              "USD": "0.3560000000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "J7S7KD4WFDNQWKNX",
+          "attributes": {
+            "servicecode": "AmazonRDS",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "storageMedia": "SSD",
+            "volumeType": "General Purpose-GP3",
+            "minVolumeSize": "5 GB",
+            "maxVolumeSize": "16 TB",
+            "engineCode": "14",
+            "databaseEngine": "PostgreSQL",
+            "deploymentOption": "Multi-AZ",
+            "usagetype": "RDS:Multi-AZ-GP3-Storage",
+            "operation": "CreateDBInstance:0014",
+            "regionCode": "us-east-1",
+            "servicename": "Amazon Relational Database Service"
+          },
+          "price": {
+            "rateCode": "J7S7KD4WFDNQWKNX.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$0.23 per GB-month of provisioned GP3 storage for Multi-AZ deployments running PostgreSQL",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "GB-Mo",
+            "pricePerUnit": {
+              "USD": "0.2300000000"
+            },
+            "appliesTo": []
+          }
+        }
+      ]
+    },
+    {
+      "source": "https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/us-east-1/index.json",
+      "publicationDate": "2026-09-28T23:04:16Z",
+      "sha256": "798f9727bc5102d15d471c5b84c15ed3e20297015330f515a33d5f6a032cc2f1",
+      "selected": [
+        {
+          "sku": "ZWQ6Q48CRJXX4FXE",
+          "attributes": {
+            "servicecode": "AmazonS3",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "group": "S3-API-Tier2",
+            "groupDescription": "GET and all other requests",
+            "usagetype": "Requests-Tier2",
+            "operation": "",
+            "regionCode": "us-east-1",
+            "servicename": "Amazon Simple Storage Service"
+          },
+          "price": {
+            "rateCode": "ZWQ6Q48CRJXX4FXE.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$0.004 per 10,000 GET and all other requests",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "Requests",
+            "pricePerUnit": {
+              "USD": "0.0000004000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "E9YHNFENF4XQBZR6",
+          "attributes": {
+            "servicecode": "AmazonS3",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "group": "S3-API-Tier1",
+            "groupDescription": "PUT/COPY/POST or LIST requests",
+            "usagetype": "Requests-Tier1",
+            "operation": "",
+            "regionCode": "us-east-1",
+            "servicename": "Amazon Simple Storage Service"
+          },
+          "price": {
+            "rateCode": "E9YHNFENF4XQBZR6.JRTCKXETXF.6YS6EN2CT7",
+            "description": "$0.005 per 1,000 PUT, COPY, POST, or LIST requests",
+            "beginRange": "0",
+            "endRange": "Inf",
+            "unit": "Requests",
+            "pricePerUnit": {
+              "USD": "0.0000050000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "WP9ANXZGBYYSGJEA",
+          "attributes": {
+            "servicecode": "AmazonS3",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "availability": "99.99%",
+            "storageClass": "General Purpose",
+            "volumeType": "Standard",
+            "usagetype": "TimedStorage-ByteHrs",
+            "operation": "",
+            "durability": "99.999999999%",
+            "regionCode": "us-east-1",
+            "servicename": "Amazon Simple Storage Service"
+          },
+          "price": {
+            "rateCode": "WP9ANXZGBYYSGJEA.JRTCKXETXF.PGHJ3S3EYE",
+            "description": "$0.023 per GB - first 50 TB / month of storage used",
+            "beginRange": "0",
+            "endRange": "51200",
+            "unit": "GB-Mo",
+            "pricePerUnit": {
+              "USD": "0.0230000000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "WP9ANXZGBYYSGJEA",
+          "attributes": {
+            "servicecode": "AmazonS3",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "availability": "99.99%",
+            "storageClass": "General Purpose",
+            "volumeType": "Standard",
+            "usagetype": "TimedStorage-ByteHrs",
+            "operation": "",
+            "durability": "99.999999999%",
+            "regionCode": "us-east-1",
+            "servicename": "Amazon Simple Storage Service"
+          },
+          "price": {
+            "rateCode": "WP9ANXZGBYYSGJEA.JRTCKXETXF.D42MF2PVJS",
+            "description": "$0.022 per GB - next 450 TB / month of storage used",
+            "beginRange": "51200",
+            "endRange": "512000",
+            "unit": "GB-Mo",
+            "pricePerUnit": {
+              "USD": "0.0220000000"
+            },
+            "appliesTo": []
+          }
+        },
+        {
+          "sku": "WP9ANXZGBYYSGJEA",
+          "attributes": {
+            "servicecode": "AmazonS3",
+            "location": "US East (N. Virginia)",
+            "locationType": "AWS Region",
+            "availability": "99.99%",
+            "storageClass": "General Purpose",
+            "volumeType": "Standard",
+            "usagetype": "TimedStorage-ByteHrs",
+            "operation": "",
+            "durability": "99.999999999%",
+            "regionCode": "us-east-1",
+            "servicename": "Amazon Simple Storage Service"
+          },
+          "price": {
+            "rateCode": "WP9ANXZGBYYSGJEA.JRTCKXETXF.PXJDJ3YRG3",
+            "description": "$0.021 per GB - storage used / month over 500 TB",
+            "beginRange": "512000",
+            "endRange": "Inf",
+            "unit": "GB-Mo",
+            "pricePerUnit": {
+              "USD": "0.0210000000"
+            },
+            "appliesTo": []
+          }
+        }
+      ]
+    }
+  ]
+}
