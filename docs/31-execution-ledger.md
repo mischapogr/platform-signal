@@ -56,7 +56,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | RECEIPT-RECOVERY | passed_local | RECEIPT-PROGRESS, SOURCE-ACK | Retirement, owner takeover and restore reconciliation |
 | SOURCE-ACK | passed_local | RECEIPT-PROGRESS | Source acknowledgement and selected custody seam |
 | OBJECT-READER | passed_local | RECEIPT-RECOVERY | Bounded CloudTrail gzip object reader/preparation |
-| AWS-DELIVERY | pending | SOURCE-ACK, OBJECT-READER | CloudTrail S3/SQS collector and local delivery simulation |
+| AWS-DELIVERY | in_progress | SOURCE-ACK, OBJECT-READER | CloudTrail S3/SQS collector and local delivery simulation |
 | COVERAGE-OBSERVERS | pending | COVERAGE, AWS-DELIVERY | Source observers, health and SDK/server integration |
 | FINDINGS-CURSOR | pending | CORE | Durable public findings cursor runtime |
 | OUTBOX | pending | FINDINGS-CURSOR | Private transactional finding cursor/outbox and notification simulation |

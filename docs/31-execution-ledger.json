@@ -193,7 +193,7 @@
     {
       "id": "AWS-DELIVERY",
       "title": "CloudTrail S3/SQS collector and local delivery simulation",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "SOURCE-ACK",
         "OBJECT-READER"
@@ -208,7 +208,22 @@
       "references": [
         "docs/26-ingestion-architecture-audit.md",
         "docs/29-cloudtrail-source-receipt.md"
-      ]
+      ],
+      "substeps": [
+        {
+          "id": "direct-discovery",
+          "status": "passed_local",
+          "evidence": [
+            "target/goal-execution-20261007/AWS-DELIVERY/discovery-validation.json",
+            "target/goal-execution-20261007/AWS-DELIVERY/discovery-independent-review.json"
+          ]
+        },
+        {
+          "id": "capture-delivery-simulation",
+          "status": "pending"
+        }
+      ],
+      "notes": "Direct discovery substep accepted with 468 workspace tests and independent review. No fetch/ACK; capture and delivery simulation remain runnable."
     },
     {
       "id": "COVERAGE-OBSERVERS",

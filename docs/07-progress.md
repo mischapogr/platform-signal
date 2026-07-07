@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 461, including seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+workspace gate has 468, including seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,25 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Bounded direct S3 discovery — 2026-10-08
+
+The AWS-DELIVERY direct-discovery substep passes local acceptance. One reference
+per message is supported; the 16-reference parsing bound never grants multi-object
+completion. Validate all references before return, form-decode keys once, require
+non-null versions and exact trusted namespace, support numeric 2.x minor additions
+and four ObjectCreated kinds. Test/wrapped/empty/malformed messages keep source
+responsibility. Immutable discovery identity/digest does not authorize access;
+native bucket ownerIdentity is not a trusted account identifier.
+
+Seven focused tests cover versions/kinds/additions, actual-byte hash and UTF-8/form
+keys, malformed late references, unsupported envelopes, scope/version/types,
+body/key/depth/node limits, cancel/deadline and static diagnostics. Independent
+source review has no blocker/high; all workspace gates pass: 468 tests, zero
+failures, 13-package boundary. Evidence:
+`target/goal-execution-20261007/AWS-DELIVERY/discovery-validation.json`.
+AWS-DELIVERY remains in_progress; continue with bounded exact-version capture and
+receipt/replay/delivery simulation. Real AWS gates remain external.
 
 ## Whole-object pinned receipt preparation — 2026-10-08
 
