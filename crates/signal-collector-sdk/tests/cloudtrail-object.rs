@@ -148,10 +148,17 @@ fn compressed_and_decoded_bomb_limits_and_context_are_checked() {
         Err(E::CaptureLimit)
     ));
     let compressed = gzip(&vec![b' '; 32 * 1024 * 1024 + 1]);
-    assert!(matches!(
-        read_object(&compressed, &ctx()),
-        Err(E::ObjectLimitsExceeded)
-    ));
+    // This is a structural size assertion, not a debug-build throughput gate.
+    // The adjacent exact-ceiling case uses the same finite 30-second budget;
+    // cancellation and expired contexts remain independently asserted below.
+    let structural =
+        ExtensionContext::new(CancellationToken::new(), Duration::from_secs(30)).unwrap();
+    let result = read_object(&compressed, &structural);
+    assert!(
+        matches!(result, Err(E::ObjectLimitsExceeded)),
+        "unexpected structural-limit result: {:?}",
+        result.err()
+    );
     let cancellation = CancellationToken::new();
     cancellation.cancel();
     let cancelled = ExtensionContext::new(cancellation, Duration::from_secs(5)).unwrap();

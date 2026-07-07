@@ -111,3 +111,23 @@ HTTP transport acceptance: four actual TCP regressions, 489 workspace tests,
 formatting, strict all-target Clippy, 13-package guard and independent review
 without blocker/high. Evidence:
 `target/goal-execution-20261007/AWS-DELIVERY/http-publisher-validation.json`.
+
+## Reproducible delivery simulation
+
+Run `cargo test -p signal-server --test cloudtrail-delivery --locked --offline`.
+The loopback S3/SQS subset has bounded requests/responses and explicit local
+credentials, exact version/expected-owner checks, throttling/denial/outage modes,
+logical visibility expiry, current/stale handles and uncertain deletion. It is
+an integration-test adapter, not an AWS SDK client or cloud authentication proof.
+The existing primitives drive exact capture/M1/publication/recovery/ACK against
+the actual server binary. A real storage-create failure and restart expose the
+M2 versus processing distinction; duplicate replay preserves pinned identities.
+Production collector orchestration remains the next bounded substep.
+
+Three tests and all workspace checks pass: 492 tests, zero failures; focused
+source review has no blocker/high. Emulator shutdown timeout cleanup is resolved.
+An existing 32 MiB structural-size test now uses the same finite 30-second test
+budget as the exact-ceiling case, with expired/cancelled checks unchanged.
+Evidence: `target/goal-execution-20261007/AWS-DELIVERY/delivery-simulation-validation.json`.
+This does not qualify real AWS, independent custody, account/host loss or source
+completeness. Source object bytes remain retained after deleting queue deliveries.
