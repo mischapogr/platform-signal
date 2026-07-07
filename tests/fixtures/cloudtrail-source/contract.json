@@ -1,0 +1,2475 @@
+{
+  "schema_version": 1,
+  "status": "design_contract_only",
+  "scope": {
+    "synthetic_only": true,
+    "runtime_normalizer_implemented": false,
+    "runtime_receipts_implemented": false,
+    "cloud_qualified": false,
+    "checker_kind": "offline_design_witness_checker",
+    "ack_kind": "implemented_rust_ack_witness_model",
+    "native_kind": "planned_rust_profile_projection_witnesses",
+    "custody_kind": "planned_unexecuted_scenarios"
+  },
+  "profile": {
+    "id": "cloudtrail-management",
+    "revision": "v1",
+    "source_type": "cloudtrail",
+    "native_version": {
+      "major": 1,
+      "minimum_minor": 6,
+      "accept_additive_minor": true
+    },
+    "required_native_paths": [
+      "eventVersion",
+      "eventID",
+      "eventTime",
+      "eventSource",
+      "eventName",
+      "awsRegion",
+      "eventType",
+      "recipientAccountId",
+      "managementEvent"
+    ],
+    "action_mappings": [
+      {
+        "event_source": "ec2.amazonaws.com",
+        "event_name": "DescribeInstances",
+        "condition": null,
+        "action": "resource.activity",
+        "control": null
+      },
+      {
+        "event_source": "cloudtrail.amazonaws.com",
+        "event_name": "StopLogging",
+        "condition": null,
+        "action": "audit.stop",
+        "control": null
+      },
+      {
+        "event_source": "cloudtrail.amazonaws.com",
+        "event_name": "DeleteTrail",
+        "condition": null,
+        "action": "audit.delete",
+        "control": null
+      },
+      {
+        "event_source": "signin.amazonaws.com",
+        "event_name": "ConsoleLogin",
+        "condition": null,
+        "action": "identity.console_login",
+        "control": null
+      },
+      {
+        "event_source": "guardduty.amazonaws.com",
+        "event_name": "UpdateDetector",
+        "condition": {
+          "path": "requestParameters.enable",
+          "equals": false
+        },
+        "action": "control.disable",
+        "control": "guardduty"
+      },
+      {
+        "event_source": "guardduty.amazonaws.com",
+        "event_name": "DeleteDetector",
+        "condition": null,
+        "action": "control.disable",
+        "control": "guardduty"
+      },
+      {
+        "event_source": "securityhub.amazonaws.com",
+        "event_name": "DisableSecurityHub",
+        "condition": null,
+        "action": "control.disable",
+        "control": "securityhub"
+      },
+      {
+        "event_source": "config.amazonaws.com",
+        "event_name": "StopConfigurationRecorder",
+        "condition": null,
+        "action": "control.disable",
+        "control": "config"
+      }
+    ],
+    "future_d01_change": "remove_resource_activity_action_constraint_in_next_rust_task"
+  },
+  "limits": {
+    "max_compressed_object_bytes": 8388608,
+    "max_decoded_object_bytes": 33554432,
+    "max_native_records": 1024,
+    "max_native_record_bytes": 262144,
+    "max_json_depth": 16,
+    "max_normalized_event_bytes": 65536,
+    "max_prepared_bytes": 16777216,
+    "max_binary_receipt_bytes": 33554432,
+    "max_pending_receipts": 1,
+    "minimum_working_disk_bytes": 67108864,
+    "transient_reserve_bytes": 134217728,
+    "max_metadata_bytes": 1048576,
+    "max_framing_bytes": 65536,
+    "max_control_bytes": 8388608,
+    "max_control_replacement_bytes": 8388608,
+    "root_index_allowance_bytes": 4194304,
+    "parser_http_scratch_bytes": 16777216,
+    "transient_index_bytes": 1048576,
+    "max_ack_bytes": 65536,
+    "allocation_allowance_bytes": 16777216,
+    "max_notification_bytes": 262144,
+    "max_notification_object_refs": 16
+  },
+  "native_cases": [
+    {
+      "id": "root-activity",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000001\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "72d5ffc92459e8349437ab6d7bf318ac623433ac6dff7398c30dbf6ec279a982",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "Root",
+          "action": "resource.activity",
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000001",
+          "event_source": "ec2.amazonaws.com",
+          "event_name": "DescribeInstances",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "72d5ffc92459e8349437ab6d7bf318ac623433ac6dff7398c30dbf6ec279a982",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [
+          "SIG-D01"
+        ],
+        "proposed_matches": [
+          "SIG-D01"
+        ]
+      }
+    },
+    {
+      "id": "iam-activity",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000002\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"IAMUser\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:user/fixture-user\",\"principalId\":\"AIDAFIXTURE0000000001\",\"userName\":\"fixture-user\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "5c0b95ea93d0bf51d63e9392264169b27c48aa556b99e27c299180995fb7703d",
+      "record_ordinal": 1,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "IAMUser",
+          "action": "resource.activity",
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000002",
+          "event_source": "ec2.amazonaws.com",
+          "event_name": "DescribeInstances",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 1,
+          "record_sha256": "5c0b95ea93d0bf51d63e9392264169b27c48aa556b99e27c299180995fb7703d",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "root-stop-logging",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000003\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"cloudtrail.amazonaws.com\",\"eventName\":\"StopLogging\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "bf0025453fdca993075bf74809ad88cd7e2b851df343409d4e6bc7283a7c6023",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "Root",
+          "action": "audit.stop",
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000003",
+          "event_source": "cloudtrail.amazonaws.com",
+          "event_name": "StopLogging",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "bf0025453fdca993075bf74809ad88cd7e2b851df343409d4e6bc7283a7c6023",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [
+          "SIG-D02"
+        ],
+        "proposed_matches": [
+          "SIG-D01",
+          "SIG-D02"
+        ]
+      }
+    },
+    {
+      "id": "delete-trail",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000004\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"cloudtrail.amazonaws.com\",\"eventName\":\"DeleteTrail\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"IAMUser\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:user/fixture-user\",\"principalId\":\"AIDAFIXTURE0000000001\",\"userName\":\"fixture-user\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "c948258da076d8eb24643938dc339b04defea022f0b30a505249d393f4bf2400",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "IAMUser",
+          "action": "audit.delete",
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000004",
+          "event_source": "cloudtrail.amazonaws.com",
+          "event_name": "DeleteTrail",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "c948258da076d8eb24643938dc339b04defea022f0b30a505249d393f4bf2400",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [
+          "SIG-D02"
+        ],
+        "proposed_matches": [
+          "SIG-D02"
+        ]
+      }
+    },
+    {
+      "id": "stop-logging-failed",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000005\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"cloudtrail.amazonaws.com\",\"eventName\":\"StopLogging\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null,\"errorCode\":\"AccessDenied\",\"errorMessage\":\"Synthetic denied action\"}",
+      "raw_sha256": "d4d20cf9dc61dbe49dc01246d5fe7086adf69b78f4c15ccd328db92d3312f999",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "Root",
+          "action": "audit.stop",
+          "outcome": "failure"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000005",
+          "event_source": "cloudtrail.amazonaws.com",
+          "event_name": "StopLogging",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "d4d20cf9dc61dbe49dc01246d5fe7086adf69b78f4c15ccd328db92d3312f999",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "console-iam-no-mfa",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000006\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"signin.amazonaws.com\",\"eventName\":\"ConsoleLogin\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsConsoleSignIn\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"IAMUser\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:user/fixture-user\",\"principalId\":\"AIDAFIXTURE0000000001\",\"userName\":\"fixture-user\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":{\"ConsoleLogin\":\"Success\"},\"additionalEventData\":{\"MFAUsed\":\"No\"}}",
+      "raw_sha256": "7788fc7f340c916fbee0301c32c54eaaee9b4aeaf310ccc84ce0d7b97e4afe65",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "IAMUser",
+          "action": "identity.console_login",
+          "mfa_used": false,
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000006",
+          "event_source": "signin.amazonaws.com",
+          "event_name": "ConsoleLogin",
+          "event_version": "1.09",
+          "event_type": "AwsConsoleSignIn",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "7788fc7f340c916fbee0301c32c54eaaee9b4aeaf310ccc84ce0d7b97e4afe65",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [
+          "SIG-D03"
+        ],
+        "proposed_matches": [
+          "SIG-D03"
+        ]
+      }
+    },
+    {
+      "id": "console-root-no-mfa",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000007\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"signin.amazonaws.com\",\"eventName\":\"ConsoleLogin\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsConsoleSignIn\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":{\"ConsoleLogin\":\"Success\"},\"additionalEventData\":{\"MFAUsed\":\"No\"}}",
+      "raw_sha256": "4019a8cc5f9aed706c4101805a59f7f7024943537476f16b34b39ff9b5f0e6a8",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "Root",
+          "action": "identity.console_login",
+          "mfa_used": false,
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000007",
+          "event_source": "signin.amazonaws.com",
+          "event_name": "ConsoleLogin",
+          "event_version": "1.09",
+          "event_type": "AwsConsoleSignIn",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "4019a8cc5f9aed706c4101805a59f7f7024943537476f16b34b39ff9b5f0e6a8",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [
+          "SIG-D03"
+        ],
+        "proposed_matches": [
+          "SIG-D01",
+          "SIG-D03"
+        ]
+      }
+    },
+    {
+      "id": "console-iam-mfa",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000008\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"signin.amazonaws.com\",\"eventName\":\"ConsoleLogin\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsConsoleSignIn\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"IAMUser\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:user/fixture-user\",\"principalId\":\"AIDAFIXTURE0000000001\",\"userName\":\"fixture-user\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":{\"ConsoleLogin\":\"Success\"},\"additionalEventData\":{\"MFAUsed\":\"Yes\"}}",
+      "raw_sha256": "01c6eec3b5a12e17aefff1b6f240222e44bd4257dcd514da60d78126c528b1c6",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "IAMUser",
+          "action": "identity.console_login",
+          "mfa_used": true,
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000008",
+          "event_source": "signin.amazonaws.com",
+          "event_name": "ConsoleLogin",
+          "event_version": "1.09",
+          "event_type": "AwsConsoleSignIn",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "01c6eec3b5a12e17aefff1b6f240222e44bd4257dcd514da60d78126c528b1c6",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "console-failed",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000009\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"signin.amazonaws.com\",\"eventName\":\"ConsoleLogin\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsConsoleSignIn\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"IAMUser\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:user/fixture-user\",\"principalId\":\"AIDAFIXTURE0000000001\",\"userName\":\"fixture-user\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":{\"ConsoleLogin\":\"Failure\"},\"additionalEventData\":{\"MFAUsed\":\"No\"}}",
+      "raw_sha256": "47a7cc07f82740f7e45bd9c053657f7d8dd80b34fe1bb6fbedd794bfab57f95d",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "IAMUser",
+          "action": "identity.console_login",
+          "mfa_used": false,
+          "outcome": "failure"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000009",
+          "event_source": "signin.amazonaws.com",
+          "event_name": "ConsoleLogin",
+          "event_version": "1.09",
+          "event_type": "AwsConsoleSignIn",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "47a7cc07f82740f7e45bd9c053657f7d8dd80b34fe1bb6fbedd794bfab57f95d",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "console-missing-mfa",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-00000000000a\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"signin.amazonaws.com\",\"eventName\":\"ConsoleLogin\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsConsoleSignIn\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"IAMUser\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:user/fixture-user\",\"principalId\":\"AIDAFIXTURE0000000001\",\"userName\":\"fixture-user\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":{\"ConsoleLogin\":\"Success\"}}",
+      "raw_sha256": "51e3d2731eef76c10b933f8cdafbf629656df2c367e5b82364fca756491d6756",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit_indeterminate",
+        "reason_codes": [
+          "missing_or_unsupported_mfa"
+        ],
+        "security": {
+          "actor_kind": "IAMUser",
+          "action": "identity.console_login",
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-00000000000a",
+          "event_source": "signin.amazonaws.com",
+          "event_name": "ConsoleLogin",
+          "event_version": "1.09",
+          "event_type": "AwsConsoleSignIn",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "51e3d2731eef76c10b933f8cdafbf629656df2c367e5b82364fca756491d6756",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "console-federated-no-mfa",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-00000000000b\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"signin.amazonaws.com\",\"eventName\":\"ConsoleLogin\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsConsoleSignIn\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"AssumedRole\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:sts::111122223333:assumed-role/fixture-role/fixture-session\",\"principalId\":\"AROAFIXTURE0000000001:fixture-session\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":{\"ConsoleLogin\":\"Success\"},\"additionalEventData\":{\"MFAUsed\":\"No\"}}",
+      "raw_sha256": "90aee45247521a4854714292bfe2be7c99a1bbbf6fa45d8b464f1ed0eef293d6",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit_indeterminate",
+        "reason_codes": [
+          "unsupported_actor_mfa"
+        ],
+        "security": {
+          "actor_kind": "AssumedRole",
+          "action": "identity.console_login",
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-00000000000b",
+          "event_source": "signin.amazonaws.com",
+          "event_name": "ConsoleLogin",
+          "event_version": "1.09",
+          "event_type": "AwsConsoleSignIn",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "90aee45247521a4854714292bfe2be7c99a1bbbf6fa45d8b464f1ed0eef293d6",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "console-conflicting-error",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-00000000000c\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"signin.amazonaws.com\",\"eventName\":\"ConsoleLogin\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsConsoleSignIn\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"IAMUser\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:user/fixture-user\",\"principalId\":\"AIDAFIXTURE0000000001\",\"userName\":\"fixture-user\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":{\"ConsoleLogin\":\"Success\"},\"additionalEventData\":{\"MFAUsed\":\"No\"},\"errorCode\":\"AccessDenied\"}",
+      "raw_sha256": "48a59d5bb5cb6f493db21fbd1acb2359bcc6c7790d01ad165ea3cdc2088041ad",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit_indeterminate",
+        "reason_codes": [
+          "unknown_operation_outcome"
+        ],
+        "security": {
+          "actor_kind": "IAMUser",
+          "action": "identity.console_login",
+          "mfa_used": false
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-00000000000c",
+          "event_source": "signin.amazonaws.com",
+          "event_name": "ConsoleLogin",
+          "event_version": "1.09",
+          "event_type": "AwsConsoleSignIn",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "48a59d5bb5cb6f493db21fbd1acb2359bcc6c7790d01ad165ea3cdc2088041ad",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "guardduty-update-disable",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-00000000000d\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"guardduty.amazonaws.com\",\"eventName\":\"UpdateDetector\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{\"enable\":false},\"responseElements\":null}",
+      "raw_sha256": "133ce12bfe442ab6b524ffc2322024ac13ec24c65d646aa9df74c9270d860fe9",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "Root",
+          "action": "control.disable",
+          "control": "guardduty",
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-00000000000d",
+          "event_source": "guardduty.amazonaws.com",
+          "event_name": "UpdateDetector",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "133ce12bfe442ab6b524ffc2322024ac13ec24c65d646aa9df74c9270d860fe9",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [
+          "SIG-D05"
+        ],
+        "proposed_matches": [
+          "SIG-D01",
+          "SIG-D05"
+        ]
+      }
+    },
+    {
+      "id": "guardduty-delete",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-00000000000e\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"guardduty.amazonaws.com\",\"eventName\":\"DeleteDetector\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "480ee9c66151ed45a7c858216b3affefb0727e4bcb83929e652f99f7d28482ec",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "Root",
+          "action": "control.disable",
+          "control": "guardduty",
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-00000000000e",
+          "event_source": "guardduty.amazonaws.com",
+          "event_name": "DeleteDetector",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "480ee9c66151ed45a7c858216b3affefb0727e4bcb83929e652f99f7d28482ec",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [
+          "SIG-D05"
+        ],
+        "proposed_matches": [
+          "SIG-D01",
+          "SIG-D05"
+        ]
+      }
+    },
+    {
+      "id": "securityhub-disable",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-00000000000f\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"securityhub.amazonaws.com\",\"eventName\":\"DisableSecurityHub\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "9bd36b6c66a9433d54445fa94c091f5fc3a5f02ac655eaf6ab0db2bb5a6b0682",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "Root",
+          "action": "control.disable",
+          "control": "securityhub",
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-00000000000f",
+          "event_source": "securityhub.amazonaws.com",
+          "event_name": "DisableSecurityHub",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "9bd36b6c66a9433d54445fa94c091f5fc3a5f02ac655eaf6ab0db2bb5a6b0682",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [
+          "SIG-D05"
+        ],
+        "proposed_matches": [
+          "SIG-D01",
+          "SIG-D05"
+        ]
+      }
+    },
+    {
+      "id": "config-stop",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000010\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"config.amazonaws.com\",\"eventName\":\"StopConfigurationRecorder\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "4fa8071a3cbc39a49df580c2f332db7a781584df88eb4ddea42d119b3ae8dd1a",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "Root",
+          "action": "control.disable",
+          "control": "config",
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000010",
+          "event_source": "config.amazonaws.com",
+          "event_name": "StopConfigurationRecorder",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "4fa8071a3cbc39a49df580c2f332db7a781584df88eb4ddea42d119b3ae8dd1a",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [
+          "SIG-D05"
+        ],
+        "proposed_matches": [
+          "SIG-D01",
+          "SIG-D05"
+        ]
+      }
+    },
+    {
+      "id": "guardduty-update-enable",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000011\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"guardduty.amazonaws.com\",\"eventName\":\"UpdateDetector\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{\"enable\":true},\"responseElements\":null}",
+      "raw_sha256": "ce30519b0ea6dc8f0693487d83fd43427884ab065b18fc0c997728c5cf1d0d6b",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit_indeterminate",
+        "reason_codes": [
+          "unsupported_operation"
+        ],
+        "security": {
+          "actor_kind": "Root"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000011",
+          "event_source": "guardduty.amazonaws.com",
+          "event_name": "UpdateDetector",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "ce30519b0ea6dc8f0693487d83fd43427884ab065b18fc0c997728c5cf1d0d6b",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "guardduty-update-missing-enable",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000012\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"guardduty.amazonaws.com\",\"eventName\":\"UpdateDetector\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "62b64a2c480518b185a0c14830c9982898752af930b2232217a59ba4fb7c0c57",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit_indeterminate",
+        "reason_codes": [
+          "unsupported_operation"
+        ],
+        "security": {
+          "actor_kind": "Root"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000012",
+          "event_source": "guardduty.amazonaws.com",
+          "event_name": "UpdateDetector",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "62b64a2c480518b185a0c14830c9982898752af930b2232217a59ba4fb7c0c57",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "guardduty-update-string-false",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000013\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"guardduty.amazonaws.com\",\"eventName\":\"UpdateDetector\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{\"enable\":\"false\"},\"responseElements\":null}",
+      "raw_sha256": "ae07df6e3c9eaf03eca1718de8b24ead24c61a1878261686ca1397cbc7539f72",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit_indeterminate",
+        "reason_codes": [
+          "unsupported_operation"
+        ],
+        "security": {
+          "actor_kind": "Root"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000013",
+          "event_source": "guardduty.amazonaws.com",
+          "event_name": "UpdateDetector",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "ae07df6e3c9eaf03eca1718de8b24ead24c61a1878261686ca1397cbc7539f72",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "disable-failed",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000014\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"securityhub.amazonaws.com\",\"eventName\":\"DisableSecurityHub\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null,\"errorCode\":\"AccessDenied\"}",
+      "raw_sha256": "a5f3b3965ffc1ecf43bd239533b0a3506717e2d1b3d1bdd406bebadd275809ea",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "Root",
+          "action": "control.disable",
+          "control": "securityhub",
+          "outcome": "failure"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000014",
+          "event_source": "securityhub.amazonaws.com",
+          "event_name": "DisableSecurityHub",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "a5f3b3965ffc1ecf43bd239533b0a3506717e2d1b3d1bdd406bebadd275809ea",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "wrong-service-stop-logging",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000015\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"StopLogging\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "8046a443916a2629378c387f57e44f39c039de06e3977624c5cd033730c07774",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit_indeterminate",
+        "reason_codes": [
+          "unsupported_operation"
+        ],
+        "security": {
+          "actor_kind": "Root"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000015",
+          "event_source": "ec2.amazonaws.com",
+          "event_name": "StopLogging",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "8046a443916a2629378c387f57e44f39c039de06e3977624c5cd033730c07774",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "missing-actor",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000016\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "03c376a6d9c0754782e2547d3f465a2a75b70a79d6b8a5a85c1dafdc33601725",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit_indeterminate",
+        "reason_codes": [
+          "missing_actor"
+        ],
+        "security": {
+          "action": "resource.activity",
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000016",
+          "event_source": "ec2.amazonaws.com",
+          "event_name": "DescribeInstances",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "03c376a6d9c0754782e2547d3f465a2a75b70a79d6b8a5a85c1dafdc33601725",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "missing-response",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000017\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{}}",
+      "raw_sha256": "be6207bc81aaa3527d65259a714117c66e02acea5f0fb9c6d43d26e12ebda787",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit_indeterminate",
+        "reason_codes": [
+          "unknown_operation_outcome"
+        ],
+        "security": {
+          "actor_kind": "Root",
+          "action": "resource.activity"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000017",
+          "event_source": "ec2.amazonaws.com",
+          "event_name": "DescribeInstances",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "be6207bc81aaa3527d65259a714117c66e02acea5f0fb9c6d43d26e12ebda787",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "message-without-error-code",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000018\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null,\"errorMessage\":\"Synthetic ambiguous error\"}",
+      "raw_sha256": "9636b75043ce8dbcc75a6ce5b903707cf8444c79a252c1f37945bb3b0ccde6ef",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit_indeterminate",
+        "reason_codes": [
+          "unknown_operation_outcome"
+        ],
+        "security": {
+          "actor_kind": "Root",
+          "action": "resource.activity"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000018",
+          "event_source": "ec2.amazonaws.com",
+          "event_name": "DescribeInstances",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "9636b75043ce8dbcc75a6ce5b903707cf8444c79a252c1f37945bb3b0ccde6ef",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "nested-error-code",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000019\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":{\"errorCode\":\"AccessDenied\",\"errorMessage\":\"Synthetic denied action\"}}",
+      "raw_sha256": "6bc6644daefdbda47326fdf178cbd05208c71d2b4a187bb5d3d98a79fb597247",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "Root",
+          "action": "resource.activity",
+          "outcome": "failure"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000019",
+          "event_source": "ec2.amazonaws.com",
+          "event_name": "DescribeInstances",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "6bc6644daefdbda47326fdf178cbd05208c71d2b4a187bb5d3d98a79fb597247",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "malformed-response",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-00000000001a\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":\"not-an-object\"}",
+      "raw_sha256": "eddf80e524bbad7474e0a34cc5816efb334734d60d0cdaf1b8f2001e0131dbb2",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit_indeterminate",
+        "reason_codes": [
+          "unknown_operation_outcome"
+        ],
+        "security": {
+          "actor_kind": "Root",
+          "action": "resource.activity"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-00000000001a",
+          "event_source": "ec2.amazonaws.com",
+          "event_name": "DescribeInstances",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "eddf80e524bbad7474e0a34cc5816efb334734d60d0cdaf1b8f2001e0131dbb2",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "unsupported-action",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-00000000001b\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"UnsupportedFixtureAction\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "376b221b33037695a27748327ef54016f3b290ca811bc5f51ffd30f1b6a9f008",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit_indeterminate",
+        "reason_codes": [
+          "unsupported_operation"
+        ],
+        "security": {
+          "actor_kind": "Root"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-00000000001b",
+          "event_source": "ec2.amazonaws.com",
+          "event_name": "UnsupportedFixtureAction",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "376b221b33037695a27748327ef54016f3b290ca811bc5f51ffd30f1b6a9f008",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "missing-event-id",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "da876987803b9af46ace686cfa469873b806616cf0fa6ad7fbff082337e2c913",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "quarantine_record",
+        "reason_codes": [
+          "missing_required_native"
+        ],
+        "security": {},
+        "cloudtrail": {},
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "invalid-timestamp",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-00000000001d\",\"eventTime\":\"not-a-timestamp\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "06c6202aec1dcac8462ca411a5e0cdd860f893c712723c85eb88a20d53a0a765",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "quarantine_record",
+        "reason_codes": [
+          "malformed_required_native"
+        ],
+        "security": {},
+        "cloudtrail": {},
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "unsupported-major",
+      "raw_utf8": "{\"eventVersion\":\"2.00\",\"eventID\":\"10000000-0000-4000-8000-00000000001e\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "e86be583e5d1c9d64d5a77c1a1f17980cf6e618b297bd5448ccb818f74d84d75",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "quarantine_record",
+        "reason_codes": [
+          "unsupported_native_version"
+        ],
+        "security": {},
+        "cloudtrail": {},
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "unsupported-old-minor",
+      "raw_utf8": "{\"eventVersion\":\"1.05\",\"eventID\":\"10000000-0000-4000-8000-00000000001f\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "fe9a8b55815848b4aab68a086f264ad4ff6174a2bf86fd41bb7b55c92d370abf",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "quarantine_record",
+        "reason_codes": [
+          "unsupported_native_version"
+        ],
+        "security": {},
+        "cloudtrail": {},
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "additive-new-minor",
+      "raw_utf8": "{\"eventVersion\":\"1.99\",\"eventID\":\"10000000-0000-4000-8000-000000000020\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null,\"newVendorField\":{\"syntheticExtension\":true}}",
+      "raw_sha256": "e5d173a73986175fa4e6121286b4b9bd3ce10ebfb3bd72d9c1cd4002517aa0ec",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "Root",
+          "action": "resource.activity",
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000020",
+          "event_source": "ec2.amazonaws.com",
+          "event_name": "DescribeInstances",
+          "event_version": "1.99",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "e5d173a73986175fa4e6121286b4b9bd3ce10ebfb3bd72d9c1cd4002517aa0ec",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [
+          "SIG-D01"
+        ],
+        "proposed_matches": [
+          "SIG-D01"
+        ]
+      }
+    },
+    {
+      "id": "non-management",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000021\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":false,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "04169da5c9d72d1032964da2242e1f7ddcb3c705a070bf111a12fe50eb9a55b2",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "quarantine_record",
+        "reason_codes": [
+          "unsupported_event_category"
+        ],
+        "security": {},
+        "cloudtrail": {},
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "wrong-category",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000022\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Data\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "e3a7c58acdf31e001cb8ee0da6adfc30b7f4f8db6452016cb347cc3dde15df49",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "quarantine_record",
+        "reason_codes": [
+          "unsupported_event_category"
+        ],
+        "security": {},
+        "cloudtrail": {},
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "missing-recipient",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000023\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "2615f8ab4ec9fbf74766519cb83f01d96c662cfe6d5c8352ea5728ab41d4ae21",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "quarantine_record",
+        "reason_codes": [
+          "missing_required_native"
+        ],
+        "security": {},
+        "cloudtrail": {},
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "recipient-scope-denied",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000024\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"222233334444\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "00b1304c787633cc587c9dbda443a6b1b8317660ce01b7a33ea0dce0cd6a6822",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "quarantine_record",
+        "reason_codes": [
+          "recipient_route_not_authorized"
+        ],
+        "security": {},
+        "cloudtrail": {},
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "actor-cross-account",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000025\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"222233334444\",\"arn\":\"arn:aws:iam::222233334444:root\",\"principalId\":\"222233334444\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "6a16d7b9726aaa00bfa009474a2dd70ed2e591c59efc7229ec501770466a0083",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "Root",
+          "action": "resource.activity",
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000025",
+          "event_source": "ec2.amazonaws.com",
+          "event_name": "DescribeInstances",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "6a16d7b9726aaa00bfa009474a2dd70ed2e591c59efc7229ec501770466a0083",
+          "actor_account_id": "222233334444",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [
+          "SIG-D01"
+        ],
+        "proposed_matches": [
+          "SIG-D01"
+        ]
+      }
+    },
+    {
+      "id": "duplicate-root-copy",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000001\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "72d5ffc92459e8349437ab6d7bf318ac623433ac6dff7398c30dbf6ec279a982",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "Root",
+          "action": "resource.activity",
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000001",
+          "event_source": "ec2.amazonaws.com",
+          "event_name": "DescribeInstances",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "72d5ffc92459e8349437ab6d7bf318ac623433ac6dff7398c30dbf6ec279a982",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [
+          "SIG-D01"
+        ],
+        "proposed_matches": [
+          "SIG-D01"
+        ]
+      }
+    },
+    {
+      "id": "distinct-identical-message",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000027\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "44504d67edd6e546445334591a7317b85f540eb2c91f3447b4be21afa87c20d7",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit",
+        "reason_codes": [],
+        "security": {
+          "actor_kind": "Root",
+          "action": "resource.activity",
+          "outcome": "success"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000027",
+          "event_source": "ec2.amazonaws.com",
+          "event_name": "DescribeInstances",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "44504d67edd6e546445334591a7317b85f540eb2c91f3447b4be21afa87c20d7",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [
+          "SIG-D01"
+        ],
+        "proposed_matches": [
+          "SIG-D01"
+        ]
+      }
+    },
+    {
+      "id": "same-id-changed-bytes",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000001\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"UnsupportedFixtureAction\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsApiCall\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "f3c28cfa45c772388d1221a7169605a8b864b13d47502d7731ffbc5b7e3c09a3",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit_indeterminate",
+        "reason_codes": [
+          "unsupported_operation"
+        ],
+        "security": {
+          "actor_kind": "Root"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000001",
+          "event_source": "ec2.amazonaws.com",
+          "event_name": "UnsupportedFixtureAction",
+          "event_version": "1.09",
+          "event_type": "AwsApiCall",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "f3c28cfa45c772388d1221a7169605a8b864b13d47502d7731ffbc5b7e3c09a3",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    },
+    {
+      "id": "wrong-event-kind",
+      "raw_utf8": "{\"eventVersion\":\"1.09\",\"eventID\":\"10000000-0000-4000-8000-000000000099\",\"eventTime\":\"2026-10-07T12:00:00Z\",\"eventSource\":\"ec2.amazonaws.com\",\"eventName\":\"DescribeInstances\",\"awsRegion\":\"us-east-1\",\"eventType\":\"AwsConsoleSignIn\",\"recipientAccountId\":\"111122223333\",\"managementEvent\":true,\"eventCategory\":\"Management\",\"userIdentity\":{\"type\":\"Root\",\"accountId\":\"111122223333\",\"arn\":\"arn:aws:iam::111122223333:root\",\"principalId\":\"111122223333\"},\"sourceIPAddress\":\"192.0.2.10\",\"requestParameters\":{},\"responseElements\":null}",
+      "raw_sha256": "6ccca6fd2b31072e889e26b220d19621f523d496204ffeaafa5dbcdc7039af44",
+      "record_ordinal": 0,
+      "trusted_route": {
+        "route_id": "fixture-cloudtrail-route",
+        "allowed_recipient_accounts": [
+          "111122223333"
+        ],
+        "allowed_regions": [
+          "us-east-1"
+        ]
+      },
+      "expected": {
+        "disposition": "emit_indeterminate",
+        "reason_codes": [
+          "unsupported_operation"
+        ],
+        "security": {
+          "actor_kind": "Root"
+        },
+        "cloudtrail": {
+          "event_id": "10000000-0000-4000-8000-000000000099",
+          "event_source": "ec2.amazonaws.com",
+          "event_name": "DescribeInstances",
+          "event_version": "1.09",
+          "event_type": "AwsConsoleSignIn",
+          "recipient_account_id": "111122223333",
+          "region": "us-east-1",
+          "record_ordinal": 0,
+          "record_sha256": "6ccca6fd2b31072e889e26b220d19621f523d496204ffeaafa5dbcdc7039af44",
+          "actor_account_id": "111122223333",
+          "source_ip_address": "192.0.2.10"
+        },
+        "catalog_matches": [],
+        "proposed_matches": []
+      }
+    }
+  ],
+  "source_identity_contract": {
+    "runtime_status": "planned",
+    "key_fields": [
+      "trusted_route.route_id",
+      "recipientAccountId",
+      "awsRegion",
+      "eventID"
+    ],
+    "excluded_delivery_fields": [
+      "sqs_receipt_handle",
+      "etag",
+      "object_last_modified"
+    ],
+    "hash_policy": "sha256_original_bytes_not_etag",
+    "identity_scope": "observational_native_identity_comparison_only",
+    "no_global_dedupe": true
+  },
+  "source_identity_cases": [
+    {
+      "id": "duplicate-native-event",
+      "left_case": "root-activity",
+      "right_case": "duplicate-root-copy",
+      "expected_relation": "duplicate_same_native_identity",
+      "runtime_status": "planned"
+    },
+    {
+      "id": "distinct-identical-messages",
+      "left_case": "root-activity",
+      "right_case": "distinct-identical-message",
+      "expected_relation": "distinct_native_identity",
+      "runtime_status": "planned"
+    },
+    {
+      "id": "same-native-id-content-conflict",
+      "left_case": "root-activity",
+      "right_case": "same-id-changed-bytes",
+      "expected_relation": "same_id_changed_bytes_conflict",
+      "runtime_status": "planned"
+    }
+  ],
+  "prepared_cases": [
+    {
+      "id": "pinned-root-activity",
+      "native_case": "root-activity",
+      "runtime_status": "planned",
+      "prepared_uuid": "20000000-0000-4000-8000-000000000001",
+      "prepared_observed_at": "2026-10-07T12:00:01Z",
+      "raw_utf8": "{\"schema_version\":1,\"id\":\"20000000-0000-4000-8000-000000000001\",\"timestamp\":\"2026-10-07T12:00:00Z\",\"observed_at\":\"2026-10-07T12:00:01Z\",\"source\":{\"type\":\"cloudtrail\",\"name\":\"cloudtrail-management\"},\"severity\":\"info\",\"message\":\"CloudTrail ec2.amazonaws.com/DescribeInstances\",\"attributes\":{\"security\":{\"actor_kind\":\"Root\",\"action\":\"resource.activity\",\"outcome\":\"success\"},\"aws\":{\"cloudtrail\":{\"event_id\":\"10000000-0000-4000-8000-000000000001\",\"event_source\":\"ec2.amazonaws.com\",\"event_name\":\"DescribeInstances\",\"event_version\":\"1.09\",\"event_type\":\"AwsApiCall\",\"recipient_account_id\":\"111122223333\",\"region\":\"us-east-1\",\"record_ordinal\":0,\"record_sha256\":\"72d5ffc92459e8349437ab6d7bf318ac623433ac6dff7398c30dbf6ec279a982\",\"actor_account_id\":\"111122223333\",\"source_ip_address\":\"192.0.2.10\"}},\"evidence_ref\":\"receipt://30000000-0000-4000-8000-000000000001/record/0\",\"normalizer\":{\"id\":\"cloudtrail-management\",\"revision\":\"v1\"}},\"resource\":{\"kind\":\"aws_account\",\"id\":\"111122223333\",\"account_id\":\"111122223333\",\"region\":\"us-east-1\"},\"tags\":[]}",
+      "sha256": "54d21ab27f1b4bbd3112adc62989287fb65bac80680d914887d82ed0a11d031b",
+      "normalizer_id": "cloudtrail-management",
+      "normalizer_revision": "v1",
+      "original_ref": {
+        "uri": "fixture://cloudtrail/management-original",
+        "version_id": "fixture-version-1",
+        "record_sha256": "72d5ffc92459e8349437ab6d7bf318ac623433ac6dff7398c30dbf6ec279a982",
+        "record_ordinal": 0,
+        "etag_is_content_hash": false
+      }
+    },
+    {
+      "id": "pinned-iam-activity",
+      "native_case": "iam-activity",
+      "runtime_status": "planned",
+      "prepared_uuid": "20000000-0000-4000-8000-000000000002",
+      "prepared_observed_at": "2026-10-07T12:00:01Z",
+      "raw_utf8": "{\"schema_version\":1,\"id\":\"20000000-0000-4000-8000-000000000002\",\"timestamp\":\"2026-10-07T12:00:00Z\",\"observed_at\":\"2026-10-07T12:00:01Z\",\"source\":{\"type\":\"cloudtrail\",\"name\":\"cloudtrail-management\"},\"severity\":\"info\",\"message\":\"CloudTrail ec2.amazonaws.com/DescribeInstances\",\"attributes\":{\"security\":{\"actor_kind\":\"IAMUser\",\"action\":\"resource.activity\",\"outcome\":\"success\"},\"aws\":{\"cloudtrail\":{\"event_id\":\"10000000-0000-4000-8000-000000000002\",\"event_source\":\"ec2.amazonaws.com\",\"event_name\":\"DescribeInstances\",\"event_version\":\"1.09\",\"event_type\":\"AwsApiCall\",\"recipient_account_id\":\"111122223333\",\"region\":\"us-east-1\",\"record_ordinal\":1,\"record_sha256\":\"5c0b95ea93d0bf51d63e9392264169b27c48aa556b99e27c299180995fb7703d\",\"actor_account_id\":\"111122223333\",\"source_ip_address\":\"192.0.2.10\"}},\"evidence_ref\":\"receipt://30000000-0000-4000-8000-000000000001/record/1\",\"normalizer\":{\"id\":\"cloudtrail-management\",\"revision\":\"v1\"}},\"resource\":{\"kind\":\"aws_account\",\"id\":\"111122223333\",\"account_id\":\"111122223333\",\"region\":\"us-east-1\"},\"tags\":[]}",
+      "sha256": "113e58083b4bc2285df2b37a726fd8bf27a210a165f0d9fb586dfc97dc217d4f",
+      "normalizer_id": "cloudtrail-management",
+      "normalizer_revision": "v1",
+      "original_ref": {
+        "uri": "fixture://cloudtrail/management-original",
+        "version_id": "fixture-version-1",
+        "record_sha256": "5c0b95ea93d0bf51d63e9392264169b27c48aa556b99e27c299180995fb7703d",
+        "record_ordinal": 1,
+        "etag_is_content_hash": false
+      }
+    }
+  ],
+  "ack_contract": {
+    "runtime_status": "implemented_witness_only",
+    "implementation": "apps/signal-agent/src/http.rs::verify",
+    "milestone": "M2_synced_WAL_admission_only",
+    "prepared_before_send": true,
+    "uncertain_response_advances_zero": true
+  },
+  "ack_cases": [
+    {
+      "id": "full-202",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": 202,
+      "response": {
+        "schema_version": 1,
+        "accepted": 2,
+        "rejected": 0,
+        "event_ids": [
+          "20000000-0000-4000-8000-000000000001",
+          "20000000-0000-4000-8000-000000000002"
+        ],
+        "error": null
+      },
+      "transport_error": null,
+      "expected": {
+        "accepted": 2,
+        "disposition": "Complete",
+        "error": null
+      }
+    },
+    {
+      "id": "partial-429",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": 429,
+      "response": {
+        "schema_version": 1,
+        "accepted": 1,
+        "rejected": 1,
+        "event_ids": [
+          "20000000-0000-4000-8000-000000000001"
+        ],
+        "error": {
+          "code": "full",
+          "message": "Synthetic response",
+          "index": 1
+        }
+      },
+      "transport_error": null,
+      "expected": {
+        "accepted": 1,
+        "disposition": "Retry",
+        "error": null
+      }
+    },
+    {
+      "id": "unavailable-503",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": 503,
+      "response": {
+        "schema_version": 1,
+        "accepted": 0,
+        "rejected": 0,
+        "event_ids": [],
+        "error": {
+          "code": "unavailable",
+          "message": "Synthetic response",
+          "index": null
+        }
+      },
+      "transport_error": null,
+      "expected": {
+        "accepted": 0,
+        "disposition": "Retry",
+        "error": null
+      }
+    },
+    {
+      "id": "timeout-408",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": 408,
+      "response": {
+        "schema_version": 1,
+        "accepted": 0,
+        "rejected": 2,
+        "event_ids": [],
+        "error": {
+          "code": "request_timeout",
+          "message": "Synthetic response",
+          "index": 1
+        }
+      },
+      "transport_error": null,
+      "expected": {
+        "accepted": 0,
+        "disposition": "Retry",
+        "error": null
+      }
+    },
+    {
+      "id": "reduce-413",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": 413,
+      "response": {
+        "schema_version": 1,
+        "accepted": 0,
+        "rejected": 2,
+        "event_ids": [],
+        "error": {
+          "code": "batch_too_large",
+          "message": "Synthetic response",
+          "index": null
+        }
+      },
+      "transport_error": null,
+      "expected": {
+        "accepted": 0,
+        "disposition": "ReduceBatch",
+        "error": null
+      }
+    },
+    {
+      "id": "unauthorized-401",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": 401,
+      "response": {
+        "schema_version": 1,
+        "accepted": 0,
+        "rejected": 0,
+        "event_ids": [],
+        "error": {
+          "code": "unauthorized",
+          "message": "Synthetic response",
+          "index": null
+        }
+      },
+      "transport_error": null,
+      "expected": {
+        "accepted": 0,
+        "disposition": "Permanent",
+        "error": null
+      }
+    },
+    {
+      "id": "invalid-event-400",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": 400,
+      "response": {
+        "schema_version": 1,
+        "accepted": 0,
+        "rejected": 2,
+        "event_ids": [],
+        "error": {
+          "code": "invalid_event",
+          "message": "Synthetic response",
+          "index": 0
+        }
+      },
+      "transport_error": null,
+      "expected": {
+        "accepted": 0,
+        "disposition": "Permanent",
+        "error": null
+      }
+    },
+    {
+      "id": "partial-202-invalid",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": 202,
+      "response": {
+        "schema_version": 1,
+        "accepted": 1,
+        "rejected": 1,
+        "event_ids": [
+          "20000000-0000-4000-8000-000000000001"
+        ],
+        "error": null
+      },
+      "transport_error": null,
+      "expected": {
+        "accepted": 0,
+        "disposition": "error",
+        "error": "InvalidResponse"
+      }
+    },
+    {
+      "id": "reordered-ids-invalid",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": 202,
+      "response": {
+        "schema_version": 1,
+        "accepted": 2,
+        "rejected": 0,
+        "event_ids": [
+          "20000000-0000-4000-8000-000000000002",
+          "20000000-0000-4000-8000-000000000001"
+        ],
+        "error": null
+      },
+      "transport_error": null,
+      "expected": {
+        "accepted": 0,
+        "disposition": "error",
+        "error": "InvalidResponse"
+      }
+    },
+    {
+      "id": "prefix-overrun-invalid",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": 202,
+      "response": {
+        "schema_version": 1,
+        "accepted": 3,
+        "rejected": 0,
+        "event_ids": [
+          "20000000-0000-4000-8000-000000000001",
+          "20000000-0000-4000-8000-000000000002",
+          "20000000-0000-4000-8000-000000000001"
+        ],
+        "error": null
+      },
+      "transport_error": null,
+      "expected": {
+        "accepted": 0,
+        "disposition": "error",
+        "error": "InvalidResponse"
+      }
+    },
+    {
+      "id": "partial-permanent-invalid",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": 400,
+      "response": {
+        "schema_version": 1,
+        "accepted": 1,
+        "rejected": 1,
+        "event_ids": [
+          "20000000-0000-4000-8000-000000000001"
+        ],
+        "error": {
+          "code": "invalid_event",
+          "message": "Synthetic response",
+          "index": 1
+        }
+      },
+      "transport_error": null,
+      "expected": {
+        "accepted": 0,
+        "disposition": "error",
+        "error": "InvalidResponse"
+      }
+    },
+    {
+      "id": "missing-error-invalid",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": 503,
+      "response": {
+        "schema_version": 1,
+        "accepted": 0,
+        "rejected": 0,
+        "event_ids": [],
+        "error": null
+      },
+      "transport_error": null,
+      "expected": {
+        "accepted": 0,
+        "disposition": "error",
+        "error": "InvalidResponse"
+      }
+    },
+    {
+      "id": "wrong-status-invalid",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": 200,
+      "response": {
+        "schema_version": 1,
+        "accepted": 2,
+        "rejected": 0,
+        "event_ids": [
+          "20000000-0000-4000-8000-000000000001",
+          "20000000-0000-4000-8000-000000000002"
+        ],
+        "error": null
+      },
+      "transport_error": null,
+      "expected": {
+        "accepted": 0,
+        "disposition": "error",
+        "error": "InvalidResponse"
+      }
+    },
+    {
+      "id": "wrong-schema-invalid",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": 202,
+      "response": {
+        "schema_version": 2,
+        "accepted": 2,
+        "rejected": 0,
+        "event_ids": [
+          "20000000-0000-4000-8000-000000000001",
+          "20000000-0000-4000-8000-000000000002"
+        ],
+        "error": null
+      },
+      "transport_error": null,
+      "expected": {
+        "accepted": 0,
+        "disposition": "error",
+        "error": "InvalidResponse"
+      }
+    },
+    {
+      "id": "counts-invalid",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": 429,
+      "response": {
+        "schema_version": 1,
+        "accepted": 0,
+        "rejected": 1,
+        "event_ids": [],
+        "error": {
+          "code": "full",
+          "message": "Synthetic response",
+          "index": null
+        }
+      },
+      "transport_error": null,
+      "expected": {
+        "accepted": 0,
+        "disposition": "error",
+        "error": "InvalidResponse"
+      }
+    },
+    {
+      "id": "error-index-invalid",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": 408,
+      "response": {
+        "schema_version": 1,
+        "accepted": 0,
+        "rejected": 2,
+        "event_ids": [],
+        "error": {
+          "code": "request_timeout",
+          "message": "Synthetic response",
+          "index": 2
+        }
+      },
+      "transport_error": null,
+      "expected": {
+        "accepted": 0,
+        "disposition": "error",
+        "error": "InvalidResponse"
+      }
+    },
+    {
+      "id": "lost-response-zero",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": null,
+      "response": null,
+      "transport_error": "Transport",
+      "expected": {
+        "accepted": 0,
+        "disposition": "error",
+        "error": "Transport"
+      }
+    },
+    {
+      "id": "cancelled-zero",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": null,
+      "response": null,
+      "transport_error": "Cancelled",
+      "expected": {
+        "accepted": 0,
+        "disposition": "error",
+        "error": "Cancelled"
+      }
+    },
+    {
+      "id": "response-limit-zero",
+      "batch_ids": [
+        "20000000-0000-4000-8000-000000000001",
+        "20000000-0000-4000-8000-000000000002"
+      ],
+      "status": null,
+      "response": null,
+      "transport_error": "ResponseLimit",
+      "expected": {
+        "accepted": 0,
+        "disposition": "error",
+        "error": "ResponseLimit"
+      }
+    }
+  ],
+  "custody_cases": [
+    {
+      "id": "pinned-before-send",
+      "runtime_status": "planned",
+      "expected": "Durably pin exact original/hash/version, normalized bytes, event IDs, observed_at and profile revision before any send; planned crash acceptance remains required.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "ack-partial-prefix",
+      "runtime_status": "planned",
+      "expected": "Only a verified M2 prefix can advance local accepted progress; retain exact remaining pinned bytes; this persistence behavior is planned.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "lost-response",
+      "runtime_status": "planned",
+      "expected": "Advance zero; replay the pinned batch IDs and bytes after reconciling receipt state. Downstream replay may duplicate already admitted events.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "crash-before-receipt-commit",
+      "runtime_status": "planned",
+      "expected": "No send before preparation commit; restart must retain only complete committed receipt state. Actual crash qualification is planned.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "crash-after-receipt-before-progress",
+      "runtime_status": "planned",
+      "expected": "Recover immutable prepared IDs/bytes and replay uncertain suffix; do not regenerate normalizer output or assume exactly once.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "duplicate-sqs-delivery",
+      "runtime_status": "planned",
+      "expected": "Delivery handle and SQS message ID do not replace stable native/source identity; retain duplicate disposition and custody obligations.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "parser-upgrade-pending",
+      "runtime_status": "planned",
+      "expected": "Replay stored prepared bytes under the originally pinned revision; never renormalize pending input with a new parser.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "divergent-restore",
+      "runtime_status": "planned",
+      "expected": "History or source witness mismatch rejects progress; absence from a backup does not authorize a new source acceptance.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "expired-original",
+      "runtime_status": "planned",
+      "expected": "Do not claim rehydratable evidence; report unavailable original and recovery uncertainty, not no-match or healthy coverage.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "restore-pending",
+      "runtime_status": "planned",
+      "expected": "Pending receipt continues to hold its slot and custody obligation until authoritative source evidence can be reconciled.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "receipt-quota",
+      "runtime_status": "planned",
+      "expected": "Backpressure before allocation or source acknowledgement; preserve unexpired receipt and original; no eviction.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "decompression-limit",
+      "runtime_status": "planned",
+      "expected": "Stop before decoded/native/depth limits; retain explicit poison or oversized disposition and source reference; planned gzip acceptance is not executed here.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "late-out-of-order",
+      "runtime_status": "planned",
+      "expected": "Native event time is preserved and never replaced by preparation observed_at; delivery order does not establish coverage continuity.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "cross-account-route",
+      "runtime_status": "planned",
+      "expected": "Trusted recipient scope authorizes routing; actor account may differ and must not be used as recipient authority.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "poison-explicit-disposition",
+      "runtime_status": "planned",
+      "expected": "Retain source custody and typed poison disposition; no silent successful delete or fresh health assertion.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "coverage-independent",
+      "runtime_status": "planned",
+      "expected": "M2 proves synced WAL admission only; selectors, delivery continuity, source digest and observer freshness require independent evidence.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "local-m1-not-host-loss",
+      "runtime_status": "planned",
+      "expected": "Local M1 may transfer process-recovery responsibility only under explicit owner acceptance; it does not prove host, AZ or account loss recovery.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "m2-not-strong-custody",
+      "runtime_status": "planned",
+      "expected": "Verified M2 alone cannot authorize source deletion under a host-loss or protected-original custody requirement; require the selected independent witness.",
+      "proof_kind": "declarative_unexecuted"
+    },
+    {
+      "id": "multi-reference-all-owned",
+      "runtime_status": "planned",
+      "expected": "The first local adapter supports one reference per message; 16 is only a parser/work cap. Hold multi-reference messages unsupported with source ACK blocked until separately qualified bounded control and handoff own every original, replay and pending-work obligation; never evict an unexpired receipt to advance.",
+      "proof_kind": "declarative_unexecuted"
+    }
+  ],
+  "object_identity_contract": {
+    "runtime_status": "planned",
+    "identity_scope": "retained_receipt_only",
+    "key_fields": [
+      "trusted_scope",
+      "bucket",
+      "key",
+      "version_id"
+    ],
+    "compare_exact_original_bytes": true,
+    "sha256_is_witness_only": true,
+    "no_global_native_dedupe": true
+  },
+  "object_identity_cases": [
+    {
+      "id": "same-object-new-delivery",
+      "left": {
+        "trusted_scope": {
+          "route_id": "fixture-cloudtrail-route",
+          "account_id": "111122223333",
+          "region": "us-east-1",
+          "configuration_revision": "fixture-config-v1"
+        },
+        "bucket": "fixture-cloudtrail-originals",
+        "key": "fixture/cloudtrail/management.json.gz",
+        "version_id": "fixture-version-1",
+        "original_hex": "1f8b0800000000000203ed53cb4ec33010fc179f9b901804d4b7a82d520e45556811027130ce52594aece007a554f977d649035488133db28aac646776f691f58e1420b4292d610f3b02afa0dc2d182bb5228ca4713226a3de9b4f8323e92dea8eb3705c0e9f7b4b8780a5ac01436842cfa3142917cb94b224c1e77ea0dc686f442081a031aff9bb567c6363a1eb8171cd3b91295861e413e4ca3aae0458c49159c0ba2fd4db08b875d157f26d13e2b28dcd1a39e155858001211b89602684f6d851193a42a368a768c8a9b9e26ba891340b328439e361af39e10ed6da6c316afe49c3186fc1e425be4b87d88eb83e77a17540f9efc9b809b5e3c9b0172679cdd8770633bd4263a4c2ca79f553a31d11dbcd305f646569c0dac018d33889699c265dd32f1eac5b70839374f867b1c236b86da3958559d575815ee5abaa1d1d6505e8ff0af4b9f36cbe42e46f5b10b44f9ee59bf30622dfcb1dae44964fb3abfc6eb92a6607d73090f7d33b883ff6d63cb61ff2f87d4d46040000",
+        "original_sha256": "a06fedc8131baeaf11e991ac5bcd1e6af005329c55c9769ca62070959a8fea4e"
+      },
+      "right": {
+        "trusted_scope": {
+          "route_id": "fixture-cloudtrail-route",
+          "account_id": "111122223333",
+          "region": "us-east-1",
+          "configuration_revision": "fixture-config-v1"
+        },
+        "bucket": "fixture-cloudtrail-originals",
+        "key": "fixture/cloudtrail/management.json.gz",
+        "version_id": "fixture-version-1",
+        "original_hex": "1f8b0800000000000203ed53cb4ec33010fc179f9b901804d4b7a82d520e45556811027130ce52594aece007a554f977d649035488133db28aac646776f691f58e1420b4292d610f3b02afa0dc2d182bb5228ca4713226a3de9b4f8323e92dea8eb3705c0e9f7b4b8780a5ac01436842cfa3142917cb94b224c1e77ea0dc686f442081a031aff9bb567c6363a1eb8171cd3b91295861e413e4ca3aae0458c49159c0ba2fd4db08b875d157f26d13e2b28dcd1a39e155858001211b89602684f6d851193a42a368a768c8a9b9e26ba891340b328439e361af39e10ed6da6c316afe49c3186fc1e425be4b87d88eb83e77a17540f9efc9b809b5e3c9b0172679cdd8770633bd4263a4c2ca79f553a31d11dbcd305f646569c0dac018d33889699c265dd32f1eac5b70839374f867b1c236b86da3958559d575815ee5abaa1d1d6505e8ff0af4b9f36cbe42e46f5b10b44f9ee59bf30622dfcb1dae44964fb3abfc6eb92a6607d73090f7d33b883ff6d63cb61ff2f87d4d46040000",
+        "original_sha256": "a06fedc8131baeaf11e991ac5bcd1e6af005329c55c9769ca62070959a8fea4e"
+      },
+      "left_delivery_handle": "fixture-handle-1",
+      "right_delivery_handle": "fixture-handle-2",
+      "expected_relation": "same_retained_object_replay_key",
+      "runtime_status": "planned"
+    },
+    {
+      "id": "same-version-changed-bytes",
+      "left": {
+        "trusted_scope": {
+          "route_id": "fixture-cloudtrail-route",
+          "account_id": "111122223333",
+          "region": "us-east-1",
+          "configuration_revision": "fixture-config-v1"
+        },
+        "bucket": "fixture-cloudtrail-originals",
+        "key": "fixture/cloudtrail/management.json.gz",
+        "version_id": "fixture-version-1",
+        "original_hex": "1f8b0800000000000203ed53cb4ec33010fc179f9b901804d4b7a82d520e45556811027130ce52594aece007a554f977d649035488133db28aac646776f691f58e1420b4292d610f3b02afa0dc2d182bb5228ca4713226a3de9b4f8323e92dea8eb3705c0e9f7b4b8780a5ac01436842cfa3142917cb94b224c1e77ea0dc686f442081a031aff9bb567c6363a1eb8171cd3b91295861e413e4ca3aae0458c49159c0ba2fd4db08b875d157f26d13e2b28dcd1a39e155858001211b89602684f6d851193a42a368a768c8a9b9e26ba891340b328439e361af39e10ed6da6c316afe49c3186fc1e425be4b87d88eb83e77a17540f9efc9b809b5e3c9b0172679cdd8770633bd4263a4c2ca79f553a31d11dbcd305f646569c0dac018d33889699c265dd32f1eac5b70839374f867b1c236b86da3958559d575815ee5abaa1d1d6505e8ff0af4b9f36cbe42e46f5b10b44f9ee59bf30622dfcb1dae44964fb3abfc6eb92a6607d73090f7d33b883ff6d63cb61ff2f87d4d46040000",
+        "original_sha256": "a06fedc8131baeaf11e991ac5bcd1e6af005329c55c9769ca62070959a8fea4e"
+      },
+      "right": {
+        "trusted_scope": {
+          "route_id": "fixture-cloudtrail-route",
+          "account_id": "111122223333",
+          "region": "us-east-1",
+          "configuration_revision": "fixture-config-v1"
+        },
+        "bucket": "fixture-cloudtrail-originals",
+        "key": "fixture/cloudtrail/management.json.gz",
+        "version_id": "fixture-version-1",
+        "original_hex": "1f8b0800000000000203ab560a4a4dce2f4a2956b28a8ead0500220ae2960e000000",
+        "original_sha256": "0689ef16ef608c7697d9b50666d8ba1e362f2941b9e117f7687c4324b8a7672b"
+      },
+      "left_delivery_handle": "fixture-handle-1",
+      "right_delivery_handle": "fixture-handle-2",
+      "expected_relation": "changed_original_bytes_conflict",
+      "runtime_status": "planned"
+    },
+    {
+      "id": "new-version-identical-bytes",
+      "left": {
+        "trusted_scope": {
+          "route_id": "fixture-cloudtrail-route",
+          "account_id": "111122223333",
+          "region": "us-east-1",
+          "configuration_revision": "fixture-config-v1"
+        },
+        "bucket": "fixture-cloudtrail-originals",
+        "key": "fixture/cloudtrail/management.json.gz",
+        "version_id": "fixture-version-1",
+        "original_hex": "1f8b0800000000000203ed53cb4ec33010fc179f9b901804d4b7a82d520e45556811027130ce52594aece007a554f977d649035488133db28aac646776f691f58e1420b4292d610f3b02afa0dc2d182bb5228ca4713226a3de9b4f8323e92dea8eb3705c0e9f7b4b8780a5ac01436842cfa3142917cb94b224c1e77ea0dc686f442081a031aff9bb567c6363a1eb8171cd3b91295861e413e4ca3aae0458c49159c0ba2fd4db08b875d157f26d13e2b28dcd1a39e155858001211b89602684f6d851193a42a368a768c8a9b9e26ba891340b328439e361af39e10ed6da6c316afe49c3186fc1e425be4b87d88eb83e77a17540f9efc9b809b5e3c9b0172679cdd8770633bd4263a4c2ca79f553a31d11dbcd305f646569c0dac018d33889699c265dd32f1eac5b70839374f867b1c236b86da3958559d575815ee5abaa1d1d6505e8ff0af4b9f36cbe42e46f5b10b44f9ee59bf30622dfcb1dae44964fb3abfc6eb92a6607d73090f7d33b883ff6d63cb61ff2f87d4d46040000",
+        "original_sha256": "a06fedc8131baeaf11e991ac5bcd1e6af005329c55c9769ca62070959a8fea4e"
+      },
+      "right": {
+        "trusted_scope": {
+          "route_id": "fixture-cloudtrail-route",
+          "account_id": "111122223333",
+          "region": "us-east-1",
+          "configuration_revision": "fixture-config-v1"
+        },
+        "bucket": "fixture-cloudtrail-originals",
+        "key": "fixture/cloudtrail/management.json.gz",
+        "version_id": "fixture-version-2",
+        "original_hex": "1f8b0800000000000203ed53cb4ec33010fc179f9b901804d4b7a82d520e45556811027130ce52594aece007a554f977d649035488133db28aac646776f691f58e1420b4292d610f3b02afa0dc2d182bb5228ca4713226a3de9b4f8323e92dea8eb3705c0e9f7b4b8780a5ac01436842cfa3142917cb94b224c1e77ea0dc686f442081a031aff9bb567c6363a1eb8171cd3b91295861e413e4ca3aae0458c49159c0ba2fd4db08b875d157f26d13e2b28dcd1a39e155858001211b89602684f6d851193a42a368a768c8a9b9e26ba891340b328439e361af39e10ed6da6c316afe49c3186fc1e425be4b87d88eb83e77a17540f9efc9b809b5e3c9b0172679cdd8770633bd4263a4c2ca79f553a31d11dbcd305f646569c0dac018d33889699c265dd32f1eac5b70839374f867b1c236b86da3958559d575815ee5abaa1d1d6505e8ff0af4b9f36cbe42e46f5b10b44f9ee59bf30622dfcb1dae44964fb3abfc6eb92a6607d73090f7d33b883ff6d63cb61ff2f87d4d46040000",
+        "original_sha256": "a06fedc8131baeaf11e991ac5bcd1e6af005329c55c9769ca62070959a8fea4e"
+      },
+      "left_delivery_handle": "fixture-handle-1",
+      "right_delivery_handle": "fixture-handle-2",
+      "expected_relation": "distinct_object_version",
+      "runtime_status": "planned"
+    },
+    {
+      "id": "changed-scope",
+      "left": {
+        "trusted_scope": {
+          "route_id": "fixture-cloudtrail-route",
+          "account_id": "111122223333",
+          "region": "us-east-1",
+          "configuration_revision": "fixture-config-v1"
+        },
+        "bucket": "fixture-cloudtrail-originals",
+        "key": "fixture/cloudtrail/management.json.gz",
+        "version_id": "fixture-version-1",
+        "original_hex": "1f8b0800000000000203ed53cb4ec33010fc179f9b901804d4b7a82d520e45556811027130ce52594aece007a554f977d649035488133db28aac646776f691f58e1420b4292d610f3b02afa0dc2d182bb5228ca4713226a3de9b4f8323e92dea8eb3705c0e9f7b4b8780a5ac01436842cfa3142917cb94b224c1e77ea0dc686f442081a031aff9bb567c6363a1eb8171cd3b91295861e413e4ca3aae0458c49159c0ba2fd4db08b875d157f26d13e2b28dcd1a39e155858001211b89602684f6d851193a42a368a768c8a9b9e26ba891340b328439e361af39e10ed6da6c316afe49c3186fc1e425be4b87d88eb83e77a17540f9efc9b809b5e3c9b0172679cdd8770633bd4263a4c2ca79f553a31d11dbcd305f646569c0dac018d33889699c265dd32f1eac5b70839374f867b1c236b86da3958559d575815ee5abaa1d1d6505e8ff0af4b9f36cbe42e46f5b10b44f9ee59bf30622dfcb1dae44964fb3abfc6eb92a6607d73090f7d33b883ff6d63cb61ff2f87d4d46040000",
+        "original_sha256": "a06fedc8131baeaf11e991ac5bcd1e6af005329c55c9769ca62070959a8fea4e"
+      },
+      "right": {
+        "trusted_scope": {
+          "route_id": "fixture-cloudtrail-route",
+          "account_id": "111122223333",
+          "region": "us-east-1",
+          "configuration_revision": "fixture-config-v2"
+        },
+        "bucket": "fixture-cloudtrail-originals",
+        "key": "fixture/cloudtrail/management.json.gz",
+        "version_id": "fixture-version-1",
+        "original_hex": "1f8b0800000000000203ed53cb4ec33010fc179f9b901804d4b7a82d520e45556811027130ce52594aece007a554f977d649035488133db28aac646776f691f58e1420b4292d610f3b02afa0dc2d182bb5228ca4713226a3de9b4f8323e92dea8eb3705c0e9f7b4b8780a5ac01436842cfa3142917cb94b224c1e77ea0dc686f442081a031aff9bb567c6363a1eb8171cd3b91295861e413e4ca3aae0458c49159c0ba2fd4db08b875d157f26d13e2b28dcd1a39e155858001211b89602684f6d851193a42a368a768c8a9b9e26ba891340b328439e361af39e10ed6da6c316afe49c3186fc1e425be4b87d88eb83e77a17540f9efc9b809b5e3c9b0172679cdd8770633bd4263a4c2ca79f553a31d11dbcd305f646569c0dac018d33889699c265dd32f1eac5b70839374f867b1c236b86da3958559d575815ee5abaa1d1d6505e8ff0af4b9f36cbe42e46f5b10b44f9ee59bf30622dfcb1dae44964fb3abfc6eb92a6607d73090f7d33b883ff6d63cb61ff2f87d4d46040000",
+        "original_sha256": "a06fedc8131baeaf11e991ac5bcd1e6af005329c55c9769ca62070959a8fea4e"
+      },
+      "left_delivery_handle": "fixture-handle-1",
+      "right_delivery_handle": "fixture-handle-2",
+      "expected_relation": "scope_change_requires_fresh_authority",
+      "runtime_status": "planned"
+    }
+  ]
+}

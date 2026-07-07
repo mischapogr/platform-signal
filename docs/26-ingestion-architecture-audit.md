@@ -14,7 +14,7 @@ implementation authorization. Recommendations below are proposed post-MVP work.
 | Admission | Canonical JSON single/batch HTTP; limits, optional shared Bearer token; synced WAL admission | Vendor transport protocols, scoped publisher authorization, generic durable raw-source receipts |
 | Processing | Single server publishes Parquet, evaluates stateless predicates, persists findings, then checkpoints | Production vendor normalization pipeline, windows/state/correlation, independent protected-stream routing |
 | Storage/query | Local filesystem Parquet and bounded DataFusion queries | S3 `EventStore`, object publication/manifests, independent security archive; no hot tier is required yet |
-| Coverage | Pure SDK validation/assessment; standalone bounded SQLite history, authorized intake/retry and immutable corrections | Payload/identity pruning, scans, source observers, server wiring and independent observer health |
+| Coverage | Pure SDK validation/assessment; standalone bounded SQLite history, authorized intake/retry, immutable corrections, payload/identity-prefix pruning and fixed-frontier scans | Source observers, server wiring and independent observer health |
 | SecOps | Durable findings and listing | Durable consumption cursor, notification outbox, dispositions and incident workflow |
 | Samples | 55 synthetic cases across 11 source families | Qualified live collection and arbitrary-input production normalizers |
 
@@ -62,7 +62,9 @@ Acceptance must cover crash before/after receipt commit, lost response, partial
 batch acceptance, duplicate/out-of-order delivery, expired cursor/object,
 quota exhaustion and replay after parser upgrade. Reuse the
 [M0–M7 milestones](failure-domains.md#acknowledgement-milestones); SourceCoverage
-history receipts are not interchangeable with telemetry source receipts.
+history receipts are not interchangeable with telemetry source receipts. The
+[CloudTrail receipt/profile design](29-cloudtrail-source-receipt.md) now selects
+this boundary for the first source; its offline witnesses do not implement M1.
 
 ### A2 — Shared authentication does not establish account or tenant authority
 
@@ -137,7 +139,8 @@ central processor. Avoid duplicate parser implementations across roles.
 **Medium, corrected documentation drift.** The sample corpus proves fixture
 contracts, not operational collectors. Some overview documents still described
 trusted coverage intake and corrections as entirely planned. They are now local
-library capabilities; pruning/scans/observers and runtime integration remain open.
+library capabilities, including accepted prefix pruning and fixed-frontier scans;
+source observers and runtime integration remain open.
 The detection catalog contains 15 requirements; only its first five predicate
 cases fit the present engine after normalization. Correlation and absence-based
 detection require additional state and coverage evidence.
@@ -272,11 +275,14 @@ MVP or make all integrations prerequisites for the current release.
 1. The selected bounded coverage-history slices (payload/identity-prefix pruning
    and fixed-frontier scans) now pass locally with 96 coverage/358 workspace tests.
    Keep observer integration separate; no live source health follows.
-2. Specify a bounded source receipt/normalization profile using CloudTrail as the
-   first concrete case. Reuse existing SDK/spool/WAL seams where they fit; do not
-   build a universal provider workflow before proving one adapter.
-3. Implement the first PS-02 source slice: retained CloudTrail S3 objects and SQS
-   discovery, with replay/coverage fixtures and D01/D02/D03/D05 predicates. Native
+2. [The bounded CloudTrail receipt/profile design](29-cloudtrail-source-receipt.md)
+   supplies original synthetic fixtures and custody/replay requirements. Next
+   implement the pure Rust normalizer/profile and explicit D01 predicate correction.
+   Offline projections do not qualify the native runtime or receipt store.
+3. Implement bounded source-receipt custody before retained CloudTrail S3 objects
+   and SQS discovery, with replay/coverage fixtures and D01/D02/D03/D05 predicates.
+   Reuse existing SDK/spool/WAL seams where they fit; do not build a universal
+   provider workflow before proving one adapter. Native
    evidence permissions, proof validation and outage qualification are explicit
    PS-04 gates before security-control claims.
 4. Add a selected CloudWatch delivery adapter and EKS audit profile. Add EKS
