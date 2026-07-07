@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "context7": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["scripts/ai/context7"]
+    }
+  }
+}
