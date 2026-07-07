@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 398, including 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+workspace gate has 410, including 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,48 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Persistent Goal and verified source-receipt progress — 2026-10-07
+
+The owner started a persistent Goal for finite MVP/post-MVP/local release work.
+The [52-item ledger](31-execution-ledger.md) reconciles current product/phase/routing
+contracts, dependencies, acceptance and evidence. Three baseline items and
+RECEIPT-PROGRESS have local acceptance; six external qualification/publication
+items remain separate. Current source review confirmed the next task rather than
+repeating accepted UI/pruning work.
+
+The SDK exposes immutable suffix replay and exact store-issued progress tokens.
+Actual bounded response bytes/status go through the existing agent verifier,
+now shared in `signal-protocol`; only a verified leading ID/count/error-index
+prefix advances. Complete binding, owner/generation and byte-exact prior control
+are required. Temp sync, atomic control replacement and directory sync settle
+progress without rewriting original/prepared bytes. Uncertain/permanent attempts
+advance zero; unsupported custody/ACK/retirement changes still fail closed.
+
+Twelve new receipt tests cover partial/restart/completion, invalid responses, stale
+control/current-grant denial, corruption and revision overflow, quarantine, three
+progress crash stages, three injected fault stages, queue rejection/cancellation,
+caller timeout and lost reply while the physical worker retains its lock.
+Independent review found revision one could claim an impossible predecessor;
+exact initial checksum and zero starting prefix are now enforced and two
+rechecksummed reopen mutations execute the correction. Follow-up source review
+accepted it with no unresolved blocker/high.
+
+Formatting, strict all-target Clippy, locked/offline workspace and 13-package
+boundary checks pass: 410 Rust tests, zero failures. Two ignored subprocess
+helpers are executed explicitly by parent tests (eight publication and three
+progress crash stages). The 3/20/27/7 receipt/schema/transition/reclaim witnesses
+and 15-requirement security catalog also pass offline. Evidence, independent
+review, failed first checks and final logs are `target/goal-execution-20261007/`.
+The initial sandbox run could not bind localhost; authorized local-process
+acceptance outside that sandbox passed. No new dependency/version/event/HTTP v1
+change or server service split. Historical image/candidate evidence retains its
+own source binding.
+
+Next is RECEIPT-RECOVERY: bounded retirement/ownership/restore reconciliation
+before source transport. The Goal stays active across the writer transition.
+This is surviving-local-filesystem process evidence; no source authentication,
+AWS/EKS, native ARM64, higher-revision backup rollback proof or publication claim.
 
 ## Post-MVP bounded initial source-receipt store — 2026-10-07
 

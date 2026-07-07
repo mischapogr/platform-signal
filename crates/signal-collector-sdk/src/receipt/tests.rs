@@ -324,7 +324,7 @@ async fn interrupted_material_counts_against_root_quota() -> TestResult {
     Ok(())
 }
 #[tokio::test]
-async fn unknown_entries_and_noninitial_progress_are_not_adopted() -> TestResult {
+async fn unknown_entries_and_unsupported_ack_progress_are_not_adopted() -> TestResult {
     let d = root()?;
     fs::write(d.path().join("foreign"), b"keep")?;
     assert!(
@@ -343,8 +343,8 @@ async fn unknown_entries_and_noninitial_progress_are_not_adopted() -> TestResult
         .as_array()
         .ok_or("vectors")?
         .iter()
-        .find(|v| v["id"] == "partial")
-        .ok_or("partial")?;
+        .find(|v| v["id"] == "intent")
+        .ok_or("intent")?;
     fs::write(
         d.path().join("control"),
         unhex(p["wire_hex"].as_str().ok_or("wire")?)?,
@@ -690,3 +690,6 @@ fn event_context_and_recipient_scope_are_checked_independently_of_digest() -> Te
     }
     Ok(())
 }
+
+#[path = "progress_tests.rs"]
+mod progress_tests;
