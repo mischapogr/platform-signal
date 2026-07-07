@@ -1,0 +1,251 @@
+{
+  "cases": [
+    {
+      "case_id": "cloudflare.allowed",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "cloudflare.allow",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"Action\": \"allow\",\n  \"ClientASN\": 64500,\n  \"ClientCountry\": \"DE\",\n  \"ClientIP\": \"198.51.100.23\",\n  \"ClientRequestHost\": \"api.example.invalid\",\n  \"ClientRequestMethod\": \"GET\",\n  \"ClientRequestPath\": \"/health\",\n  \"ClientRequestProtocol\": \"HTTP/2\",\n  \"ClientRequestQuery\": \"\",\n  \"ClientRequestScheme\": \"https\",\n  \"ClientRequestUserAgent\": \"synthetic-fixture/1.0\",\n  \"Datetime\": \"2026-07-07T17:35:00Z\",\n  \"Description\": \"Synthetic allowed\",\n  \"EdgeResponseStatus\": 200,\n  \"Kind\": \"firewall\",\n  \"Metadata\": {},\n  \"OriginResponseStatus\": 200,\n  \"RayID\": \"0000000000000023\",\n  \"RuleID\": \"b8d25f42-bc4d-50cc-9fc7-fa46491d9abd\",\n  \"Source\": \"firewallcustom\"\n}\n"
+          },
+          "sample": {
+            "case_id": "cloudflare.allowed",
+            "synthetic": true
+          }
+        },
+        "id": "f67b2010-bd7e-5200-8758-1e65bc807328",
+        "message": "Cloudflare security event: allowed",
+        "observed_at": "2026-07-07T17:35:02Z",
+        "resource": {
+          "id": "cloudflare:synthetic-demo",
+          "kind": "cloudflare"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "cloudflare"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:35:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"Action\": \"allow\",\n  \"ClientASN\": 64500,\n  \"ClientCountry\": \"DE\",\n  \"ClientIP\": \"198.51.100.23\",\n  \"ClientRequestHost\": \"api.example.invalid\",\n  \"ClientRequestMethod\": \"GET\",\n  \"ClientRequestPath\": \"/health\",\n  \"ClientRequestProtocol\": \"HTTP/2\",\n  \"ClientRequestQuery\": \"\",\n  \"ClientRequestScheme\": \"https\",\n  \"ClientRequestUserAgent\": \"synthetic-fixture/1.0\",\n  \"Datetime\": \"2026-07-07T17:35:00Z\",\n  \"Description\": \"Synthetic allowed\",\n  \"EdgeResponseStatus\": 200,\n  \"Kind\": \"firewall\",\n  \"Metadata\": {},\n  \"OriginResponseStatus\": 200,\n  \"RayID\": \"0000000000000023\",\n  \"RuleID\": \"b8d25f42-bc4d-50cc-9fc7-fa46491d9abd\",\n  \"Source\": \"firewallcustom\"\n}\n",
+      "raw_format": "cloudflare-firewall-json",
+      "raw_sha256": "d8eefdf06d7f2f10a95644e613ea6b9e058dd0cf6330f72bd6958b21b31bb65a",
+      "scenario": "Cloudflare security event: allowed",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "none",
+        "required_context": [
+          "rule intent/severity and actual request context; a block is not a compromise"
+        ],
+        "severity": "none"
+      }
+    },
+    {
+      "case_id": "cloudflare.managed-challenge",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "cloudflare.managedchallenge",
+            "outcome": "blocked"
+          },
+          "log": {
+            "original": "{\n  \"Action\": \"managedchallenge\",\n  \"ClientASN\": 64500,\n  \"ClientCountry\": \"DE\",\n  \"ClientIP\": \"198.51.100.23\",\n  \"ClientRequestHost\": \"api.example.invalid\",\n  \"ClientRequestMethod\": \"GET\",\n  \"ClientRequestPath\": \"/login\",\n  \"ClientRequestProtocol\": \"HTTP/2\",\n  \"ClientRequestQuery\": \"\",\n  \"ClientRequestScheme\": \"https\",\n  \"ClientRequestUserAgent\": \"synthetic-fixture/1.0\",\n  \"Datetime\": \"2026-07-07T17:36:00Z\",\n  \"Description\": \"Synthetic managed-challenge\",\n  \"EdgeResponseStatus\": 403,\n  \"Kind\": \"firewall\",\n  \"Metadata\": {},\n  \"OriginResponseStatus\": 0,\n  \"RayID\": \"0000000000000024\",\n  \"RuleID\": \"8f85a7a0-bc1b-50ce-b6e6-f7d3e0b9f725\",\n  \"Source\": \"firewallmanaged\"\n}\n"
+          },
+          "sample": {
+            "case_id": "cloudflare.managed-challenge",
+            "synthetic": true
+          }
+        },
+        "id": "2bc415fc-7a05-5ee6-b9d5-f25058a31c15",
+        "message": "Cloudflare security event: managed-challenge",
+        "observed_at": "2026-07-07T17:36:02Z",
+        "resource": {
+          "id": "cloudflare:synthetic-demo",
+          "kind": "cloudflare"
+        },
+        "schema_version": 1,
+        "severity": "warn",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "cloudflare"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:36:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"Action\": \"managedchallenge\",\n  \"ClientASN\": 64500,\n  \"ClientCountry\": \"DE\",\n  \"ClientIP\": \"198.51.100.23\",\n  \"ClientRequestHost\": \"api.example.invalid\",\n  \"ClientRequestMethod\": \"GET\",\n  \"ClientRequestPath\": \"/login\",\n  \"ClientRequestProtocol\": \"HTTP/2\",\n  \"ClientRequestQuery\": \"\",\n  \"ClientRequestScheme\": \"https\",\n  \"ClientRequestUserAgent\": \"synthetic-fixture/1.0\",\n  \"Datetime\": \"2026-07-07T17:36:00Z\",\n  \"Description\": \"Synthetic managed-challenge\",\n  \"EdgeResponseStatus\": 403,\n  \"Kind\": \"firewall\",\n  \"Metadata\": {},\n  \"OriginResponseStatus\": 0,\n  \"RayID\": \"0000000000000024\",\n  \"RuleID\": \"8f85a7a0-bc1b-50ce-b6e6-f7d3e0b9f725\",\n  \"Source\": \"firewallmanaged\"\n}\n",
+      "raw_format": "cloudflare-firewall-json",
+      "raw_sha256": "0288ab699badad8578b5418645041c140e3d4162d387e556025325ba3e282d3f",
+      "scenario": "Cloudflare security event: managed-challenge",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "rule intent/severity and actual request context; a block is not a compromise"
+        ],
+        "severity": "low"
+      }
+    },
+    {
+      "case_id": "cloudflare.waf-block",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "cloudflare.block",
+            "outcome": "blocked"
+          },
+          "log": {
+            "original": "{\n  \"Action\": \"block\",\n  \"ClientASN\": 64500,\n  \"ClientCountry\": \"DE\",\n  \"ClientIP\": \"198.51.100.23\",\n  \"ClientRequestHost\": \"api.example.invalid\",\n  \"ClientRequestMethod\": \"GET\",\n  \"ClientRequestPath\": \"/search\",\n  \"ClientRequestProtocol\": \"HTTP/2\",\n  \"ClientRequestQuery\": \"q=fixture-test\",\n  \"ClientRequestScheme\": \"https\",\n  \"ClientRequestUserAgent\": \"synthetic-fixture/1.0\",\n  \"Datetime\": \"2026-07-07T17:37:00Z\",\n  \"Description\": \"Synthetic waf-block\",\n  \"EdgeResponseStatus\": 403,\n  \"Kind\": \"firewall\",\n  \"Metadata\": {},\n  \"OriginResponseStatus\": 0,\n  \"RayID\": \"0000000000000025\",\n  \"RuleID\": \"37a46a8d-e328-5064-a2fd-e70117b623d0\",\n  \"Source\": \"firewallmanaged\"\n}\n"
+          },
+          "sample": {
+            "case_id": "cloudflare.waf-block",
+            "synthetic": true
+          }
+        },
+        "id": "10ba9ff0-7047-5000-ab46-124bec8a6b2f",
+        "message": "Cloudflare security event: waf-block",
+        "observed_at": "2026-07-07T17:37:02Z",
+        "resource": {
+          "id": "cloudflare:synthetic-demo",
+          "kind": "cloudflare"
+        },
+        "schema_version": 1,
+        "severity": "warn",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "cloudflare"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:37:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"Action\": \"block\",\n  \"ClientASN\": 64500,\n  \"ClientCountry\": \"DE\",\n  \"ClientIP\": \"198.51.100.23\",\n  \"ClientRequestHost\": \"api.example.invalid\",\n  \"ClientRequestMethod\": \"GET\",\n  \"ClientRequestPath\": \"/search\",\n  \"ClientRequestProtocol\": \"HTTP/2\",\n  \"ClientRequestQuery\": \"q=fixture-test\",\n  \"ClientRequestScheme\": \"https\",\n  \"ClientRequestUserAgent\": \"synthetic-fixture/1.0\",\n  \"Datetime\": \"2026-07-07T17:37:00Z\",\n  \"Description\": \"Synthetic waf-block\",\n  \"EdgeResponseStatus\": 403,\n  \"Kind\": \"firewall\",\n  \"Metadata\": {},\n  \"OriginResponseStatus\": 0,\n  \"RayID\": \"0000000000000025\",\n  \"RuleID\": \"37a46a8d-e328-5064-a2fd-e70117b623d0\",\n  \"Source\": \"firewallmanaged\"\n}\n",
+      "raw_format": "cloudflare-firewall-json",
+      "raw_sha256": "3f68c0fada799813c58def78a7a3af507dff1facfc8f4c41fcd74053d73ce99b",
+      "scenario": "Cloudflare security event: waf-block",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "rule intent/severity and actual request context; a block is not a compromise"
+        ],
+        "severity": "medium"
+      }
+    },
+    {
+      "case_id": "cloudflare.rate-limit",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "cloudflare.block",
+            "outcome": "blocked"
+          },
+          "log": {
+            "original": "{\n  \"Action\": \"block\",\n  \"ClientASN\": 64500,\n  \"ClientCountry\": \"DE\",\n  \"ClientIP\": \"198.51.100.23\",\n  \"ClientRequestHost\": \"api.example.invalid\",\n  \"ClientRequestMethod\": \"GET\",\n  \"ClientRequestPath\": \"/login\",\n  \"ClientRequestProtocol\": \"HTTP/2\",\n  \"ClientRequestQuery\": \"\",\n  \"ClientRequestScheme\": \"https\",\n  \"ClientRequestUserAgent\": \"synthetic-fixture/1.0\",\n  \"Datetime\": \"2026-07-07T17:38:00Z\",\n  \"Description\": \"Synthetic rate-limit\",\n  \"EdgeResponseStatus\": 429,\n  \"Kind\": \"firewall\",\n  \"Metadata\": {},\n  \"OriginResponseStatus\": 0,\n  \"RayID\": \"0000000000000026\",\n  \"RuleID\": \"1ceda422-7034-5df2-b0ea-e5683d7467bd\",\n  \"Source\": \"ratelimit\"\n}\n"
+          },
+          "sample": {
+            "case_id": "cloudflare.rate-limit",
+            "synthetic": true
+          }
+        },
+        "id": "a6d5841e-5af3-580e-806d-201e4230e94f",
+        "message": "Cloudflare security event: rate-limit",
+        "observed_at": "2026-07-07T17:38:02Z",
+        "resource": {
+          "id": "cloudflare:synthetic-demo",
+          "kind": "cloudflare"
+        },
+        "schema_version": 1,
+        "severity": "warn",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "cloudflare"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:38:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"Action\": \"block\",\n  \"ClientASN\": 64500,\n  \"ClientCountry\": \"DE\",\n  \"ClientIP\": \"198.51.100.23\",\n  \"ClientRequestHost\": \"api.example.invalid\",\n  \"ClientRequestMethod\": \"GET\",\n  \"ClientRequestPath\": \"/login\",\n  \"ClientRequestProtocol\": \"HTTP/2\",\n  \"ClientRequestQuery\": \"\",\n  \"ClientRequestScheme\": \"https\",\n  \"ClientRequestUserAgent\": \"synthetic-fixture/1.0\",\n  \"Datetime\": \"2026-07-07T17:38:00Z\",\n  \"Description\": \"Synthetic rate-limit\",\n  \"EdgeResponseStatus\": 429,\n  \"Kind\": \"firewall\",\n  \"Metadata\": {},\n  \"OriginResponseStatus\": 0,\n  \"RayID\": \"0000000000000026\",\n  \"RuleID\": \"1ceda422-7034-5df2-b0ea-e5683d7467bd\",\n  \"Source\": \"ratelimit\"\n}\n",
+      "raw_format": "cloudflare-firewall-json",
+      "raw_sha256": "001326fff590c829006a496cca8f2a3eaa2e30c3f9390f7e0705b84f6f2ba95d",
+      "scenario": "Cloudflare security event: rate-limit",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "rule intent/severity and actual request context; a block is not a compromise"
+        ],
+        "severity": "medium"
+      }
+    },
+    {
+      "case_id": "cloudflare.waf-monitor",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "cloudflare.log",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"Action\": \"log\",\n  \"ClientASN\": 64500,\n  \"ClientCountry\": \"DE\",\n  \"ClientIP\": \"198.51.100.23\",\n  \"ClientRequestHost\": \"api.example.invalid\",\n  \"ClientRequestMethod\": \"GET\",\n  \"ClientRequestPath\": \"/admin/export\",\n  \"ClientRequestProtocol\": \"HTTP/2\",\n  \"ClientRequestQuery\": \"\",\n  \"ClientRequestScheme\": \"https\",\n  \"ClientRequestUserAgent\": \"synthetic-fixture/1.0\",\n  \"Datetime\": \"2026-07-07T17:39:00Z\",\n  \"Description\": \"Synthetic waf-monitor\",\n  \"EdgeResponseStatus\": 200,\n  \"Kind\": \"firewall\",\n  \"Metadata\": {},\n  \"OriginResponseStatus\": 200,\n  \"RayID\": \"0000000000000027\",\n  \"RuleID\": \"6b177723-5422-551d-b3eb-818b3c24a22e\",\n  \"Source\": \"firewallmanaged\"\n}\n"
+          },
+          "sample": {
+            "case_id": "cloudflare.waf-monitor",
+            "synthetic": true
+          }
+        },
+        "id": "c0e33801-bc1a-5684-8436-554fa0fb17f6",
+        "message": "Cloudflare security event: waf-monitor",
+        "observed_at": "2026-07-07T17:39:02Z",
+        "resource": {
+          "id": "cloudflare:synthetic-demo",
+          "kind": "cloudflare"
+        },
+        "schema_version": 1,
+        "severity": "warn",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "cloudflare"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:39:00Z"
+      },
+      "native_severity": null,
+      "raw": "{\n  \"Action\": \"log\",\n  \"ClientASN\": 64500,\n  \"ClientCountry\": \"DE\",\n  \"ClientIP\": \"198.51.100.23\",\n  \"ClientRequestHost\": \"api.example.invalid\",\n  \"ClientRequestMethod\": \"GET\",\n  \"ClientRequestPath\": \"/admin/export\",\n  \"ClientRequestProtocol\": \"HTTP/2\",\n  \"ClientRequestQuery\": \"\",\n  \"ClientRequestScheme\": \"https\",\n  \"ClientRequestUserAgent\": \"synthetic-fixture/1.0\",\n  \"Datetime\": \"2026-07-07T17:39:00Z\",\n  \"Description\": \"Synthetic waf-monitor\",\n  \"EdgeResponseStatus\": 200,\n  \"Kind\": \"firewall\",\n  \"Metadata\": {},\n  \"OriginResponseStatus\": 200,\n  \"RayID\": \"0000000000000027\",\n  \"RuleID\": \"6b177723-5422-551d-b3eb-818b3c24a22e\",\n  \"Source\": \"firewallmanaged\"\n}\n",
+      "raw_format": "cloudflare-firewall-json",
+      "raw_sha256": "a2d8a51675b257a1002686577d824e0752723014b7cf734f50bd6c7d50da79e1",
+      "scenario": "Cloudflare security event: waf-monitor",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "rule intent/severity and actual request context; a block is not a compromise"
+        ],
+        "severity": "high"
+      }
+    }
+  ],
+  "schema_version": 1,
+  "source": "cloudflare"
+}

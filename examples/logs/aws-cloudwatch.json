@@ -1,0 +1,266 @@
+{
+  "cases": [
+    {
+      "case_id": "aws.cloudwatch.debug-health",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "health.check",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"logEvents\": [\n    {\n      \"id\": \"10000000000000000000000000000000000000000000000000000005\",\n      \"message\": \"{\\\"timestamp\\\":\\\"2026-07-07T17:05:00Z\\\",\\\"level\\\":\\\"DEBUG\\\",\\\"action\\\":\\\"health.check\\\",\\\"outcome\\\":\\\"success\\\",\\\"user\\\":\\\"operator@example.invalid\\\",\\\"source_ip\\\":\\\"198.51.100.23\\\",\\\"message\\\":\\\"Health-check timing recorded\\\"}\",\n      \"timestamp\": 1783443900000\n    }\n  ],\n  \"logGroup\": \"/fixture/application\",\n  \"logStream\": \"fixture-instance/application\",\n  \"messageType\": \"DATA_MESSAGE\",\n  \"owner\": \"000000000001\",\n  \"subscriptionFilters\": [\n    \"fixture-security-feed\"\n  ]\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.cloudwatch.debug-health",
+            "synthetic": true
+          }
+        },
+        "id": "05fd169d-8148-53d1-93ef-aa83d2fc9283",
+        "message": "Health-check timing recorded",
+        "observed_at": "2026-07-07T17:05:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.cloudwatch:synthetic-demo",
+          "kind": "aws.cloudwatch",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "debug",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.cloudwatch"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:05:00Z"
+      },
+      "native_severity": "DEBUG",
+      "raw": "{\n  \"logEvents\": [\n    {\n      \"id\": \"10000000000000000000000000000000000000000000000000000005\",\n      \"message\": \"{\\\"timestamp\\\":\\\"2026-07-07T17:05:00Z\\\",\\\"level\\\":\\\"DEBUG\\\",\\\"action\\\":\\\"health.check\\\",\\\"outcome\\\":\\\"success\\\",\\\"user\\\":\\\"operator@example.invalid\\\",\\\"source_ip\\\":\\\"198.51.100.23\\\",\\\"message\\\":\\\"Health-check timing recorded\\\"}\",\n      \"timestamp\": 1783443900000\n    }\n  ],\n  \"logGroup\": \"/fixture/application\",\n  \"logStream\": \"fixture-instance/application\",\n  \"messageType\": \"DATA_MESSAGE\",\n  \"owner\": \"000000000001\",\n  \"subscriptionFilters\": [\n    \"fixture-security-feed\"\n  ]\n}\n",
+      "raw_format": "cloudwatch-decoded-json",
+      "raw_sha256": "9e28548b77eaee1120ebaa53b6cc16effc0ca058d868b30a536a61a342fe193c",
+      "scenario": "Health-check timing recorded",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "none",
+        "required_context": [
+          "application audit configuration",
+          "authorization/change context"
+        ],
+        "severity": "none"
+      }
+    },
+    {
+      "case_id": "aws.cloudwatch.login-success",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "authentication.login",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"logEvents\": [\n    {\n      \"id\": \"10000000000000000000000000000000000000000000000000000006\",\n      \"message\": \"{\\\"timestamp\\\":\\\"2026-07-07T17:06:00Z\\\",\\\"level\\\":\\\"INFO\\\",\\\"action\\\":\\\"authentication.login\\\",\\\"outcome\\\":\\\"success\\\",\\\"user\\\":\\\"operator@example.invalid\\\",\\\"source_ip\\\":\\\"198.51.100.23\\\",\\\"message\\\":\\\"Application login succeeded\\\"}\",\n      \"timestamp\": 1783443960000\n    }\n  ],\n  \"logGroup\": \"/fixture/application\",\n  \"logStream\": \"fixture-instance/application\",\n  \"messageType\": \"DATA_MESSAGE\",\n  \"owner\": \"000000000001\",\n  \"subscriptionFilters\": [\n    \"fixture-security-feed\"\n  ]\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.cloudwatch.login-success",
+            "synthetic": true
+          }
+        },
+        "id": "31f434ec-7b6c-5bd7-926b-4f6c622bfff4",
+        "message": "Application login succeeded",
+        "observed_at": "2026-07-07T17:06:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.cloudwatch:synthetic-demo",
+          "kind": "aws.cloudwatch",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "info",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.cloudwatch"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:06:00Z"
+      },
+      "native_severity": "INFO",
+      "raw": "{\n  \"logEvents\": [\n    {\n      \"id\": \"10000000000000000000000000000000000000000000000000000006\",\n      \"message\": \"{\\\"timestamp\\\":\\\"2026-07-07T17:06:00Z\\\",\\\"level\\\":\\\"INFO\\\",\\\"action\\\":\\\"authentication.login\\\",\\\"outcome\\\":\\\"success\\\",\\\"user\\\":\\\"operator@example.invalid\\\",\\\"source_ip\\\":\\\"198.51.100.23\\\",\\\"message\\\":\\\"Application login succeeded\\\"}\",\n      \"timestamp\": 1783443960000\n    }\n  ],\n  \"logGroup\": \"/fixture/application\",\n  \"logStream\": \"fixture-instance/application\",\n  \"messageType\": \"DATA_MESSAGE\",\n  \"owner\": \"000000000001\",\n  \"subscriptionFilters\": [\n    \"fixture-security-feed\"\n  ]\n}\n",
+      "raw_format": "cloudwatch-decoded-json",
+      "raw_sha256": "665f45e4ecd46f96dc95c556e5d7910897fccf372d97a37c6a70b41b106bcb08",
+      "scenario": "Application login succeeded",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "none",
+        "required_context": [
+          "application audit configuration",
+          "authorization/change context"
+        ],
+        "severity": "none"
+      }
+    },
+    {
+      "case_id": "aws.cloudwatch.login-failure",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "authentication.login",
+            "outcome": "failure"
+          },
+          "log": {
+            "original": "{\n  \"logEvents\": [\n    {\n      \"id\": \"10000000000000000000000000000000000000000000000000000007\",\n      \"message\": \"{\\\"timestamp\\\":\\\"2026-07-07T17:07:00Z\\\",\\\"level\\\":\\\"WARN\\\",\\\"action\\\":\\\"authentication.login\\\",\\\"outcome\\\":\\\"failure\\\",\\\"user\\\":\\\"operator@example.invalid\\\",\\\"source_ip\\\":\\\"198.51.100.23\\\",\\\"message\\\":\\\"Single failed application login\\\"}\",\n      \"timestamp\": 1783444020000\n    }\n  ],\n  \"logGroup\": \"/fixture/application\",\n  \"logStream\": \"fixture-instance/application\",\n  \"messageType\": \"DATA_MESSAGE\",\n  \"owner\": \"000000000001\",\n  \"subscriptionFilters\": [\n    \"fixture-security-feed\"\n  ]\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.cloudwatch.login-failure",
+            "synthetic": true
+          }
+        },
+        "id": "11f7c557-e61f-5854-b553-372903795570",
+        "message": "Single failed application login",
+        "observed_at": "2026-07-07T17:07:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.cloudwatch:synthetic-demo",
+          "kind": "aws.cloudwatch",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "warn",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.cloudwatch"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:07:00Z"
+      },
+      "native_severity": "WARN",
+      "raw": "{\n  \"logEvents\": [\n    {\n      \"id\": \"10000000000000000000000000000000000000000000000000000007\",\n      \"message\": \"{\\\"timestamp\\\":\\\"2026-07-07T17:07:00Z\\\",\\\"level\\\":\\\"WARN\\\",\\\"action\\\":\\\"authentication.login\\\",\\\"outcome\\\":\\\"failure\\\",\\\"user\\\":\\\"operator@example.invalid\\\",\\\"source_ip\\\":\\\"198.51.100.23\\\",\\\"message\\\":\\\"Single failed application login\\\"}\",\n      \"timestamp\": 1783444020000\n    }\n  ],\n  \"logGroup\": \"/fixture/application\",\n  \"logStream\": \"fixture-instance/application\",\n  \"messageType\": \"DATA_MESSAGE\",\n  \"owner\": \"000000000001\",\n  \"subscriptionFilters\": [\n    \"fixture-security-feed\"\n  ]\n}\n",
+      "raw_format": "cloudwatch-decoded-json",
+      "raw_sha256": "9b83be20386f8754a024f14b0c731ba8a1476412fd2d01132249a48fa337a4af",
+      "scenario": "Single failed application login",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "application audit configuration",
+          "authorization/change context"
+        ],
+        "severity": "low"
+      }
+    },
+    {
+      "case_id": "aws.cloudwatch.authorization-denied",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "authorization.check",
+            "outcome": "failure"
+          },
+          "log": {
+            "original": "{\n  \"logEvents\": [\n    {\n      \"id\": \"10000000000000000000000000000000000000000000000000000008\",\n      \"message\": \"{\\\"timestamp\\\":\\\"2026-07-07T17:08:00Z\\\",\\\"level\\\":\\\"ERROR\\\",\\\"action\\\":\\\"authorization.check\\\",\\\"outcome\\\":\\\"failure\\\",\\\"user\\\":\\\"operator@example.invalid\\\",\\\"source_ip\\\":\\\"198.51.100.23\\\",\\\"message\\\":\\\"Application denied an admin operation\\\"}\",\n      \"timestamp\": 1783444080000\n    }\n  ],\n  \"logGroup\": \"/fixture/application\",\n  \"logStream\": \"fixture-instance/application\",\n  \"messageType\": \"DATA_MESSAGE\",\n  \"owner\": \"000000000001\",\n  \"subscriptionFilters\": [\n    \"fixture-security-feed\"\n  ]\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.cloudwatch.authorization-denied",
+            "synthetic": true
+          }
+        },
+        "id": "c47aa90e-4f45-529c-808a-dd45f6c0fd72",
+        "message": "Application denied an admin operation",
+        "observed_at": "2026-07-07T17:08:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.cloudwatch:synthetic-demo",
+          "kind": "aws.cloudwatch",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "error",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.cloudwatch"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:08:00Z"
+      },
+      "native_severity": "ERROR",
+      "raw": "{\n  \"logEvents\": [\n    {\n      \"id\": \"10000000000000000000000000000000000000000000000000000008\",\n      \"message\": \"{\\\"timestamp\\\":\\\"2026-07-07T17:08:00Z\\\",\\\"level\\\":\\\"ERROR\\\",\\\"action\\\":\\\"authorization.check\\\",\\\"outcome\\\":\\\"failure\\\",\\\"user\\\":\\\"operator@example.invalid\\\",\\\"source_ip\\\":\\\"198.51.100.23\\\",\\\"message\\\":\\\"Application denied an admin operation\\\"}\",\n      \"timestamp\": 1783444080000\n    }\n  ],\n  \"logGroup\": \"/fixture/application\",\n  \"logStream\": \"fixture-instance/application\",\n  \"messageType\": \"DATA_MESSAGE\",\n  \"owner\": \"000000000001\",\n  \"subscriptionFilters\": [\n    \"fixture-security-feed\"\n  ]\n}\n",
+      "raw_format": "cloudwatch-decoded-json",
+      "raw_sha256": "60608160559455d1b967401e402b025ed608c479c8aac7b57dcf6fbb47b70f07",
+      "scenario": "Application denied an admin operation",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "application audit configuration",
+          "authorization/change context"
+        ],
+        "severity": "medium"
+      }
+    },
+    {
+      "case_id": "aws.cloudwatch.sensitive-export",
+      "expected": {
+        "attributes": {
+          "event": {
+            "action": "data.export",
+            "outcome": "success"
+          },
+          "log": {
+            "original": "{\n  \"logEvents\": [\n    {\n      \"id\": \"10000000000000000000000000000000000000000000000000000009\",\n      \"message\": \"{\\\"timestamp\\\":\\\"2026-07-07T17:09:00Z\\\",\\\"level\\\":\\\"CRITICAL\\\",\\\"action\\\":\\\"data.export\\\",\\\"outcome\\\":\\\"success\\\",\\\"user\\\":\\\"operator@example.invalid\\\",\\\"source_ip\\\":\\\"198.51.100.23\\\",\\\"message\\\":\\\"Application emitted a sensitive export audit event\\\"}\",\n      \"timestamp\": 1783444140000\n    }\n  ],\n  \"logGroup\": \"/fixture/application\",\n  \"logStream\": \"fixture-instance/application\",\n  \"messageType\": \"DATA_MESSAGE\",\n  \"owner\": \"000000000001\",\n  \"subscriptionFilters\": [\n    \"fixture-security-feed\"\n  ]\n}\n"
+          },
+          "sample": {
+            "case_id": "aws.cloudwatch.sensitive-export",
+            "synthetic": true
+          }
+        },
+        "id": "fab218d6-c2cd-51cf-bb4c-186a2837ee89",
+        "message": "Application emitted a sensitive export audit event",
+        "observed_at": "2026-07-07T17:09:02Z",
+        "resource": {
+          "account_id": "000000000001",
+          "id": "aws.cloudwatch:synthetic-demo",
+          "kind": "aws.cloudwatch",
+          "region": "eu-central-1"
+        },
+        "schema_version": 1,
+        "severity": "critical",
+        "source": {
+          "name": "synthetic-vendor-corpus",
+          "type": "aws.cloudwatch"
+        },
+        "tags": [
+          "synthetic",
+          "vendor-fixture"
+        ],
+        "timestamp": "2026-07-07T17:09:00Z"
+      },
+      "native_severity": "CRITICAL",
+      "raw": "{\n  \"logEvents\": [\n    {\n      \"id\": \"10000000000000000000000000000000000000000000000000000009\",\n      \"message\": \"{\\\"timestamp\\\":\\\"2026-07-07T17:09:00Z\\\",\\\"level\\\":\\\"CRITICAL\\\",\\\"action\\\":\\\"data.export\\\",\\\"outcome\\\":\\\"success\\\",\\\"user\\\":\\\"operator@example.invalid\\\",\\\"source_ip\\\":\\\"198.51.100.23\\\",\\\"message\\\":\\\"Application emitted a sensitive export audit event\\\"}\",\n      \"timestamp\": 1783444140000\n    }\n  ],\n  \"logGroup\": \"/fixture/application\",\n  \"logStream\": \"fixture-instance/application\",\n  \"messageType\": \"DATA_MESSAGE\",\n  \"owner\": \"000000000001\",\n  \"subscriptionFilters\": [\n    \"fixture-security-feed\"\n  ]\n}\n",
+      "raw_format": "cloudwatch-decoded-json",
+      "raw_sha256": "ee1804bc484079dc6706a33fde3af1bc7ad5d20eaebac01325b147aca1af3344",
+      "scenario": "Application emitted a sensitive export audit event",
+      "security": {
+        "confidence": "illustrative",
+        "expected_action": "validate evidence and context before escalation",
+        "required_context": [
+          "application audit configuration",
+          "authorization/change context"
+        ],
+        "severity": "high"
+      }
+    }
+  ],
+  "schema_version": 1,
+  "source": "aws.cloudwatch"
+}

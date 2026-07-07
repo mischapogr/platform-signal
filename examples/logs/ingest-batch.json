@@ -1,0 +1,1889 @@
+{
+  "events": [
+    {
+      "attributes": {
+        "event": {
+          "action": "s3:ListBuckets",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"9ca08d37-efe1-593b-a3fd-ca919219ba25\",\n  \"eventName\": \"ListBuckets\",\n  \"eventSource\": \"s3.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:00:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": true,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"97b5145d-a698-50b5-b9e6-5c05bca241bb\",\n  \"requestParameters\": null,\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.cloudtrail.list-buckets",
+          "synthetic": true
+        }
+      },
+      "id": "8c879c6b-a866-5998-8a02-3a2027626b57",
+      "message": "Routine bucket inventory",
+      "observed_at": "2026-07-07T17:00:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.cloudtrail:synthetic-demo",
+        "kind": "aws.cloudtrail",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.cloudtrail"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:00:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "kms:Decrypt",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"errorCode\": \"AccessDenied\",\n  \"errorMessage\": \"Synthetic denied operation\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"8c7d25a8-dec8-5478-815c-4879530b019f\",\n  \"eventName\": \"Decrypt\",\n  \"eventSource\": \"kms.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:01:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": false,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"0fb04216-749d-5d3a-be9b-33b42c07f9d1\",\n  \"requestParameters\": {\n    \"keyId\": \"arn:aws:kms:eu-central-1:000000000001:key/1af65aa8-2157-56ae-8f55-87dab5b87a26\"\n  },\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.cloudtrail.decrypt-denied",
+          "synthetic": true
+        }
+      },
+      "id": "782a1805-ec08-5014-8cfe-9898006d2968",
+      "message": "Denied decrypt request; one event is not brute force",
+      "observed_at": "2026-07-07T17:01:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.cloudtrail:synthetic-demo",
+        "kind": "aws.cloudtrail",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.cloudtrail"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:01:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "ec2:AuthorizeSecurityGroupIngress",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"0515413c-a422-5bdd-b365-cca2c4dbcf3e\",\n  \"eventName\": \"AuthorizeSecurityGroupIngress\",\n  \"eventSource\": \"ec2.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:02:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": false,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"23fbffe8-d072-56c5-835a-d1c689e089d9\",\n  \"requestParameters\": {\n    \"groupId\": \"sg-00000000000000001\",\n    \"ipPermissions\": {\n      \"items\": [\n        {\n          \"fromPort\": 22,\n          \"ipProtocol\": \"tcp\",\n          \"ipRanges\": {\n            \"items\": [\n              {\n                \"cidrIp\": \"0.0.0.0/0\"\n              }\n            ]\n          },\n          \"toPort\": 22\n        }\n      ]\n    }\n  },\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.cloudtrail.public-ssh-rule",
+          "synthetic": true
+        }
+      },
+      "id": "192beee8-059b-563b-89ee-6f1a741e1fce",
+      "message": "Security group ingress request opens SSH publicly",
+      "observed_at": "2026-07-07T17:02:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.cloudtrail:synthetic-demo",
+        "kind": "aws.cloudtrail",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.cloudtrail"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:02:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "iam:CreateAccessKey",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"ac09b8dd-a5d7-5269-bbc9-46f95eb20f9a\",\n  \"eventName\": \"CreateAccessKey\",\n  \"eventSource\": \"iam.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:03:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": false,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"138b4abd-5eb8-5b84-b875-943ec43e284c\",\n  \"requestParameters\": {\n    \"userName\": \"fixture-automation\"\n  },\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.cloudtrail.new-access-key",
+          "synthetic": true
+        }
+      },
+      "id": "ef224624-e0e3-53a5-aa32-379e80ad4cd6",
+      "message": "Access-key creation requires change validation; secret is omitted",
+      "observed_at": "2026-07-07T17:03:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.cloudtrail:synthetic-demo",
+        "kind": "aws.cloudtrail",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.cloudtrail"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:03:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "cloudtrail:StopLogging",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"b89a050d-1505-5994-9716-b84364e60ef9\",\n  \"eventName\": \"StopLogging\",\n  \"eventSource\": \"cloudtrail.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:04:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": false,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"75cb3934-8486-534e-986a-1d08ebcf4683\",\n  \"requestParameters\": {\n    \"name\": \"arn:aws:cloudtrail:eu-central-1:000000000001:trail/fixture-trail\"\n  },\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.cloudtrail.stop-audit",
+          "synthetic": true
+        }
+      },
+      "id": "d71d1621-8d2d-565f-b52d-c5181e5bf5ad",
+      "message": "Successful request to stop trail logging",
+      "observed_at": "2026-07-07T17:04:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.cloudtrail:synthetic-demo",
+        "kind": "aws.cloudtrail",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.cloudtrail"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:04:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "health.check",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"logEvents\": [\n    {\n      \"id\": \"10000000000000000000000000000000000000000000000000000005\",\n      \"message\": \"{\\\"timestamp\\\":\\\"2026-07-07T17:05:00Z\\\",\\\"level\\\":\\\"DEBUG\\\",\\\"action\\\":\\\"health.check\\\",\\\"outcome\\\":\\\"success\\\",\\\"user\\\":\\\"operator@example.invalid\\\",\\\"source_ip\\\":\\\"198.51.100.23\\\",\\\"message\\\":\\\"Health-check timing recorded\\\"}\",\n      \"timestamp\": 1783443900000\n    }\n  ],\n  \"logGroup\": \"/fixture/application\",\n  \"logStream\": \"fixture-instance/application\",\n  \"messageType\": \"DATA_MESSAGE\",\n  \"owner\": \"000000000001\",\n  \"subscriptionFilters\": [\n    \"fixture-security-feed\"\n  ]\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.cloudwatch.debug-health",
+          "synthetic": true
+        }
+      },
+      "id": "05fd169d-8148-53d1-93ef-aa83d2fc9283",
+      "message": "Health-check timing recorded",
+      "observed_at": "2026-07-07T17:05:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.cloudwatch:synthetic-demo",
+        "kind": "aws.cloudwatch",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "debug",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.cloudwatch"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:05:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "authentication.login",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"logEvents\": [\n    {\n      \"id\": \"10000000000000000000000000000000000000000000000000000006\",\n      \"message\": \"{\\\"timestamp\\\":\\\"2026-07-07T17:06:00Z\\\",\\\"level\\\":\\\"INFO\\\",\\\"action\\\":\\\"authentication.login\\\",\\\"outcome\\\":\\\"success\\\",\\\"user\\\":\\\"operator@example.invalid\\\",\\\"source_ip\\\":\\\"198.51.100.23\\\",\\\"message\\\":\\\"Application login succeeded\\\"}\",\n      \"timestamp\": 1783443960000\n    }\n  ],\n  \"logGroup\": \"/fixture/application\",\n  \"logStream\": \"fixture-instance/application\",\n  \"messageType\": \"DATA_MESSAGE\",\n  \"owner\": \"000000000001\",\n  \"subscriptionFilters\": [\n    \"fixture-security-feed\"\n  ]\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.cloudwatch.login-success",
+          "synthetic": true
+        }
+      },
+      "id": "31f434ec-7b6c-5bd7-926b-4f6c622bfff4",
+      "message": "Application login succeeded",
+      "observed_at": "2026-07-07T17:06:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.cloudwatch:synthetic-demo",
+        "kind": "aws.cloudwatch",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.cloudwatch"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:06:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "authentication.login",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "{\n  \"logEvents\": [\n    {\n      \"id\": \"10000000000000000000000000000000000000000000000000000007\",\n      \"message\": \"{\\\"timestamp\\\":\\\"2026-07-07T17:07:00Z\\\",\\\"level\\\":\\\"WARN\\\",\\\"action\\\":\\\"authentication.login\\\",\\\"outcome\\\":\\\"failure\\\",\\\"user\\\":\\\"operator@example.invalid\\\",\\\"source_ip\\\":\\\"198.51.100.23\\\",\\\"message\\\":\\\"Single failed application login\\\"}\",\n      \"timestamp\": 1783444020000\n    }\n  ],\n  \"logGroup\": \"/fixture/application\",\n  \"logStream\": \"fixture-instance/application\",\n  \"messageType\": \"DATA_MESSAGE\",\n  \"owner\": \"000000000001\",\n  \"subscriptionFilters\": [\n    \"fixture-security-feed\"\n  ]\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.cloudwatch.login-failure",
+          "synthetic": true
+        }
+      },
+      "id": "11f7c557-e61f-5854-b553-372903795570",
+      "message": "Single failed application login",
+      "observed_at": "2026-07-07T17:07:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.cloudwatch:synthetic-demo",
+        "kind": "aws.cloudwatch",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "warn",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.cloudwatch"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:07:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "authorization.check",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "{\n  \"logEvents\": [\n    {\n      \"id\": \"10000000000000000000000000000000000000000000000000000008\",\n      \"message\": \"{\\\"timestamp\\\":\\\"2026-07-07T17:08:00Z\\\",\\\"level\\\":\\\"ERROR\\\",\\\"action\\\":\\\"authorization.check\\\",\\\"outcome\\\":\\\"failure\\\",\\\"user\\\":\\\"operator@example.invalid\\\",\\\"source_ip\\\":\\\"198.51.100.23\\\",\\\"message\\\":\\\"Application denied an admin operation\\\"}\",\n      \"timestamp\": 1783444080000\n    }\n  ],\n  \"logGroup\": \"/fixture/application\",\n  \"logStream\": \"fixture-instance/application\",\n  \"messageType\": \"DATA_MESSAGE\",\n  \"owner\": \"000000000001\",\n  \"subscriptionFilters\": [\n    \"fixture-security-feed\"\n  ]\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.cloudwatch.authorization-denied",
+          "synthetic": true
+        }
+      },
+      "id": "c47aa90e-4f45-529c-808a-dd45f6c0fd72",
+      "message": "Application denied an admin operation",
+      "observed_at": "2026-07-07T17:08:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.cloudwatch:synthetic-demo",
+        "kind": "aws.cloudwatch",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "error",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.cloudwatch"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:08:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "data.export",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"logEvents\": [\n    {\n      \"id\": \"10000000000000000000000000000000000000000000000000000009\",\n      \"message\": \"{\\\"timestamp\\\":\\\"2026-07-07T17:09:00Z\\\",\\\"level\\\":\\\"CRITICAL\\\",\\\"action\\\":\\\"data.export\\\",\\\"outcome\\\":\\\"success\\\",\\\"user\\\":\\\"operator@example.invalid\\\",\\\"source_ip\\\":\\\"198.51.100.23\\\",\\\"message\\\":\\\"Application emitted a sensitive export audit event\\\"}\",\n      \"timestamp\": 1783444140000\n    }\n  ],\n  \"logGroup\": \"/fixture/application\",\n  \"logStream\": \"fixture-instance/application\",\n  \"messageType\": \"DATA_MESSAGE\",\n  \"owner\": \"000000000001\",\n  \"subscriptionFilters\": [\n    \"fixture-security-feed\"\n  ]\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.cloudwatch.sensitive-export",
+          "synthetic": true
+        }
+      },
+      "id": "fab218d6-c2cd-51cf-bb4c-186a2837ee89",
+      "message": "Application emitted a sensitive export audit event",
+      "observed_at": "2026-07-07T17:09:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.cloudwatch:synthetic-demo",
+        "kind": "aws.cloudwatch",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "critical",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.cloudwatch"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:09:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "query.plan",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "2026-07-07 17:10:00 UTC [4210]: user=fixture_app,db=fixture_orders,app=fixture-api,client=198.51.100.23 DEBUG1:  plan: Seq Scan on fixture_orders\n"
+        },
+        "sample": {
+          "case_id": "aws.rds.debug-plan",
+          "synthetic": true
+        }
+      },
+      "id": "288ebff4-220e-5e24-9f17-e6f4a968b482",
+      "message": "plan: Seq Scan on fixture_orders",
+      "observed_at": "2026-07-07T17:10:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.rds:synthetic-demo",
+        "kind": "aws.rds",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "debug",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.rds"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:10:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "database.connect",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "2026-07-07 17:11:00 UTC [4211]: user=fixture_app,db=fixture_orders,app=fixture-api,client=198.51.100.23 LOG:  connection authorized: user=fixture_app database=fixture_orders application_name=fixture-api\n"
+        },
+        "sample": {
+          "case_id": "aws.rds.connection",
+          "synthetic": true
+        }
+      },
+      "id": "e06f9053-846f-58d4-a23a-544da603051e",
+      "message": "connection authorized: user=fixture_app database=fixture_orders application_name=fixture-api",
+      "observed_at": "2026-07-07T17:11:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.rds:synthetic-demo",
+        "kind": "aws.rds",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.rds"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:11:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "authentication.login",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "2026-07-07 17:12:00 UTC [4212]: user=fixture_app,db=fixture_orders,app=fixture-api,client=198.51.100.23 FATAL:  password authentication failed for user \"fixture_admin\"\n"
+        },
+        "sample": {
+          "case_id": "aws.rds.bad-password",
+          "synthetic": true
+        }
+      },
+      "id": "35a0677d-915d-53c5-b442-fe0b316e9907",
+      "message": "password authentication failed for user \"fixture_admin\"",
+      "observed_at": "2026-07-07T17:12:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.rds:synthetic-demo",
+        "kind": "aws.rds",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "error",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.rds"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:12:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "database.grant_role",
+          "outcome": "unknown"
+        },
+        "log": {
+          "original": "2026-07-07 17:13:00 UTC [4213]: user=fixture_admin,db=fixture_orders,app=fixture-api,client=198.51.100.23 LOG:  statement: GRANT rds_superuser TO fixture_app;\n"
+        },
+        "sample": {
+          "case_id": "aws.rds.grant-rds-superuser",
+          "synthetic": true
+        }
+      },
+      "id": "bfdfc576-22ac-5476-815d-31916c1cba10",
+      "message": "statement: GRANT rds_superuser TO fixture_app;",
+      "observed_at": "2026-07-07T17:13:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.rds:synthetic-demo",
+        "kind": "aws.rds",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.rds"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:13:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "database.storage",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "2026-07-07 17:14:00 UTC [4214]: user=fixture_app,db=fixture_orders,app=fixture-api,client=198.51.100.23 PANIC:  could not write to file \"pg_wal/000000010000000000000001\": No space left on device\n"
+        },
+        "sample": {
+          "case_id": "aws.rds.storage-panic",
+          "synthetic": true
+        }
+      },
+      "id": "82aaf5d2-0924-5fad-9024-0e7927bc92e8",
+      "message": "could not write to file \"pg_wal/000000010000000000000001\": No space left on device",
+      "observed_at": "2026-07-07T17:14:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.rds:synthetic-demo",
+        "kind": "aws.rds",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "critical",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.rds"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:14:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "http.request",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "https 2026-07-07T17:15:00Z app/fixture-alb/0000000000000001 198.51.100.23:54001 192.0.2.20:8080 0.001 0.010 0.001 200 200 256 1024 \"GET https://api.example.invalid:443/health HTTP/1.1\" \"synthetic-fixture/1.0\" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 arn:aws:elasticloadbalancing:eu-central-1:000000000001:targetgroup/fixture/0000000000000001 \"Root=1-00000001-000000000000000000000001\" \"api.example.invalid\" \"arn:aws:acm:eu-central-1:000000000001:certificate/f2602588-51ba-511b-93fc-c47ca8c02d97\" 1 2026-07-07T17:15:00Z \"forward\" \"-\" \"-\" \"192.0.2.20:8080\" \"200\" \"-\" \"-\" TID_0000000000000001 \"-\" \"-\" \"-\"\n"
+        },
+        "sample": {
+          "case_id": "aws.alb.health",
+          "synthetic": true
+        }
+      },
+      "id": "3a44e0df-366a-5f8d-918d-81bbff9e3f91",
+      "message": "ALB 200 GET /health",
+      "observed_at": "2026-07-07T17:15:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.alb:synthetic-demo",
+        "kind": "aws.alb",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.alb"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:15:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "http.request",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "https 2026-07-07T17:16:00Z app/fixture-alb/0000000000000001 198.51.100.23:54001 192.0.2.20:8080 0.001 0.010 0.001 404 404 256 1024 \"GET https://api.example.invalid:443/missing HTTP/1.1\" \"synthetic-fixture/1.0\" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 arn:aws:elasticloadbalancing:eu-central-1:000000000001:targetgroup/fixture/0000000000000001 \"Root=1-00000001-000000000000000000000001\" \"api.example.invalid\" \"arn:aws:acm:eu-central-1:000000000001:certificate/f2602588-51ba-511b-93fc-c47ca8c02d97\" 1 2026-07-07T17:16:00Z \"forward\" \"-\" \"-\" \"192.0.2.20:8080\" \"404\" \"-\" \"-\" TID_0000000000000001 \"-\" \"-\" \"-\"\n"
+        },
+        "sample": {
+          "case_id": "aws.alb.missing-route",
+          "synthetic": true
+        }
+      },
+      "id": "af4b7958-e559-5ca5-aa0f-5a4c0b0be50f",
+      "message": "ALB 404 GET /missing",
+      "observed_at": "2026-07-07T17:16:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.alb:synthetic-demo",
+        "kind": "aws.alb",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "warn",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.alb"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:16:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "waf.block",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "https 2026-07-07T17:17:00Z app/fixture-alb/0000000000000001 198.51.100.23:54001 - 0.001 0.010 0.001 403 - 256 1024 \"GET https://api.example.invalid:443/search?q=fixture-test HTTP/1.1\" \"synthetic-fixture/1.0\" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 arn:aws:elasticloadbalancing:eu-central-1:000000000001:targetgroup/fixture/0000000000000001 \"Root=1-00000001-000000000000000000000001\" \"api.example.invalid\" \"arn:aws:acm:eu-central-1:000000000001:certificate/f2602588-51ba-511b-93fc-c47ca8c02d97\" 1 2026-07-07T17:17:00Z \"waf\" \"-\" \"-\" \"-\" \"-\" \"-\" \"-\" TID_0000000000000001 \"-\" \"-\" \"-\"\n"
+        },
+        "sample": {
+          "case_id": "aws.alb.waf-block",
+          "synthetic": true
+        }
+      },
+      "id": "b97891ca-f363-57ce-96fa-81d4924bc49b",
+      "message": "ALB 403 GET /search?q=fixture-test",
+      "observed_at": "2026-07-07T17:17:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.alb:synthetic-demo",
+        "kind": "aws.alb",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "warn",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.alb"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:17:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "http.request",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "https 2026-07-07T17:18:00Z app/fixture-alb/0000000000000001 198.51.100.23:54001 192.0.2.20:8080 0.001 0.010 0.001 502 502 256 1024 \"GET https://api.example.invalid:443/orders HTTP/1.1\" \"synthetic-fixture/1.0\" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 arn:aws:elasticloadbalancing:eu-central-1:000000000001:targetgroup/fixture/0000000000000001 \"Root=1-00000001-000000000000000000000001\" \"api.example.invalid\" \"arn:aws:acm:eu-central-1:000000000001:certificate/f2602588-51ba-511b-93fc-c47ca8c02d97\" 1 2026-07-07T17:18:00Z \"forward\" \"-\" \"-\" \"192.0.2.20:8080\" \"502\" \"-\" \"-\" TID_0000000000000001 \"-\" \"-\" \"-\"\n"
+        },
+        "sample": {
+          "case_id": "aws.alb.backend-failure",
+          "synthetic": true
+        }
+      },
+      "id": "cc093715-7e63-5355-8f61-ae81599612cf",
+      "message": "ALB 502 GET /orders",
+      "observed_at": "2026-07-07T17:18:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.alb:synthetic-demo",
+        "kind": "aws.alb",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "error",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.alb"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:18:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "http.request",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "https 2026-07-07T17:19:00Z app/fixture-alb/0000000000000001 198.51.100.23:54001 192.0.2.20:8080 0.001 0.010 0.001 200 200 256 1024 \"GET https://api.example.invalid:443/admin/export HTTP/1.1\" \"synthetic-fixture/1.0\" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 arn:aws:elasticloadbalancing:eu-central-1:000000000001:targetgroup/fixture/0000000000000001 \"Root=1-00000001-000000000000000000000001\" \"api.example.invalid\" \"arn:aws:acm:eu-central-1:000000000001:certificate/f2602588-51ba-511b-93fc-c47ca8c02d97\" 1 2026-07-07T17:19:00Z \"forward\" \"-\" \"-\" \"192.0.2.20:8080\" \"200\" \"-\" \"-\" TID_0000000000000001 \"-\" \"-\" \"-\"\n"
+        },
+        "sample": {
+          "case_id": "aws.alb.admin-export",
+          "synthetic": true
+        }
+      },
+      "id": "af5e20aa-dd2b-588c-8338-b623ce403111",
+      "message": "ALB 200 GET /admin/export",
+      "observed_at": "2026-07-07T17:19:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.alb:synthetic-demo",
+        "kind": "aws.alb",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.alb"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:19:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "tls.connection",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "tls 2.0 2026-07-07T17:20:00Z net/fixture-nlb/0000000000000001 0000000000000001 198.51.100.23:55001 192.0.2.21:443 250 20 512 2048 - arn:aws:acm:eu-central-1:000000000001:certificate/38731727-1d32-5bab-92e1-70752faba4d3 - TLS_AES_128_GCM_SHA256 tlsv13 ECDHE api.example.invalid h2 h2 \"h2\",\"http/1.1\" 2026-07-07T17:19:59.750000Z\n"
+        },
+        "sample": {
+          "case_id": "aws.nlb.tls-success",
+          "synthetic": true
+        }
+      },
+      "id": "5f0370b7-fdba-58ef-a2a3-58aabfa860fe",
+      "message": "NLB TLS connection: tls-success",
+      "observed_at": "2026-07-07T17:20:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.nlb:synthetic-demo",
+        "kind": "aws.nlb",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.nlb"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:20:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "tls.handshake",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "tls 2.0 2026-07-07T17:21:00Z net/fixture-nlb/0000000000000001 0000000000000001 198.51.100.23:55001 192.0.2.21:443 250 - 0 0 42 - - - - - api.example.invalid - - \"h2\",\"http/1.1\" 2026-07-07T17:20:59.750000Z\n"
+        },
+        "sample": {
+          "case_id": "aws.nlb.bad-certificate",
+          "synthetic": true
+        }
+      },
+      "id": "36d1f311-020b-5f05-acea-26291b822bc2",
+      "message": "NLB TLS connection: bad-certificate",
+      "observed_at": "2026-07-07T17:21:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.nlb:synthetic-demo",
+        "kind": "aws.nlb",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "warn",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.nlb"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:21:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "tls.connection",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "tls 2.0 2026-07-07T17:22:00Z net/fixture-nlb/0000000000000001 0000000000000001 198.51.100.23:55001 192.0.2.21:443 250 20 512 52428800 - arn:aws:acm:eu-central-1:000000000001:certificate/38731727-1d32-5bab-92e1-70752faba4d3 - TLS_AES_128_GCM_SHA256 tlsv13 ECDHE api.example.invalid h2 h2 \"h2\",\"http/1.1\" 2026-07-07T17:21:59.750000Z\n"
+        },
+        "sample": {
+          "case_id": "aws.nlb.large-transfer",
+          "synthetic": true
+        }
+      },
+      "id": "2b1c7269-77d4-542a-8e0b-10767c7eddb0",
+      "message": "NLB TLS connection: large-transfer",
+      "observed_at": "2026-07-07T17:22:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.nlb:synthetic-demo",
+        "kind": "aws.nlb",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.nlb"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:22:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "tls.connection",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "tls 2.0 2026-07-07T17:23:00Z net/fixture-nlb/0000000000000001 0000000000000001 198.51.100.23:55001 192.0.2.21:443 250 20 512 2048 - arn:aws:acm:eu-central-1:000000000001:certificate/38731727-1d32-5bab-92e1-70752faba4d3 - AES128-SHA tlsv10 ECDHE api.example.invalid h2 h2 \"h2\",\"http/1.1\" 2026-07-07T17:22:59.750000Z\n"
+        },
+        "sample": {
+          "case_id": "aws.nlb.legacy-tls",
+          "synthetic": true
+        }
+      },
+      "id": "5e697ca5-d5dd-53d5-8dd7-9aea9167260a",
+      "message": "NLB TLS connection: legacy-tls",
+      "observed_at": "2026-07-07T17:23:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.nlb:synthetic-demo",
+        "kind": "aws.nlb",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "warn",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.nlb"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:23:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "tls.handshake",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "tls 2.0 2026-07-07T17:24:00Z net/fixture-nlb/0000000000000001 0000000000000001 198.51.100.23:55001 192.0.2.21:443 250 - 0 0 80 - - - - - api.example.invalid - - \"h2\",\"http/1.1\" 2026-07-07T17:23:59.750000Z\n"
+        },
+        "sample": {
+          "case_id": "aws.nlb.internal-tls-error",
+          "synthetic": true
+        }
+      },
+      "id": "fbeb648a-85ec-5c08-8cc4-c3bb964caf97",
+      "message": "NLB TLS connection: internal-tls-error",
+      "observed_at": "2026-07-07T17:24:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.nlb:synthetic-demo",
+        "kind": "aws.nlb",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "error",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.nlb"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:24:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "kubernetes.list.pods",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"annotations\": {\n    \"authorization.k8s.io/decision\": \"allow\",\n    \"authorization.k8s.io/reason\": \"synthetic fixture policy\"\n  },\n  \"apiVersion\": \"audit.k8s.io/v1\",\n  \"auditID\": \"d6fa906b-8e63-5579-8ec4-be3b647795ac\",\n  \"kind\": \"Event\",\n  \"level\": \"Metadata\",\n  \"objectRef\": {\n    \"apiGroup\": \"\",\n    \"apiVersion\": \"v1\",\n    \"name\": \"fixture-object\",\n    \"namespace\": \"fixture\",\n    \"resource\": \"pods\"\n  },\n  \"requestReceivedTimestamp\": \"2026-07-07T17:25:00Z\",\n  \"requestURI\": \"/api/v1/namespaces/fixture/pods\",\n  \"responseStatus\": {\n    \"code\": 200,\n    \"metadata\": {}\n  },\n  \"sourceIPs\": [\n    \"198.51.100.23\"\n  ],\n  \"stage\": \"ResponseComplete\",\n  \"stageTimestamp\": \"2026-07-07T17:25:00Z\",\n  \"user\": {\n    \"groups\": [\n      \"system:authenticated\"\n    ],\n    \"username\": \"operator@example.invalid\"\n  },\n  \"userAgent\": \"kubectl/synthetic-fixture\",\n  \"verb\": \"list\"\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.eks.list-pods",
+          "synthetic": true
+        }
+      },
+      "id": "103a21a8-540e-5fd4-a29c-ceebc9b50767",
+      "message": "Kubernetes audit: list-pods",
+      "observed_at": "2026-07-07T17:25:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.eks:synthetic-demo",
+        "kind": "aws.eks",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.eks"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:25:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "kubernetes.get.secrets",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"annotations\": {\n    \"authorization.k8s.io/decision\": \"allow\",\n    \"authorization.k8s.io/reason\": \"synthetic fixture policy\"\n  },\n  \"apiVersion\": \"audit.k8s.io/v1\",\n  \"auditID\": \"92642ce1-cad3-5967-a169-fb5f0a5ea884\",\n  \"kind\": \"Event\",\n  \"level\": \"Metadata\",\n  \"objectRef\": {\n    \"apiGroup\": \"\",\n    \"apiVersion\": \"v1\",\n    \"name\": \"fixture-object\",\n    \"namespace\": \"fixture\",\n    \"resource\": \"secrets\"\n  },\n  \"requestReceivedTimestamp\": \"2026-07-07T17:26:00Z\",\n  \"requestURI\": \"/api/v1/namespaces/fixture/secrets\",\n  \"responseStatus\": {\n    \"code\": 200,\n    \"metadata\": {}\n  },\n  \"sourceIPs\": [\n    \"198.51.100.23\"\n  ],\n  \"stage\": \"ResponseComplete\",\n  \"stageTimestamp\": \"2026-07-07T17:26:00Z\",\n  \"user\": {\n    \"groups\": [\n      \"system:authenticated\"\n    ],\n    \"username\": \"operator@example.invalid\"\n  },\n  \"userAgent\": \"kubectl/synthetic-fixture\",\n  \"verb\": \"get\"\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.eks.read-secret",
+          "synthetic": true
+        }
+      },
+      "id": "755a3481-aa69-59c6-9772-22e79f862e3a",
+      "message": "Kubernetes audit: read-secret",
+      "observed_at": "2026-07-07T17:26:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.eks:synthetic-demo",
+        "kind": "aws.eks",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.eks"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:26:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "kubernetes.create.pods.exec",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "{\n  \"annotations\": {\n    \"authorization.k8s.io/decision\": \"forbid\",\n    \"authorization.k8s.io/reason\": \"synthetic fixture policy\"\n  },\n  \"apiVersion\": \"audit.k8s.io/v1\",\n  \"auditID\": \"c88c6b1e-8760-516a-9173-9fc1d7308cac\",\n  \"kind\": \"Event\",\n  \"level\": \"Metadata\",\n  \"objectRef\": {\n    \"apiGroup\": \"\",\n    \"apiVersion\": \"v1\",\n    \"name\": \"fixture-object\",\n    \"namespace\": \"fixture\",\n    \"resource\": \"pods\",\n    \"subresource\": \"exec\"\n  },\n  \"requestReceivedTimestamp\": \"2026-07-07T17:27:00Z\",\n  \"requestURI\": \"/api/v1/namespaces/fixture/pods/fixture-pod/exec?command=id&container=debug&stdout=true\",\n  \"responseStatus\": {\n    \"code\": 403,\n    \"metadata\": {}\n  },\n  \"sourceIPs\": [\n    \"198.51.100.23\"\n  ],\n  \"stage\": \"ResponseComplete\",\n  \"stageTimestamp\": \"2026-07-07T17:27:00Z\",\n  \"user\": {\n    \"groups\": [\n      \"system:authenticated\"\n    ],\n    \"username\": \"operator@example.invalid\"\n  },\n  \"userAgent\": \"kubectl/synthetic-fixture\",\n  \"verb\": \"create\"\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.eks.exec-denied",
+          "synthetic": true
+        }
+      },
+      "id": "82000597-6063-53b1-ab06-fded278abf72",
+      "message": "Kubernetes audit: exec-denied",
+      "observed_at": "2026-07-07T17:27:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.eks:synthetic-demo",
+        "kind": "aws.eks",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "warn",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.eks"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:27:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "kubernetes.create.pods",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"annotations\": {\n    \"authorization.k8s.io/decision\": \"allow\",\n    \"authorization.k8s.io/reason\": \"synthetic fixture policy\"\n  },\n  \"apiVersion\": \"audit.k8s.io/v1\",\n  \"auditID\": \"e5751435-8e91-581f-b86b-3d7ac2280b91\",\n  \"kind\": \"Event\",\n  \"level\": \"Request\",\n  \"objectRef\": {\n    \"apiGroup\": \"\",\n    \"apiVersion\": \"v1\",\n    \"name\": \"fixture-object\",\n    \"namespace\": \"fixture\",\n    \"resource\": \"pods\"\n  },\n  \"requestObject\": {\n    \"apiVersion\": \"v1\",\n    \"kind\": \"Pod\",\n    \"metadata\": {\n      \"name\": \"fixture-debug\",\n      \"namespace\": \"fixture\"\n    },\n    \"spec\": {\n      \"containers\": [\n        {\n          \"image\": \"registry.example.invalid/fixture/debug:1\",\n          \"name\": \"debug\",\n          \"securityContext\": {\n            \"privileged\": true\n          }\n        }\n      ]\n    }\n  },\n  \"requestReceivedTimestamp\": \"2026-07-07T17:28:00Z\",\n  \"requestURI\": \"/api/v1/namespaces/fixture/pods\",\n  \"responseStatus\": {\n    \"code\": 201,\n    \"metadata\": {}\n  },\n  \"sourceIPs\": [\n    \"198.51.100.23\"\n  ],\n  \"stage\": \"ResponseComplete\",\n  \"stageTimestamp\": \"2026-07-07T17:28:00Z\",\n  \"user\": {\n    \"groups\": [\n      \"system:authenticated\"\n    ],\n    \"username\": \"operator@example.invalid\"\n  },\n  \"userAgent\": \"kubectl/synthetic-fixture\",\n  \"verb\": \"create\"\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.eks.privileged-pod",
+          "synthetic": true
+        }
+      },
+      "id": "230f0ffd-4c8b-5e46-8c6f-50cee9ec4131",
+      "message": "Kubernetes audit: privileged-pod",
+      "observed_at": "2026-07-07T17:28:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.eks:synthetic-demo",
+        "kind": "aws.eks",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.eks"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:28:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "kubernetes.create.clusterrolebindings",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"annotations\": {\n    \"authorization.k8s.io/decision\": \"allow\",\n    \"authorization.k8s.io/reason\": \"synthetic fixture policy\"\n  },\n  \"apiVersion\": \"audit.k8s.io/v1\",\n  \"auditID\": \"69dca71e-7c8b-5289-b029-60c3b6e6fd1c\",\n  \"kind\": \"Event\",\n  \"level\": \"Request\",\n  \"objectRef\": {\n    \"apiGroup\": \"rbac.authorization.k8s.io\",\n    \"apiVersion\": \"v1\",\n    \"name\": \"fixture-object\",\n    \"resource\": \"clusterrolebindings\"\n  },\n  \"requestObject\": {\n    \"apiVersion\": \"rbac.authorization.k8s.io/v1\",\n    \"kind\": \"ClusterRoleBinding\",\n    \"metadata\": {\n      \"name\": \"fixture-admin-binding\"\n    },\n    \"roleRef\": {\n      \"apiGroup\": \"rbac.authorization.k8s.io\",\n      \"kind\": \"ClusterRole\",\n      \"name\": \"cluster-admin\"\n    },\n    \"subjects\": [\n      {\n        \"kind\": \"User\",\n        \"name\": \"operator@example.invalid\"\n      }\n    ]\n  },\n  \"requestReceivedTimestamp\": \"2026-07-07T17:29:00Z\",\n  \"requestURI\": \"/apis/rbac.authorization.k8s.io/v1/clusterrolebindings\",\n  \"responseStatus\": {\n    \"code\": 201,\n    \"metadata\": {}\n  },\n  \"sourceIPs\": [\n    \"198.51.100.23\"\n  ],\n  \"stage\": \"ResponseComplete\",\n  \"stageTimestamp\": \"2026-07-07T17:29:00Z\",\n  \"user\": {\n    \"groups\": [\n      \"system:authenticated\"\n    ],\n    \"username\": \"operator@example.invalid\"\n  },\n  \"userAgent\": \"kubectl/synthetic-fixture\",\n  \"verb\": \"create\"\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.eks.cluster-admin-binding",
+          "synthetic": true
+        }
+      },
+      "id": "ad576f6f-3c8a-5295-8545-118a0a6c34ab",
+      "message": "Kubernetes audit: cluster-admin-binding",
+      "observed_at": "2026-07-07T17:29:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.eks:synthetic-demo",
+        "kind": "aws.eks",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.eks"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:29:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "ecs.task.state",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"account\": \"000000000001\",\n  \"detail\": {\n    \"clusterArn\": \"arn:aws:ecs:eu-central-1:000000000001:cluster/fixture\",\n    \"containers\": [\n      {\n        \"lastStatus\": \"RUNNING\",\n        \"name\": \"fixture-api\"\n      }\n    ],\n    \"desiredStatus\": \"RUNNING\",\n    \"lastStatus\": \"RUNNING\",\n    \"launchType\": \"FARGATE\",\n    \"taskArn\": \"arn:aws:ecs:eu-central-1:000000000001:task/fixture/b0317e36e5815344870da2542d1855e2\",\n    \"taskDefinitionArn\": \"arn:aws:ecs:eu-central-1:000000000001:task-definition/fixture-api:1\",\n    \"version\": 1\n  },\n  \"detail-type\": \"ECS Task State Change\",\n  \"id\": \"9667eb72-6042-541f-b4d0-01bb4bbadd3a\",\n  \"region\": \"eu-central-1\",\n  \"resources\": [\n    \"arn:aws:ecs:eu-central-1:000000000001:task/fixture/b0317e36e5815344870da2542d1855e2\"\n  ],\n  \"source\": \"aws.ecs\",\n  \"time\": \"2026-07-07T17:30:00Z\",\n  \"version\": \"0\"\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.ecs.task-running",
+          "synthetic": true
+        }
+      },
+      "id": "f9bffc6c-e4e1-54cf-b321-3830650d3159",
+      "message": "ECS task RUNNING",
+      "observed_at": "2026-07-07T17:30:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.ecs:synthetic-demo",
+        "kind": "aws.ecs",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.ecs"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:30:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "ecs.task.state",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "{\n  \"account\": \"000000000001\",\n  \"detail\": {\n    \"clusterArn\": \"arn:aws:ecs:eu-central-1:000000000001:cluster/fixture\",\n    \"containers\": [\n      {\n        \"exitCode\": 1,\n        \"lastStatus\": \"STOPPED\",\n        \"name\": \"fixture-api\"\n      }\n    ],\n    \"desiredStatus\": \"STOPPED\",\n    \"lastStatus\": \"STOPPED\",\n    \"launchType\": \"FARGATE\",\n    \"stopCode\": \"EssentialContainerExited\",\n    \"stoppedReason\": \"Essential container in task exited\",\n    \"taskArn\": \"arn:aws:ecs:eu-central-1:000000000001:task/fixture/66e3904a6924521f98123c5addec0c2d\",\n    \"taskDefinitionArn\": \"arn:aws:ecs:eu-central-1:000000000001:task-definition/fixture-api:1\",\n    \"version\": 1\n  },\n  \"detail-type\": \"ECS Task State Change\",\n  \"id\": \"b127b4e4-fc3f-5220-8fe1-e984f005aaa3\",\n  \"region\": \"eu-central-1\",\n  \"resources\": [\n    \"arn:aws:ecs:eu-central-1:000000000001:task/fixture/66e3904a6924521f98123c5addec0c2d\"\n  ],\n  \"source\": \"aws.ecs\",\n  \"time\": \"2026-07-07T17:31:00Z\",\n  \"version\": \"0\"\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.ecs.task-failed",
+          "synthetic": true
+        }
+      },
+      "id": "bfa91714-8ad1-51d3-afa2-d895e0c629a8",
+      "message": "ECS task STOPPED",
+      "observed_at": "2026-07-07T17:31:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.ecs:synthetic-demo",
+        "kind": "aws.ecs",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "error",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.ecs"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:31:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "authentication.login",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "{\n  \"action\": \"authentication.login\",\n  \"container_name\": \"fixture-api\",\n  \"level\": \"WARN\",\n  \"message\": \"ECS application login failed\",\n  \"outcome\": \"failure\",\n  \"principal\": \"operator@example.invalid\",\n  \"source_ip\": \"198.51.100.23\",\n  \"timestamp\": \"2026-07-07T17:32:00Z\"\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.ecs.app-login-failed",
+          "synthetic": true
+        }
+      },
+      "id": "daeb764a-aa65-56f5-be49-329fa0ed1147",
+      "message": "ECS application login failed",
+      "observed_at": "2026-07-07T17:32:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.ecs:synthetic-demo",
+        "kind": "aws.ecs",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "warn",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.ecs"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:32:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "data.export",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"action\": \"data.export\",\n  \"container_name\": \"fixture-api\",\n  \"level\": \"CRITICAL\",\n  \"message\": \"ECS application sensitive-data export audit\",\n  \"outcome\": \"success\",\n  \"principal\": \"operator@example.invalid\",\n  \"source_ip\": \"198.51.100.23\",\n  \"timestamp\": \"2026-07-07T17:33:00Z\"\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.ecs.app-secret-export",
+          "synthetic": true
+        }
+      },
+      "id": "dc15e34c-b753-51bd-9584-268d80a590ab",
+      "message": "ECS application sensitive-data export audit",
+      "observed_at": "2026-07-07T17:33:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.ecs:synthetic-demo",
+        "kind": "aws.ecs",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "critical",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.ecs"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:33:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "ecs:RegisterTaskDefinition",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"awsRegion\": \"eu-central-1\",\n  \"eventCategory\": \"Management\",\n  \"eventID\": \"2c00de16-5d52-55f0-bf53-6c4ad808e32c\",\n  \"eventName\": \"RegisterTaskDefinition\",\n  \"eventSource\": \"ecs.amazonaws.com\",\n  \"eventTime\": \"2026-07-07T17:34:00Z\",\n  \"eventType\": \"AwsApiCall\",\n  \"eventVersion\": \"1.11\",\n  \"managementEvent\": true,\n  \"readOnly\": false,\n  \"recipientAccountId\": \"000000000001\",\n  \"requestID\": \"2a250ca5-00f0-5b8d-8e73-cfaa422b37da\",\n  \"requestParameters\": {\n    \"containerDefinitions\": [\n      {\n        \"image\": \"registry.example.invalid/fixture/api:1\",\n        \"name\": \"fixture-api\",\n        \"privileged\": true\n      }\n    ],\n    \"family\": \"fixture-api\"\n  },\n  \"responseElements\": null,\n  \"sourceIPAddress\": \"198.51.100.23\",\n  \"userAgent\": \"synthetic-fixture/1.0\",\n  \"userIdentity\": {\n    \"accountId\": \"000000000001\",\n    \"arn\": \"arn:aws:sts::000000000001:assumed-role/FixtureOperator/demo\",\n    \"principalId\": \"AROASYNTHETICEXAMPLE:demo\",\n    \"sessionContext\": {\n      \"attributes\": {\n        \"creationDate\": \"2026-07-07T17:00:00Z\",\n        \"mfaAuthenticated\": \"true\"\n      },\n      \"sessionIssuer\": {\n        \"accountId\": \"000000000001\",\n        \"arn\": \"arn:aws:iam::000000000001:role/FixtureOperator\",\n        \"principalId\": \"AROASYNTHETICEXAMPLE\",\n        \"type\": \"Role\",\n        \"userName\": \"FixtureOperator\"\n      }\n    },\n    \"type\": \"AssumedRole\"\n  }\n}\n"
+        },
+        "sample": {
+          "case_id": "aws.ecs.privileged-task-definition",
+          "synthetic": true
+        }
+      },
+      "id": "943d8d17-b92d-583d-a4b3-e4ac7a99ca9b",
+      "message": "ECS privileged EC2 task definition registered",
+      "observed_at": "2026-07-07T17:34:02Z",
+      "resource": {
+        "account_id": "000000000001",
+        "id": "aws.ecs:synthetic-demo",
+        "kind": "aws.ecs",
+        "region": "eu-central-1"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "aws.ecs"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:34:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "cloudflare.allow",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"Action\": \"allow\",\n  \"ClientASN\": 64500,\n  \"ClientCountry\": \"DE\",\n  \"ClientIP\": \"198.51.100.23\",\n  \"ClientRequestHost\": \"api.example.invalid\",\n  \"ClientRequestMethod\": \"GET\",\n  \"ClientRequestPath\": \"/health\",\n  \"ClientRequestProtocol\": \"HTTP/2\",\n  \"ClientRequestQuery\": \"\",\n  \"ClientRequestScheme\": \"https\",\n  \"ClientRequestUserAgent\": \"synthetic-fixture/1.0\",\n  \"Datetime\": \"2026-07-07T17:35:00Z\",\n  \"Description\": \"Synthetic allowed\",\n  \"EdgeResponseStatus\": 200,\n  \"Kind\": \"firewall\",\n  \"Metadata\": {},\n  \"OriginResponseStatus\": 200,\n  \"RayID\": \"0000000000000023\",\n  \"RuleID\": \"b8d25f42-bc4d-50cc-9fc7-fa46491d9abd\",\n  \"Source\": \"firewallcustom\"\n}\n"
+        },
+        "sample": {
+          "case_id": "cloudflare.allowed",
+          "synthetic": true
+        }
+      },
+      "id": "f67b2010-bd7e-5200-8758-1e65bc807328",
+      "message": "Cloudflare security event: allowed",
+      "observed_at": "2026-07-07T17:35:02Z",
+      "resource": {
+        "id": "cloudflare:synthetic-demo",
+        "kind": "cloudflare"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "cloudflare"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:35:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "cloudflare.managedchallenge",
+          "outcome": "blocked"
+        },
+        "log": {
+          "original": "{\n  \"Action\": \"managedchallenge\",\n  \"ClientASN\": 64500,\n  \"ClientCountry\": \"DE\",\n  \"ClientIP\": \"198.51.100.23\",\n  \"ClientRequestHost\": \"api.example.invalid\",\n  \"ClientRequestMethod\": \"GET\",\n  \"ClientRequestPath\": \"/login\",\n  \"ClientRequestProtocol\": \"HTTP/2\",\n  \"ClientRequestQuery\": \"\",\n  \"ClientRequestScheme\": \"https\",\n  \"ClientRequestUserAgent\": \"synthetic-fixture/1.0\",\n  \"Datetime\": \"2026-07-07T17:36:00Z\",\n  \"Description\": \"Synthetic managed-challenge\",\n  \"EdgeResponseStatus\": 403,\n  \"Kind\": \"firewall\",\n  \"Metadata\": {},\n  \"OriginResponseStatus\": 0,\n  \"RayID\": \"0000000000000024\",\n  \"RuleID\": \"8f85a7a0-bc1b-50ce-b6e6-f7d3e0b9f725\",\n  \"Source\": \"firewallmanaged\"\n}\n"
+        },
+        "sample": {
+          "case_id": "cloudflare.managed-challenge",
+          "synthetic": true
+        }
+      },
+      "id": "2bc415fc-7a05-5ee6-b9d5-f25058a31c15",
+      "message": "Cloudflare security event: managed-challenge",
+      "observed_at": "2026-07-07T17:36:02Z",
+      "resource": {
+        "id": "cloudflare:synthetic-demo",
+        "kind": "cloudflare"
+      },
+      "schema_version": 1,
+      "severity": "warn",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "cloudflare"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:36:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "cloudflare.block",
+          "outcome": "blocked"
+        },
+        "log": {
+          "original": "{\n  \"Action\": \"block\",\n  \"ClientASN\": 64500,\n  \"ClientCountry\": \"DE\",\n  \"ClientIP\": \"198.51.100.23\",\n  \"ClientRequestHost\": \"api.example.invalid\",\n  \"ClientRequestMethod\": \"GET\",\n  \"ClientRequestPath\": \"/search\",\n  \"ClientRequestProtocol\": \"HTTP/2\",\n  \"ClientRequestQuery\": \"q=fixture-test\",\n  \"ClientRequestScheme\": \"https\",\n  \"ClientRequestUserAgent\": \"synthetic-fixture/1.0\",\n  \"Datetime\": \"2026-07-07T17:37:00Z\",\n  \"Description\": \"Synthetic waf-block\",\n  \"EdgeResponseStatus\": 403,\n  \"Kind\": \"firewall\",\n  \"Metadata\": {},\n  \"OriginResponseStatus\": 0,\n  \"RayID\": \"0000000000000025\",\n  \"RuleID\": \"37a46a8d-e328-5064-a2fd-e70117b623d0\",\n  \"Source\": \"firewallmanaged\"\n}\n"
+        },
+        "sample": {
+          "case_id": "cloudflare.waf-block",
+          "synthetic": true
+        }
+      },
+      "id": "10ba9ff0-7047-5000-ab46-124bec8a6b2f",
+      "message": "Cloudflare security event: waf-block",
+      "observed_at": "2026-07-07T17:37:02Z",
+      "resource": {
+        "id": "cloudflare:synthetic-demo",
+        "kind": "cloudflare"
+      },
+      "schema_version": 1,
+      "severity": "warn",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "cloudflare"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:37:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "cloudflare.block",
+          "outcome": "blocked"
+        },
+        "log": {
+          "original": "{\n  \"Action\": \"block\",\n  \"ClientASN\": 64500,\n  \"ClientCountry\": \"DE\",\n  \"ClientIP\": \"198.51.100.23\",\n  \"ClientRequestHost\": \"api.example.invalid\",\n  \"ClientRequestMethod\": \"GET\",\n  \"ClientRequestPath\": \"/login\",\n  \"ClientRequestProtocol\": \"HTTP/2\",\n  \"ClientRequestQuery\": \"\",\n  \"ClientRequestScheme\": \"https\",\n  \"ClientRequestUserAgent\": \"synthetic-fixture/1.0\",\n  \"Datetime\": \"2026-07-07T17:38:00Z\",\n  \"Description\": \"Synthetic rate-limit\",\n  \"EdgeResponseStatus\": 429,\n  \"Kind\": \"firewall\",\n  \"Metadata\": {},\n  \"OriginResponseStatus\": 0,\n  \"RayID\": \"0000000000000026\",\n  \"RuleID\": \"1ceda422-7034-5df2-b0ea-e5683d7467bd\",\n  \"Source\": \"ratelimit\"\n}\n"
+        },
+        "sample": {
+          "case_id": "cloudflare.rate-limit",
+          "synthetic": true
+        }
+      },
+      "id": "a6d5841e-5af3-580e-806d-201e4230e94f",
+      "message": "Cloudflare security event: rate-limit",
+      "observed_at": "2026-07-07T17:38:02Z",
+      "resource": {
+        "id": "cloudflare:synthetic-demo",
+        "kind": "cloudflare"
+      },
+      "schema_version": 1,
+      "severity": "warn",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "cloudflare"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:38:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "cloudflare.log",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"Action\": \"log\",\n  \"ClientASN\": 64500,\n  \"ClientCountry\": \"DE\",\n  \"ClientIP\": \"198.51.100.23\",\n  \"ClientRequestHost\": \"api.example.invalid\",\n  \"ClientRequestMethod\": \"GET\",\n  \"ClientRequestPath\": \"/admin/export\",\n  \"ClientRequestProtocol\": \"HTTP/2\",\n  \"ClientRequestQuery\": \"\",\n  \"ClientRequestScheme\": \"https\",\n  \"ClientRequestUserAgent\": \"synthetic-fixture/1.0\",\n  \"Datetime\": \"2026-07-07T17:39:00Z\",\n  \"Description\": \"Synthetic waf-monitor\",\n  \"EdgeResponseStatus\": 200,\n  \"Kind\": \"firewall\",\n  \"Metadata\": {},\n  \"OriginResponseStatus\": 200,\n  \"RayID\": \"0000000000000027\",\n  \"RuleID\": \"6b177723-5422-551d-b3eb-818b3c24a22e\",\n  \"Source\": \"firewallmanaged\"\n}\n"
+        },
+        "sample": {
+          "case_id": "cloudflare.waf-monitor",
+          "synthetic": true
+        }
+      },
+      "id": "c0e33801-bc1a-5684-8436-554fa0fb17f6",
+      "message": "Cloudflare security event: waf-monitor",
+      "observed_at": "2026-07-07T17:39:02Z",
+      "resource": {
+        "id": "cloudflare:synthetic-demo",
+        "kind": "cloudflare"
+      },
+      "schema_version": 1,
+      "severity": "warn",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "cloudflare"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:39:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "office365.UserLoggedIn",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"ActorIpAddress\": \"198.51.100.23\",\n  \"ApplicationId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"ClientIP\": null,\n  \"CreationTime\": \"2026-07-07T17:40:00\",\n  \"ErrorCode\": \"0\",\n  \"Id\": \"d371f3e1-03fa-5d4d-9f15-fb968dcdbc78\",\n  \"LogonError\": \"\",\n  \"ObjectId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"Operation\": \"UserLoggedIn\",\n  \"OrganizationId\": \"c1bb4c52-7119-556a-b6e7-3c494fdffc92\",\n  \"RecordType\": 15,\n  \"ResultStatus\": \"Succeeded\",\n  \"UserId\": \"operator@example.invalid\",\n  \"UserKey\": \"4547055f-703f-5b5b-b240-7d92d40acc2a\",\n  \"UserType\": 0,\n  \"Version\": 1,\n  \"Workload\": \"AzureActiveDirectory\"\n}\n"
+        },
+        "sample": {
+          "case_id": "office365.login-success",
+          "synthetic": true
+        }
+      },
+      "id": "9dae8d74-8734-5b72-9458-bb5472bb54e0",
+      "message": "Microsoft 365 audit: login-success",
+      "observed_at": "2026-07-07T17:40:02Z",
+      "resource": {
+        "id": "office365:synthetic-demo",
+        "kind": "office365"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "office365"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:40:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "office365.UserLoginFailed",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "{\n  \"ActorIpAddress\": \"198.51.100.23\",\n  \"ApplicationId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"ClientIP\": null,\n  \"CreationTime\": \"2026-07-07T17:41:00\",\n  \"ErrorCode\": \"50126\",\n  \"Id\": \"7e371650-11ef-55ce-8b37-be329856076f\",\n  \"LogonError\": \"InvalidUserNameOrPassword\",\n  \"ObjectId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"Operation\": \"UserLoginFailed\",\n  \"OrganizationId\": \"c1bb4c52-7119-556a-b6e7-3c494fdffc92\",\n  \"RecordType\": 15,\n  \"ResultStatus\": \"Succeeded\",\n  \"UserId\": \"operator@example.invalid\",\n  \"UserKey\": \"4547055f-703f-5b5b-b240-7d92d40acc2a\",\n  \"UserType\": 0,\n  \"Version\": 1,\n  \"Workload\": \"AzureActiveDirectory\"\n}\n"
+        },
+        "sample": {
+          "case_id": "office365.login-failure",
+          "synthetic": true
+        }
+      },
+      "id": "f700159d-0f46-5ebe-82bb-af316470d21b",
+      "message": "Microsoft 365 audit: login-failure",
+      "observed_at": "2026-07-07T17:41:02Z",
+      "resource": {
+        "id": "office365:synthetic-demo",
+        "kind": "office365"
+      },
+      "schema_version": 1,
+      "severity": "warn",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "office365"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:41:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "office365.UserLoginFailed",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "{\n  \"ActorIpAddress\": \"198.51.100.23\",\n  \"ApplicationId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"ClientIP\": null,\n  \"CreationTime\": \"2026-07-07T17:42:00\",\n  \"ErrorCode\": \"53003\",\n  \"Id\": \"8dea5326-ee1e-50cf-bc4b-9ad34a6735c9\",\n  \"LogonError\": \"BlockedByConditionalAccess\",\n  \"ObjectId\": \"49b203a9-ca93-5ce8-a9d6-ad686709ea1f\",\n  \"Operation\": \"UserLoginFailed\",\n  \"OrganizationId\": \"c1bb4c52-7119-556a-b6e7-3c494fdffc92\",\n  \"RecordType\": 15,\n  \"ResultStatus\": \"Succeeded\",\n  \"UserId\": \"operator@example.invalid\",\n  \"UserKey\": \"4547055f-703f-5b5b-b240-7d92d40acc2a\",\n  \"UserType\": 0,\n  \"Version\": 1,\n  \"Workload\": \"AzureActiveDirectory\"\n}\n"
+        },
+        "sample": {
+          "case_id": "office365.conditional-access-block",
+          "synthetic": true
+        }
+      },
+      "id": "71a3626f-51a9-506f-a298-dbf7e88aee08",
+      "message": "Microsoft 365 audit: conditional-access-block",
+      "observed_at": "2026-07-07T17:42:02Z",
+      "resource": {
+        "id": "office365:synthetic-demo",
+        "kind": "office365"
+      },
+      "schema_version": 1,
+      "severity": "warn",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "office365"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:42:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "office365.Set-Mailbox",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"ClientIP\": \"198.51.100.23\",\n  \"CreationTime\": \"2026-07-07T17:43:00\",\n  \"Id\": \"36bd2a01-dc5f-539e-a31b-accfe878a0f6\",\n  \"ObjectId\": \"operator@example.invalid\",\n  \"Operation\": \"Set-Mailbox\",\n  \"OrganizationId\": \"c1bb4c52-7119-556a-b6e7-3c494fdffc92\",\n  \"Parameters\": [\n    {\n      \"Name\": \"Identity\",\n      \"Value\": \"operator@example.invalid\"\n    },\n    {\n      \"Name\": \"ForwardingSmtpAddress\",\n      \"Value\": \"archive@example.invalid\"\n    },\n    {\n      \"Name\": \"DeliverToMailboxAndForward\",\n      \"Value\": \"True\"\n    }\n  ],\n  \"RecordType\": 1,\n  \"ResultStatus\": \"True\",\n  \"UserId\": \"operator@example.invalid\",\n  \"UserKey\": \"4547055f-703f-5b5b-b240-7d92d40acc2a\",\n  \"UserType\": 2,\n  \"Version\": 1,\n  \"Workload\": \"Exchange\"\n}\n"
+        },
+        "sample": {
+          "case_id": "office365.mail-forwarding",
+          "synthetic": true
+        }
+      },
+      "id": "116619d2-ce58-5b2c-89fb-a99e29d582e4",
+      "message": "Microsoft 365 audit: mail-forwarding",
+      "observed_at": "2026-07-07T17:43:02Z",
+      "resource": {
+        "id": "office365:synthetic-demo",
+        "kind": "office365"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "office365"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:43:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "office365.Set-AdminAuditLogConfig",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"ClientIP\": \"198.51.100.23\",\n  \"CreationTime\": \"2026-07-07T17:44:00\",\n  \"Id\": \"e3463db9-dccf-5ee8-9b81-2f8743eed36d\",\n  \"ObjectId\": \"operator@example.invalid\",\n  \"Operation\": \"Set-AdminAuditLogConfig\",\n  \"OrganizationId\": \"c1bb4c52-7119-556a-b6e7-3c494fdffc92\",\n  \"Parameters\": [\n    {\n      \"Name\": \"UnifiedAuditLogIngestionEnabled\",\n      \"Value\": \"False\"\n    }\n  ],\n  \"RecordType\": 1,\n  \"ResultStatus\": \"True\",\n  \"UserId\": \"operator@example.invalid\",\n  \"UserKey\": \"4547055f-703f-5b5b-b240-7d92d40acc2a\",\n  \"UserType\": 2,\n  \"Version\": 1,\n  \"Workload\": \"Exchange\"\n}\n"
+        },
+        "sample": {
+          "case_id": "office365.disable-audit",
+          "synthetic": true
+        }
+      },
+      "id": "3094400f-4a06-5c8f-b092-4e74a3d88c4b",
+      "message": "Microsoft 365 audit: disable-audit",
+      "observed_at": "2026-07-07T17:44:02Z",
+      "resource": {
+        "id": "office365:synthetic-demo",
+        "kind": "office365"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "office365"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:44:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "cato.vpn-connected",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"fieldsMap\": {\n    \"event_message\": \"Synthetic VPN client connected\",\n    \"event_sub_type\": \"SDP Activity\",\n    \"event_type\": \"Connectivity\",\n    \"src_isp_ip\": \"198.51.100.23\"\n  },\n  \"time\": \"2026-07-07T17:45:00Z\"\n}\n"
+        },
+        "sample": {
+          "case_id": "cato.vpn.vpn-connected",
+          "synthetic": true
+        }
+      },
+      "id": "d67c7a1c-f4ff-52a4-a099-15ddd06f33d2",
+      "message": "Synthetic VPN client connected",
+      "observed_at": "2026-07-07T17:45:02Z",
+      "resource": {
+        "id": "cato.vpn:synthetic-demo",
+        "kind": "cato.vpn"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "cato.vpn"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:45:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "cato.vpn-disconnected",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "{\n  \"fieldsMap\": {\n    \"event_message\": \"Synthetic VPN client disconnected\",\n    \"event_sub_type\": \"SDP Activity\",\n    \"event_type\": \"Connectivity\",\n    \"src_isp_ip\": \"198.51.100.23\"\n  },\n  \"time\": \"2026-07-07T17:46:00Z\"\n}\n"
+        },
+        "sample": {
+          "case_id": "cato.vpn.vpn-disconnected",
+          "synthetic": true
+        }
+      },
+      "id": "2632810e-7be1-5a67-a3b5-e9e228e571b5",
+      "message": "Synthetic VPN client disconnected",
+      "observed_at": "2026-07-07T17:46:02Z",
+      "resource": {
+        "id": "cato.vpn:synthetic-demo",
+        "kind": "cato.vpn"
+      },
+      "schema_version": 1,
+      "severity": "warn",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "cato.vpn"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:46:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "cato.vpn-auth-failure",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "{\n  \"fieldsMap\": {\n    \"event_message\": \"Synthetic VPN client authentication failed\",\n    \"event_sub_type\": \"SDP Activity\",\n    \"event_type\": \"Connectivity\",\n    \"src_isp_ip\": \"198.51.100.23\"\n  },\n  \"time\": \"2026-07-07T17:47:00Z\"\n}\n"
+        },
+        "sample": {
+          "case_id": "cato.vpn.vpn-auth-failure",
+          "synthetic": true
+        }
+      },
+      "id": "2d5341b9-7b3a-5096-991c-792343363ade",
+      "message": "Synthetic VPN client authentication failed",
+      "observed_at": "2026-07-07T17:47:02Z",
+      "resource": {
+        "id": "cato.vpn:synthetic-demo",
+        "kind": "cato.vpn"
+      },
+      "schema_version": 1,
+      "severity": "warn",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "cato.vpn"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:47:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "cato.internet-firewall-block",
+          "outcome": "blocked"
+        },
+        "log": {
+          "original": "{\n  \"fieldsMap\": {\n    \"action\": \"Block\",\n    \"event_message\": \"Synthetic VPN user flow blocked by Internet firewall\",\n    \"event_sub_type\": \"Internet Firewall\",\n    \"event_type\": \"Security\",\n    \"src_isp_ip\": \"198.51.100.23\"\n  },\n  \"time\": \"2026-07-07T17:48:00Z\"\n}\n"
+        },
+        "sample": {
+          "case_id": "cato.vpn.internet-firewall-block",
+          "synthetic": true
+        }
+      },
+      "id": "d2307f88-3fae-5441-8783-6a83a040ed79",
+      "message": "Synthetic VPN user flow blocked by Internet firewall",
+      "observed_at": "2026-07-07T17:48:02Z",
+      "resource": {
+        "id": "cato.vpn:synthetic-demo",
+        "kind": "cato.vpn"
+      },
+      "schema_version": 1,
+      "severity": "warn",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "cato.vpn"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:48:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "cato.ips-block",
+          "outcome": "blocked"
+        },
+        "log": {
+          "original": "{\n  \"fieldsMap\": {\n    \"action\": \"Block\",\n    \"event_message\": \"Synthetic VPN user flow matched IPS rule\",\n    \"event_sub_type\": \"IPS\",\n    \"event_type\": \"Security\",\n    \"src_isp_ip\": \"198.51.100.23\"\n  },\n  \"time\": \"2026-07-07T17:49:00Z\"\n}\n"
+        },
+        "sample": {
+          "case_id": "cato.vpn.ips-block",
+          "synthetic": true
+        }
+      },
+      "id": "fbbbddf7-3169-5833-8b12-ebb4f371a740",
+      "message": "Synthetic VPN user flow matched IPS rule",
+      "observed_at": "2026-07-07T17:49:02Z",
+      "resource": {
+        "id": "cato.vpn:synthetic-demo",
+        "kind": "cato.vpn"
+      },
+      "schema_version": 1,
+      "severity": "error",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "cato.vpn"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:49:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "fortigate.tunnel-up",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "date=2026-07-07 time=17:50:00 eventtime=1783446600000000000 tz=\"+0000\" devname=\"fixture-fgt\" devid=\"FGT0000000000001\" logid=\"0101039424\" type=\"event\" subtype=\"vpn\" level=\"information\" vd=\"root\" logdesc=\"SSL VPN tunnel up\" action=\"tunnel-up\" tunneltype=\"ssl-web\" tunnelid=1001 remip=198.51.100.23 user=\"fixture-user\" group=\"fixture-vpn\" dst_host=\"N/A\" reason=\"N/A\" msg=\"SSL tunnel established\"\n"
+        },
+        "sample": {
+          "case_id": "fortigate.vpn-connected",
+          "synthetic": true
+        }
+      },
+      "id": "2b8412b4-ec6f-50f3-96ce-095d88a2573a",
+      "message": "FortiGate SSL VPN: vpn-connected",
+      "observed_at": "2026-07-07T17:50:02Z",
+      "resource": {
+        "id": "fortigate:synthetic-demo",
+        "kind": "fortigate"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "fortigate"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:50:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "fortigate.ssl-login-fail",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "date=2026-07-07 time=17:51:00 eventtime=1783446660000000000 tz=\"+0000\" devname=\"fixture-fgt\" devid=\"FGT0000000000001\" logid=\"0101039426\" type=\"event\" subtype=\"vpn\" level=\"alert\" vd=\"root\" logdesc=\"SSL VPN login fail\" action=\"ssl-login-fail\" tunneltype=\"ssl-web\" tunnelid=0 remip=198.51.100.23 user=\"fixture-user\" group=\"fixture-vpn\" dst_host=\"N/A\" reason=\"sslvpn_login_permission_denied\" msg=\"SSL user failed to logged in\"\n"
+        },
+        "sample": {
+          "case_id": "fortigate.vpn-bad-password",
+          "synthetic": true
+        }
+      },
+      "id": "a92cf50a-7a2c-5719-b308-51d6a730ee74",
+      "message": "FortiGate SSL VPN: vpn-bad-password",
+      "observed_at": "2026-07-07T17:51:02Z",
+      "resource": {
+        "id": "fortigate:synthetic-demo",
+        "kind": "fortigate"
+      },
+      "schema_version": 1,
+      "severity": "critical",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "fortigate"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:51:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "fortigate.ssl-login-fail",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "date=2026-07-07 time=17:52:00 eventtime=1783446720000000000 tz=\"+0000\" devname=\"fixture-fgt\" devid=\"FGT0000000000001\" logid=\"0101039426\" type=\"event\" subtype=\"vpn\" level=\"alert\" vd=\"root\" logdesc=\"SSL VPN login fail\" action=\"ssl-login-fail\" tunneltype=\"ssl-web\" tunnelid=0 remip=198.51.100.23 user=\"fixture-unknown\" group=\"fixture-vpn\" dst_host=\"N/A\" reason=\"sslvpn_login_permission_denied\" msg=\"SSL user failed to logged in\"\n"
+        },
+        "sample": {
+          "case_id": "fortigate.vpn-unknown-user",
+          "synthetic": true
+        }
+      },
+      "id": "406f2e99-2d24-534c-b5a3-7c86a6a35ee6",
+      "message": "FortiGate SSL VPN: vpn-unknown-user",
+      "observed_at": "2026-07-07T17:52:02Z",
+      "resource": {
+        "id": "fortigate:synthetic-demo",
+        "kind": "fortigate"
+      },
+      "schema_version": 1,
+      "severity": "critical",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "fortigate"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:52:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "fortigate.ssl-login-fail",
+          "outcome": "failure"
+        },
+        "log": {
+          "original": "date=2026-07-07 time=17:53:00 eventtime=1783446780000000000 tz=\"+0000\" devname=\"fixture-fgt\" devid=\"FGT0000000000001\" logid=\"0101039426\" type=\"event\" subtype=\"vpn\" level=\"alert\" vd=\"root\" logdesc=\"SSL VPN login fail\" action=\"ssl-login-fail\" tunneltype=\"ssl-web\" tunnelid=0 remip=198.51.100.23 user=\"fixture-admin\" group=\"fixture-vpn\" dst_host=\"N/A\" reason=\"sslvpn_login_permission_denied\" msg=\"SSL user failed to logged in\"\n"
+        },
+        "sample": {
+          "case_id": "fortigate.vpn-admin-login-failure",
+          "synthetic": true
+        }
+      },
+      "id": "d14bde8c-80e9-54db-b280-f68dbc1c4f6c",
+      "message": "FortiGate SSL VPN: vpn-admin-login-failure",
+      "observed_at": "2026-07-07T17:53:02Z",
+      "resource": {
+        "id": "fortigate:synthetic-demo",
+        "kind": "fortigate"
+      },
+      "schema_version": 1,
+      "severity": "critical",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "fortigate"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:53:00Z"
+    },
+    {
+      "attributes": {
+        "event": {
+          "action": "fortigate.close",
+          "outcome": "success"
+        },
+        "log": {
+          "original": "date=2026-07-07 time=17:54:00 eventtime=1783446840000000000 tz=\"+0000\" devname=\"fixture-fgt\" devid=\"FGT0000000000001\" logid=\"0000000013\" type=\"traffic\" subtype=\"forward\" level=\"notice\" vd=\"root\" srcip=198.51.100.23 srcport=54001 srcintf=\"wan1\" srcintfrole=\"wan\" dstip=192.0.2.40 dstport=443 dstintf=\"lan\" dstintfrole=\"lan\" proto=6 action=\"close\" policyid=1 policytype=\"policy\" service=\"HTTPS\" sessionid=42 duration=10 sentbyte=512 rcvdbyte=2048\n"
+        },
+        "sample": {
+          "case_id": "fortigate.forward-session",
+          "synthetic": true
+        }
+      },
+      "id": "c61dcd31-44ff-56a0-830d-81b5e8aa37bf",
+      "message": "FortiGate HTTPS session closed",
+      "observed_at": "2026-07-07T17:54:02Z",
+      "resource": {
+        "id": "fortigate:synthetic-demo",
+        "kind": "fortigate"
+      },
+      "schema_version": 1,
+      "severity": "info",
+      "source": {
+        "name": "synthetic-vendor-corpus",
+        "type": "fortigate"
+      },
+      "tags": [
+        "synthetic",
+        "vendor-fixture"
+      ],
+      "timestamp": "2026-07-07T17:54:00Z"
+    }
+  ]
+}
