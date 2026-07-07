@@ -1,0 +1,47 @@
+flowchart TD
+    AWS["AWS native audit delivery / F1 source"]
+    API["AWS APIs / F1 source"]
+    K8S["Kubernetes audit and state / F1 source"]
+    HOST["Hosts and applications / F1 source"]
+    CLOUD["Cloud collector role / F1 collector"]
+    CLUSTER["Cluster collector role / F1 collector"]
+    AGENT["Host agent / adapter role / F1 collector"]
+    ADMIT["Admission + bounded WAL / F2"]
+    CONTEXT["Normalize + identity + provenance + classification / F3"]
+    PROTECT["Protected path: original evidence + validation / F6"]
+    SEC["Security-owned evidence storage + source proofs / F6"]
+    UNSAMPLED["Unsampled normalized security input"]
+    OBS["Observability path: redact / derive / sample / route / F3"]
+    STORE["Queryable Parquet + manifests / F3"]
+    QUERY["Query + optional bounded hot cache / F4"]
+    DETECT["Predicate / window / state / correlation roles / F5"]
+    FIND["Durable findings / F5"]
+    DELIVERY["Delivery plan + alert / incident + disposition / F7"]
+    COVER["Independent coverage observer / F1-F7 visibility"]
+    API --> CLOUD --> ADMIT
+    K8S --> CLUSTER --> ADMIT
+    HOST --> AGENT --> ADMIT
+    AWS --> CLOUD
+    AWS -->|"authoritative original delivery bypasses observability"| SEC
+    CLUSTER -->|"protected evidence adapter where required"| PROTECT
+    AGENT -->|"protected evidence adapter where required"| PROTECT
+    ADMIT --> CONTEXT
+    CONTEXT --> UNSAMPLED --> DETECT
+    CONTEXT --> OBS --> STORE --> QUERY
+    PROTECT --> SEC
+    SEC -->|"validated replay / original reference"| CONTEXT
+    DETECT --> FIND --> DELIVERY
+    QUERY -->|"investigation only; not required for live detection"| DELIVERY
+    COVER -.-> CONTEXT
+    COVER -.-> DETECT
+    COVER -.-> DELIVERY
+    classDef source fill:#fff7ed,stroke:#c2410c,color:#431407
+    classDef collector fill:#eff6ff,stroke:#1d4ed8,color:#172554
+    classDef core fill:#ecfdf5,stroke:#047857,color:#022c22
+    classDef evidence fill:#fef2f2,stroke:#b91c1c,color:#450a0a
+    classDef store fill:#f1f5f9,stroke:#334155,color:#0f172a
+    class AWS,API,K8S,HOST source
+    class CLOUD,CLUSTER,AGENT collector
+    class ADMIT,CONTEXT,UNSAMPLED,OBS,QUERY,DETECT,FIND,DELIVERY core
+    class PROTECT,SEC evidence
+    class STORE,COVER store

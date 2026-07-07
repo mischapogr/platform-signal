@@ -122,11 +122,11 @@ These assumptions are hypothetical and deliberately within the Small planning ca
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 - [Release readiness and open qualification gates](../../21-release-readiness.md)
 
-## 05. One evidence workflow, four optional roles
+## 05. One evidence workflow, customer-owned storage
 
 
 
-Target: normalize once, keep telemetry and control authority separate, and preserve protected originals through independent delivery. Today: one local-filesystem server; target adapters and stores remain pending.
+Thick arrow: native protected delivery bypasses observability. Today one local-filesystem server; target adapters and stores are pending.
 
 Roles describe placement and permissions. They do not require four new services today.
 
@@ -139,7 +139,24 @@ The implementation remains a modular Rust monolith. The server owns ingest, stor
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 - [Logical architecture and trust boundaries](../../logical-architecture.md)
 
-## 06. HTTP 202 is admission, not completion
+## 06. Roles and failure domains, drawn once
+
+
+
+Target routing view. Original evidence bypasses observability; live detection does not wait for archive validation, but pending or failed validation stays visible.
+
+F3 is a shared dependency. F4/F5 are logical roles that currently share one process, host, disk and permissions.
+
+**Speaker notes**
+
+This is the same diagram that is checked into docs/logical-architecture.md. F1 to F7 are failure domains, not services. Drawing detection and query separately does not make them independently available today. Native CloudTrail originals reach security-owned storage through native delivery so an observability outage is not their sole capture dependency. The Kubernetes and host protected adapters and the coverage observer are proposed. Click the diagram to open it full size, copy the Mermaid, or download SVG/PNG for Miro or Slack.
+
+**Sources**
+
+- [Logical architecture and trust boundaries](../../logical-architecture.md)
+- [Failure domains and M0–M7 custody semantics](../../failure-domains.md)
+
+## 07. HTTP 202 is admission, not completion
 
 
 
@@ -168,7 +185,24 @@ M2 is synced WAL, M3 is protected evidence and validation, M4 is processing comp
 - [Failure domains and M0–M7 custody semantics](../../failure-domains.md)
 - [Release readiness and open qualification gates](../../21-release-readiness.md)
 
-## 07. A company application depends on OSS
+## 08. Which acknowledgement proves what
+
+
+
+Sequence view of custody. Current: M2 and M4. Proposed: M1, M3, M5, M6, M7.
+
+Report the milestones actually attained. One HTTP success never proves all of them.
+
+**Speaker notes**
+
+Only M2 (synced WAL admission, HTTP 202) and M4 (processing checkpoint) are current. M1, M3, M5, M6 and M7 are proposed. The milestones need not occur in numeric order: native AWS originals can reach M3 before SIGNAL reads them, and live detection can reach M4 while M3 validation is pending. A lost response can hide a successful admission, so retry the exact prepared identity.
+
+**Sources**
+
+- [Failure domains and M0–M7 custody semantics](../../failure-domains.md)
+- [Release readiness and open qualification gates](../../21-release-readiness.md)
+
+## 09. A company application depends on OSS
 
 
 
@@ -198,7 +232,7 @@ This is a code and trust boundary, not a claim of a commercial premium edition. 
 - [External company overlay integration](../../17-external-overlay.md)
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 
-## 08. Share context without making it authority
+## 10. Share context without making it authority
 
 
 
@@ -232,7 +266,7 @@ A service tag supplied by a producer is useful context, not proof of who is allo
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 - [External company overlay integration](../../17-external-overlay.md)
 
-## 09. Keep evidence outside the processing account
+## 11. Keep evidence outside the processing account
 
 
 
@@ -250,7 +284,7 @@ Separate AWS accounts help only when administration, delivery, credentials and r
 - [Logical architecture and trust boundaries](../../logical-architecture.md)
 - [S3 Object Lock retained-version protection](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock.html)
 
-## 10. Begin Small. Earn Standard with evidence.
+## 12. Begin Small. Earn Standard with evidence.
 
 
 
@@ -271,7 +305,7 @@ These are planning envelopes, not achieved capacity, license tiers or sizing gua
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 - [Release readiness and open qualification gates](../../21-release-readiness.md)
 
-## 11. From control tampering to useful evidence
+## 13. From control tampering to useful evidence
 
 
 
@@ -302,7 +336,7 @@ The local normalizer and rule-profile tests include root activity and logging ta
 - [Read-only SecOps UI contract](../../28-secops-ui.md)
 - [Source/detection requirements catalog](../../source-detection-catalog.md)
 
-## 12. Workflow: verify coverage before enabling rules
+## 14. Workflow: verify coverage before enabling rules
 
 
 
@@ -320,7 +354,7 @@ Inventory → permission checks → positive collection/continuity proof → sup
 - [Failure domains and M0–M7 custody semantics](../../failure-domains.md)
 - [Release readiness and open qualification gates](../../21-release-readiness.md)
 
-## 13. Workflow: restore data and control together
+## 15. Workflow: restore data and control together
 
 
 
@@ -338,7 +372,7 @@ A restore must preserve object versions and workflow state. Local same-binary re
 - [Failure domains and M0–M7 custody semantics](../../failure-domains.md)
 - [Release readiness and open qualification gates](../../21-release-readiness.md)
 
-## 14. Workflow: qualify changes before rollout
+## 16. Workflow: qualify changes before rollout
 
 
 
@@ -356,7 +390,7 @@ Target operational workflow after a stable release. Rollback depends on a suppor
 - [Failure domains and M0–M7 custody semantics](../../failure-domains.md)
 - [Release readiness and open qualification gates](../../21-release-readiness.md)
 
-## 15. Established products cover more ground today
+## 17. Established products cover more ground today
 
 
 
@@ -381,7 +415,7 @@ Vendor capabilities depend on edition, configuration and contract. These are dif
 - [Datadog Cloud SIEM](https://www.datadoghq.com/product/cloud-siem/)
 - [Release readiness and open qualification gates](../../21-release-readiness.md)
 
-## 16. Some alternatives are complementary
+## 18. Some alternatives are complementary
 
 
 
@@ -405,7 +439,7 @@ Security Lake normalizes supported security data into OCSF Parquet in the custom
 - [Grafana Loki architecture overview](https://grafana.com/docs/loki/latest/get-started/overview/)
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 
-## 17. Compare total ownership, not the license alone
+## 19. Compare total ownership, not the license alone
 
 
 
@@ -432,7 +466,7 @@ Commercial pages change; verify quotes at procurement. Datadog's current public 
 - [Security Lake pricing dimensions](https://aws.amazon.com/security-lake/pricing/)
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 
-## 18. Why the example company might adopt
+## 20. Why the example company might adopt
 
 
 
@@ -465,7 +499,7 @@ Target storage and retention control is an opportunity, not a completed integrat
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 - [Architecture / canonical event / OSS boundary](../../01-architecture.md)
 
-## 19. Why the company might choose another option
+## 21. Why the company might choose another option
 
 
 
@@ -498,7 +532,7 @@ This is the central decision constraint. A small security team should not become
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 - [Release readiness and open qualification gates](../../21-release-readiness.md)
 
-## 20. Account count is an inventory assumption
+## 22. Account count is an inventory assumption
 
 
 
@@ -522,7 +556,7 @@ Resource counts describe an illustrative selected estate, not a discovered organ
 - [Scenario model / math / labor assumptions](cost-assumptions.md)
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 
-## 21. Separate workload resources from SIGNAL resources
+## 23. Separate workload resources from SIGNAL resources
 
 
 
@@ -547,7 +581,7 @@ The scenario allocates c6i.xlarge Linux workers to SIGNAL for costing, not as a 
 - [EKS control-plane pricing](https://aws.amazon.com/eks/pricing/)
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 
-## 22. Derive messages from source bytes and size
+## 24. Derive messages from source bytes and size
 
 
 
@@ -568,7 +602,7 @@ Daily GB are decimal; billing storage is converted to GiB. Message sizes are can
 
 - [Scenario model / math / labor assumptions](cost-assumptions.md)
 
-## 23. The example estates produce very different loads
+## 25. The example estates produce very different loads
 
 
 
@@ -591,7 +625,7 @@ Each monthly message total is daily messages ×30: about 233.5M, 1.533B, 15.33B 
 - [Scenario model / math / labor assumptions](cost-assumptions.md)
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 
-## 24. Workload bytes dominate the scale question
+## 26. Workload bytes dominate the scale question
 
 
 
@@ -606,7 +640,7 @@ Bars show calculated canonical uncompressed GB/day from the explicit inventory a
 - [Scenario model / math / labor assumptions](cost-assumptions.md)
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 
-## 25. Estimate monthly AWS cost in USD
+## 27. Estimate monthly AWS cost in USD
 
 
 
@@ -622,7 +656,7 @@ Controls operate offline and update only this calculator. Static tables and grap
 - [Pinned AWS regional rate records](pricing-snapshot.json)
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 
-## 26. The baseline bill is traceable by category
+## 28. The baseline bill is traceable by category
 
 
 
@@ -646,7 +680,7 @@ Amounts are rounded for presentation; unrounded values drive totals. Direct SIGN
 - [Scenario model / math / labor assumptions](cost-assumptions.md)
 - [Pinned AWS regional rate records](pricing-snapshot.json)
 
-## 27. Prices and allocations are separate inputs
+## 29. Prices and allocations are separate inputs
 
 
 
@@ -677,7 +711,7 @@ Selected regional AWS price-list files were downloaded and filtered, retaining p
 - [RDS PostgreSQL pricing](https://aws.amazon.com/rds/postgresql/pricing/)
 - [EC2 / EBS regional pricing](https://aws.amazon.com/ec2/pricing/on-demand/)
 
-## 28. AWS spend rises with the selected estate
+## 30. AWS spend rises with the selected estate
 
 
 
@@ -692,7 +726,7 @@ This graph uses the same calculator engine as the tables and interactive view. T
 - [Scenario model / math / labor assumptions](cost-assumptions.md)
 - [Pinned AWS regional rate records](pricing-snapshot.json)
 
-## 29. Retention, delivery and routing can change the bill
+## 31. Retention, delivery and routing can change the bill
 
 
 
@@ -727,7 +761,7 @@ The baseline includes a modeled 25% one-pass cross-AZ share at $0.02/GiB combine
 - [VPC / NAT pricing](https://aws.amazon.com/vpc/pricing/)
 - [PrivateLink interface endpoint pricing](https://aws.amazon.com/privatelink/pricing/)
 
-## 30. Budget recurring work after a stable release
+## 32. Budget recurring work after a stable release
 
 
 
@@ -751,7 +785,7 @@ These bands are engineering planning judgments, not operational telemetry or a v
 - [Scenario model / math / labor assumptions](cost-assumptions.md)
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 
-## 31. Platform effort and detection work need separate owners
+## 33. Platform effort and detection work need separate owners
 
 
 
@@ -774,7 +808,7 @@ Detection/policy work includes enabling supported packs, exceptions, tuning and 
 
 - [Scenario model / math / labor assumptions](cost-assumptions.md)
 
-## 32. An outage budget has a storage price
+## 34. An outage budget has a storage price
 
 
 
@@ -807,7 +841,7 @@ At the illustrative input rate, four hours is one sixth of the day. If measured 
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 - [Failure domains and M0–M7 custody semantics](../../failure-domains.md)
 
-## 33. Make the first commitment small and reversible
+## 35. Make the first commitment small and reversible
 
 
 
@@ -829,7 +863,7 @@ This deck authorizes no AWS provisioning. The proposal can begin with a local la
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 - [Release readiness and open qualification gates](../../21-release-readiness.md)
 
-## 34. Measure outcomes before expanding
+## 36. Measure outcomes before expanding
 
 
 
@@ -851,7 +885,7 @@ The three-second query and four-hour weekly effort targets are illustrative choi
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 - [Release readiness and open qualification gates](../../21-release-readiness.md)
 
-## 35. Choose ownership deliberately
+## 37. Choose ownership deliberately
 
 
 
@@ -878,7 +912,40 @@ The recommendation is conditional on the hypothetical company's goals. Do not re
 - [Target product architecture / profiles / budgets](../../27-product-architecture.md)
 - [Release readiness and open qualification gates](../../21-release-readiness.md)
 
-## 36. Architecture claims come from the checkout
+## 38. Diagrams are code; import them anywhere
+
+
+
+**Source of truth**
+
+- docs/diagrams/*.mmd are Mermaid files in the repository.
+- The logical architecture is also embedded in docs/logical-architecture.md.
+- CI renders them and fails if one stops compiling.
+
+**Use in your tools**
+
+- Click any diagram, then Copy Mermaid, SVG or PNG.
+- Miro, FigJam and draw.io can import Mermaid text; check your workspace app or plugin.
+- Slack: upload the PNG, or paste the Mermaid into a canvas or code block.
+
+**Neutral and non-binding**
+
+- Product names belong to their owners; no affiliation or endorsement is implied.
+- Comparisons are inferences from public documentation, not benchmarks or quotes.
+- Verify capabilities and prices with each vendor.
+
+Diagrams show target responsibilities. They add no release, capacity or qualification claim.
+
+**Speaker notes**
+
+Mermaid is text, so diagrams review in pull requests like code. Import support differs between tools and versions; verify in your workspace. Competitor names appear only to describe documented scope, with no logos, benchmarks, unit prices or claims of superiority. The deck is open source under the repository license; trademarks remain the property of their owners.
+
+**Sources**
+
+- [Target product architecture / profiles / budgets](../../27-product-architecture.md)
+- [Logical architecture and trust boundaries](../../logical-architecture.md)
+
+## 39. Architecture claims come from the checkout
 
 
 
@@ -900,7 +967,7 @@ Read the product architecture for future direction, progress and release readine
 - [Release readiness and open qualification gates](../../21-release-readiness.md)
 - [Source/detection requirements catalog](../../source-detection-catalog.md)
 
-## 37. Compare documented scope; request real quotes
+## 40. Compare documented scope; request real quotes
 
 
 
@@ -927,7 +994,7 @@ Context7 was consulted for Amazon S3, but returned general documentation rather 
 - [CloudWatch pricing dimensions](https://aws.amazon.com/cloudwatch/pricing/)
 - [Security Lake pricing dimensions](https://aws.amazon.com/security-lake/pricing/)
 
-## 38. AWS price sources and the reproducible model
+## 41. AWS price sources and the reproducible model
 
 
 

@@ -1,0 +1,15 @@
+%% Target restore workflow: data and control state together. Needs separate cloud qualification.
+flowchart LR
+    A["1. Stop / fence writers<br/>stop intake, keep source copies,<br/>select supported recovery point"] --> B["2. Preserve restore set<br/>objects + control backup<br/>rule / schema / receipt pins"]
+    B --> C{"3. Verify + replay<br/>check identities and versions<br/>replay accepted progress"}
+    C -->|"match"| D["4. Resume / reconcile<br/>compare evidence + findings<br/>reconcile delivery uncertainty"]
+    C -->|"mismatch"| F["Fail closed<br/>retain independent originals<br/>investigate and record limits"]
+    classDef source fill:#fff7ed,stroke:#c2410c,color:#431407
+    classDef collector fill:#eff6ff,stroke:#1d4ed8,color:#172554
+    classDef core fill:#ecfdf5,stroke:#047857,color:#022c22
+    classDef evidence fill:#fef2f2,stroke:#b91c1c,color:#450a0a
+    classDef people fill:#f5f3ff,stroke:#6d28d9,color:#2e1065
+    classDef store fill:#f1f5f9,stroke:#334155,color:#0f172a
+    class A,B,C collector
+    class D core
+    class F evidence
