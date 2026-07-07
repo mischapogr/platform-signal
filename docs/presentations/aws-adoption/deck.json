@@ -131,8 +131,8 @@
       "notes": "These assumptions are hypothetical and deliberately within the Small planning category. They do not imply that today's binary supports 50 GB/day. Initial tests use a measured selected rate, not the whole company volume. The two Regions require distinct source and recovery decisions; a single regional pilot does not demonstrate regional disaster recovery."
     },
     {
-      "eyebrow": "Target architecture · logical flow",
-      "title": "One evidence workflow, four optional roles",
+      "eyebrow": "Target architecture · system context",
+      "title": "One evidence workflow, customer-owned storage",
       "kind": "diagram",
       "callout": "Roles describe placement and permissions. They do not require four new services today.",
       "sources": [
@@ -141,112 +141,25 @@
       ],
       "notes": "The implementation remains a modular Rust monolith. The server owns ingest, storage, query, rules and findings. Agent and signalctl exist; collector and gateway are target role families. Native audit originals can bypass observability and enter a security-owned archive directly. The boxes do not imply fault isolation or implemented adapters.",
       "diagram": {
-        "id": "core",
+        "mermaid": "01-system-context",
         "label": "Target telemetry, control state and independent protected evidence",
-        "nodes": [
-          {
-            "id": "source",
-            "x": 0,
-            "y": 30,
-            "w": 235,
-            "h": 100,
-            "title": "Sources",
-            "detail": "AWS / hosts / EKS\nSelected SaaS / syslog"
-          },
-          {
-            "id": "capture",
-            "x": 280,
-            "y": 30,
-            "w": 235,
-            "h": 100,
-            "title": "Capture roles",
-            "detail": "Scoped collector / agent\nOptional gateway"
-          },
-          {
-            "id": "server",
-            "x": 560,
-            "y": 30,
-            "w": 245,
-            "h": 100,
-            "title": "SIGNAL server",
-            "detail": "Admit / normalize / detect\nQuery / findings / API"
-          },
-          {
-            "id": "ui",
-            "x": 860,
-            "y": 30,
-            "w": 300,
-            "h": 100,
-            "title": "Team investigation",
-            "detail": "Canonical event context\nPrivate delivery / response"
-          },
-          {
-            "id": "objects",
-            "x": 280,
-            "y": 245,
-            "w": 260,
-            "h": 100,
-            "title": "Telemetry S3",
-            "detail": "Immutable Parquet\nCommitted manifests"
-          },
-          {
-            "id": "control",
-            "x": 570,
-            "y": 245,
-            "w": 270,
-            "h": 100,
-            "title": "Control state",
-            "detail": "Small: local state\nStandard: HA PostgreSQL"
-          },
-          {
-            "id": "originals",
-            "x": 900,
-            "y": 245,
-            "w": 260,
-            "h": 100,
-            "title": "Security-owned S3",
-            "detail": "Independent originals\nRetention / validation"
-          }
-        ],
-        "edges": [
-          {
-            "from": "source",
-            "to": "capture"
-          },
-          {
-            "from": "capture",
-            "to": "server"
-          },
-          {
-            "from": "server",
-            "to": "ui"
-          },
-          {
-            "from": "server",
-            "to": "objects",
-            "path": "M620,130 L620,195 L410,195 L410,245",
-            "label": "publish",
-            "lx": 450,
-            "ly": 188
-          },
-          {
-            "from": "server",
-            "to": "control",
-            "label": "fenced progress",
-            "lx": 710,
-            "ly": 200
-          },
-          {
-            "from": "source",
-            "to": "originals",
-            "path": "M115,130 L115,220 L1030,220 L1030,245",
-            "label": "native protected delivery bypasses observability",
-            "lx": 145,
-            "ly": 213
-          }
-        ],
-        "description": "Target: normalize once, keep telemetry and control authority separate, and preserve protected originals through independent delivery. Today: one local-filesystem server; target adapters and stores remain pending.",
-        "groups": []
+        "description": "Thick arrow: native protected delivery bypasses observability. Today one local-filesystem server; target adapters and stores are pending."
+      }
+    },
+    {
+      "eyebrow": "Target architecture · responsibilities and failure domains",
+      "title": "Roles and failure domains, drawn once",
+      "kind": "diagram",
+      "callout": "F3 is a shared dependency. F4/F5 are logical roles that currently share one process, host, disk and permissions.",
+      "sources": [
+        "logical",
+        "failure"
+      ],
+      "notes": "This is the same diagram that is checked into docs/logical-architecture.md. F1 to F7 are failure domains, not services. Drawing detection and query separately does not make them independently available today. Native CloudTrail originals reach security-owned storage through native delivery so an observability outage is not their sole capture dependency. The Kubernetes and host protected adapters and the coverage observer are proposed. Click the diagram to open it full size, copy the Mermaid, or download SVG/PNG for Miro or Slack.",
+      "diagram": {
+        "mermaid": "02-logical-architecture",
+        "label": "Responsibilities with failure domains F1 to F7",
+        "description": "Target routing view. Original evidence bypasses observability; live detection does not wait for archive validation, but pending or failed validation stays visible."
       }
     },
     {
@@ -296,6 +209,22 @@
         "readiness"
       ],
       "notes": "M2 is synced WAL, M3 is protected evidence and validation, M4 is processing completion, M5/M6 are delivery plan and destination receipt, M7 is analyst outcome. These milestones need not occur in numerical order. Parquet can be query-visible before finding persistence succeeds; checkpoint advancement then stops. At-least-once processing is not globally exactly-once ingest."
+    },
+    {
+      "eyebrow": "Custody semantics · M0 to M7",
+      "title": "Which acknowledgement proves what",
+      "kind": "diagram",
+      "callout": "Report the milestones actually attained. One HTTP success never proves all of them.",
+      "sources": [
+        "failure",
+        "readiness"
+      ],
+      "notes": "Only M2 (synced WAL admission, HTTP 202) and M4 (processing checkpoint) are current. M1, M3, M5, M6 and M7 are proposed. The milestones need not occur in numeric order: native AWS originals can reach M3 before SIGNAL reads them, and live detection can reach M4 while M3 validation is pending. A lost response can hide a successful admission, so retry the exact prepared identity.",
+      "diagram": {
+        "mermaid": "04-acknowledgement-milestones",
+        "label": "Acknowledgement milestones M0 to M7 across failure domains",
+        "description": "Sequence view of custody. Current: M2 and M4. Proposed: M1, M3, M5, M6, M7."
+      }
     },
     {
       "eyebrow": "Shared model · public mechanisms / private policy",
@@ -377,129 +306,9 @@
       ],
       "notes": "Separate AWS accounts help only when administration, delivery, credentials and recovery are also independent. Object Lock protects retained object versions; it does not establish source completeness or authenticity. The topology is proposed, not deployed. Choose EC2/container hosts if the company has no Kubernetes operations; use EKS when it already operates clusters. Never create a cluster simply to satisfy this drawing.",
       "diagram": {
-        "id": "aws",
+        "mermaid": "03-aws-account-topology",
         "label": "AWS deployment and trust architecture",
-        "nodes": [
-          {
-            "id": "audit",
-            "x": 20,
-            "y": 95,
-            "w": 240,
-            "h": 95,
-            "title": "Native AWS audit",
-            "detail": "CloudTrail / control audit\nOriginal object identity"
-          },
-          {
-            "id": "agent",
-            "x": 20,
-            "y": 245,
-            "w": 240,
-            "h": 95,
-            "title": "Workload capture",
-            "detail": "Host / pod agents\nScoped source credentials"
-          },
-          {
-            "id": "server",
-            "x": 350,
-            "y": 105,
-            "w": 220,
-            "h": 95,
-            "title": "SIGNAL workers",
-            "detail": "One owner per partition\nBounded intake / replay"
-          },
-          {
-            "id": "ui",
-            "x": 590,
-            "y": 105,
-            "w": 200,
-            "h": 95,
-            "title": "API + UI",
-            "detail": "Trusted IdP identity\nScoped access checks"
-          },
-          {
-            "id": "norm",
-            "x": 350,
-            "y": 245,
-            "w": 220,
-            "h": 95,
-            "title": "Telemetry S3",
-            "detail": "Parquet / manifests\nCache is rebuildable"
-          },
-          {
-            "id": "db",
-            "x": 590,
-            "y": 245,
-            "w": 200,
-            "h": 95,
-            "title": "Control DB",
-            "detail": "Pins / receipts / findings\nBackup + fencing"
-          },
-          {
-            "id": "originals",
-            "x": 870,
-            "y": 115,
-            "w": 280,
-            "h": 95,
-            "title": "Protected originals",
-            "detail": "Restricted security-owned S3\nIndependent validation"
-          }
-        ],
-        "edges": [
-          {
-            "from": "audit",
-            "to": "server"
-          },
-          {
-            "from": "agent",
-            "to": "server",
-            "path": "M260,290 L305,290 L305,150 L350,150"
-          },
-          {
-            "from": "server",
-            "to": "ui"
-          },
-          {
-            "from": "server",
-            "to": "norm"
-          },
-          {
-            "from": "server",
-            "to": "db",
-            "path": "M460,200 L460,225 L690,225 L690,245"
-          },
-          {
-            "from": "audit",
-            "to": "originals",
-            "path": "M140,95 L140,60 L1010,60 L1010,115",
-            "label": "independent native delivery",
-            "lx": 415,
-            "ly": 55
-          }
-        ],
-        "description": "Standard target: workers across three AZs, object publication plus fenced control commits. One-account scenario cannot provide a separate security-account failure boundary.",
-        "groups": [
-          {
-            "x": 0,
-            "y": 0,
-            "w": 280,
-            "h": 370,
-            "label": "WORKLOAD ACCOUNTS"
-          },
-          {
-            "x": 330,
-            "y": 75,
-            "w": 480,
-            "h": 295,
-            "label": "OBSERVABILITY ACCOUNT · TARGET"
-          },
-          {
-            "x": 850,
-            "y": 75,
-            "w": 326,
-            "h": 295,
-            "label": "SECURITY ACCOUNT · TARGET"
-          }
-        ]
+        "description": "Standard target: workers across three AZs, object publication plus fenced control commits. One-account scenario cannot provide a separate security-account failure boundary."
       }
     },
     {
@@ -596,84 +405,9 @@
       "eyebrow": "Operating workflows · target unless explicitly current",
       "kind": "diagram",
       "diagram": {
-        "id": "onboard",
+        "mermaid": "05-onboarding-coverage",
         "label": "Workflow: verify coverage before enabling rules",
-        "nodes": [
-          {
-            "id": "0",
-            "x": 0,
-            "y": 35,
-            "w": 260,
-            "h": 110,
-            "title": "Discover scope",
-            "detail": "Accounts / log categories\nPrivate ownership mapping"
-          },
-          {
-            "id": "1",
-            "x": 300,
-            "y": 35,
-            "w": 260,
-            "h": 110,
-            "title": "Grant least privilege",
-            "detail": "Source roles / access tests\nIndependent evidence policy"
-          },
-          {
-            "id": "2",
-            "x": 600,
-            "y": 35,
-            "w": 260,
-            "h": 110,
-            "title": "Verify collection",
-            "detail": "Known test events + continuity\nObserver self-health"
-          },
-          {
-            "id": "3",
-            "x": 900,
-            "y": 35,
-            "w": 260,
-            "h": 110,
-            "title": "Activate detections",
-            "detail": "Only supported rule packs\nCompany routing / tuning"
-          },
-          {
-            "id": "fail",
-            "x": 450,
-            "y": 240,
-            "w": 300,
-            "h": 100,
-            "title": "Fix gaps; keep disabled",
-            "detail": "Retain independent originals\nInvestigate and record limits"
-          }
-        ],
-        "edges": [
-          {
-            "from": "0",
-            "to": "1"
-          },
-          {
-            "from": "1",
-            "to": "2"
-          },
-          {
-            "from": "2",
-            "to": "3"
-          },
-          {
-            "from": "2",
-            "to": "fail",
-            "path": "M730,145 L730,200 L600,200 L600,240",
-            "label": "failed validation",
-            "lx": 745,
-            "ly": 193
-          },
-          {
-            "from": "fail",
-            "to": "1",
-            "path": "M450,290 L285,290 L285,90 L300,90"
-          }
-        ],
-        "description": "Inventory → permission checks → positive collection/continuity proof → supported detections. Unknown coverage blocks a clean-security claim.",
-        "groups": []
+        "description": "Inventory → permission checks → positive collection/continuity proof → supported detections. Unknown coverage blocks a clean-security claim."
       },
       "callout": "Automation reduces routine effort only when permissions, source adapters, upgrades and recovery paths are qualified.",
       "sources": [
@@ -688,79 +422,9 @@
       "eyebrow": "Operating workflows · target unless explicitly current",
       "kind": "diagram",
       "diagram": {
-        "id": "restore",
+        "mermaid": "06-restore-workflow",
         "label": "Workflow: restore data and control together",
-        "nodes": [
-          {
-            "id": "0",
-            "x": 0,
-            "y": 35,
-            "w": 260,
-            "h": 110,
-            "title": "Stop / fence writers",
-            "detail": "Stop intake; keep source copies\nSelect supported recovery point"
-          },
-          {
-            "id": "1",
-            "x": 300,
-            "y": 35,
-            "w": 260,
-            "h": 110,
-            "title": "Preserve restore set",
-            "detail": "Objects + control backup\nRule / schema / receipt pins"
-          },
-          {
-            "id": "2",
-            "x": 600,
-            "y": 35,
-            "w": 260,
-            "h": 110,
-            "title": "Verify + replay",
-            "detail": "Check identities and versions\nReplay accepted progress"
-          },
-          {
-            "id": "3",
-            "x": 900,
-            "y": 35,
-            "w": 260,
-            "h": 110,
-            "title": "Resume / reconcile",
-            "detail": "Compare evidence + findings\nReconcile delivery uncertainty"
-          },
-          {
-            "id": "fail",
-            "x": 450,
-            "y": 240,
-            "w": 300,
-            "h": 100,
-            "title": "Mismatch: fail closed",
-            "detail": "Retain independent originals\nInvestigate and record limits"
-          }
-        ],
-        "edges": [
-          {
-            "from": "0",
-            "to": "1"
-          },
-          {
-            "from": "1",
-            "to": "2"
-          },
-          {
-            "from": "2",
-            "to": "3"
-          },
-          {
-            "from": "2",
-            "to": "fail",
-            "path": "M730,145 L730,200 L600,200 L600,240",
-            "label": "failed validation",
-            "lx": 745,
-            "ly": 193
-          }
-        ],
-        "description": "A restore must preserve object versions and workflow state. Local same-binary rehearsal exists; this full AWS workflow requires separate qualification.",
-        "groups": []
+        "description": "A restore must preserve object versions and workflow state. Local same-binary rehearsal exists; this full AWS workflow requires separate qualification."
       },
       "callout": "Automation reduces routine effort only when permissions, source adapters, upgrades and recovery paths are qualified.",
       "sources": [
@@ -775,79 +439,9 @@
       "eyebrow": "Operating workflows · target unless explicitly current",
       "kind": "diagram",
       "diagram": {
-        "id": "upgrade",
+        "mermaid": "07-upgrade-workflow",
         "label": "Workflow: qualify changes before rollout",
-        "nodes": [
-          {
-            "id": "0",
-            "x": 0,
-            "y": 35,
-            "w": 260,
-            "h": 110,
-            "title": "Pin the release",
-            "detail": "Signed inputs / rule revisions\nSupported upgrade path"
-          },
-          {
-            "id": "1",
-            "x": 300,
-            "y": 35,
-            "w": 260,
-            "h": 110,
-            "title": "Test in staging",
-            "detail": "Replay / query / access checks\nBackup and restore rehearsal"
-          },
-          {
-            "id": "2",
-            "x": 600,
-            "y": 35,
-            "w": 260,
-            "h": 110,
-            "title": "Canary + compare",
-            "detail": "Observe errors and lag\nValidate old/new contracts"
-          },
-          {
-            "id": "3",
-            "x": 900,
-            "y": 35,
-            "w": 260,
-            "h": 110,
-            "title": "Roll out in bounds",
-            "detail": "Progressively replace workers\nRetain rollback evidence"
-          },
-          {
-            "id": "fail",
-            "x": 450,
-            "y": 240,
-            "w": 300,
-            "h": 100,
-            "title": "Rollback or stop",
-            "detail": "Retain independent originals\nInvestigate and record limits"
-          }
-        ],
-        "edges": [
-          {
-            "from": "0",
-            "to": "1"
-          },
-          {
-            "from": "1",
-            "to": "2"
-          },
-          {
-            "from": "2",
-            "to": "3"
-          },
-          {
-            "from": "2",
-            "to": "fail",
-            "path": "M730,145 L730,200 L600,200 L600,240",
-            "label": "failed validation",
-            "lx": 745,
-            "ly": 193
-          }
-        ],
-        "description": "Target operational workflow after a stable release. Rollback depends on a supported state/schema path; irreversible migrations require restore, not blind binary reversal.",
-        "groups": []
+        "description": "Target operational workflow after a stable release. Rollback depends on a supported state/schema path; irreversible migrations require restore, not blind binary reversal."
       },
       "callout": "Automation reduces routine effort only when permissions, source adapters, upgrades and recovery paths are qualified.",
       "sources": [
@@ -1409,6 +1003,43 @@
         "readiness"
       ],
       "notes": "The recommendation is conditional on the hypothetical company's goals. Do not replace GuardDuty or a working SIEM to justify this project. Agree one high-value use case and compare measured alternatives. Successful adoption means improved evidence quality or operating economics with accepted responsibility, rather than adding another tool."
+    },
+    {
+      "eyebrow": "Appendix · reuse the diagrams",
+      "title": "Diagrams are code; import them anywhere",
+      "kind": null,
+      "cards": [
+        {
+          "title": "Source of truth",
+          "items": [
+            "docs/diagrams/*.mmd are Mermaid files in the repository.",
+            "The logical architecture is also embedded in docs/logical-architecture.md.",
+            "CI renders them and fails if one stops compiling."
+          ]
+        },
+        {
+          "title": "Use in your tools",
+          "items": [
+            "Click any diagram, then Copy Mermaid, SVG or PNG.",
+            "Miro, FigJam and draw.io can import Mermaid text; check your workspace app or plugin.",
+            "Slack: upload the PNG, or paste the Mermaid into a canvas or code block."
+          ]
+        },
+        {
+          "title": "Neutral and non-binding",
+          "items": [
+            "Product names belong to their owners; no affiliation or endorsement is implied.",
+            "Comparisons are inferences from public documentation, not benchmarks or quotes.",
+            "Verify capabilities and prices with each vendor."
+          ]
+        }
+      ],
+      "callout": "Diagrams show target responsibilities. They add no release, capacity or qualification claim.",
+      "sources": [
+        "product",
+        "logical"
+      ],
+      "notes": "Mermaid is text, so diagrams review in pull requests like code. Import support differs between tools and versions; verify in your workspace. Competitor names appear only to describe documented scope, with no logos, benchmarks, unit prices or claims of superiority. The deck is open source under the repository license; trademarks remain the property of their owners."
     },
     {
       "eyebrow": "Appendix · source and claim map",

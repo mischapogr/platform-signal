@@ -1,0 +1,15 @@
+%% Target upgrade workflow after a stable release. Irreversible migrations require restore, not binary rollback.
+flowchart LR
+    A["1. Pin the release<br/>signed inputs, rule revisions,<br/>supported upgrade path"] --> B["2. Test in staging<br/>replay, query, access checks,<br/>backup + restore rehearsal"]
+    B --> C{"3. Canary + compare<br/>errors, lag,<br/>old/new contracts"}
+    C -->|"healthy"| D["4. Roll out in bounds<br/>progressively replace workers<br/>retain rollback evidence"]
+    C -->|"regression"| F["Rollback or stop<br/>supported state path only<br/>retain independent originals"]
+    classDef source fill:#fff7ed,stroke:#c2410c,color:#431407
+    classDef collector fill:#eff6ff,stroke:#1d4ed8,color:#172554
+    classDef core fill:#ecfdf5,stroke:#047857,color:#022c22
+    classDef evidence fill:#fef2f2,stroke:#b91c1c,color:#450a0a
+    classDef people fill:#f5f3ff,stroke:#6d28d9,color:#2e1065
+    classDef store fill:#f1f5f9,stroke:#334155,color:#0f172a
+    class A,B,C collector
+    class D core
+    class F evidence
