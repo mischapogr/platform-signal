@@ -269,8 +269,9 @@ The file/stdin agent and generic canonical HTTP path already exist. EKS is new
 work, and broad source collection remains Phase 9/post-MVP. Do not restart the
 MVP or make all integrations prerequisites for the current release.
 
-1. Finish the already selected bounded coverage-history slices: payload-prefix
-   pruning, then identity pruning and scans. Keep observer integration separate.
+1. The selected bounded coverage-history slices (payload/identity-prefix pruning
+   and fixed-frontier scans) now pass locally with 96 coverage/358 workspace tests.
+   Keep observer integration separate; no live source health follows.
 2. Specify a bounded source receipt/normalization profile using CloudTrail as the
    first concrete case. Reuse existing SDK/spool/WAL seams where they fit; do not
    build a universal provider workflow before proving one adapter.
@@ -300,7 +301,7 @@ traffic and query compute separately. Benchmark before adding a hot store or
 splitting the server. Select EC2/EKS deployment from permissions, placement and
 operating constraints once a concrete source slice is scoped.
 
-Immediate runnable implementation remains bounded payload-prefix pruning. The
-first new ingestion task should be the CloudTrail source-receipt/profile design,
+Bounded coverage-history implementation is accepted locally. The next new
+ingestion task is the CloudTrail source-receipt/profile design,
 not four new binaries. No release gates, public/private ownership rules or
 publication authority change in this audit.

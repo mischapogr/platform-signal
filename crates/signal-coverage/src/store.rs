@@ -62,6 +62,14 @@ pub enum CoverageError {
     HistoryUnavailable,
     #[error("coverage referenced identity has been pruned")]
     IdentityPruned,
+    #[error("invalid coverage scan cursor")]
+    InvalidCursor,
+    #[error("coverage scan history has been pruned")]
+    HistoryPruned(crate::ScanAvailability),
+    #[error("coverage scan response limit prevents progress")]
+    ResponseLimit,
+    #[error("coverage scan work limit prevents progress")]
+    ScanWorkLimit,
     #[error("coverage supplied receipt differs from the committed receipt")]
     ReceiptMismatch,
     #[error("coverage correction target original evidence is unavailable")]
@@ -719,6 +727,193 @@ impl Engine {
     }
     pub fn begin(&self, ctx: &WorkContext) -> Result<(), CoverageError> {
         set_progress(&self.connection, ctx, &self.config)
+    }
+    pub fn scan(
+        &self,
+        authority: AuthorizedBinding,
+        cursor: Option<crate::ScanCursor>,
+        budget: crate::ScanBudget,
+        ctx: &WorkContext,
+    ) -> Result<crate::ScanPage, CoverageError> {
+        use crate::scan::{CursorState, ScanPage, ScanRecord, page_header_bytes};
+        budget.validate(&self.config)?;
+        ctx.check()?;
+        let availability = crate::ScanAvailability {
+            history_id: self.state.history_id,
+            committed_sequence: self.state.committed_sequence,
+            payload_pruned_through: self.state.payload_pruned_through,
+            identity_pruned_through: self.state.identity_pruned_through,
+        };
+        let mut position = if let Some(cursor) = cursor {
+            let position = cursor.state()?;
+            // Cursor knowledge never grants access, including retention classification.
+            if position.binding != authority.binding.encoded() {
+                return Err(CoverageError::NotAuthorized);
+            }
+            if position.history_id != self.state.history_id
+                || position.frontier > self.state.committed_sequence
+                || position.payload_marker > self.state.payload_pruned_through
+                || position.identity_marker > self.state.identity_pruned_through
+            {
+                return Err(CoverageError::HistoryUnavailable);
+            }
+            if position.payload_marker != self.state.payload_pruned_through
+                || position.identity_marker != self.state.identity_pruned_through
+            {
+                return Err(CoverageError::HistoryPruned(availability));
+            }
+            if self.scan_prefix(position.frontier)? != position.frontier_prefix
+                || self.scan_prefix(position.last)? != position.last_prefix
+            {
+                return Err(CoverageError::HistoryUnavailable);
+            }
+            position
+        } else {
+            CursorState {
+                history_id: self.state.history_id,
+                binding: authority.binding.encoded().to_vec(),
+                frontier: self.state.committed_sequence,
+                frontier_prefix: self.state.committed_prefix,
+                last: self.state.identity_pruned_through,
+                last_prefix: self.state.identity_anchor,
+                payload_marker: self.state.payload_pruned_through,
+                identity_marker: self.state.identity_pruned_through,
+            }
+        };
+        let mut page = ScanPage {
+            records: Vec::new(),
+            continuation: None,
+            availability,
+            frontier: position.frontier,
+            scanned_records: 0,
+            scanned_bytes: 0,
+            response_bytes: page_header_bytes(&authority),
+            permit: None,
+        };
+        if page.response_bytes > budget.max_response_bytes {
+            return Err(CoverageError::ResponseLimit);
+        }
+        while position.last < position.frontier
+            && page.scanned_records < budget.max_scanned_records
+            && (page.records.len() as u64) < budget.max_records
+        {
+            ctx.check()?;
+            let sequence = position
+                .last
+                .checked_add(1)
+                .ok_or(CoverageError::Exhausted)?;
+            // Probe fixed-size lengths before allocating any row, payload, binding or pin.
+            let (record_id, row_bytes) = self.scan_row_size(sequence)?;
+            let scanned_bytes = add(page.scanned_bytes, row_bytes)?;
+            if scanned_bytes > budget.max_scanned_bytes {
+                if page.scanned_records == 0 {
+                    return Err(CoverageError::ScanWorkLimit);
+                }
+                break;
+            }
+            let stored = self
+                .load(record_id, ctx)
+                .map_err(|error| match error {
+                    CoverageError::Invalid(_) | CoverageError::Coverage(_) => {
+                        CoverageError::Corrupt("scan row metadata")
+                    }
+                    other => other,
+                })?
+                .ok_or(CoverageError::Corrupt("scan missing row"))?;
+            if stored.receipt.sequence != sequence.to_string() {
+                return Err(CoverageError::Corrupt("scan row sequence"));
+            }
+            page.scanned_records = add(page.scanned_records, 1)?;
+            page.scanned_bytes = scanned_bytes;
+            if stored.binding.encoded() == authority.binding.encoded() {
+                let response_bytes = add(
+                    page.response_bytes,
+                    stored.raw.as_ref().map_or(0, |raw| raw.len() as u64)
+                        + crate::SCAN_RECORD_ALLOWANCE_BYTES,
+                )?;
+                if response_bytes > budget.max_response_bytes {
+                    if page.records.is_empty() {
+                        return Err(CoverageError::ResponseLimit);
+                    }
+                    // This row was examined but not consumed. The next page must retry it.
+                    break;
+                }
+                page.records
+                    .try_reserve_exact(1)
+                    .map_err(|_| CoverageError::Quota)?;
+                page.response_bytes = response_bytes;
+                let prefix = receipt_prefix(&stored.receipt)?;
+                page.records.push(ScanRecord {
+                    receipt: stored.receipt,
+                    raw: stored.raw,
+                });
+                position.last_prefix = prefix;
+            } else {
+                position.last_prefix = receipt_prefix(&stored.receipt)?;
+            }
+            position.last = sequence;
+        }
+        if position.last < position.frontier {
+            page.continuation = Some(position.encode()?);
+        }
+        ctx.check()?;
+        Ok(page)
+    }
+    fn scan_prefix(&self, sequence: u64) -> Result<[u8; 32], CoverageError> {
+        if sequence == self.state.identity_pruned_through {
+            return Ok(self.state.identity_anchor);
+        }
+        if sequence == self.state.payload_pruned_through {
+            return Ok(self.state.payload_anchor);
+        }
+        if sequence == self.state.committed_sequence {
+            return Ok(self.state.committed_prefix);
+        }
+        let prefix = self
+            .connection
+            .query_row(
+                "SELECT prefix FROM entries WHERE sequence=?1",
+                params![&sequence.to_be_bytes()[..]],
+                |r| bounded_blob(r, 0, 32),
+            )
+            .optional()?
+            .ok_or(CoverageError::HistoryUnavailable)?;
+        prefix
+            .try_into()
+            .map_err(|_| CoverageError::Corrupt("scan witness width"))
+    }
+    fn scan_row_size(&self, sequence: u64) -> Result<(Uuid, u64), CoverageError> {
+        let row = self.connection.query_row(
+            "SELECT e.record_id,length(e.metadata),coalesce(length(e.raw),0),length(e.binding),length(p.definition),b.profile_id=e.profile_id AND b.profile_revision=e.profile_revision FROM entries e LEFT JOIN profiles p ON p.id=e.profile_id AND p.revision=e.profile_revision LEFT JOIN bindings b ON b.key=e.binding WHERE e.sequence=?1",
+            params![&sequence.to_be_bytes()[..]],
+            |r| Ok((bounded_blob(r, 0, 16)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?, r.get::<_, i64>(3)?, r.get::<_, Option<i64>>(4)?, r.get::<_, Option<bool>>(5)?)),
+        ).optional()?.ok_or(CoverageError::Corrupt("scan missing prefix"))?;
+        let record_id =
+            Uuid::from_slice(&row.0).map_err(|_| CoverageError::Corrupt("scan record UUID"))?;
+        if record_id.is_nil() {
+            return Err(CoverageError::Corrupt("scan nil record UUID"));
+        }
+        if row.5 != Some(true) {
+            return Err(CoverageError::Corrupt("scan binding pin references"));
+        }
+        let profile_len = row
+            .4
+            .ok_or(CoverageError::Corrupt("scan missing profile pin"))?;
+        let mut charge = crate::SCAN_WORK_ALLOWANCE_BYTES;
+        for (length, cap) in [
+            (row.1, format::MAX_METADATA_BYTES),
+            (row.2, format::MAX_RAW_BYTES),
+            (row.3, format::MAX_BINDING_BYTES),
+            (profile_len, format::MAX_PROFILE_BYTES),
+        ] {
+            let n = u64::try_from(length)
+                .map_err(|_| CoverageError::Corrupt("scan negative length"))?;
+            if n > cap as u64 {
+                return Err(CoverageError::Corrupt("scan row bound"));
+            }
+            charge = add(charge, n)?;
+        }
+        Ok((record_id, charge))
     }
     pub fn prune_payloads(
         &mut self,
@@ -1629,6 +1824,24 @@ fn add(a: u64, b: u64) -> Result<u64, CoverageError> {
     a.checked_add(b)
         .filter(|n| *n <= i64::MAX as u64)
         .ok_or(CoverageError::Exhausted)
+}
+fn receipt_prefix(receipt: &Receipt) -> Result<[u8; 32], CoverageError> {
+    let bytes = receipt.prefix_digest.as_bytes();
+    if bytes.len() != 64 {
+        return Err(CoverageError::Corrupt("scan receipt prefix"));
+    }
+    let mut prefix = [0; 32];
+    for (output, pair) in prefix.iter_mut().zip(bytes.chunks_exact(2)) {
+        fn nibble(b: u8) -> Result<u8, CoverageError> {
+            match b {
+                b'0'..=b'9' => Ok(b - b'0'),
+                b'a'..=b'f' => Ok(b - b'a' + 10),
+                _ => Err(CoverageError::Corrupt("scan receipt prefix")),
+            }
+        }
+        *output = (nibble(pair[0])? << 4) | nibble(pair[1])?;
+    }
+    Ok(prefix)
 }
 fn identity_row(c: &Connection, sequence: u64) -> Result<IdentityRow, CoverageError> {
     c.query_row(

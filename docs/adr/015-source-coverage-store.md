@@ -3,8 +3,8 @@
 Status: Selected decision with bounded library implementation, 2026-10-07.
 Encodings, explicit initialization/ownership, prepared append, recovery and
 trusted one-row inspection, application-grant intake/retry and bounded correction
-admission and bounded payload/identity-prefix pruning are implemented in [`signal-coverage`](../../crates/signal-coverage/README.md).
-Scans, credential authentication and source observers remain unimplemented.
+admission, bounded payload/identity-prefix pruning and fixed-frontier scans are implemented in [`signal-coverage`](../../crates/signal-coverage/README.md).
+Credential authentication and source observers remain unimplemented.
 This ADR does not select production retention or claim release readiness.
 
 ## Context and decision
@@ -226,7 +226,7 @@ state checksum on bounded startup. SQLite's file/journal framing and recovery
 checks remain SQLite's format; they are not a cryptographic page checksum.
 Use the logical checks above to detect complete evidence/metadata corruption.
 Receipt/cursor validation checks supplied history/position/prefix against this
-state. Scan cursor serialization belongs to the separately bounded scan task.
+state. The scan cursor layout is frozen in the separately accepted scan section below.
 
 ## Accounting and pruning reserves
 
@@ -418,4 +418,70 @@ Evidence: `target/source-coverage-identity-pruning-20261007/`. No actual fsync
 cancellation, VFS injection, physical power loss, secure erasure, server/source/
 cloud integration or release qualification is claimed. Maintenance still lacks
 an exact retry receipt; reconcile markers after old-owner exit and recovery.
-Bounded fixed-frontier scans are next.
+At that acceptance, bounded fixed-frontier scans were next.
+
+
+## Fixed-frontier scan cursor and acceptance
+
+The trusted local `scan` API requires a fresh full-binding application grant on
+every page. A first page captures the committed frontier and retained identity
+start; later appends do not extend it. Continuation validates scope, history,
+frontier and consumed witnesses before returning data or terminal emptiness.
+Any retention-marker advance returns typed `HistoryPruned` with bounded current
+availability; regression or missing/divergent history returns `HistoryUnavailable`.
+This deliberately conservative policy does not pin history across pages.
+
+Cursor v1 is canonical lowercase hex of exactly these bytes, with no trailing data:
+
+```text
+C = "SIGNAL-COVERAGE-SCAN-V1\0"   (24 ASCII bytes including NUL)
+    || u32be(1) || history_uuid   (16 bytes)
+    || u32be(len(K)) || K         (full canonical BINDING-v1 bytes)
+    || u64be(frontier) || H(frontier)
+    || u64be(last_scanned) || H(last_scanned)
+    || u64be(initial_payload_marker) || u64be(initial_identity_marker)
+    || SHA256(all preceding C bytes)
+```
+
+`H` remains the existing coverage prefix; the token domain is independent of
+findings cursors and event-WAL positions. Require non-nil history and canonical
+bounded K, `identity_marker <= payload_marker <= frontier` and
+`identity_marker <= last_scanned <= frontier`. Input token size is capped at
+131,584 bytes before allocation/copy; the encoder uses exact-sized buffers.
+The checksum detects inconsistent input; it is not a signature or grant. The
+independently calculated 728-character golden token in
+[`scan_tests.rs`](../../crates/signal-coverage/src/scan_tests.rs) uses the frozen
+three-commit chain's history/K/H(1)/H(3), frontier 3, last 1 and zero markers.
+Existing backend-vector JSON/checkers are unchanged and do not cover this token.
+
+Positive result-record/work-record/work-byte caps apply alongside VM/deadline
+limits. Length probes precede each full row; examined work charges
+`len(M)+raw_length+len(K)+len(P)+4096`, at most 217,088 per row. First work overflow
+returns `ScanWorkLimit`. A page charges `4096+2*(24+152+len(K))`, including potential
+output token even when terminal, plus `raw_length+8192` per result. Response cap
+397,312 plus command allowance 287,232 totals 684,544 below the existing per-slot
+794,624 reservation; worker scratch is separate. First matching response overflow
+returns `ResponseLimit` without progress; a later blocked row is counted as
+examined but not consumed. Sparse empty pages can continue. No limit-sized vector
+or history-sized raw/key/profile collection is allocated.
+
+Returned `ScanRecord`s contain only original receipt/optional raw bytes. Every
+examined row is checked under its pinned profile internally; later assessment
+must resolve that exact profile rather than substituting a current definition.
+Non-cloneable pages retain their admitted operation permit and expose borrowed
+records/cursor. Retaining capacity pages rejects more operations until drop.
+The budget is per instance, not global RSS; caller copies/new instances have
+separate ownership. A retained post-shutdown snapshot is not a filesystem lease.
+Boundary witnesses and examined rows are verified, without recertifying every
+unread row or claiming current source health/absence of unseen source events.
+
+Local acceptance adds 22 regressions (96 coverage/358 workspace tests): exact
+independent encoding, fixed frontier, sparse continuation, first/later limits,
+per-page grants, pruning, divergent/truncated restores, held-page capacity,
+shutdown/restart, metadata/raw/pin/prefix corruption, finite maximal-u64 positions,
+actual queued timeout/cancellation and predispatch saturation rejection.
+Evidence: `target/source-coverage-scans-20261007/`. All frozen history encodings,
+schema and dependencies remain unchanged. Source observers/credential proof,
+server/HTTP/cloud wiring, native ARM64/EKS, physical power loss, global HA/fencing
+and complete 56-outcome history-state-machine qualification remain open. Next:
+bounded CloudTrail source-receipt/normalization-profile design.
