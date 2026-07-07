@@ -70,9 +70,12 @@ evaluation. The [intake/history contract](source-coverage-history-contract.md)
 defines durable receipts, finite retry/identity horizons, bounded prefix pruning,
 corrections, uncertain commits and ownership requirements; its fixtures are offline
 expectations. [ADR-015](adr/015-source-coverage-store.md) records implemented
-prepared append/recovery primitives with process-crash and cancellation evidence.
-Collection and the complete intake/retry/pruning/scan history state machine remain
-unimplemented. This YAML
+prepared append/recovery, application-authorized intake, exact-byte receipt replay
+and immutable correction admission, with process-crash and cancellation evidence.
+Payload/identity pruning, scans, source observers and server integration remain
+unimplemented; the complete history state machine is not accepted. The
+[ingestion audit](26-ingestion-architecture-audit.md) separately specifies the
+missing telemetry source-receipt/checkpoint boundary. This YAML
 example is an illustration of the JSON contract; it does not enable an observer.
 
 ```yaml
