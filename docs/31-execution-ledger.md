@@ -11,7 +11,7 @@ This reconciles [product scope](27-product-architecture.md),
 [current progress](07-progress.md) and [release gates](21-release-readiness.md).
 The newer progress/routing acceptance supersedes old “UI then pruning” next-step
 text: UI-01/UI-02, coverage pruning/scans and initial source receipts are done.
-OBJECT-READER is accepted locally; AWS-DELIVERY now has local signed-transport/delivery simulation acceptance; COVERAGE-OBSERVERS now has simulated independent checkpoint/gap/quiet/degraded-silence runtime acceptance. Native CloudTrail byte-proof and signed key/exact-version capture mechanisms pass locally; independent durable proof checkpoint/coverage and custody/route integration remain unfinished within EVIDENCE. Real AWS stays unqualified. FINDINGS-CURSOR is accepted locally. Private OUTBOX transactional plans and bounded dispatch/notification simulations are accepted (passed_simulated); DISPOSITIONS is accepted locally; next is EVIDENCE.
+OBJECT-READER is accepted locally; AWS-DELIVERY now has local signed-transport/delivery simulation acceptance; COVERAGE-OBSERVERS now has simulated independent checkpoint/gap/quiet/degraded-silence runtime acceptance. Native CloudTrail byte-proof/signed capture and whole-receipt independently verified custody/explicit ACK/owner-ticket fence mechanisms pass locally; independently enforced archive and durable native-proof checkpoint/coverage/outage route integration remain unfinished within EVIDENCE. Real AWS stays unqualified. FINDINGS-CURSOR is accepted locally. Private OUTBOX transactional plans and bounded dispatch/notification simulations are accepted (passed_simulated); DISPOSITIONS is accepted locally; next is EVIDENCE.
 
 ## Execution and evidence
 

@@ -7,6 +7,39 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Independent receipt custody and fenced source ACK — 2026-10-08
+
+The bounded EVIDENCE custody mechanism now passes local acceptance. An independent
+Ed25519 authority signs the complete framed receipt and immutable archive manifest;
+fresh challenges cannot renew its original commit time or retarget identity.
+Strong ACK begin/finish/recovery each require fresh verification of the exact saved
+witness. Trusted quarantine selection, pinned M2, full CAS/current-history and
+recovery horizons remain mandatory. Worker I/O and tickets expire at the earliest
+challenge/key/archive/context deadline. Transfer, poison and worker exit fence
+retained tickets before new source credentials/HTTP work; dispatched remote effects
+remain uncertain. Local retirement preserves custody and deletes no archive original.
+
+Fourteen custody regressions and two optional source-fence regressions pass,
+including six actual SIGKILL publication cases, syscall faults, physical-expiry
+ownership, prequeue allocation limits, key/retention expiry, M2/quarantine and
+reopen/handover. Public default585/all-feature619 and private37 tests pass, zero
+failures; six public and three private subprocess helpers retain parent-invoked
+scope. Required fmt, strict default/all-feature Clippy, package guard, private
+build and the local overlay SIGKILL/SIGTERM gate pass. Independent review has no
+remaining blocker/high. Evidence: `target/goal-execution-20261007/EVIDENCE/`
+`custody-validation/validation.json`, `custody-private-validation/validation.json`,
+`custody-review.json` and `custody-handoff.json`. Initial compilation/assertion,
+sandbox loopback denial and strict enum-size corrections remain recorded separately.
+No package version or release authority changed.
+
+EVIDENCE remains in_progress. The next runnable slice is independently enforced
+archive/version/retention/access and durable native-proof checkpoint/coverage
+integration, including protected capture during observability outage and crash/
+redelivery recovery. These are implementation requirements, not credential-only
+exceptions. Signed assertions alone do not establish archive isolation, native
+source completeness or real AWS/Object Lock/IAM/KMS qualification. The collector
+driver remains explicitly process-local; final candidate and external gates stay open.
+
 ## Native CloudTrail byte proofs and read-only capture — 2026-10-08
 
 EVIDENCE now has an accepted native mechanism slice: exact uncompressed-byte RSA
@@ -27,11 +60,12 @@ Only existing locked ring/base64 dependency edges were added; no package version
 or selected release changed. See [protected evidence contract](38-protected-evidence-contract.md).
 
 EVIDENCE remains in_progress. Independent durable proof checkpoints/coverage,
-whole-receipt custody and required ACK, protected-route outage/proof/crash recovery
-still need implementation and acceptance. These read-only byte proofs neither
+protected-route outage/proof/crash recovery still need implementation and
+acceptance. Whole-receipt custody/stronger ACK mechanisms have the later
+local acceptance above; independent archive integration is still unfinished. These read-only byte proofs neither
 establish complete collection nor close real AWS/Object Lock/IAM/KMS/native ARM64,
 actual EKS/vendor/remote-CI/released-dependency/publication or final-candidate gates.
-Continue EVIDENCE with the independently verified custody seam and retained proof
+Continue EVIDENCE with independently enforced archive and retained native-proof
 checkpoint/route integration; process-local quarantine ACK remains denied.
 
 ## Scoped audited disposition backend — 2026-10-08

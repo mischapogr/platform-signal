@@ -158,9 +158,11 @@ pub(super) fn decode(
         super::retirement::verify_receipt(&p, r)?;
         return Ok(p);
     }
-    if value["custody"]["status"] != "local_only" || value["retirement"]["state"] != "active" {
+    if value["retirement"]["state"] != "active" {
         return Err(ReceiptError::UnsupportedProgress);
     }
+    // Shape only. A stored flag never supplies fresh independent verification.
+    custody::validate_control(&value["custody"], r)?;
     ack::validate(&value, r)?;
     let revision = number(&value["revision"])?;
     if revision == 0 {
@@ -185,9 +187,12 @@ pub(super) fn decode(
     }
     // ACK-only mutations also clear the admission attempt. Only a handover with
     // no ACK has the generation/predecessor exception used below.
-    let handover = none && value["ack"]["state"] == "not_requested";
+    let handover = none && value["ack"]["state"] == "not_requested" && generation > 1;
+    let custody_only = none
+        && value["ack"]["state"] == "not_requested"
+        && value["custody"]["status"] == "verified_independent";
     if none {
-        if (handover && generation <= 1)
+        if (value["ack"]["state"] == "not_requested" && !handover && !custody_only)
             || start != 0
             || count != 0
             || accepted != 0
@@ -216,7 +221,8 @@ pub(super) fn decode(
     }
     // Compare every immutable and unsupported control field, including unknown
     // keys, against the complete initial pin set. This slice changes only these
-    // fields; custody/retirement remain local/active and ACK has its frozen shape.
+    // fields; custody and ACK retain their checked frozen shapes, retirement
+    // stays active, and no persisted custody flag grants fresh verification.
     let initial = format::initial(r, owner, generation)?;
     if revision == 1
         && !handover
@@ -238,6 +244,7 @@ pub(super) fn decode(
         "verified_prefix",
         "attempt",
         "ack",
+        "custody",
     ] {
         expected[key] = value[key].clone();
     }

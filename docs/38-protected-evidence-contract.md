@@ -130,3 +130,87 @@ whitespace changes invalidate its exact native byte hash. Local HTTP simulations
 exercise signed requests and source failures; they cannot qualify AWS delivery,
 Object Lock, archive authority or complete collection. Native proof mechanisms
 alone do not close the parent EVIDENCE item or source-coverage assertions.
+
+## Independent witness protocol selected for implementation
+
+A version-1 bounded witness carries an immutable manifest and a fresh signed
+verification envelope. The manifest binds the frozen receipt ID/checksum, a
+separate SHA256 of all framed bytes, exact full binding/original/pinned retention,
+archive version identity, retained-until horizon, custody mode/purpose and the
+original custody commit time. Its content SHA256 is the stable witness identity.
+A new verification challenge cannot rewrite that manifest or renew commit time.
+`protected_replay` requires archive retention through the maximum of pinned
+retention and source-replay horizons; independent durable custody requires the
+pinned retention horizon.
+
+The independent archive authority signs both manifest and challenge/verification
+fields with a configured Ed25519 key. The verifier pins authority/key revision,
+a caller-generated nonnil nonce and a short trusted UTC request/expiry window.
+Reject unknown/duplicate fields, unsupported versions, wrong signature, scope,
+original version, receipt bytes, authority, nonce or retention before producing
+an ephemeral nonserialized custody token. Producer metadata cannot set trusted
+keys, current time or quarantine permission. Archive custody alone makes no native
+source-signature or collection-completeness assertion; retained proof validation
+and coverage remain separate requirements in EVIDENCE integration.
+
+A durable custody transition uses the existing physical receipt worker, complete
+CAS progress and a freshly authenticated history grant. Reopen checks the frozen
+custody shape without treating stored flags as fresh verification. Every stronger
+ACK side effect must additionally consume independently verified current custody
+for the exact retained witness and selected purpose; plain process-local ACK
+retains its current restrictions. A quarantine ACK also requires explicit trusted
+quarantine selection. Custody/ACK cannot downgrade, bypass pinned M2, retarget
+source identity or authorize original deletion. Deadline/cancellation uncertainty
+retains the owner until physical I/O ends. These mechanisms precede the
+protected-route simulation; they do not establish real archive permissions.
+
+The byte frame is `SIGCUS01 | manifest_length:u32be | manifest_json |
+attestation_length:u32be | attestation_json | signature:64`. The Ed25519 signature
+covers every preceding byte. Manifest JSON is the existing canonical receipt
+encoding; both objects reject unknown and duplicate fields. Maximum sizes are
+64 KiB manifest, 2 KiB attestation and 67,664 bytes complete witness. Neither
+object permits embedded credentials or arbitrary fields.
+
+| Object | Exact fields |
+| --- | --- |
+| Manifest | `schema_version=1`, `receipt_id`, `receipt_sha256`, `framed_sha256`, `binding`, `original`, `retention`, `archive_id`, `archive_version`, `authority_id`, `mode`, `purpose`, `committed_at`, `retain_until` |
+| Attestation | `schema_version=1`, `authority_id`, `key_revision`, `manifest_sha256`, `challenge`, `verified_at` |
+
+Archive ID/version are at most 512 bytes, version cannot be `null`, and authority
+ID/key revision are at most 128 bytes. Text rejects control characters. Trusted
+UTC times use the receipt's exact 30-byte nanosecond format. The challenge window
+is at most 60 exact seconds. Signed verification time must be within the request
+and configured key validity window and no later than the caller's observed time.
+The token's monotonic deadline is the earliest challenge, key, archive retention
+or original operation expiry; elapsed verification work is not refunded.
+
+`prepare_custody_manifest` constructs a statement after the caller has actually
+published to its independent archive; it writes nothing and grants no custody.
+`verify_custody_witness` authenticates the assertion and whole receipt, producing
+a non-Clone, nonserialized `VerifiedCustody`. The authority constructor checks
+shape; selecting the key, trusted clock, purpose and independent archive controls
+belongs to the authenticated application. Crypto does not inspect deployment
+isolation or replace the native CloudTrail proof validator.
+
+`ReceiptStore::verify_custody` uses full progress CAS/current-history authority on
+the existing worker. An identical manifest is idempotent; a different version,
+identity or retention cannot replace it. All stronger `BeginIndependent`,
+`FinishIndependent` and `RecoverIndependent` ACK updates require a newly verified
+token matching that retained manifest. The ordinary collector driver remains
+explicitly process-local; it does not opt into these stronger operations.
+
+Issued tickets also carry a local owner fence. Transfer cancels it before the
+new owner control is published; worker poison and exit cancel it as well.
+Adapters must use `ticket.current_context` and select `ticket.owner_fenced`
+alongside their authenticated operation. The AWS adapter applies both before and
+during credentials/request/body work. A retained fenced ticket starts no new
+delete; a request already accepted remotely remains uncertain. This local fence
+does not establish distributed fencing or recall a remote side effect.
+
+After confirmed ACK, complete M2 prefix, elapsed pinned local retention and fresh
+reclamation authority, local receipt retirement preserves the exact independent
+witness controls. This includes explicitly authorized quarantined receipts with
+zero prepared events. Retirement reclaims only the local slot: no archive client
+or original-delete authority is present, and independent archive retention is
+not shortened. Saved control syntax still requires independently authenticated
+history during recovery; it supplies no fresh custody token.
