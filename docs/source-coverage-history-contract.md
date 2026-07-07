@@ -5,8 +5,8 @@ Status: PS-01 design/fixture contract, 2026-10-07. The
 primitives and trusted application-grant intake/retry are implemented.
 [ADR-015](adr/015-source-coverage-store.md) records prepared append, immutable
 receipts, recovery, full-binding authorized reads, original-byte replay and bounded
-correction admission and bounded payload/identity-prefix pruning. Scans
-and source observers remain **unimplemented**;
+correction admission, bounded payload/identity-prefix pruning and fixed-frontier
+scans. Source observers remain **unimplemented**;
 the complete 56-outcome state machine remains planned. This
 contract selects responsibilities and acceptance. The local backend and
 exact encodings are selected in ADR-015;
@@ -200,10 +200,24 @@ work. A sparse scan may return zero matches with continuation; that does not
 mean exhaustion or healthy collection. An oversized first result returns a limit
 error without progress. Require page capacity for one maximum-sized row/receipt.
 
-Pruning can invalidate a reader between pages: return `history_pruned` with
-bounded availability markers, not an empty successful remainder. Scans do not pin
+The implementation conservatively invalidates continuation after any payload or
+identity marker advance: return `history_pruned` with bounded availability markers,
+not an empty successful remainder. Regressed markers reject as unavailable history. Scans do not pin
 unbounded history. The first page discloses current pruning markers. There is no
 timestamp cursor or rehydration claim and no new query language.
+
+The local library now implements `scan` with a freshly authorized exact full
+binding, bounded opaque scan-v1 token and positive result/work/response budgets.
+[ADR-015](adr/015-source-coverage-store.md#fixed-frontier-scan-cursor-and-acceptance)
+freezes the independent domain/layout and finite byte charges. Non-cloneable pages
+hold operation permits until dropped; capacity and memory bounds are per instance.
+Rows contain immutable receipt and optional raw bytes. Profiles are checked
+internally; resolve the receipt's exact retained profile for later assessment.
+Checks bind frontier/consumed witnesses and validate examined rows, without
+recertifying unread history or asserting current source health. An oversized first
+work row returns a typed limit instead of a nonadvancing empty continuation.
+Caller copies and separately reopened stores have their own memory ownership.
+
 
 Backend acceptance must bind receipts/cursors to exact committed prefix content,
 as in the [findings cursor rationale](25-findings-cursor-proposal.md), without
@@ -279,6 +293,11 @@ adds 16 regressions (74 focused/336 workspace tests), bounded selected-metadata/
 record work, atomic eligible identity/pin reclamation, preserved anchors/receipts/
 links, stale-reference classification and all-pruned pin-deletion SIGKILL/restart/
 sequence continuity. Evidence: `target/source-coverage-identity-pruning-20261007/`.
-Fixed-frontier scans follow separately. Maintenance has no durable operation receipt: reconcile markers after
+Bounded scans subsequently add 22 regressions (96 focused/358 workspace tests):
+independent exact cursor, fixed-frontier sparse pagination, bounded work/response,
+per-page authorization, pruning, divergent restores, retained-page capacity,
+corruption/restart/maximal-u64 fixtures and actual queued timeout/cancellation.
+Evidence: `target/source-coverage-scans-20261007/`. CloudTrail source-receipt/
+normalization-profile design follows separately. Maintenance has no durable operation receipt: reconcile markers after
 unknown-outcome recovery rather than assuming an exact retry. Do not adapt the event
 WAL/findings journal by assuming its contracts already satisfy this one.

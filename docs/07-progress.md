@@ -11,8 +11,8 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 336, including 24 SDK SourceCoverage tests, 74 local-store/intake/correction/
-payload/identity-pruning tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
+workspace gate has 358, including 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
+payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
 resource exhaustion before the application starts; the preceding image retains
 its passing kind evidence. The native CI matrix
@@ -38,6 +38,52 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Post-MVP SourceCoverage bounded scans — 2026-10-07
+
+`CoverageStore::scan` reads one freshly authorized full binding at a fixed first-
+page committed frontier. Later appends are excluded. Opaque canonical scan-v1
+cursors bind history/full scope, frontier and consumed-prefix witnesses, plus
+initial payload/identity markers. Continuations validate them before data or
+terminal emptiness. Any marker advance returns `HistoryPruned` with bounded
+availability; regressed/missing/divergent history rejects. The checksum is a
+consistency check, not a grant/signature. The separate layout and independent
+728-character golden token are frozen in [ADR-015](adr/015-source-coverage-store.md).
+
+Positive matching/work-record/work-byte/response caps plus existing VM/deadline
+limits bound each page. SQL length probes precede full integrity checks of examined
+rows. Sparse pages can return empty with continuation. First work/response overflow
+returns typed limits without progress; a later response-blocked row is examined
+but unconsumed. Pages contain original receipt/optional raw bytes, avoiding repeated
+profile/scope copies. Later assessment must resolve the exact retained profile.
+No query language, timestamp cursor or source-health selection is introduced.
+
+Non-cloneable pages retain operation slots and expose borrowed records/cursor;
+holding all slots rejects another operation until a page drops. Conservative
+response charge includes potential output cursor even when terminal. Maximum
+page plus command charge is 684,544 of the existing 794,624-byte slot reserve,
+with worker scratch separate. This is per-instance ownership, not global RSS.
+Caller copies/new store instances are separate memory; post-shutdown snapshots
+hold no filesystem lease. Reads mutate no clock/sequence/retention/accounting.
+
+Independent review accepted; all 96 focused coverage and 358 workspace tests
+pass with strict Clippy/fmt and the 13-package guard. Existing structural history
+and frozen backend checkers pass unchanged; they do not execute the planned 56
+history outcomes or verify this new cursor. Twenty independent scan tests and
+two worker tests cover the golden encoding, bounded pagination/sparse pages,
+per-page grants, pruning, restored divergent witnesses, retained-page capacity,
+shutdown/restart, corruption, finite maximal-u64 fixtures and actual queued
+timeout/cancellation/saturation rejection. One writer lint correction and two
+fixture corrections resolved without changing production semantics. No actual
+fsync cancellation/VFS/power-loss or complete unread-history recertification
+is claimed; checked witnesses and examined rows are the bounded scope.
+
+Evidence: `target/source-coverage-scans-20261007/`. This isolated post-MVP library
+adds no dependency/schema/frozen-history encoding change or server/HTTP/cloud/
+source-observer integration. Existing ARM64/EKS/local-kind/remote-CI/released-
+dependency/publication gates remain open. Next: bounded CloudTrail source-receipt/
+normalization-profile design before the first S3/SQS adapter. The read-only MVP
+SecOps UI remains accepted; advanced SOC UX stays post-MVP.
 
 ## Post-MVP SourceCoverage identity-prefix pruning — 2026-10-07
 
@@ -78,8 +124,8 @@ Evidence: `target/source-coverage-identity-pruning-20261007/`. No dependency,
 schema/encoding change or server/HTTP/cloud/observer integration is added.
 Maintenance uncertainty still requires owner exit/recovery and marker reconciliation;
 repeating a call can prune another prefix. Logical reclamation does not promise
-physical erasure, file shrinkage or a strict deletion deadline. Next: bounded
-fixed-frontier scans. Existing environment/release gates remain open.
+physical erasure, file shrinkage or a strict deletion deadline. At that acceptance,
+fixed-frontier scans were next; their later acceptance is recorded above. Existing environment/release gates remain open.
 
 ## Post-MVP SourceCoverage payload-prefix pruning — 2026-10-07
 

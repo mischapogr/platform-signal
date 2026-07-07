@@ -151,8 +151,57 @@ their deleted target. New links still require available original evidence.
 
 Metrics expose durable `identity_pruned_through` and runtime successful nonempty
 `identity_prune_operations`, `identities_pruned` and `identity_metadata_bytes_pruned`.
-Runtime counters reset on restart; retained markers do not. Scans and maintenance
-scheduling remain separate tasks; no HTTP/server/source integration is added.
+Runtime counters reset on restart; retained markers do not. Maintenance
+scheduling remains a separate task; no HTTP/server/source integration is added.
+
+`scan(authority, cursor, ScanBudget, context)` reads one exact binding at a fixed
+committed frontier. Every page requires a fresh application grant; a cursor never
+grants access. The first page captures the current frontier, prefix witness and
+payload/identity markers, beginning after the identity marker. Later appends are
+excluded. Continuation checks full binding, history, frontier and consumed-prefix
+witnesses before reading or returning an empty terminal page. Any marker advance
+returns `HistoryPruned(ScanAvailability)`; regressed markers or missing/divergent
+history return `HistoryUnavailable`. This conservative rule can invalidate a page
+when reclamation elsewhere would not remove its next matching record.
+
+`ScanCursor::parse` accepts only bounded canonical lowercase hex with the separate
+version-1 scan domain, full canonical binding, frontier/last positions and prefix
+witnesses, initial retention markers and SHA-256 checksum. Maximum input token
+size is 131,584 bytes, checked before copying/decoding. The checksum is a
+consistency check, not a signature. [ADR-015](../../docs/adr/015-source-coverage-store.md)
+freezes the layout; the independent exact golden token is separate from existing
+history/backend vectors. There is no timestamp cursor or unseen-suffix health claim.
+
+`ScanBudget` independently caps matching records, conservative response bytes,
+examined records and examined bytes; VM/deadline/slot limits also apply. Fixed
+length probes check metadata/raw/binding/profile sizes before loading one bounded
+row. Its work charge is their encoded lengths plus 4,096 bytes. Every examined
+row is integrity checked under its pinned profile, including other bindings.
+Sparse pages can return no matches with continuation. The first row exceeding the
+work budget returns `ScanWorkLimit`; the first matching result exceeding response
+capacity returns `ResponseLimit`, with no returned progress. A later result that
+does not fit is examined/counts work but stays unconsumed for the next page.
+
+A page charges 4,096 bytes plus reserved output-cursor token size (even at the
+terminal page), then raw length plus 8,192 for each matching record. The response
+cap is 397,312; these are conservative local memory charges, not HTTP/JSON byte
+sizes. With the 287,232-byte command allowance, admitted page plus command uses
+at most 684,544 of the existing 794,624-byte per-slot reservation. Existing worker
+scratch remains separate. No history-sized allocation or maximum-limit-sized
+vector reservation occurs. Returned rows contain original immutable `Receipt`
+and optional raw bytes, with no repeated binding/profile definitions. Resolve the
+receipt's exact retained profile through authorized history before later SDK
+assessment; never replace it with today's catalog definition.
+
+`ScanPage` cannot be cloned. `records()`, `continuation()` and bounded marker/work
+getters borrow its contents; the page retains its operation permit until dropped.
+Holding all configured slots rejects another request with `Capacity`; copy the
+bounded cursor and drop the old page before continuing. These reservations apply
+per store instance. Caller-created copies and independently reopened instances
+have separate memory ownership. A page can remain a readable snapshot after
+shutdown, but holds no filesystem lease once the worker exits. Scans mutate no
+sequence, clock, retention marker or accounting. No server/HTTP/source observer is
+wired by this API.
 
 `OperationContext` carries cancellation and a deadline, capped at the configured
 timeout (at most 300 seconds). One ordinary worker owns SQLite; operation slots
@@ -205,8 +254,7 @@ cargo test -p signal-coverage --locked --offline
 python3 scripts/check-source-coverage-backend.py --self-test
 ```
 
-Frontier scans, observers and cloud/server
-integration require separately bounded tasks. The 56 planned history outcomes
+Observers and cloud/server integration require separately bounded tasks. The 56 planned history outcomes
 are not claimed as implemented by these primitives.
 
 
@@ -217,4 +265,14 @@ quota/restart behavior and actual queued timeout/cancellation. Actual SIGKILL
 before/after identity commit covers shared pins and final pin deletion/prune-all,
 then appends sequence 3 from the retained tail. Evidence:
 `target/source-coverage-identity-pruning-20261007/`. Independent review accepted.
-Fixed-frontier scans are next; no source health or server/cloud wiring follows.
+Subsequent fixed-frontier scan acceptance is recorded below; no source health or server/cloud wiring follows.
+
+
+Fixed-frontier scans add 22 regressions: 96 focused coverage and 358 workspace
+tests pass. Twenty independent tests include the exact golden cursor, stable
+frontier, sparse pages, limits, authorization, pruning, divergent restores,
+retained-page capacity, shutdown/restart, corruption and finite maximal-u64
+position fixtures. Two worker tests cover actual queued timeout/cancellation
+and invalid budgets under saturation. Evidence:
+`target/source-coverage-scans-20261007/`. Independent review accepted. The next
+source work is a bounded CloudTrail source-receipt/normalization-profile design.
