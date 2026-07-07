@@ -1,10 +1,9 @@
 # SourceCoverage v1 contract and transition fixtures
 
-Status: PS-01 contract/fixture subtask, 2026-10-07. These are proposed standalone
-JSON contracts, not new server endpoints, event-envelope fields or running
-observers. They formalize [failure-domain requirements](failure-domains.md)
-for the [detection catalog](source-detection-catalog.md). Runtime semantic
-validation, collection, persistence and deployment require separate acceptance.
+Status: PS-01 contract and pure validator locally accepted, 2026-10-07. These
+standalone v1 JSON contracts formalize [failure-domain requirements](failure-domains.md)
+for the [detection catalog](source-detection-catalog.md). Semantic validation and
+assessment run in the SDK; collection, persistence and deployment remain separate.
 
 ## Artifacts and offline acceptance
 
@@ -16,6 +15,12 @@ validation, collection, persistence and deployment require separate acceptance.
   profiles, 60 record cases, 39 assessment cases and seven transition sequences.
 - [Offline checker](../scripts/check-source-coverage-contract.py): structural
   keyword checks and fixture-reference consistency, using Python's standard library.
+- [Rust validator](../crates/signal-collector-sdk/src/coverage.rs) and
+  [integration tests](../crates/signal-collector-sdk/tests/coverage.rs): bounded
+  semantic validation, current/historical assessment and transition evaluation.
+- [Intake/history contract](source-coverage-history-contract.md) and
+  [history fixtures](../tests/fixtures/source-coverage/history.json): bounded
+  replay/retention/correction/recovery requirements, checked as an offline inventory.
 
 ```bash
 python3 scripts/check-source-coverage-contract.py
@@ -28,9 +33,16 @@ The checker exercises the keywords used by these owned schemas and refuses
 unknown schema keywords/remote references. It is not a general JSON Schema
 implementation or a production coverage validator. Of 60 record cases, 42 satisfy
 the structural schema and 18 intentionally fail it. Twenty-one of the structural
-accepts are expected to fail subsequent semantic validation. The 39 assessments
-and seven transition sequences are checked as a linked fixture inventory;
-their runtime outcomes are **not executed** in this subtask.
+accepts fail semantic validation. The offline checker inventories the 39
+assessments and seven sequences without executing them. Their original `planned`
+fixture markers describe design-time expectations; the Rust suite now executes
+all of them. Its 24 tests cover 60 record cases (21 valid, 21 semantic rejects,
+18 structural rejects), 39 assessments and seven pure transition sequences,
+plus focused wire/time/identity regressions. This is not durable history proof.
+
+```bash
+cargo test -p signal-collector-sdk --test coverage
+```
 
 Both schemas declare Draft 2020-12. Its `maxLength` counts Unicode code points;
 UTF-8 byte limits therefore need a separate check. The standard dialect does not
@@ -90,8 +102,13 @@ coverage. If unavailable, record continuity as unknown and retain that uncertain
 
 Record IDs bind immutable content, not a cryptographic chain. A future store
 must return an identical retry as a replay and reject the same ID with different
-content. Its retained ID/content identity and history need bounded storage and
-retention. Those persistence/fencing mechanisms are not implemented here.
+content within its declared replay/identity horizons. The
+[history contract](source-coverage-history-contract.md) makes those finite horizons
+and unavailable-retry outcomes explicit. Its retained ID/content identity and
+history need bounded storage and retention. The separate
+[`signal-coverage` library](../crates/signal-coverage/README.md) implements prepared
+append/recovery primitives; successful retry policy, pruning and distributed
+fencing remain unimplemented.
 
 ## Structural bounds and required semantic checks
 
@@ -111,7 +128,7 @@ data require an adapter's stable textual encoding; references must not embed
 credentials or presigned access tokens. Schema success does not perform these
 semantic, byte or trust checks.
 
-The next validator must implement the following rules, in this order:
+The validator implements the following rules, in this order:
 
 1. Bound/decode input; apply the structural contract and calendar/UUID/text checks.
    Resolve the exact immutable profile through trusted configuration. It always
@@ -215,16 +232,42 @@ truncation, UTF-8/wire overflow, nil ID and unresolved profile. Duplicate-ID con
 conflict, trusted transport, receiver checkpoints, bounded source cardinality,
 durable observer-gap storage and fencing need additional store/intake acceptance.
 
-## Next bounded implementation and evidence boundary
+## SDK API and accepted evidence boundary
 
-PS-01's next subtask is a pure bounded semantic validator and assessment function
-using these schemas/fixtures. Select the owned module and contract before writing
-Rust; reuse the existing envelope/SDK boundary. It must execute the semantic and
-assessment cases, including nanosecond/expiry boundaries and malformed wire input,
-with typed errors and no network calls or unbounded state. Add focused regressions
-and required Cargo gates when Rust/build inputs change.
+`signal_collector_sdk::coverage` exposes immutable `CoverageProfile`,
+`CoverageContext` and `ValidatedCoverage` types through bounded `parse` methods.
+The application resolves one exact trusted profile, supplies trusted consumer
+context and retains typed `CoverageError` details when rejecting an assertion.
+`ValidatedCoverage::assess` evaluates a previously validated immutable assertion;
+`assess_coverage(bytes, profile, context)` accepts raw candidates and returns an
+unknown assessment for rejection or unavailable profile. A missing trusted profile
+wins before malformed-input assessment. `CoverageAssessment` serializes version 1,
+status and zero/one reason. There is no fallback profile or authority inferred from
+JSON names. Profile/context inputs also have the 65,536-byte parser ceiling.
 
-An observer, durable coverage store, source adapter, server API, detection negative
+The parser uses closed [Serde structs](https://serde.rs/container-attrs.html)
+and a [custom map visitor](https://serde.rs/deserialize-map.html) to reject duplicate
+keys, including escaped scope-key aliases. Required nullable fields reject omission.
+Lexical UTC/calendar guards precede [Chrono parsing](https://docs.rs/chrono/latest/chrono/struct.DateTime.html#method.parse_from_rfc3339);
+timestamp/duration comparisons preserve nanoseconds over years 0001–9999 without
+converting epoch nanoseconds to an overflowing `i64` or rounding seconds.
+
+The module performs finite synchronous work on bounded borrowed wire input; it
+opens no files/sockets, spawns no workers and stores no history. There is no new
+dependency, event field, server endpoint, detection behavior or service process.
+Full local Linux AMD64 acceptance passed formatting, strict all-target Clippy,
+255 workspace tests and the 12-package boundary guard. Evidence and focused
+self-review are retained at `target/source-coverage-validator-20261007/`.
+
+The [bounded intake/history contract](source-coverage-history-contract.md) is now
+written with 56 planned storage cases and offline rejection guards.
+[ADR-015](adr/015-source-coverage-store.md) now records the bounded local SQLite
+library, frozen format/prefix vectors and actual process-crash, quota, corruption
+and cancellation acceptance. The complete history state machine remains
+unimplemented. Next add trusted local intake and exact-byte original-receipt replay;
+corrections, pruning and scans follow separately.
+
+An observer, complete durable coverage history, source adapter, server API, detection negative
 assessment and independent security-account reporting remain later tasks. Native
 ARM64, EKS, remote CI, released dependencies and publication remain gated by
 [release readiness](21-release-readiness.md). This contract is generic; real scopes,

@@ -17,6 +17,7 @@ ALLOWED = {
     "signal-rules": {"signal-event", "signal-findings"},
     "signal-findings": {"signal-event"},
     "signal-collector-sdk": {"signal-event", "signal-protocol"},
+    "signal-coverage": {"signal-collector-sdk"},
     "signal-server": {
         "signal-event", "signal-protocol", "signal-ingest", "signal-buffer",
         "signal-storage", "signal-query", "signal-rules", "signal-findings",

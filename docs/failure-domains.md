@@ -58,14 +58,21 @@ security policy before cloud qualification; synthetic fixture windows are not SL
 
 ## Source Coverage Record
 
-SourceCoverage is a proposed versioned, bounded public mechanism. It records
+SourceCoverage has a versioned, bounded pure SDK validator/assessment. It records
 what was verified for a declared scope/stream and interval, including gaps. It
 does not assert universal source completeness or hostile-producer correctness.
 Store records and observer self-health where loss of the observability account
 does not also erase the only failure evidence.
 
 The [formal v1 contract](source-coverage-contract.md) now defines standalone
-record/profile schemas and structural/semantic/transition fixtures. This YAML
+record/profile schemas, structural/semantic/transition fixtures and accepted pure
+evaluation. The [intake/history contract](source-coverage-history-contract.md)
+defines durable receipts, finite retry/identity horizons, bounded prefix pruning,
+corrections, uncertain commits and ownership requirements; its fixtures are offline
+expectations. [ADR-015](adr/015-source-coverage-store.md) records implemented
+prepared append/recovery primitives with process-crash and cancellation evidence.
+Collection and the complete intake/retry/pruning/scan history state machine remain
+unimplemented. This YAML
 example is an illustration of the JSON contract; it does not enable an observer.
 
 ```yaml
@@ -108,10 +115,10 @@ provenance:
   observed_at: 2026-10-07T00:05:00Z
 ```
 
-This example is an empty interval verified for the fixture's declared capture
+This example is a quiet interval verified for the fixture's declared capture
 preconditions. It does not claim source-integrity verification: an assertion
 requiring signed source proofs would remain unsupported. No production provider
-or running SourceCoverage implementation is implied by the example.
+or running SourceCoverage observer is implied by the example.
 
 ### Interval, freshness and validation semantics
 

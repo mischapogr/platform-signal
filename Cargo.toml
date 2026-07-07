@@ -10,6 +10,7 @@ members = [
     "crates/signal-rules",
     "crates/signal-findings",
     "crates/signal-collector-sdk",
+    "crates/signal-coverage",
     "apps/signal-server",
     "apps/signal-agent",
     "apps/signalctl",
@@ -54,6 +55,8 @@ tower = { version = "0.5", features = ["util"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "json", "registry"] }
 uuid = { version = "1", features = ["v4", "v5", "serde"] }
+rusqlite = { version = "=0.40.2", default-features = false, features = ["bundled", "limits", "hooks"] }
+sha2 = "=0.11.0"
 signal-event = { path = "crates/signal-event" }
 signal-protocol = { path = "crates/signal-protocol" }
 signal-ingest = { path = "crates/signal-ingest" }
@@ -63,6 +66,7 @@ signal-query = { path = "crates/signal-query" }
 signal-rules = { path = "crates/signal-rules" }
 signal-findings = { path = "crates/signal-findings" }
 signal-collector-sdk = { path = "crates/signal-collector-sdk" }
+signal-coverage = { path = "crates/signal-coverage" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

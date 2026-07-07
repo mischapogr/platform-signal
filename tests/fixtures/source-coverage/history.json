@@ -1,0 +1,1449 @@
+{
+  "schema_version": 1,
+  "status": "proposed-contract",
+  "contract_id": "source-coverage-history-v1",
+  "limits": {
+    "max_fixture_bytes": 4194304,
+    "max_record_bytes": 65536,
+    "max_binding_metadata_bytes": 65536,
+    "max_receipt_metadata_bytes": 4096,
+    "max_entry_bytes": 397312,
+    "max_retained_payloads": 4,
+    "max_retained_identities": 8,
+    "max_binding_keys": 2,
+    "max_ledger_bytes": 2097152,
+    "max_transient_bytes": 2097152,
+    "max_page_records": 2,
+    "max_page_bytes": 139264,
+    "max_scan_records": 4,
+    "max_scan_bytes": 794624,
+    "max_inflight_operations": 2,
+    "payload_retention_seconds": 300,
+    "identity_retention_seconds": 600,
+    "max_report_admission_age_seconds": 60,
+    "max_clock_skew_seconds": 2,
+    "operation_timeout_millis": 1000
+  },
+  "requirements": [
+    {
+      "id": "H01",
+      "name": "Trusted observer and exact binding"
+    },
+    {
+      "id": "H02",
+      "name": "Immutable raw content and replay identity"
+    },
+    {
+      "id": "H03",
+      "name": "Pinned profile and semantic validation"
+    },
+    {
+      "id": "H04",
+      "name": "Durable acknowledgement and uncertain outcomes"
+    },
+    {
+      "id": "H05",
+      "name": "Stable append order and overflow"
+    },
+    {
+      "id": "H06",
+      "name": "Finite quotas and accounting"
+    },
+    {
+      "id": "H07",
+      "name": "Retention and receiver clock"
+    },
+    {
+      "id": "H08",
+      "name": "Append-only correction links"
+    },
+    {
+      "id": "H09",
+      "name": "Bounded reads and sparse continuation"
+    },
+    {
+      "id": "H10",
+      "name": "Explicit pruning and unavailable evidence"
+    },
+    {
+      "id": "H11",
+      "name": "Recovery and corruption"
+    },
+    {
+      "id": "H12",
+      "name": "Restore prefix identity"
+    },
+    {
+      "id": "H13",
+      "name": "Single-writer ownership and fencing"
+    },
+    {
+      "id": "H14",
+      "name": "Current assessment separate from receipt"
+    },
+    {
+      "id": "H15",
+      "name": "Receiver rejection and independent health"
+    },
+    {
+      "id": "H16",
+      "name": "Scope limits and finite identity guarantees"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "quiet",
+      "record_fixture": "quiet_verified",
+      "encoding": "compact",
+      "edits": {},
+      "expected_structure": true
+    },
+    {
+      "id": "quiet_pretty",
+      "record_fixture": "quiet_verified",
+      "encoding": "pretty",
+      "edits": {},
+      "expected_structure": true
+    },
+    {
+      "id": "quiet_spaced",
+      "record_fixture": "quiet_verified",
+      "encoding": "trailing_space",
+      "edits": {},
+      "expected_structure": true
+    },
+    {
+      "id": "changed_same_id",
+      "record_fixture": "active_verified",
+      "encoding": "compact",
+      "edits": {
+        "/record_id": "bcc77d04-395d-5803-b313-e58ac0c8acbe"
+      },
+      "expected_structure": true
+    },
+    {
+      "id": "failed",
+      "record_fixture": "source_gap",
+      "encoding": "compact",
+      "edits": {},
+      "expected_structure": true
+    },
+    {
+      "id": "unsupported",
+      "record_fixture": "required_proof_unsupported",
+      "encoding": "compact",
+      "edits": {},
+      "expected_structure": true
+    },
+    {
+      "id": "partial",
+      "record_fixture": "partial_scope",
+      "encoding": "compact",
+      "edits": {},
+      "expected_structure": true
+    },
+    {
+      "id": "unknown",
+      "record_fixture": "unknown_configuration",
+      "encoding": "compact",
+      "edits": {},
+      "expected_structure": true
+    },
+    {
+      "id": "expired_report",
+      "record_fixture": "telemetry_after_expiry",
+      "encoding": "compact",
+      "edits": {},
+      "expected_structure": true
+    },
+    {
+      "id": "invalid",
+      "record_fixture": "empty_interval",
+      "encoding": "compact",
+      "edits": {},
+      "expected_structure": true
+    },
+    {
+      "id": "new_config",
+      "record_fixture": "new_config_verified",
+      "encoding": "compact",
+      "edits": {},
+      "expected_structure": true
+    },
+    {
+      "id": "backfill",
+      "record_fixture": "recovered_new_interval",
+      "encoding": "compact",
+      "edits": {
+        "/coverage_start": "2026-10-07T00:05:00Z",
+        "/coverage_end": "2026-10-07T00:06:00Z"
+      },
+      "expected_structure": true
+    }
+  ],
+  "receipt_example": {
+    "candidate": "quiet",
+    "receipt": {
+      "schema_version": 1,
+      "history_id": "11111111-1111-4111-8111-111111111111",
+      "sequence": "1",
+      "record_id": "bcc77d04-395d-5803-b313-e58ac0c8acbe",
+      "content_sha256": "9464466f1aeb6f8742dfbbcdb2fe135c729229965f1b7f385a332101c8620a82",
+      "prefix_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "accepted_at": "2026-10-07T00:05:30Z",
+      "replay_until": "2026-10-07T00:10:30Z",
+      "identity_until": "2026-10-07T00:15:30Z",
+      "profile_fingerprint": "e130659bbd96f1632056ac0d8e7c12956baff4895101841b894e466faaf9a55f",
+      "authority_revision": "fixture-authority-v1",
+      "correction_of": null
+    },
+    "prefix_digest_status": "placeholder-not-a-golden-vector"
+  },
+  "cases": [
+    {
+      "id": "first_durable_submit",
+      "kind": "submit",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H01",
+        "H03",
+        "H04",
+        "H05"
+      ],
+      "preconditions": [
+        "Empty healthy store; authorized exact binding; commit and sync succeed"
+      ],
+      "expected": {
+        "outcome": "committed",
+        "sequence_effect": "one",
+        "history_effect": "append",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "identical_retry",
+      "kind": "retry",
+      "candidates": [
+        "quiet",
+        "quiet"
+      ],
+      "requirements": [
+        "H02",
+        "H04",
+        "H05",
+        "H07",
+        "H14"
+      ],
+      "preconditions": [
+        "First quiet receipt is retained; same raw bytes/link; at before replay_until"
+      ],
+      "expected": {
+        "outcome": "replayed",
+        "sequence_effect": "original",
+        "history_effect": "unchanged",
+        "health_effect": "no_renewal",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "pretty_json_conflict",
+      "kind": "submit",
+      "candidates": [
+        "quiet",
+        "quiet_pretty"
+      ],
+      "requirements": [
+        "H02"
+      ],
+      "preconditions": [
+        "Quiet ID exists; pretty bytes differ despite identical decoded record"
+      ],
+      "expected": {
+        "outcome": "id_content_conflict",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "trailing_whitespace_conflict",
+      "kind": "submit",
+      "candidates": [
+        "quiet",
+        "quiet_spaced"
+      ],
+      "requirements": [
+        "H02"
+      ],
+      "preconditions": [
+        "Quiet ID exists; one supplied trailing space changes raw content"
+      ],
+      "expected": {
+        "outcome": "id_content_conflict",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "changed_content_same_id",
+      "kind": "submit",
+      "candidates": [
+        "quiet",
+        "changed_same_id"
+      ],
+      "requirements": [
+        "H02"
+      ],
+      "preconditions": [
+        "Quiet ID exists; a changed observation reuses its UUID"
+      ],
+      "expected": {
+        "outcome": "id_content_conflict",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "changed_correction_link_conflict",
+      "kind": "retry",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H02",
+        "H08"
+      ],
+      "preconditions": [
+        "Same ID/raw bytes but correction_of differs from original immutable submission"
+      ],
+      "expected": {
+        "outcome": "id_content_conflict",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "unauthorized_submit",
+      "kind": "submit",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H01",
+        "H15"
+      ],
+      "preconditions": [
+        "Caller is not authorized for the declared observer/binding"
+      ],
+      "expected": {
+        "outcome": "not_authorized",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "unauthorized_known_id",
+      "kind": "get",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H01"
+      ],
+      "preconditions": [
+        "Known ID belongs to another authorized scope; caller must see no payload/receipt"
+      ],
+      "expected": {
+        "outcome": "not_authorized",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "binding_spoof",
+      "kind": "submit",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H01",
+        "H15"
+      ],
+      "preconditions": [
+        "Authenticated observer is not authorized for the record binding"
+      ],
+      "expected": {
+        "outcome": "binding_mismatch",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "invalid_new_report",
+      "kind": "submit",
+      "candidates": [
+        "invalid"
+      ],
+      "requirements": [
+        "H03",
+        "H15"
+      ],
+      "preconditions": [
+        "Authorized new candidate fails existing semantic validation"
+      ],
+      "expected": {
+        "outcome": "invalid_record",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "profile_unavailable_new",
+      "kind": "submit",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H03",
+        "H15"
+      ],
+      "preconditions": [
+        "Candidate is new; exact profile revision cannot be resolved"
+      ],
+      "expected": {
+        "outcome": "profile_unavailable",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "retired_profile_exact_retry",
+      "kind": "retry",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H02",
+        "H03",
+        "H14"
+      ],
+      "preconditions": [
+        "Original profile is retired; original payload retained before deadline; current retry authorization holds"
+      ],
+      "expected": {
+        "outcome": "replayed",
+        "sequence_effect": "original",
+        "history_effect": "unchanged",
+        "health_effect": "no_renewal",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "expired_verification_fresh_report",
+      "kind": "submit",
+      "candidates": [
+        "expired_report"
+      ],
+      "requirements": [
+        "H03",
+        "H07",
+        "H14"
+      ],
+      "preconditions": [
+        "Receiver at 00:06:20; report assembled 00:06:10; valid_until 00:06:00; admission age allowed"
+      ],
+      "expected": {
+        "outcome": "committed",
+        "sequence_effect": "one",
+        "history_effect": "append",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "future_report",
+      "kind": "submit",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H03",
+        "H15"
+      ],
+      "preconditions": [
+        "Report/verification is later than receiver time plus configured skew"
+      ],
+      "expected": {
+        "outcome": "record_in_future",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "stale_unknown_submission",
+      "kind": "submit",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H07",
+        "H16"
+      ],
+      "preconditions": [
+        "Bare ID is absent; report admission age exceeds the finite bound"
+      ],
+      "expected": {
+        "outcome": "report_too_old",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "retain_failed",
+      "kind": "submit",
+      "candidates": [
+        "failed"
+      ],
+      "requirements": [
+        "H03",
+        "H14"
+      ],
+      "preconditions": [
+        "Authorized semantically valid observation; do not retain only verified reports"
+      ],
+      "expected": {
+        "outcome": "committed",
+        "sequence_effect": "one",
+        "history_effect": "append",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "retain_unknown",
+      "kind": "submit",
+      "candidates": [
+        "unknown"
+      ],
+      "requirements": [
+        "H03",
+        "H14"
+      ],
+      "preconditions": [
+        "Authorized semantically valid observation; do not retain only verified reports"
+      ],
+      "expected": {
+        "outcome": "committed",
+        "sequence_effect": "one",
+        "history_effect": "append",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "retain_partial",
+      "kind": "submit",
+      "candidates": [
+        "partial"
+      ],
+      "requirements": [
+        "H03",
+        "H14"
+      ],
+      "preconditions": [
+        "Authorized semantically valid observation; do not retain only verified reports"
+      ],
+      "expected": {
+        "outcome": "committed",
+        "sequence_effect": "one",
+        "history_effect": "append",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "retain_unsupported",
+      "kind": "submit",
+      "candidates": [
+        "unsupported"
+      ],
+      "requirements": [
+        "H03",
+        "H14"
+      ],
+      "preconditions": [
+        "Authorized semantically valid observation; do not retain only verified reports"
+      ],
+      "expected": {
+        "outcome": "committed",
+        "sequence_effect": "one",
+        "history_effect": "append",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "payload_count_full",
+      "kind": "submit",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H06",
+        "H15"
+      ],
+      "preconditions": [
+        "Unexpired payload count is at capacity; no eligible reclamation can free capacity"
+      ],
+      "expected": {
+        "outcome": "quota_rejected",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "identity_count_full",
+      "kind": "submit",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H06",
+        "H15"
+      ],
+      "preconditions": [
+        "Retained payload/tombstone identity count is at capacity; no eligible reclamation can free capacity"
+      ],
+      "expected": {
+        "outcome": "quota_rejected",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "binding_registry_full",
+      "kind": "submit",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H06",
+        "H15"
+      ],
+      "preconditions": [
+        "New configuration revision would create a key beyond the registry cap; no eligible reclamation can free capacity"
+      ],
+      "expected": {
+        "outcome": "quota_rejected",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "ledger_bytes_full",
+      "kind": "submit",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H06",
+        "H15"
+      ],
+      "preconditions": [
+        "Raw bytes and immutable metadata exceed available ledger reservation; no eligible reclamation can free capacity"
+      ],
+      "expected": {
+        "outcome": "quota_rejected",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "transient_bytes_full",
+      "kind": "submit",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H06",
+        "H15"
+      ],
+      "preconditions": [
+        "Pending write/compaction bytes exceed reserved transient budget; no eligible reclamation can free capacity"
+      ],
+      "expected": {
+        "outcome": "quota_rejected",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "operation_slots_full",
+      "kind": "submit",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H06",
+        "H15"
+      ],
+      "preconditions": [
+        "Bounded operation slots are occupied; no eligible reclamation can free capacity"
+      ],
+      "expected": {
+        "outcome": "quota_rejected",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "replay_while_new_capacity_full",
+      "kind": "retry",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H02",
+        "H06"
+      ],
+      "preconditions": [
+        "Payload is readable before deadline; new-write caps full; replay operation slot is available"
+      ],
+      "expected": {
+        "outcome": "replayed",
+        "sequence_effect": "original",
+        "history_effect": "unchanged",
+        "health_effect": "no_renewal",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "replay_at_deadline",
+      "kind": "retry",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H02",
+        "H07",
+        "H10"
+      ],
+      "preconditions": [
+        "At equals original replay_until; metadata may still be physically present"
+      ],
+      "expected": {
+        "outcome": "replay_window_expired",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_renewal",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "identity_pruned_old_receipt",
+      "kind": "retry",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H07",
+        "H10",
+        "H16"
+      ],
+      "preconditions": [
+        "Receipt sequence is at/below durable identity pruning marker"
+      ],
+      "expected": {
+        "outcome": "identity_pruned",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_renewal",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "eligible_prefix_prune",
+      "kind": "prune",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H06",
+        "H07",
+        "H10"
+      ],
+      "preconditions": [
+        "Expired oldest prefix; marker/anchor transaction is durable before availability changes"
+      ],
+      "expected": {
+        "outcome": "pruned",
+        "sequence_effect": "boundary",
+        "history_effect": "prune_eligible_prefix",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "unexpired_prefix_blocks_prune",
+      "kind": "prune",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H06",
+        "H07"
+      ],
+      "preconditions": [
+        "Oldest entry is not eligible; later entries must not be deleted around it"
+      ],
+      "expected": {
+        "outcome": "prune_blocked",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "clock_regression",
+      "kind": "submit",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H07",
+        "H15"
+      ],
+      "preconditions": [
+        "Receiver clock is earlier than durable admission/retention floor"
+      ],
+      "expected": {
+        "outcome": "clock_regression",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "backfill_append",
+      "kind": "submit",
+      "candidates": [
+        "failed",
+        "backfill"
+      ],
+      "requirements": [
+        "H08",
+        "H14"
+      ],
+      "preconditions": [
+        "Failed target retained; new correction ID; same binding; overlapping interval; later verification"
+      ],
+      "expected": {
+        "outcome": "committed",
+        "sequence_effect": "one",
+        "history_effect": "append",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "correction_target_pruned",
+      "kind": "submit",
+      "candidates": [
+        "backfill"
+      ],
+      "requirements": [
+        "H08",
+        "H10"
+      ],
+      "preconditions": [
+        "Referenced target original payload is unavailable; do not silently drop the link"
+      ],
+      "expected": {
+        "outcome": "correction_target_unavailable",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "correction_wrong_binding",
+      "kind": "submit",
+      "candidates": [
+        "failed",
+        "new_config"
+      ],
+      "requirements": [
+        "H01",
+        "H08"
+      ],
+      "preconditions": [
+        "Correction changes configuration revision instead of preserving the target binding"
+      ],
+      "expected": {
+        "outcome": "correction_binding_mismatch",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "no_latest_health_from_append",
+      "kind": "supervision",
+      "candidates": [
+        "quiet",
+        "failed"
+      ],
+      "requirements": [
+        "H14"
+      ],
+      "preconditions": [
+        "Append order is not a current-health selection policy; select explicit assertion/context"
+      ],
+      "expected": {
+        "outcome": "no_health_aggregation",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "sparse_empty_page_continues",
+      "kind": "scan",
+      "candidates": [],
+      "requirements": [
+        "H09"
+      ],
+      "preconditions": [
+        "Scan-work cap reached after only other bindings; frontier still ahead"
+      ],
+      "expected": {
+        "outcome": "page_continuation",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "page_pruned_between_reads",
+      "kind": "scan",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H09",
+        "H10"
+      ],
+      "preconditions": [
+        "Payload prefix moves beyond a validated continuation boundary"
+      ],
+      "expected": {
+        "outcome": "history_pruned",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "first_row_exceeds_response_budget",
+      "kind": "scan",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H09"
+      ],
+      "preconditions": [
+        "Configured row/transport size cannot fit first result; cursor remains unchanged"
+      ],
+      "expected": {
+        "outcome": "response_limit",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "pruned_evidence_is_indeterminate",
+      "kind": "get",
+      "candidates": [
+        "failed"
+      ],
+      "requirements": [
+        "H10",
+        "H14"
+      ],
+      "preconditions": [
+        "Target original evidence is unavailable; cannot return no_match/verified from absence"
+      ],
+      "expected": {
+        "outcome": "record_unavailable",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "late_interval_append_order",
+      "kind": "scan",
+      "candidates": [
+        "quiet",
+        "expired_report"
+      ],
+      "requirements": [
+        "H05",
+        "H09",
+        "H14"
+      ],
+      "preconditions": [
+        "Late interval appends at a later sequence; scans use commit order, not coverage timestamp"
+      ],
+      "expected": {
+        "outcome": "history_page",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "precommit_cancellation",
+      "kind": "recovery",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H04",
+        "H06",
+        "H11"
+      ],
+      "preconditions": [
+        "Cancellation occurs before any durable transaction starts"
+      ],
+      "expected": {
+        "outcome": "not_committed",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "sync_uncertainty",
+      "kind": "recovery",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H04",
+        "H11",
+        "H15"
+      ],
+      "preconditions": [
+        "Write/sync result is uncertain; no rollback or success receipt may be invented"
+      ],
+      "expected": {
+        "outcome": "outcome_unknown",
+        "sequence_effect": "uncertain",
+        "history_effect": "may_commit",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "synced_response_lost",
+      "kind": "recovery",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H02",
+        "H04",
+        "H11"
+      ],
+      "preconditions": [
+        "Commit synced; response lost; recovery retains one transaction; exact retry within deadline"
+      ],
+      "expected": {
+        "outcome": "replayed",
+        "sequence_effect": "original",
+        "history_effect": "unchanged",
+        "health_effect": "no_renewal",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "incomplete_final_tail",
+      "kind": "recovery",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H04",
+        "H11"
+      ],
+      "preconditions": [
+        "Unacknowledged incomplete final transaction follows complete acknowledged prefix"
+      ],
+      "expected": {
+        "outcome": "complete_prefix_recovered",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "interior_corruption",
+      "kind": "recovery",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H11",
+        "H15"
+      ],
+      "preconditions": [
+        "Complete interior transaction or prefix/index anchor is corrupt"
+      ],
+      "expected": {
+        "outcome": "readiness_failed",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "crash_during_prune",
+      "kind": "recovery",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H07",
+        "H10",
+        "H11"
+      ],
+      "preconditions": [
+        "Marker/deletion operation interrupted; recovery must expose a consistent prefix and count survivors"
+      ],
+      "expected": {
+        "outcome": "consistent_pruned_prefix",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "identical_restart_or_relocation",
+      "kind": "recovery",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H05",
+        "H11",
+        "H12"
+      ],
+      "preconditions": [
+        "Byte-identical offline history moves path; IDs/sequences/receipts preserved"
+      ],
+      "expected": {
+        "outcome": "same_history",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "restore_missing_position",
+      "kind": "retry",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H12",
+        "H16"
+      ],
+      "preconditions": [
+        "Old receipt position is above restored committed frontier"
+      ],
+      "expected": {
+        "outcome": "history_unavailable",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "restore_divergent_prefix",
+      "kind": "retry",
+      "candidates": [
+        "quiet",
+        "failed"
+      ],
+      "requirements": [
+        "H12"
+      ],
+      "preconditions": [
+        "Restore then replace consumed content at same history ID/position; prefix witness differs"
+      ],
+      "expected": {
+        "outcome": "prefix_mismatch",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "unseen_suffix_restore_limit",
+      "kind": "recovery",
+      "candidates": [],
+      "requirements": [
+        "H12",
+        "H16"
+      ],
+      "preconditions": [
+        "Caller observed only unchanged prefix; unseen suffix preservation cannot be proven"
+      ],
+      "expected": {
+        "outcome": "independent_reconciliation_required",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "writer_ownership_lost",
+      "kind": "submit",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H13",
+        "H15"
+      ],
+      "preconditions": [
+        "Exclusive ownership is lost before durable mutation; new commit may not proceed"
+      ],
+      "expected": {
+        "outcome": "ownership_lost",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "two_writable_clones_unsupported",
+      "kind": "recovery",
+      "candidates": [],
+      "requirements": [
+        "H13",
+        "H16"
+      ],
+      "preconditions": [
+        "Two writable clones share history UUID; digests/UUIDs cannot fence them"
+      ],
+      "expected": {
+        "outcome": "unsupported_ownership",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "sequence_overflow",
+      "kind": "submit",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H05"
+      ],
+      "preconditions": [
+        "Next sequence would exceed unsigned 64-bit range"
+      ],
+      "expected": {
+        "outcome": "sequence_exhausted",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "no_claim",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "ownership_lost_during_commit",
+      "kind": "recovery",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H04",
+        "H13",
+        "H15"
+      ],
+      "preconditions": [
+        "Ownership changes while commit is already in flight; caller cannot assume rollback"
+      ],
+      "expected": {
+        "outcome": "outcome_unknown",
+        "sequence_effect": "uncertain",
+        "history_effect": "may_commit",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "cancelled_commit_retains_operation_slot",
+      "kind": "submit",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H04",
+        "H06",
+        "H15"
+      ],
+      "preconditions": [
+        "Earlier cancelled write still performs physical I/O; its reservation/slot remains held until settled or store failure"
+      ],
+      "expected": {
+        "outcome": "quota_rejected",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    },
+    {
+      "id": "profile_definition_changes_without_revision",
+      "kind": "submit",
+      "candidates": [
+        "quiet"
+      ],
+      "requirements": [
+        "H03",
+        "H06",
+        "H14"
+      ],
+      "preconditions": [
+        "Retained profile ID/revision has a pinned fingerprint; trusted resolver supplies changed definition bytes under that same revision"
+      ],
+      "expected": {
+        "outcome": "profile_revision_conflict",
+        "sequence_effect": "none",
+        "history_effect": "unchanged",
+        "health_effect": "external_unknown",
+        "reason_codes": []
+      },
+      "runtime_status": "planned"
+    }
+  ]
+}
