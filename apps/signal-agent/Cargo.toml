@@ -1,0 +1,30 @@
+[package]
+name = "signal-agent"
+description = "Edge stdin and file collector with bounded durable spool."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+chrono.workspace = true
+crc32fast.workspace = true
+libc.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+uuid.workspace = true
+url.workspace = true
+signal-event.workspace = true
+signal-protocol.workspace = true
+signal-collector-sdk.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

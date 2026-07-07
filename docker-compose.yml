@@ -1,0 +1,31 @@
+services:
+  signal:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+    image: platform-signal:local
+    init: true
+    read_only: true
+    user: "65532:65532"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports:
+      - "127.0.0.1:${SIGNAL_HTTP_PORT:-8080}:8080"
+      - "127.0.0.1:${SIGNAL_METRICS_PORT:-9090}:9090"
+    environment:
+      - SIGNAL_CONFIG=/etc/signal/server.yaml
+      - SIGNAL_API_TOKEN
+    volumes:
+      - signal-data:/var/lib/signal
+      - ./deploy/compose/server.yaml:/etc/signal/server.yaml:ro
+      - ./rules/examples:/etc/signal/rules:ro
+    tmpfs:
+      - /tmp:size=16777216,mode=1777
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  signal-data:

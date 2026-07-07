@@ -1,0 +1,15 @@
+apiVersion: signal.dev/v1
+kind: Rule
+metadata:
+  id: auth.login-failure
+  name: Failed login example
+spec:
+  severity: medium
+  match:
+    all:
+      - field: source.type
+        eq: application
+      - field: message
+        contains: "login failed"
+  finding:
+    title: Failed login detected

@@ -1,0 +1,62 @@
+replicaCount: 1
+image:
+  repository: platform-signal
+  tag: "0.1.0-dev.0"
+  digest: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+service:
+  port: 8080
+  metricsPort: 9090
+persistence:
+  existingClaim: ""
+  size: 10Gi
+  storageClass: ""
+auth:
+  existingSecret: ""
+  key: api-token
+rules:
+  existingConfigMap: ""
+  keys: []
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "2"
+    memory: 2Gi
+terminationGracePeriodSeconds: 30
+probes:
+  startup:
+    periodSeconds: 2
+    failureThreshold: 60
+  readiness:
+    periodSeconds: 5
+    failureThreshold: 3
+  liveness:
+    periodSeconds: 10
+    failureThreshold: 3
+pdb:
+  enabled: false
+  maxUnavailable: 1
+serviceMonitor:
+  enabled: false
+  labels: {}
+  interval: 30s
+  scrapeTimeout: 10s
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+# Filesystem paths and listeners are chart-owned. All numeric limits below are bounded.
+limits:
+  memoryEvents: 10000
+  memoryBytes: 67108864
+  walBytes: 268435456
+  storageBytes: 1073741824
+  findingsBytes: 268435456
+  queryMemoryBytes: 268435456
+  queryConcurrency: 4
+  requestBytes: 1048576
+  batchEvents: 1000
