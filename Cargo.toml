@@ -40,6 +40,7 @@ futures-core = "0.3"
 axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "serde"] }
 crc32fast = "1.5"
+flate2 = { version = "=1.1.10", default-features = false, features = ["zlib-rs"] }
 tempfile = "3"
 hyper = { version = "1", features = ["http1", "server"] }
 hyper-util = { version = "0.1", features = ["tokio", "service"] }

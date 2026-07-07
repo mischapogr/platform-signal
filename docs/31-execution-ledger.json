@@ -155,7 +155,7 @@
     {
       "id": "OBJECT-READER",
       "title": "Bounded CloudTrail gzip object reader/preparation",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "RECEIPT-RECOVERY"
       ],
@@ -168,6 +168,21 @@
       ],
       "references": [
         "docs/29-cloudtrail-source-receipt.md"
+      ],
+      "notes": "Bounded gzip reader/span validation accepted with 454 workspace tests and independent review; pinned whole-object receipt encoding/quarantine remains runnable.",
+      "substeps": [
+        {
+          "id": "gzip-native-reader",
+          "status": "passed_local",
+          "evidence": [
+            "target/goal-execution-20261007/OBJECT-READER/reader-validation.json",
+            "target/goal-execution-20261007/OBJECT-READER/reader-independent-review.json"
+          ]
+        },
+        {
+          "id": "receipt-preparation",
+          "status": "pending"
+        }
       ]
     },
     {

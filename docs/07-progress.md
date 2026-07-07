@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 447, including 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+workspace gate has 454, including seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,29 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Bounded gzip/native-object reader — 2026-10-07
+
+The OBJECT-READER reader substep is accepted locally. `read_object` validates one
+8 MiB-bounded gzip member, CRC/ISIZE, no trailing input and at most 32 MiB decoded
+bytes. It stores exact native spans, validates every record before exposing a
+result, bounds count/record/depth/nodes, and avoids a full-object DOM. Context checks
+surround decompression/record parsing. Total depth 16 includes the two envelope
+levels. It reuses the lockfile's existing flate2 1.1.10/zlib-rs versions through a
+new direct SDK edge; no external package version changed.
+
+Seven tests cover all 41 native fixture records, exact span/hash/escaped text,
+invalid/truncated/CRC/trailing/concatenated gzip, malformed later records, duplicate
+keys and foreign envelopes, count/depth/nodes/record-byte boundaries, capture/
+decoded-bomb caps, cancellation/deadline and the exact 32 MiB decoded ceiling.
+Independent read-only review accepts the reader with no blocker/high. Formatting,
+strict workspace Clippy, locked/offline workspace tests and the 13-package guard
+pass: 454 tests, zero failures. Evidence: `target/goal-execution-20261007/OBJECT-READER/reader-validation.json`.
+
+This is bounded parsing proof. Receipt encoding/quarantine, source capture proof,
+credentials, ACK and transport are separate. Continue immediately with pinned
+whole-object receipt preparation; OBJECT-READER remains in_progress in the ledger.
+Earlier images/candidates retain their source/dependency bindings.
 
 ## Receipt retirement/reclamation and explicit slot replacement — 2026-10-07
 

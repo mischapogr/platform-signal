@@ -40,7 +40,8 @@ now has pure Rust normalizer/profile evidence and an
 source-review acceptance. Owner handover/checkpoint-gated opening now have 422-test
 acceptance. SOURCE-ACK control has 436-test workspace and independent review
 acceptance. Retirement/reclamation and slot replacement now have 447-test
-workspace and independent review acceptance. Next is bounded object preparation;
+workspace and independent review acceptance. The bounded gzip/native reader has 454-test acceptance; pinned
+whole-object receipt encoding is next;
 existing unavailable environment/release gates remain open. Keep
 one writer per coherent owned path set, independent focused review and a settled
 evidence pass. Do not overlap writers or treat permission to delegate as authority
