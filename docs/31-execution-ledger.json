@@ -129,7 +129,7 @@
     {
       "id": "SOURCE-ACK",
       "title": "Source acknowledgement and selected custody seam",
-      "status": "pending",
+      "status": "passed_local",
       "dependencies": [
         "RECEIPT-PROGRESS"
       ],
@@ -138,13 +138,14 @@
         "Explicit process-only vs independently verified custody; quarantine and revoked-grant denials."
       ],
       "evidence": [
-        "target/goal-execution-20261007/SOURCE-ACK/"
+        "target/goal-execution-20261007/SOURCE-ACK/validation.json",
+        "target/goal-execution-20261007/SOURCE-ACK/independent-review.json"
       ],
       "references": [
         "docs/29-cloudtrail-source-receipt.md",
         "docs/30-source-receipt-contract.md"
       ],
-      "notes": "Requires the owner-handover/reconciled-open substeps of RECEIPT-RECOVERY, already implemented and undergoing acceptance. Implement ACK control before final retirement: the frozen reclaim guard requires confirmed ACK."
+      "notes": "Explicit process-local ACK intent/result/uncertain mechanism accepted with 436 workspace tests and independent source review. No handle persistence, networking, stronger custody or quarantine ACK. Adapter authentication/freshness and independent checkpoint continuity remain trusted application duties."
     },
     {
       "id": "OBJECT-READER",

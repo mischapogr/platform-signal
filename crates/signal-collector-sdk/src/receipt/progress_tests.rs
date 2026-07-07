@@ -1,5 +1,5 @@
 use super::*;
-fn response(r: &ReceiptReplay, count: usize, accepted: usize) -> TestResultBody {
+pub(super) fn response(r: &ReceiptReplay, count: usize, accepted: usize) -> TestResultBody {
     let ids = (0..accepted)
         .map(|i| {
             let e: signal_event::SignalEvent =

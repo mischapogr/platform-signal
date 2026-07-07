@@ -324,7 +324,7 @@ async fn interrupted_material_counts_against_root_quota() -> TestResult {
     Ok(())
 }
 #[tokio::test]
-async fn unknown_entries_and_unsupported_ack_progress_are_not_adopted() -> TestResult {
+async fn unknown_entries_and_quarantined_ack_progress_are_not_adopted() -> TestResult {
     let d = root()?;
     fs::write(d.path().join("foreign"), b"keep")?;
     assert!(
@@ -351,7 +351,7 @@ async fn unknown_entries_and_unsupported_ack_progress_are_not_adopted() -> TestR
     )?;
     assert!(matches!(
         ReceiptStore::open(config(&d)?, owner(), 1, ctx()).await,
-        Err(ReceiptError::UnsupportedProgress)
+        Err(ReceiptError::Ack)
     ));
     Ok(())
 }
@@ -696,3 +696,6 @@ mod progress_tests;
 
 #[path = "handover_tests.rs"]
 mod handover_tests;
+
+#[path = "ack_tests.rs"]
+mod ack_tests;

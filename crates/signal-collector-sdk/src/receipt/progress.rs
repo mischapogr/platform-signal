@@ -119,12 +119,10 @@ pub(super) fn decode(
     {
         return Err(ReceiptError::Owner);
     }
-    if value["custody"]["status"] != "local_only"
-        || value["ack"]["state"] != "not_requested"
-        || value["retirement"]["state"] != "active"
-    {
+    if value["custody"]["status"] != "local_only" || value["retirement"]["state"] != "active" {
         return Err(ReceiptError::UnsupportedProgress);
     }
+    ack::validate(&value, r)?;
     let revision = number(&value["revision"])?;
     if revision == 0 {
         format::verify_initial(&bytes, r, owner, generation)?;
@@ -139,16 +137,25 @@ pub(super) fn decode(
     let start = number(&attempt["start"])?;
     let count = number(&attempt["count"])?;
     let accepted = number(&attempt["accepted"])?;
-    let handover = attempt["kind"] == "none";
-    if handover {
-        if generation <= 1
+    let none = attempt["kind"] == "none";
+    if revision == 1
+        && value["ack"]["state"] != "not_requested"
+        && (value["ack"]["state"] != "intent" || !none || prefix != 0)
+    {
+        return Err(invalid("first ACK transition"));
+    }
+    // ACK-only mutations also clear the admission attempt. Only a handover with
+    // no ACK has the generation/predecessor exception used below.
+    let handover = none && value["ack"]["state"] == "not_requested";
+    if none {
+        if (handover && generation <= 1)
             || start != 0
             || count != 0
             || accepted != 0
             || !attempt["response_sha256"].is_null()
             || (revision == 1 && prefix != 0)
         {
-            return Err(invalid("handover attempt"));
+            return Err(invalid("empty admission attempt"));
         }
     } else {
         if count == 0
@@ -170,7 +177,7 @@ pub(super) fn decode(
     }
     // Compare every immutable and unsupported control field, including unknown
     // keys, against the complete initial pin set. This slice changes only these
-    // five fields; custody/ACK/retirement remain local/not-requested/active.
+    // fields; custody/retirement remain local/active and ACK has its frozen shape.
     let initial = format::initial(r, owner, generation)?;
     if revision == 1
         && !handover
@@ -186,7 +193,13 @@ pub(super) fn decode(
         16,
         65536,
     )?;
-    for key in ["revision", "previous_sha256", "verified_prefix", "attempt"] {
+    for key in [
+        "revision",
+        "previous_sha256",
+        "verified_prefix",
+        "attempt",
+        "ack",
+    ] {
         expected[key] = value[key].clone();
     }
     expected["prefix_sha256"] = Value::String(format::hex(&prefix_hash(r, prefix as usize)?));
