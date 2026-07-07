@@ -62,8 +62,12 @@ pub enum CoverageError {
     HistoryUnavailable,
     #[error("coverage supplied receipt differs from the committed receipt")]
     ReceiptMismatch,
-    #[error("coverage correction admission is not implemented")]
-    CorrectionUnsupported,
+    #[error("coverage correction target original evidence is unavailable")]
+    CorrectionTargetUnavailable,
+    #[error("coverage correction target has a different full binding")]
+    CorrectionBindingMismatch,
+    #[error("invalid coverage correction link: {0}")]
+    InvalidCorrection(&'static str),
     #[error("coverage profile revision conflicts with retained definition")]
     ProfileRevisionConflict,
     #[error("coverage receiver clock regressed")]
@@ -817,6 +821,15 @@ impl Engine {
         p: PreparedObservation,
         ctx: &WorkContext,
     ) -> Result<Receipt, CoverageError> {
+        self.append_with_correction(p, None, ctx)
+    }
+    // Only trusted intake supplies a link, after one-hop validation on this worker.
+    fn append_with_correction(
+        &mut self,
+        p: PreparedObservation,
+        correction_of: Option<Uuid>,
+        ctx: &WorkContext,
+    ) -> Result<Receipt, CoverageError> {
         ctx.check()?;
         if p.admission.accepted_at < self.state.clock_floor {
             return Err(CoverageError::ClockRegression);
@@ -874,7 +887,7 @@ impl Engine {
             accepted_at: p.admission.accepted_at,
             replay_until: p.admission.replay_until,
             identity_until: p.admission.identity_until,
-            correction_of: None,
+            correction_of,
         };
         let data = m.encode()?;
         let h = format::prefix(self.state.committed_prefix, &data);
@@ -1000,9 +1013,6 @@ impl Engine {
             ctx.check()?;
             return Ok(IntakeOutcome::Replayed(stored.receipt));
         }
-        if submission.correction_of.is_some() {
-            return Err(CoverageError::CorrectionUnsupported);
-        }
         let profile = intake.profile.ok_or(CoverageError::ProfileUnavailable)?;
         if profile.skew() > intake.policy.max_clock_skew_seconds {
             return Err(CoverageError::Invalid(
@@ -1030,8 +1040,52 @@ impl Engine {
         {
             return Err(CoverageError::ReportTooOld);
         }
+        if let Some(target_id) = submission.correction_of {
+            self.validate_correction(&prepared, target_id, ctx)?;
+        }
         ctx.check()?;
-        self.append(prepared, ctx).map(IntakeOutcome::Accepted)
+        self.append_with_correction(prepared, submission.correction_of, ctx)
+            .map(IntakeOutcome::Accepted)
+    }
+    fn validate_correction(
+        &self,
+        correction: &PreparedObservation,
+        target_id: Uuid,
+        ctx: &WorkContext,
+    ) -> Result<(), CoverageError> {
+        if target_id == correction.record_id {
+            return Err(CoverageError::InvalidCorrection("self reference"));
+        }
+        let target = self
+            .load_for_binding(target_id, &correction.binding, ctx)
+            .map_err(|error| match error {
+                CoverageError::NotAuthorized => CoverageError::CorrectionBindingMismatch,
+                other => other,
+            })?
+            .ok_or(CoverageError::CorrectionTargetUnavailable)?;
+        let raw = target
+            .raw
+            .ok_or(CoverageError::CorrectionTargetUnavailable)?;
+        let sequence = target
+            .receipt
+            .sequence
+            .parse::<u64>()
+            .map_err(|_| CoverageError::Corrupt("target sequence"))?;
+        // The next commit is strictly after every currently committed target.
+        if sequence == 0 || sequence > self.state.committed_sequence {
+            return Err(CoverageError::InvalidCorrection("target commit order"));
+        }
+        let (_, old) = HistoryBinding::from_record(&raw)?;
+        let (_, new) = HistoryBinding::from_record(&correction.raw)?;
+        if new.start >= old.end || old.start >= new.end {
+            return Err(CoverageError::InvalidCorrection("nonoverlapping interval"));
+        }
+        if new.verified <= old.verified {
+            return Err(CoverageError::InvalidCorrection(
+                "verification is not later",
+            ));
+        }
+        ctx.check()
     }
     pub fn get_authorized(
         &self,
@@ -1039,9 +1093,17 @@ impl Engine {
         authority: &AuthorizedBinding,
         ctx: &WorkContext,
     ) -> Result<Option<StoredObservation>, CoverageError> {
+        self.load_for_binding(id, &authority.binding, ctx)
+    }
+    fn load_for_binding(
+        &self,
+        id: Uuid,
+        binding: &HistoryBinding,
+        ctx: &WorkContext,
+    ) -> Result<Option<StoredObservation>, CoverageError> {
         ctx.check()?;
         format::non_nil(id)?;
-        let binding = self
+        let stored_binding = self
             .connection
             .query_row(
                 "SELECT binding FROM entries WHERE record_id=?1",
@@ -1049,11 +1111,9 @@ impl Engine {
                 |r| bounded_blob(r, 0, format::MAX_BINDING_BYTES),
             )
             .optional()?;
-        match binding {
+        match stored_binding {
             None => Ok(None),
-            Some(binding) if binding != authority.binding.encoded() => {
-                Err(CoverageError::NotAuthorized)
-            }
+            Some(stored) if stored != binding.encoded() => Err(CoverageError::NotAuthorized),
             Some(_) => self.load(id, ctx),
         }
     }

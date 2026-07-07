@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 286, including 24 SDK SourceCoverage tests and 31 local-store/intake
+workspace gate has 300, including 24 SDK SourceCoverage tests and 45 local-store/intake/correction
 tests. The preceding source revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
 resource exhaustion before the application starts; the preceding image retains
@@ -38,6 +38,52 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## SourceCoverage bounded correction admission — 2026-10-07
+
+PS-01 now admits one immutable `correction_of` link through the existing worker.
+The new assertion must pass normal validation/authority/age policy. Its direct
+target must already be committed with available original evidence under the same
+full binding/observer. Half-open intervals must overlap and verification must be
+strictly later, with nanosecond precision. Self, missing/future, unavailable or
+cross-binding targets reject before mutation. Target expiry alone permits a new
+correction while original bytes remain available. No source/backfill proof is
+authenticated by these checks.
+
+The new report, immutable link, receipt and accounting commit together under the
+existing prefix encoding. Earlier failed/unknown evidence and receipts remain
+unchanged. Only the direct target is inspected; a correction of a correction never
+traverses ancestors. Retained correction replay preserves its original link and
+receipt without rechecking target availability, renewing deadlines or allocating
+sequence. The store does not resolve corrections into current health.
+
+All 45 focused library tests and 300 workspace tests pass locally on Linux AMD64,
+plus formatting, strict all-target Clippy and the 13-package boundary guard.
+Fourteen additional regressions cover actual frozen correction-chain admission,
+all ten target-binding dimensions, half-open/later-verification nanoseconds,
+self/missing/future references, quotas/concurrent duplicate admission, target/link
+corruption, queued cancellation and SIGKILL after row insertion, before commit and
+after commit with response loss. Recovery preserves complete links and original
+bytes; lost-response replay keeps the receipt. A manually constructed pre-pruned
+persisted fixture rejects new links to unavailable payloads while allowing retained
+correction replay and one-hop links to an available correction. It does not test
+an implemented pruning operation or physical power loss.
+
+One boundary fixture initially put verification one nanosecond beyond observation;
+its observation is now aligned with the existing SDK contract. No dependencies,
+database schema, event model or frozen codecs changed. One-writer review covers
+all 14 areas; no independent review is claimed. Evidence, actual October 7 times,
+usage and handoff: `target/source-coverage-corrections-20261007/`. The authorized
+local Conventional Commit on `develop` assigns both Git dates July 7 21:15 Berlin,
+fifteen minutes after the intake commit. Private overlay and `0.1.0-dev.0` versions
+remain unchanged; no push, main merge, tag or publication follows.
+
+Next implement bounded payload-prefix pruning, then identity pruning and frontier
+scans as separate slices. The complete 56 planned outcomes, credentials/source
+observers/current-health supervision and cloud/server wiring remain unqualified.
+Earlier image/candidate evidence still binds its own source revision. Current kind,
+native ARM64, actual EKS, remote CI, released dependencies and publication remain
+open.
 
 ## SourceCoverage trusted intake and original-receipt replay — 2026-10-07
 
@@ -81,7 +127,7 @@ counted. Evidence, actual October 7 times, usage and handoff:
 the private commit by fifteen minutes. Push, main merge, tag and publication remain
 separate.
 
-Correction admission is next; prefix pruning and frontier scans follow as separate
+At that acceptance, correction admission was next; prefix pruning and frontier scans follow as separate
 bounded tasks. The complete 56 planned history outcomes are not qualified. Source
 observers, current-health supervision, credentials, protected S3 evidence and cloud
 wiring remain separate. Prior image/candidate reports bind their earlier source

@@ -651,6 +651,67 @@ mod tests {
         Ok(())
     }
     #[tokio::test]
+    async fn queued_correction_timeout_preserves_target_and_committed_frontier() -> TestResult {
+        let t = tempfile::tempdir()?;
+        let (failed, correction) = crate::correction_tests::reports()?;
+        let store = Arc::new(
+            CoverageStore::initialize(
+                cfg(t.path().join("coverage"), 2),
+                Uuid::new_v4(),
+                clock("2026-10-07T00:06:29Z")?,
+            )
+            .await?,
+        );
+        let original = store.append(failed.clone(), context()).await?;
+        let (started, wait) = oneshot::channel();
+        let (release, blocked) = std::sync::mpsc::sync_channel(1);
+        let task_store = store.clone();
+        let task = tokio::spawn(async move {
+            task_store
+                .request(Operation::Pause(started, blocked, false), context())
+                .await
+        });
+        wait.await?;
+        assert!(matches!(
+            store
+                .submit(
+                    crate::correction_tests::linked(&correction, failed.record_id())?,
+                    crate::intake_tests::intake(&correction, "2026-10-07T00:07:30Z")?,
+                    OperationContext::new(Duration::from_millis(20)),
+                )
+                .await,
+            Err(Error::Timeout)
+        ));
+        assert_eq!(store.metrics().operations_in_flight, 2);
+        release.send(())?;
+        task.await??;
+        assert!(
+            store
+                .get_authorized(
+                    correction.record_id(),
+                    crate::intake_tests::authority(&correction)?,
+                    context()
+                )
+                .await?
+                .is_none()
+        );
+        let target = store
+            .get_authorized(
+                failed.record_id(),
+                crate::intake_tests::authority(&failed)?,
+                context(),
+            )
+            .await?
+            .ok_or("target")?;
+        assert_eq!(target.receipt, original);
+        assert_eq!(target.raw, Some(failed.raw));
+        assert_eq!(store.metrics().committed_sequence, 1);
+        assert_eq!(store.metrics().operations_in_flight, 0);
+        assert!(store.metrics().available);
+        store.shutdown(context()).await?;
+        Ok(())
+    }
+    #[tokio::test]
     async fn future_abort_of_started_work_does_not_release_ownership_early() -> TestResult {
         let t = tempfile::tempdir()?;
         let c = cfg(t.path().join("coverage"), 1);

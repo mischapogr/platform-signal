@@ -593,8 +593,11 @@ cancellation. Fresh local acceptance passes 273 workspace tests and the
 The subsequent trusted intake/retry slice passes 31 focused tests and 286 workspace
 tests, covering exact application grants, observed-time admission age, fixed checked
 retention and original-byte receipt replay without renewal. The complete 56-outcome
-history state machine remains unimplemented. Next implement bounded correction
-admission; GC and scans follow
+history state machine remains unimplemented. Bounded correction admission now
+passes 45 focused tests and 300 workspace tests: same full binding/observer,
+available earlier target, overlapping interval/later verification, preserved
+original and atomic immutable link. Payload-prefix pruning is next; identity GC
+and scans follow
 in separate bounded slices. Observer/source/server integration stays separate;
 no pipeline/detection wiring is implied.
 

@@ -7,7 +7,7 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
-The current SourceCoverage SDK/store/intake source passes 286 workspace tests and
+The current SourceCoverage SDK/store/intake/correction source passes 300 workspace tests and
 the 13-package boundary guard. The preceding source revision's AMD64 image passes container, all six
 supply-chain and native parser/pipeline/120-second-soak gates. The current kind
 campaign fails before SIGNAL starts: kube-proxy reports `too many open files`,
@@ -16,8 +16,10 @@ historical and does not close the current-image gate. Detailed counts and retain
 paths are in [progress](07-progress.md#vendor-fixtures-and-current-source-release-refresh--2026-10-07).
 The subsequent trusted intake/retry acceptance adds no dependencies or server
 integration; its host-library proof is separate from the earlier image/candidate
-reports, which still bind their own source revision. Correction admission,
-pruning, scans, credential authentication and source observers remain open.
+reports, which still bind their own source revision. Bounded correction admission
+adds atomic immutable links with available earlier full-binding targets and
+overlap/later-verification checks. Pruning, scans, credential authentication and
+source observers remain open.
 
 The public synthetic corpus covers 55 cases across 11 requested source families.
 The private overlay's version now matches `0.1.0-dev.0`; its three tests include
@@ -32,7 +34,7 @@ release gate.
 
 | ID | Observed proof | Exact source or retained artifact |
 | --- | --- | --- |
-| W | Current local OSS formatting, strict all-target Clippy and locked/offline workspace tests: 286 tests, zero failures; boundary gate validates 13 packages. Includes SourceCoverage process-crash, quota, corruption, cancellation and trusted intake/replay tests. | `target/source-coverage-intake-20261007/validation.json` and acceptance logs; bundled build evidence remains `target/source-coverage-store-20261007/sqlite-build.json`; [workspace guard](../scripts/check-workspace.py). Previous 273/255/231/228-test results remain historical. |
+| W | Current local OSS formatting, strict all-target Clippy and locked/offline workspace tests: 300 tests, zero failures; boundary gate validates 13 packages. Includes SourceCoverage process-crash, quota, corruption, cancellation and trusted intake/correction/replay tests. | `target/source-coverage-corrections-20261007/validation.json` and acceptance logs; bundled build evidence remains `target/source-coverage-store-20261007/sqlite-build.json`; [workspace guard](../scripts/check-workspace.py). Previous 286/273/255/231/228-test results remain historical. |
 | P | Separate private package: two tests; external normal-server process gate preserved one event/finding through SIGKILL and successful SIGTERM | `/tmp/signal-phase7b-private-gates.log`, `/tmp/signal-phase7b-process-gate.log`; [external overlay gate](17-external-overlay.md), [harness](../scripts/check-overlay.py) |
 | I | Single/batch validation, bounded request/queue admission, auth, cancellation, overload and exact partial admission | [HTTP integration tests](../crates/signal-ingest/tests/http.rs), included in W; [ingest API](09-phase1-ingest.md) |
 | B | Real WAL truncation/corruption/restart, bounded count/byte/segment quotas, block timeout, checkpoint I/O failure and replay | [WAL recovery tests](../crates/signal-buffer/tests/recovery.rs), included in W; [WAL contract](10-phase2-wal.md) |
@@ -57,7 +59,7 @@ release gate.
 | LC | The 2026-10-07 dev0 candidate preview passed local preparation, offline integrity verification, relocated source-path-graph checks and four packaged-chart checks. It preserves the accepted AMD64 image and remains `full_release: false`; this is not alpha, release or remote-dependency evidence. | `target/local-candidate-team-20261007/preview2/` and `preview2-relocated/{validation.json,bundled-offline-verify.json}`; [procedure and scope](23-local-candidate.md). Final candidate export/review is separate. |
 
 W is the current full workspace result: the prior 231-test gate plus 24
-SourceCoverage SDK and 31 local-store/intake tests totals 286. Focused F/D/Z and Y results are
+SourceCoverage SDK and 45 local-store/intake/correction tests totals 300. Focused F/D/Z and Y results are
 already included and must not be added again. Earlier phase counts
 (including the 203-test Phase 6 run) remain historical evidence. The three
 Kubernetes cleanup tests, two standalone health-helper tests and H's one
