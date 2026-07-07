@@ -308,11 +308,13 @@
         },
         {
           "id": "store-server-integration",
-          "status": "in_progress",
+          "status": "passed_local",
           "history_bridge_status": "passed_local",
           "evidence": [
             "target/goal-execution-20261007/COVERAGE-OBSERVERS/history-bridge-validation.json",
-            "target/goal-execution-20261007/COVERAGE-OBSERVERS/history-bridge-independent-review.json"
+            "target/goal-execution-20261007/COVERAGE-OBSERVERS/history-bridge-independent-review.json",
+            "target/goal-execution-20261007/COVERAGE-OBSERVERS/server-integration-validation.json",
+            "target/goal-execution-20261007/COVERAGE-OBSERVERS/server-integration-independent-review.json"
           ]
         },
         {
@@ -320,7 +322,7 @@
           "status": "pending"
         }
       ],
-      "notes": "Bounded observer state, regional signed configuration observation and durable observer/history bridge accepted. Exact replay cannot heal health; original profile/global identity are pinned. Continue scoped server configuration/API/lifecycle/metrics and independent checkpoint/gap/degraded-silence runtime simulation. Actual continuity/digest/native source proofs remain unqualified."
+      "notes": "Bounded observer state, regional signed configuration observation, durable bridge and scoped monolith history API/bootstrap/lifecycle accepted locally. Default535/all-feature558 gates. Current API health unknown; replay/arrival cannot heal. Continue independent checkpoint/gap/quiet/degraded-silence runtime simulation. Native source continuity/digest proofs remain explicitly unimplemented/unqualified; existing live/security/release gates remain open."
     },
     {
       "id": "FINDINGS-CURSOR",

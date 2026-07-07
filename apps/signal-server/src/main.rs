@@ -1,5 +1,6 @@
 //! HTTP ingest, bounded WAL, replay-safe Parquet persistence and URL queries.
 mod config;
+mod coverage_api;
 mod finding_api;
 mod logging;
 mod pipeline;
@@ -34,6 +35,8 @@ use tokio_util::sync::CancellationToken;
 
 #[derive(Debug, Error)]
 enum AppError {
+    #[error(transparent)]
+    Coverage(#[from] signal_coverage::CoverageError),
     #[error(transparent)]
     Settings(#[from] config::ConfigError),
     #[error(transparent)]
@@ -87,6 +90,7 @@ async fn main() -> ExitCode {
 
 async fn run() -> Result<(), AppError> {
     let args: Vec<_> = env::args_os().skip(1).collect();
+    let mut initialize_coverage = false;
     let path = match args.as_slice() {
         [flag] if flag == "--version" => {
             println!("signal-server {}", env!("CARGO_PKG_VERSION"));
@@ -94,11 +98,19 @@ async fn run() -> Result<(), AppError> {
         }
         [flag] if flag == "--help" => {
             println!(
-                "signal-server: durable HTTP ingest, Parquet storage and URL queries\nUsage: signal-server [--config PATH | --help | --version]\nConfiguration: see docs/12-phase3-storage.md and docs/13-phase4-query.md. SIGNAL_LISTEN, SIGNAL_API_TOKEN, SIGNAL_WAL_DIR, SIGNAL_ADMISSION_POLICY and bounded HTTP/WAL limits.\nAccepted events are synced to WAL, then persisted to Parquet before checkpointing. GET /v1/events and /v1/findings query persisted data. SIGNAL_CONFIG loads strict versioned YAML; environment overrides YAML."
+                "signal-server: durable HTTP ingest, Parquet storage and URL queries\nUsage: signal-server [--config PATH | --initialize-coverage [--config PATH] | --help | --version]\nConfiguration: see docs/12-phase3-storage.md and docs/13-phase4-query.md. SIGNAL_LISTEN, SIGNAL_API_TOKEN, SIGNAL_WAL_DIR, SIGNAL_ADMISSION_POLICY and bounded HTTP/WAL limits.\nAccepted events are synced to WAL, then persisted to Parquet before checkpointing. GET /v1/events and /v1/findings query persisted data. SIGNAL_CONFIG loads strict versioned YAML; environment overrides YAML."
             );
             return Ok(());
         }
         [flag, path] if flag == "--config" => Some(path.into()),
+        [flag] if flag == "--initialize-coverage" => {
+            initialize_coverage = true;
+            None
+        }
+        [flag, config, path] if flag == "--initialize-coverage" && config == "--config" => {
+            initialize_coverage = true;
+            Some(path.into())
+        }
         [] => None,
         _ => return Err(AppError::Argument),
     };
@@ -108,6 +120,14 @@ async fn run() -> Result<(), AppError> {
         CancellationToken::new(),
     )
     .await?;
+    if initialize_coverage {
+        let configuration = coverage_api::Configuration::load(&settings).await?.ok_or(
+            config::ConfigError::Invalid("coverage configuration required for initialization"),
+        )?;
+        configuration.initialize().await?;
+        println!("coverage history initialized; normal startup only opens existing history");
+        return Ok(());
+    }
     let logger = LoggerGuard::stderr(LoggingConfig {
         queue_records: settings.number("SIGNAL_LOG_RECORDS", 1024)?,
         queue_bytes: settings.number("SIGNAL_LOG_BYTES", 1_048_576)?,
@@ -150,6 +170,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
     };
     config.validate()?;
     limits.validate()?;
+    let coverage_configuration = coverage_api::Configuration::load(&settings).await?;
     let listen: SocketAddr = settings
         .optional("SIGNAL_LISTEN")?
         .unwrap_or_else(|| "127.0.0.1:8080".to_owned())
@@ -318,16 +339,26 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
     });
     let query = Arc::new(QueryEngine::new(query_config, store.clone())?);
     let query_auth = config.clone();
+    let coverage_stopping = CancellationToken::new();
+    let coverage = match coverage_configuration {
+        Some(configuration) => Some(
+            configuration
+                .open(query_auth.request_timeout, coverage_stopping.clone())
+                .await?,
+        ),
+        None => None,
+    };
     let pipeline = Arc::new(PipelineSink {
         buffer: sink.clone(),
         store: store.clone(),
         query: Some(query.clone()),
         detection: Some(detection),
         logging: Some(logger.writer()),
+        coverage: coverage.as_ref().map(|state| state.store.clone()),
     });
     let service = IngestService::new(config, pipeline.clone())?;
     let query_cancel = service.cancellation();
-    let router = service
+    let mut router = service
         .router()
         .merge(query_api::router(
             query.clone(),
@@ -345,6 +376,9 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             query_cancel.clone(),
         ))
         .merge(ui::router());
+    if let Some(coverage) = &coverage {
+        router = router.merge(coverage.router());
+    }
     let listener = timeout(Duration::from_secs(5), TcpListener::bind(listen))
         .await
         .map_err(|_| AppError::BindTimeout)?
@@ -419,6 +453,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
     };
     let deadline = Instant::now() + limits.shutdown_timeout;
     service.stop_admission();
+    coverage_stopping.cancel();
     let result = match finished {
         Some(result) => result,
         None => timeout_at(deadline, &mut transport)
@@ -426,6 +461,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             .unwrap_or(Err(server::ServerError::ShutdownTimeout)),
     };
     query_cancel.cancel();
+    coverage_stopping.cancel();
     service.stop_admission();
     let stopped = stop_pipeline(&sink, &store, consumer, drain, cancel, deadline).await;
     let findings_flushed = if stopped.is_ok() {
@@ -450,6 +486,17 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             cancellation: CancellationToken::new(),
         })
         .await;
+    let coverage_stopped = match &coverage {
+        Some(coverage) => coverage
+            .store
+            .shutdown(signal_coverage::OperationContext {
+                deadline,
+                cancellation: CancellationToken::new(),
+            })
+            .await
+            .map_err(AppError::from),
+        None => Ok(()),
+    };
     tracing::info!(
         pending_events = sink.metrics().depth,
         persisted_sequence = store.metrics().high_water,
@@ -460,7 +507,8 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
         .and(stopped)
         .and(findings_flushed.map_err(AppError::from))
         .and(findings_stopped.map_err(AppError::from))
-        .and(query_stopped.map_err(AppError::from));
+        .and(query_stopped.map_err(AppError::from))
+        .and(coverage_stopped);
     if let Err(error) = &result {
         logger.writer().report_error(error);
     }

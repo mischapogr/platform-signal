@@ -27,6 +27,7 @@ pub struct PipelineSink {
     pub query: Option<Arc<QueryEngine>>,
     pub detection: Option<Arc<DetectionPipeline>>,
     pub logging: Option<crate::logging::LogWriter>,
+    pub coverage: Option<Arc<signal_coverage::CoverageStore>>,
 }
 
 pub struct DetectionPipeline {
@@ -56,6 +57,10 @@ impl EventSink for PipelineSink {
     }
     fn metrics(&self) -> SinkMetrics {
         let mut metrics = self.buffer.metrics();
+        metrics.closed |= self
+            .coverage
+            .as_ref()
+            .is_some_and(|store| !store.metrics().available);
         if let Some(detection) = &self.detection {
             let findings = detection.findings.metrics();
             metrics.closed |= findings.closed;
@@ -440,6 +445,7 @@ mod tests {
             query: None,
             detection: None,
             logging: None,
+            coverage: None,
         }))
     }
     async fn stop(pipeline: &PipelineSink) -> Result {
@@ -494,6 +500,7 @@ mod tests {
             store,
             query: None,
             logging: None,
+            coverage: None,
             detection: Some(Arc::new(DetectionPipeline {
                 rules,
                 findings,

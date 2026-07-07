@@ -21,7 +21,7 @@ ALLOWED = {
     "signal-server": {
         "signal-event", "signal-protocol", "signal-ingest", "signal-buffer",
         "signal-storage", "signal-query", "signal-rules", "signal-findings",
-        "signal-collector-sdk",
+        "signal-collector-sdk", "signal-coverage",
     },
     "signal-agent": {"signal-event", "signal-protocol", "signal-collector-sdk"},
     "signalctl": {"signal-protocol"},

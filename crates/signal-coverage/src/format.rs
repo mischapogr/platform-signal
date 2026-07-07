@@ -213,6 +213,10 @@ impl ProfileDefinition {
     pub fn revision(&self) -> &str {
         &self.wire.revision
     }
+    /// The retained validated v1 definition, independent of today's catalog.
+    pub fn definition_bytes(&self) -> Result<Vec<u8>, Error> {
+        self.sdk.definition_bytes().map_err(Error::Coverage)
+    }
     pub(crate) fn skew(&self) -> u32 {
         self.wire.max_clock_skew_seconds
     }
@@ -351,7 +355,9 @@ impl HistoryBinding {
     pub fn observer_id(&self) -> &str {
         &self.wire.observer_id
     }
-    pub(crate) fn profile_matches(&self, p: &ProfileDefinition) -> bool {
+    /// Check configured profile identity; retained definition conflicts still
+    /// require physical history validation before accepting new writes.
+    pub fn profile_matches(&self, p: &ProfileDefinition) -> bool {
         self.wire.coverage_profile.id == p.id()
             && self.wire.coverage_profile.revision == p.revision()
     }
