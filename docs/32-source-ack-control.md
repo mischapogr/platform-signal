@@ -52,7 +52,7 @@ Redelivery starts a new intent/attempt using a newly received handle, then retri
 source deletion. A retained intent is not silently reset to not_requested.
 Dispatch may continue pending prepared work when the selected ACK policy did not
 require M2 completion. Retirement remains blocked until confirmed ACK, complete
-verified prefix, elapsed horizons and separate fresh reclamation authority.
+verified prefix, elapsed pinned `retain_until` and separate fresh reclamation authority.
 
 Revision-one ACK-only transitions retain zero prefix and the exact initial
 predecessor check. The takeover predecessor exception remains separate; a `none`

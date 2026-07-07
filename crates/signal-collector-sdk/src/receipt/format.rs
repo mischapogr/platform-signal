@@ -39,7 +39,7 @@ pub(super) fn uuid(v: &Value) -> Result<Uuid, ReceiptError> {
     need(!u.is_nil() && u.to_string() == s, "uuid form")?;
     Ok(u)
 }
-fn hash(v: &Value) -> Result<[u8; 32], ReceiptError> {
+pub(super) fn hash(v: &Value) -> Result<[u8; 32], ReceiptError> {
     let s = string(v, 64, false)?;
     need(
         s.len() == 64

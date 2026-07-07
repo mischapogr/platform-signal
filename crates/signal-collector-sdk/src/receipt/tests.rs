@@ -699,3 +699,6 @@ mod handover_tests;
 
 #[path = "ack_tests.rs"]
 mod ack_tests;
+
+#[path = "retirement_tests.rs"]
+mod retirement_tests;

@@ -17,7 +17,7 @@ fn begin(attempt: u128, at: &str) -> Result<ReceiptAckUpdate, ReceiptError> {
 }
 // Synthetic control fixture only: remove the final quarantined descriptor, keep
 // all original/event bytes intact. This does not attest gzip/source completeness.
-fn pure(m2: bool) -> Result<(Vec<u8>, ReceiptBinding), Box<dyn std::error::Error>> {
+pub(super) fn pure(m2: bool) -> Result<(Vec<u8>, ReceiptBinding), Box<dyn std::error::Error>> {
     let (bytes, _) = vector("prepared")?;
     let r = format::decode(bytes, &ctx())?;
     let mut m = r.metadata.clone();

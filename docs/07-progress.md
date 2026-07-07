@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 436, including 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+workspace gate has 447, including 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,36 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Receipt retirement/reclamation and explicit slot replacement — 2026-10-07
+
+RECEIPT-RECOVERY is accepted locally. `retire` checks exact prior/full binding and
+fresh independent current authority, confirmed ACK, complete prefix and pinned
+elapsed `retain_until`. Both revisions are precomputed before side effects. It
+commits intent before removing the local payload, syncs the directory before
+completion and retains control. A missing active payload remains corruption;
+intent with an absent payload can resume only under fresh checkpoint-gated opening.
+Retired state blocks replay/ACK/ordinary publication. Read-only bounded snapshot
+inspection supports application history reconciliation without granting permission.
+Owner transfer preserves retired state. `publish_next` requires completion/current
+authority and a different UUID, retaining old control until the new payload and
+atomic initial-control replacement commit. Unknown temp/orphan states fail closed.
+
+Eleven new tests cover retention, prefix/ACK/authority guards, two-revision overflow
+preflight, corruption, retained-control/owner recovery, four injected fault stages,
+ten retirement and seven replacement process-crash stages, an actual unlink syscall
+failure and timeout with physical lock lifetime. Reopen review found actual ACK
+preparation-time and positive generation checks; regressions now execute them.
+Independent source review accepts the slice with no blocker/high. Formatting,
+strict workspace/all-target Clippy, locked/offline workspace tests and the
+13-package guard pass: 447 tests, zero failures; five crash helpers execute through
+parent tests. Evidence: `target/goal-execution-20261007/RECEIPT-RECOVERY/retirement/`.
+
+This removes local receipt files only. It does not delete S3 originals, authenticate
+external checkpoints, qualify stronger custody or recover unknown publication
+orphans automatically. Host/power/device/account-loss and external qualification
+remain separate. Continue with bounded object reading/preparation, then AWS delivery.
+The persistent Goal remains active across this accepted change.
 
 ## Durable process-local source ACK control — 2026-10-07
 

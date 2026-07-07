@@ -4,6 +4,7 @@
 mod ack;
 mod format;
 mod progress;
+mod retirement;
 mod store;
 pub use ack::{
     ReceiptAckCommit, ReceiptAckUpdate, SourceAckOutcome, SourceAckTicket, SourceDelivery,
@@ -61,6 +62,10 @@ pub enum ReceiptError {
     InvalidResponse,
     #[error("source acknowledgement preconditions or ticket do not match")]
     Ack,
+    #[error("receipt is retiring or retired; replay and source ACK are blocked")]
+    Retired,
+    #[error("receipt retirement guard or replacement identity does not match")]
+    Retirement,
     #[error("receipt operation cancelled; mutation outcome may be uncertain")]
     Cancelled,
     #[error("receipt deadline expired; mutation outcome may be uncertain")]
