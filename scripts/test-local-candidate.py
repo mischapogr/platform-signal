@@ -158,6 +158,61 @@ class CandidateIntegrity(unittest.TestCase):
                      'examples/logs/credentials.log', 'examples/private/policy.json'):
             self.assertFalse(c.source_allowed(name), name)
 
+    def test_ui_allowlist_is_exact_and_excludes_adjacent_assets(self):
+        expected = {'apps/signal-server/ui/index.html', 'apps/signal-server/ui/app.js',
+                    'apps/signal-server/ui/style.css'}
+        self.assertEqual(c.UI_FILES, expected)
+        for name in expected | c.UI_TEST_HELPERS:
+            self.assertTrue(c.source_allowed(name), name)
+        for name in ('apps/signal-server/ui/extra.js', 'apps/signal-server/ui/private.html',
+                     'apps/signal-server/ui/nested/app.js', 'apps/signal-agent/ui/app.js',
+                     'scripts/test-secops-ui-extra.cjs', 'scripts/secret.cjs',
+                     'apps/signal-server/ui/.credentials', 'apps/signal-server/ui/app.js.bak'):
+            self.assertFalse(c.source_allowed(name), name)
+
+    def test_embedded_ui_and_exact_test_helpers_are_exported(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            fixture(root)
+            for name in c.UI_FILES | c.UI_TEST_HELPERS:
+                write(root, name, 'reviewed UI input\n')
+            unwanted = {'apps/signal-server/ui/extra.js', 'scripts/private.cjs'}
+            for name in unwanted:
+                write(root, name, 'unreviewed adjacent input\n')
+            names = c.collect(root, ('apps', 'scripts'), c.source_allowed)
+            self.assertTrue((c.UI_FILES | c.UI_TEST_HELPERS) <= set(names))
+            self.assertFalse(unwanted & set(names))
+            output = root / 'ui-source.tar.gz'
+            summary = c.archive(output, root, names, 'platform-signal/', 'source', c.SOURCE_CAP)
+            verified = c.archive_contents(output, 'source', c.SOURCE_CAP)
+            self.assertEqual(summary['files'], verified['files'])
+            for name in c.UI_FILES | c.UI_TEST_HELPERS:
+                self.assertIn('platform-signal/' + name, verified['files'])
+            with tarfile.open(output, 'r:gz') as bundle:
+                for name in c.UI_FILES:
+                    self.assertEqual(bundle.extractfile('platform-signal/' + name).read(),
+                                     b'reviewed UI input\n')
+
+    def test_each_missing_embedded_ui_asset_fails_compile_time_closure(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            fixture(root)
+            includes = []
+            for name in sorted(c.UI_FILES):
+                write(root, name, 'reviewed UI input\n')
+                includes.append('const INPUT' + str(len(includes)) + ': &str = include_str!("../ui/'
+                                + Path(name).name + '");\n')
+            write(root, 'apps/signal-server/src/ui.rs', ''.join(includes))
+            names = c.collect(root, tuple(c.TOP_FILES) +
+                              ('apps', 'crates', 'benchmarks', 'rules', 'deploy', 'tests', 'schemas'),
+                              c.source_allowed)
+            c.validate_workspace(names, lambda name: (root / name).read_text())
+            for name in c.UI_FILES:
+                with self.subTest(missing=name):
+                    missing = [entry for entry in names if entry != name]
+                    with self.assertRaisesRegex(RuntimeError, 'missing compile-time source input: ' + name):
+                        c.validate_workspace(missing, lambda entry: (root / entry).read_text())
+
     def test_compile_time_fixture_missing_from_source_fails_closed(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

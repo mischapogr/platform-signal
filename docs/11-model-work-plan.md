@@ -18,6 +18,26 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## MVP execution priority — 2026-10-07
+
+The owner classifies minimal SecOps UI as MVP and advanced SOC UX as post-MVP,
+and explicitly authorizes the current agent team to continue item by item.
+[UI-01/UI-02](28-secops-ui.md) are next before parked PS-01 payload pruning. Keep
+one writer per coherent owned path set, independent focused review and a settled
+evidence pass. Do not overlap writers or treat permission to delegate as authority
+for publication, external resources or release claims.
+
+| Order | Bounded item | Acceptance boundary |
+| --- | --- | --- |
+| UI-01 | Embedded same-origin read-only findings/event shell in `signal-server` | Filters/detail, token in page memory, safe text/CSP, faithful evidence numbers, cancellation and finite time/body/result limits; focused checks and applicable Rust gates |
+| UI-02 | Exact event-ID evidence navigation and UI qualification | Exact identity contract and persisted-event tests; actual-browser keyboard/responsive/auth/error/regression checks; current-source package/container assets |
+| Remaining MVP | Locally runnable current-source release checks | Record unavailable ARM64/EKS/remote-CI/released-dependency gates separately; no promotion from local proof |
+| Post-MVP | PS-01 pruning then selected PS-02–PS-06 slices | Existing frozen storage/retention contracts and a bounded task per slice; advanced SOC UX remains follow-on |
+
+UI-01 is implementation evidence, not completed UI acceptance; UI-02 and the
+existing external release gates remain required. S3/AWS/HA scope does not enter
+MVP as a side effect of the product positioning or this UI requirement.
+
 ## Security requirements tasks — 2026-10-07
 
 The owner-requested [catalog](source-detection-catalog.md),
@@ -29,7 +49,7 @@ these rows do not authorize parallel agents or blanket cloud implementation.
 
 | Next task scope | Recommended new-task route | Required acceptance boundary |
 | --- | --- | --- |
-| PS-01 bounded payload-prefix pruning | Sol/high for retention/clock/transaction decisions | Existing [ADR-015](adr/015-source-coverage-store.md) library and accepted intake/corrections; reclaim only an eligible global prefix under finite work/byte limits, preserving identity/receipt/pins/correction links. Atomically advance payload marker/anchor/accounting, retain unexpired acknowledged evidence, reject clock regression and recover pre/post-commit loss. Identity pruning and scans follow separately; no HTTP/server/cloud wiring |
+| Post-MVP PS-01 bounded payload-prefix pruning | Sol/high for retention/clock/transaction decisions | Existing [ADR-015](adr/015-source-coverage-store.md) library and accepted intake/corrections; reclaim only an eligible global prefix under finite work/byte limits, preserving identity/receipt/pins/correction links. Atomically advance payload marker/anchor/accounting, retain unexpired acknowledged evidence, reject clock regression and recover pre/post-commit loss. Identity pruning and scans follow separately; no HTTP/server/cloud wiring |
 | PS-02 one source normalizer and predicate profile | Sol 6.1/medium or Sonnet/medium | Current source docs, original synthetic payload fixtures, field/type/provenance checks, missing/duplicate cases; authorized environment separately |
 | PS-03 public cursor runtime; private durable outbox as a separate task | Sol/high for replay/cursor/atomicity | Existing [25](25-findings-cursor-proposal.md) contract; divergent restore and delivery uncertainty; private paths need their own writable scope |
 | PS-04 one evidence/store publication contract or adapter | Sol/high for integrity/commit/recovery | Independent evidence authority, version/proof reference, retention permission and failure acceptance; no cloud provisioning from this design task |
@@ -62,9 +82,12 @@ evidence and commits the immutable link atomically. Fourteen additional regressi
 include frozen-chain admission, quota/concurrency, target/link corruption, queued
 cancellation, process loss and pre-pruned fixture behavior. This is not runtime GC
 or complete history acceptance. Evidence: `target/source-coverage-corrections-20261007/`.
-Implement bounded payload-prefix pruning next. Do not launch
-additional agents without current user authorization. An observer and live source
-coverage remain unimplemented; production state/retention/fencing is separate.
+UI-01 has local implementation/browser/process acceptance; continue UI-02 and
+remaining locally runnable MVP gates. Payload-prefix
+pruning is parked as post-MVP PS-01 rather than a core release prerequisite.
+The current user authorizes a team with disjoint writer paths and focused review.
+An observer and live source coverage remain unimplemented; production
+state/retention/fencing is separate.
 
 Develop on `develop`; `main` merges require completed release readiness. The owner
 authorized three local baseline commits on 2026-10-07, with deliberately assigned
@@ -82,7 +105,8 @@ ARM64/EKS/CI/released-dependency evidence separately.
 
 Deliver the useful core slice through **3 → 4 → 5**, complete Agent Phase 6, then
 finish **7 → 8 → 10** for the existing `v0.1.0` definition of done. Phase 6 is
-now locally complete. AWS Phase 9 remains post-MVP.
+now locally complete. UI-01/UI-02 are required MVP additions; AWS Phase 9 remains
+post-MVP.
 Keep one phase per reviewable change set and preserve the current spec and gates.
 
 Local checks found Codex authenticated through ChatGPT and Claude Code through a
@@ -188,6 +212,10 @@ estimate yet: token volume, retries, cache effectiveness and available allowance
 have not been measured. Calibrate on Phase 3 before forecasting the remaining work.
 
 ## Remaining tasks in order
+
+Current runnable priority is UI-01 → UI-02 → remaining local MVP gates, followed
+by bounded post-MVP items. Historical phase rows below retain their evidence and
+do not override that priority or require completed phases to run again.
 
 Rows within a phase run in order unless their inputs already exist. The reviewer
 checks the concrete files and evidence, including untracked files. Cheap fixture

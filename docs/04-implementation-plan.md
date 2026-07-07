@@ -28,7 +28,8 @@ the phase/release gates.
 
 The shortest useful milestone is **Phases 0–5**, including server wiring and
 Docker Compose in Phase 5. The full `v0.1.0` gate additionally requires the agent,
-external overlay proof, packaging and hardening. Keep those requirements in
+external overlay proof, packaging, hardening and the owner-selected minimal
+SecOps UI (UI-01/UI-02). Keep those requirements in
 `06-definition-of-done.md`; do not rename the core slice a completed release.
 
 | Order | Change set | Exit evidence |
@@ -42,7 +43,9 @@ external overlay proof, packaging and hardening. Keep those requirements in
 | 6 | Stdin/file agent + bounded persistent retry spool | Agent → server → query; disconnect/restart and spool quota |
 | 7 | Overlay integration proof in a separate repository | External SDK enrichment and private rules verified through normal OSS server ingest, query and restart |
 | 8 | Multi-arch image, Helm, SBOM, scanning | AMD64/ARM64 builds, Compose and Kubernetes smoke, Helm lint |
-| 10 | Hardening and `v0.1.0` | Every definition-of-done gate with measured evidence |
+| UI-01 (accepted locally) | Embedded read-only SecOps UI | 301 workspace tests, 21 browser fixture checks, four actual-server/browser/restart checks and 24 candidate-helper regressions; external qualification remains open |
+| UI-02 (next locally runnable) | Exact event evidence navigation and UI qualification | Bounded exact-ID query semantics, actual-browser accessibility/security/regression checks and packaging acceptance |
+| 10 | Hardening and `v0.1.0` | Every definition-of-done gate, including UI-01/UI-02, with measured evidence |
 | 9 (post-MVP) | AWS starter integrations | Optional extension after the release gate |
 
 AWS collection is already post-MVP in `06-definition-of-done.md`; Phase 9 remains
@@ -50,6 +53,21 @@ numbered for document stability but is not on the release critical path. Phase 8
 EKS test needs credentials/environment evidence and must be recorded as pending
 when unavailable. Phase 7 policy and fixtures stay in the separate repository;
 the generic OSS gate and synthetic local SDK tests do not contain that policy.
+
+### MVP UI execution order — 2026-10-07
+
+The owner explicitly moved minimal SecOps UI into MVP and advanced SOC UX into
+post-MVP. Implement [UI-01](28-secops-ui.md) first, then UI-02, then any remaining
+locally runnable release checks; record unavailable external gates explicitly.
+The user also authorized a team of agents for current execution: one writer per
+coherent set of owned paths, focused independent review, then settled evidence.
+This does not authorize duplicate writers, external provisioning or publication.
+
+Coverage payload-prefix pruning and later identity pruning/scans remain PS-01
+post-MVP work; they do not block the read-only UI or core release. S3, AWS source
+adapters, HA, durable dispositions and advanced analyst workflows retain their
+separate post-MVP scope. UI source checks cannot close actual-browser or package
+qualification. Do not claim old image/container evidence includes new UI assets.
 
 ### Decisions to settle before their implementation phase
 
@@ -517,7 +535,11 @@ Produce an MVP release that can be used by another engineer.
 ↓
 8 packaging/k8s
 ↓
-10 hardening
+UI-01 embedded SecOps UI
+↓
+UI-02 exact evidence navigation + browser/package qualification
+↓
+10 remaining hardening/release checks
 ↓
 v0.1.0 release gate
 ↓
@@ -565,7 +587,7 @@ workstream and uses PS-01/PS-02 contracts when selected after the release gate.
 
 | Group | Capability and motivating requirements | Dependencies | Acceptance / stop condition |
 | --- | --- | --- | --- |
-| PS-01 | Versioned normalization profile and SourceCoverage mechanism; all detections, especially D15 | Existing event envelope/SDK; no private fields | Pure SDK validator, history contract and bounded local library accepted. [ADR-015](adr/015-source-coverage-store.md) records frozen encodings, ownership, atomic append/recovery, authorized intake/retry and immutable corrections. Next payload-prefix pruning, then identity pruning and scans separately. No observers/collectors/cloud calls yet |
+| PS-01 | Versioned normalization profile and SourceCoverage mechanism; all detections, especially D15 | Existing event envelope/SDK; no private fields | Pure SDK validator, history contract and bounded local library accepted. [ADR-015](adr/015-source-coverage-store.md) records frozen encodings, ownership, atomic append/recovery, authorized intake/retry and immutable corrections. After MVP UI/release work, payload-prefix pruning, then identity pruning and scans separately. No observers/collectors/cloud calls yet |
 | PS-02 | Source adapters and first real predicates: D01/D02/D03/D05/D07 | PS-01; existing predicate engine | Select one source per change set, CloudTrail management events first. Raw positive/negative/missing/duplicate fixtures → normalized fields, coverage declarations and findings; federated MFA excluded without IdP evidence. EKS audit is a separate adapter task; no claim of runtime hooks from file logs |
 | PS-03 | Durable finding delivery and disposition seam | Existing journal; [cursor contract](25-findings-cursor-proposal.md); does not require new state engine | Public cursor runtime/restart/divergent-history gates first. Separate private cursor+outbox transaction, destination uncertainty and disposition acceptance. No destination-specific policy in public core; listing is not already a feed |
 | PS-04 | Independent protected evidence and object-store query copies | PS-01/PS-02 source identity/coverage; [M3](failure-domains.md#acknowledgement-milestones) | Separate source-native evidence route, proof validation and security permissions from S3 query `EventStore` publication/manifests. Test observability-account outage, validation failure and recovery. Cloud/retention settings require authorized private environment; no ingest/detection HA claim |
@@ -605,8 +627,8 @@ retention and original-byte receipt replay without renewal. The complete 56-outc
 history state machine remains unimplemented. Bounded correction admission now
 passes 45 focused tests and 300 workspace tests: same full binding/observer,
 available earlier target, overlapping interval/later verification, preserved
-original and atomic immutable link. Payload-prefix pruning is next; identity GC
-and scans follow
+original and atomic immutable link. Payload-prefix pruning is parked as post-MVP
+PS-01; identity GC and scans follow
 in separate bounded slices. Observer/source/server integration stays separate;
 no pipeline/detection wiring is implied.
 

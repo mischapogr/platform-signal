@@ -41,6 +41,8 @@ SAMPLE_FILES = {'examples/logs/' + name for name in (
     'aws-cloudtrail.json', 'aws-cloudwatch.json', 'aws-rds.json', 'aws-alb.json',
     'aws-nlb.json', 'aws-eks.json', 'aws-ecs.json', 'cloudflare.json', 'office365.json',
     'cato-vpn.json', 'fortigate.json')}
+UI_FILES = {'apps/signal-server/ui/' + name for name in ('index.html', 'app.js', 'style.css')}
+UI_TEST_HELPERS = {'scripts/test-secops-ui.cjs', 'scripts/test-secops-ui-process.cjs'}
 CHART_FILES = {'Chart.yaml', 'README.md', 'values.yaml', 'values.schema.json',
                'templates/_helpers.tpl', 'templates/configmap.yaml', 'templates/deployment.yaml',
                'templates/pdb.yaml', 'templates/pvc.yaml', 'templates/service.yaml', 'templates/servicemonitor.yaml'}
@@ -62,7 +64,7 @@ def source_allowed(name):
     safe_name(name)
     if name in TOP_FILES or name == '.github/workflows/ci.yml':
         return True
-    if name in FIXTURE_FILES or name in SAMPLE_FILES:
+    if name in FIXTURE_FILES or name in SAMPLE_FILES or name in UI_FILES:
         return True
     parts = name.split('/')
     if any(part.startswith('.') or part in ('private', 'node_modules', 'data', 'target') for part in parts):
@@ -70,7 +72,7 @@ def source_allowed(name):
     if name.startswith('docs/'):
         return name.endswith('.md')
     if name.startswith('scripts/'):
-        return name.endswith('.py') or name == 'scripts/ai/context7'
+        return name.endswith('.py') or name == 'scripts/ai/context7' or name in UI_TEST_HELPERS
     if name.startswith('benchmarks/'):
         return name in {'benchmarks/README.md', 'benchmarks/harness.rs', 'benchmarks/pipeline.py', 'benchmarks/soak.py'}
     if name.startswith('tests/integration/'):

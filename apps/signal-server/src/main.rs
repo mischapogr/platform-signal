@@ -4,6 +4,7 @@ mod finding_api;
 mod logging;
 mod pipeline;
 mod query_api;
+mod ui;
 use config::Settings;
 use logging::{LoggerGuard, LoggingConfig};
 use pipeline::{ConsumerConfig, DetectionPipeline, PipelineSink};
@@ -342,7 +343,8 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             finding_bytes,
             finding_timeout,
             query_cancel.clone(),
-        ));
+        ))
+        .merge(ui::router());
     let listener = timeout(Duration::from_secs(5), TcpListener::bind(listen))
         .await
         .map_err(|_| AppError::BindTimeout)?

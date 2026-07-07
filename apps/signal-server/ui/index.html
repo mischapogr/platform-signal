@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SIGNAL · Security console</title>
+  <link rel="stylesheet" href="/ui/style.css">
+  <script src="/ui/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#workspace">Skip to workspace</a>
+  <header>
+    <div><span class="brand">SIGNAL</span><span class="product">Security console</span></div>
+    <span class="badge">Read-only investigation</span>
+  </header>
+  <main id="workspace">
+    <section class="connection" aria-label="Connection">
+      <form id="connection-form">
+        <label for="api-token">Access token</label>
+        <div class="inline"><input id="api-token" type="password" autocomplete="off" maxlength="4096" placeholder="Token for this session"><button id="connect-button">Connect</button><button id="disconnect-button" type="button" class="secondary" disabled>Disconnect</button></div>
+        <p class="hint">Your token stays in this page until you disconnect or close it.</p>
+      </form>
+      <p id="connection-status" role="status">Disconnected</p>
+    </section>
+    <nav class="tabs" aria-label="Investigation views">
+      <button id="findings-tab" type="button" aria-current="page">Findings</button>
+      <button id="events-tab" type="button">Event search</button>
+    </nav>
+    <section id="findings-pane" aria-labelledby="findings-heading">
+      <div class="heading"><div><p class="eyebrow">TRIAGE</p><h1 id="findings-heading">Security findings</h1></div><p>Inspect detections and their evidence references.</p></div>
+      <form id="findings-form" class="filters">
+        <label>From · local time<input id="findings-from" type="datetime-local" required></label>
+        <label>To · local time<input id="findings-to" type="datetime-local" required></label>
+        <label>Detection severity<select id="findings-severity"><option value="">All severities</option><option>low</option><option>medium</option><option>high</option><option>critical</option></select></label>
+        <label>Rule ID<input id="findings-rule" maxlength="256" placeholder="Any rule"></label>
+        <label>Result limit<input id="findings-limit" type="number" min="1" max="100" value="100" required></label>
+        <button type="submit">Load findings</button>
+        <button id="findings-cancel" type="button" class="secondary" disabled>Cancel</button>
+      </form>
+      <p id="findings-status" class="status" role="status">Connect to load findings.</p>
+      <div class="table-wrap"><table><caption>Findings · earliest first within the selected interval</caption><thead><tr><th>Severity</th><th>Finding</th><th>Rule</th><th>Created · UTC</th><th>Inspect</th></tr></thead><tbody id="findings-results"></tbody></table></div>
+      <section class="detail" aria-labelledby="finding-detail-heading"><h2 id="finding-detail-heading">Finding detail</h2><p class="hint">Source event IDs are references. Use event search to inspect available evidence.</p><pre id="finding-detail" tabindex="0">Select a finding.</pre></section>
+    </section>
+    <section id="events-pane" aria-labelledby="events-heading" hidden>
+      <div class="heading"><div><p class="eyebrow">INVESTIGATE</p><h1 id="events-heading">Event search</h1></div><p>Search retained events by time, source and resource.</p></div>
+      <form id="events-form" class="filters">
+        <label>From · local time<input id="events-from" type="datetime-local" required></label>
+        <label>To · local time<input id="events-to" type="datetime-local" required></label>
+        <label>Log severity<select id="events-severity"><option value="">All severities</option><option>trace</option><option>debug</option><option>info</option><option>warn</option><option>error</option><option>critical</option></select></label>
+        <label>Source type<input id="events-source" maxlength="256" placeholder="aws.cloudtrail"></label>
+        <label>Account<input id="events-account" maxlength="256" placeholder="Any account"></label>
+        <label>Resource ID<input id="events-resource" maxlength="256" placeholder="Any resource"></label>
+        <label>Message contains<input id="events-contains" maxlength="1024" placeholder="Search text"></label>
+        <label>Result limit<input id="events-limit" type="number" min="1" max="100" value="100" required></label>
+        <button type="submit">Search events</button>
+        <button id="events-cancel" type="button" class="secondary" disabled>Cancel</button>
+      </form>
+      <p id="events-status" class="status" role="status">Choose a time range and search.</p>
+      <div class="table-wrap"><table><caption>Events · newest first within the selected interval</caption><thead><tr><th>Log severity</th><th>Message / event ID</th><th>Source</th><th>Resource / account</th><th>Event time · UTC</th><th>Inspect</th></tr></thead><tbody id="events-results"></tbody></table></div>
+      <section class="detail" aria-labelledby="event-detail-heading"><h2 id="event-detail-heading">Event detail</h2><p class="hint">Complete API-returned record. Vendor-original evidence may be referenced separately.</p><pre id="event-detail" tabindex="0">Select an event.</pre></section>
+    </section>
+    <footer>A quiet result does not establish source coverage. This console does not assess collector health.</footer>
+  </main>
+</body>
+</html>
