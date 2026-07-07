@@ -3,8 +3,8 @@
 Status: Selected decision with bounded library implementation, 2026-10-07.
 Encodings, explicit initialization/ownership, prepared append, recovery and
 trusted one-row inspection, application-grant intake/retry and bounded correction
-admission are implemented in [`signal-coverage`](../../crates/signal-coverage/README.md).
-Pruning, scans, credential authentication and source observers remain unimplemented.
+admission and bounded payload-prefix pruning are implemented in [`signal-coverage`](../../crates/signal-coverage/README.md).
+Identity pruning, scans, credential authentication and source observers remain unimplemented.
 This ADR does not select production retention or claim release readiness.
 
 ## Context and decision
@@ -351,6 +351,34 @@ link. Original evidence/receipts remain unchanged. Recovery/replay needs no ance
 traversal or target reauthorization for an already admitted link. Tests cover
 target/link corruption, quota/restart/concurrency, queued cancellation and SIGKILL
 before/after commit. A pre-pruned fixture checks availability behavior, not runtime
-GC. Evidence: `target/source-coverage-corrections-20261007/`. Payload-prefix pruning
-is next; identity GC and scan integration follow separately. No observer, current-health selection, protected S3 evidence,
+GC. Evidence: `target/source-coverage-corrections-20261007/`. At that correction acceptance, payload-prefix pruning was next; identity GC and
+scan integration follow separately. No observer, current-health selection, protected S3 evidence,
 source adapter or detection wiring follows from this library acceptance.
+
+
+## Bounded payload-prefix pruning acceptance
+
+`prune_payloads(now, budget, context)` streams a globally ordered prefix under
+positive configured record/raw-byte caps and existing VM/deadline/memory/slot
+limits. Metadata is bounded before decoding; only selected bodies fitting the
+remaining byte budget are read and length/hash checked. A blocked oldest row
+halts progress, and stored corruption fails closed. Equality at replay expiry is
+eligible. No-op calls leave the clock floor unchanged; clock regression rejects.
+One existing immediate transaction clears raw bytes and atomically updates
+payload marker/anchor, receiver floor, count, charge and state checksum. Identities,
+receipts, bindings, profiles, immutable correction links and committed tail remain.
+The schema and all frozen encodings are unchanged.
+
+Local acceptance adds 13 regressions (58 coverage/320 workspace tests): frozen
+anchors/receipts, time equality, cross-binding obstruction, budgets, quota recovery,
+retained corrections, corruption, actual queued cancellation/timeout and actual
+pruning SIGKILL before/after commit. Generic active-mutation ownership tests remain
+separate; no actual fsync cancellation, VFS failure or power-loss proof is added.
+Evidence: `target/source-coverage-payload-pruning-20261007/`. This is an isolated
+post-MVP library mechanism, with no server/cloud/observer wiring or release claim.
+
+Maintenance has no durable operation receipt. After an unknown result, the caller
+reconciles the retained payload marker/accounting after ownership settles and
+recovery. Repeating a bounded call can prune another prefix. Logical charge
+reclamation does not promise physical erasure, page-file shrinkage or deletion
+at a strict deadline. Identity-prefix pruning is next, then bounded scans.

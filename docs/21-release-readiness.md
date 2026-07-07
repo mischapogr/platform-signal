@@ -10,7 +10,7 @@ Phase 9 AWS collection remains post-MVP.
 Minimal SecOps UI is now an owner-selected MVP requirement. UI-01/UI-02 have
 local embedded-route, browser, exact-ID query, real-server/restart, current source
 export and real-container acceptance. See [the UI contract](28-secops-ui.md).
-Advanced SOC UX remains post-MVP. Current acceptance has 307 workspace tests,
+Advanced SOC UX remains post-MVP. UI acceptance recorded 307 workspace tests,
 26 fixture-browser checks and 14 real-container browser checks under
 `target/secops-ui-evidence-20261007/`; the new immutable AMD64 image passes
 container and all six supply-chain gates. Native qualification is recorded below;
@@ -27,8 +27,10 @@ The subsequent trusted intake/retry acceptance adds no dependencies or server
 integration; its host-library proof is separate from the earlier image/candidate
 reports, which still bind their own source revision. Bounded correction admission
 adds atomic immutable links with available earlier full-binding targets and
-overlap/later-verification checks. Pruning, scans, credential authentication and
-source observers remain open.
+overlap/later-verification checks. Payload-prefix pruning is now accepted locally with 58 coverage/320 workspace
+tests. Identity pruning, scans, credential authentication and source observers
+remain open. This library is not integrated into the server and its proof does
+not promote earlier image/candidate evidence.
 
 The public synthetic corpus covers 55 cases across 11 requested source families.
 The private overlay's version now matches `0.1.0-dev.0`; its three tests include
@@ -43,7 +45,7 @@ release gate.
 
 | ID | Observed proof | Exact source or retained artifact |
 | --- | --- | --- |
-| W | Current local OSS formatting, strict all-target Clippy and locked/offline workspace tests: 307 tests, zero failures; boundary gate validates 13 packages. Includes SourceCoverage process-crash, quota, corruption, cancellation, trusted intake/correction/replay and UI/exact-ID tests. | `target/secops-ui-evidence-20261007/validation.json` and acceptance logs; bundled build evidence remains `target/source-coverage-store-20261007/sqlite-build.json`; [workspace guard](../scripts/check-workspace.py). Previous 286/273/255/231/228-test results remain historical. |
+| W | Current local OSS formatting, strict all-target Clippy and locked/offline workspace tests: 320 tests, zero failures; boundary gate validates 13 packages. Includes SourceCoverage process-crash, quota, corruption, cancellation, trusted intake/correction/replay, payload-prefix pruning and UI/exact-ID tests. | `target/source-coverage-payload-pruning-20261007/validation.json` and acceptance logs; bundled build evidence remains `target/source-coverage-store-20261007/sqlite-build.json`; [workspace guard](../scripts/check-workspace.py). Previous 286/273/255/231/228-test results remain historical. |
 | P | Separate private package: two tests; external normal-server process gate preserved one event/finding through SIGKILL and successful SIGTERM | `/tmp/signal-phase7b-private-gates.log`, `/tmp/signal-phase7b-process-gate.log`; [external overlay gate](17-external-overlay.md), [harness](../scripts/check-overlay.py) |
 | I | Single/batch validation, bounded request/queue admission, auth, cancellation, overload and exact partial admission | [HTTP integration tests](../crates/signal-ingest/tests/http.rs), included in W; [ingest API](09-phase1-ingest.md) |
 | B | Real WAL truncation/corruption/restart, bounded count/byte/segment quotas, block timeout, checkpoint I/O failure and replay | [WAL recovery tests](../crates/signal-buffer/tests/recovery.rs), included in W; [WAL contract](10-phase2-wal.md) |
@@ -67,11 +69,12 @@ release gate.
 | X | Final independent source approval: no unresolved findings; campaign/log/test hashes, both benchmark hashes/eight-profile counts, cleanup, storage EEXIST and threat-model/security/upgrade/changelog/audit claims checked | Consolidated review acceptance recorded in [progress](07-progress.md); local source/mechanism scope only |
 | UI | Read-only embedded console and exact-ID evidence navigation: 307 Rust tests, 26 fixture-browser checks, four actual-server/restart checks, 14 real-container browser checks; source export, 24 candidate-helper regressions, strict Helm and focused independent review pass. Real delayed 10-day duplicate evidence and large numbers survive restart; shell does not bypass API auth. Fresh nonroot/read-only container auth/TERM/KILL and all six supply-chain checks pass. | `target/secops-ui-evidence-20261007/`; image `sha256:14c56dcf65bcbb41d95a7ee1a8ced9464732ec71db80c014b3fab734b21cbf55`; [UI contract](28-secops-ui.md). Earlier C/K/V/N/J/Y/LC snapshots retain their own historical image/source bindings. |
 | NU | Fresh UI-image native AMD64 qualification: nine hardening tests, seven pipeline profiles (13,676 attempts, 3,666 HTTP-confirmed, 3,668 WAL-durable; two extra after HTTP 408 within allowed uncertainty) and 140 queries; two 120-second 1/4 KiB soaks retain 10,740/6,890 events, 537/345 findings and 20 queries each with zero rejection/transport uncertainty. Full native scope passes, owned cleanup passes. | `target/secops-ui-evidence-20261007/native/20261007T131955.011401Z-1b5080a4/qualification.json` and bound hardening/pipeline/soak reports; image matches UI. Finite shared-host proof, not scale-envelope, prolonged stability, ARM64 or AWS proof. |
+| CP | Post-MVP SourceCoverage payload-prefix pruning: 58 library tests (13 new), 320 workspace tests, 13-package guard and independent review. Atomic eligible global prefix preserves identities/receipts/pins/links; actual queued timeout/cancellation and pre/post pruning SIGKILL pass. | `target/source-coverage-payload-pruning-20261007/`; [ADR-015](adr/015-source-coverage-store.md). Local AMD64 isolated library proof, not observer/source health, physical erasure, fsync cancellation, server integration or release qualification. |
 | LC | The 2026-10-07 dev0 candidate preview passed local preparation, offline integrity verification, relocated source-path-graph checks and four packaged-chart checks. It preserves the accepted AMD64 image and remains `full_release: false`; this is not alpha, release or remote-dependency evidence. | `target/local-candidate-team-20261007/preview2/` and `preview2-relocated/{validation.json,bundled-offline-verify.json}`; [procedure and scope](23-local-candidate.md). Final candidate export/review is separate. |
 
 W is the current full workspace result: the prior 231-test gate plus 24
-SourceCoverage SDK, 45 local-store/intake/correction, one UI route and six exact-ID
-protocol/Parquet tests totals 307. Focused F/D/Z and Y results are
+SourceCoverage SDK, 58 local-store/intake/correction/payload-pruning, one UI route
+and six exact-ID protocol/Parquet tests totals 320. Focused F/D/Z and Y results are
 already included and must not be added again. Earlier phase counts
 (including the 203-test Phase 6 run) remain historical evidence. The three
 Kubernetes cleanup tests, two standalone health-helper tests and H's one

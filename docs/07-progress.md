@@ -11,8 +11,8 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 307, including 24 SDK SourceCoverage tests, 45 local-store/intake/correction
-tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
+workspace gate has 320, including 24 SDK SourceCoverage tests, 58 local-store/intake/correction/
+payload-pruning tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
 resource exhaustion before the application starts; the preceding image retains
 its passing kind evidence. The native CI matrix
@@ -38,6 +38,42 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Post-MVP SourceCoverage payload-prefix pruning — 2026-10-07
+
+`CoverageStore::prune_payloads` now reclaims only an expired global payload prefix.
+Positive configured record/raw-byte limits, existing VM/deadline/slot reserves and
+one-row streaming keep work/memory bounded. The oldest unexpired or oversized row
+blocks younger rows across bindings. Selected raw lengths/hashes and metadata/
+prefixes are checked before erasure; corruption fails closed. Equality at the
+original replay deadline is eligible, regression rejects, and no-op calls never
+advance the durable clock floor.
+
+One transaction clears payloads and updates marker/anchor, clock floor, count,
+logical charge and checksum. Identities, immutable receipts, profile/binding pins,
+correction links and committed sequence/tail remain. Historical reads explicitly
+return unavailable raw bytes. Already admitted corrections survive original
+payload pruning; new links require available evidence. Runtime prune counters
+cover successful nonempty calls; the marker survives restart. Unknown maintenance
+outcomes require marker/accounting reconciliation after owner exit and recovery;
+there is no durable maintenance receipt or exact-once retry guarantee.
+
+Independent source review accepted after one stored-decoder error classification
+fix; test-fixture corrections preserved established reduced-cap `Quota` behavior.
+All 58 focused coverage tests and 320 workspace tests pass, with strict Clippy/fmt,
+13-package guard and unchanged history/reference-vector checkers. Thirteen new
+regressions cover frozen anchors/receipts, equality, global obstruction, budgets,
+quota recovery, corrections, corruption, queued timeout/cancellation and actual
+SIGKILL before/after pruning commit. Generic active-worker ownership proof remains
+separate from actual pruning process loss; fsync cancellation, VFS fault injection
+and physical power loss are unqualified.
+
+Evidence: `target/source-coverage-payload-pruning-20261007/`. This post-MVP library
+slice adds no dependency, wire/schema/encoding change or server/cloud/observer
+integration. UI-image reports retain their own reviewed runtime binding; they do
+not qualify the new library on ARM64 or in AWS. Logical reclamation is not secure
+physical deletion or page-file shrinkage. Next: separately bounded identity-prefix
+pruning, then scans. Existing environment/release gates remain open.
 
 ## MVP SecOps UI-02 — 2026-10-07
 
