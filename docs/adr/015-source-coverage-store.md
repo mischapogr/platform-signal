@@ -3,8 +3,8 @@
 Status: Selected decision with bounded library implementation, 2026-10-07.
 Encodings, explicit initialization/ownership, prepared append, recovery and
 trusted one-row inspection, application-grant intake/retry and bounded correction
-admission and bounded payload-prefix pruning are implemented in [`signal-coverage`](../../crates/signal-coverage/README.md).
-Identity pruning, scans, credential authentication and source observers remain unimplemented.
+admission and bounded payload/identity-prefix pruning are implemented in [`signal-coverage`](../../crates/signal-coverage/README.md).
+Scans, credential authentication and source observers remain unimplemented.
 This ADR does not select production retention or claim release readiness.
 
 ## Context and decision
@@ -381,4 +381,41 @@ Maintenance has no durable operation receipt. After an unknown result, the calle
 reconciles the retained payload marker/accounting after ownership settles and
 recovery. Repeating a bounded call can prune another prefix. Logical charge
 reclamation does not promise physical erasure, page-file shrinkage or deletion
-at a strict deadline. Identity-prefix pruning is next, then bounded scans.
+at a strict deadline. At that acceptance identity-prefix pruning was next.
+
+
+## Bounded identity-prefix pruning acceptance
+
+`prune_identities(now, budget, context)` point-loads a global eligible prefix under
+positive configured record/selected-metadata-byte caps. Each row must already have
+no payload and reach its immutable identity deadline; equality is eligible.
+The first blocked row stops progress. Preflight plus transaction loads at most
+twice the record budget, with one bounded row/profile at a time; a blocked
+candidate can be inspected under the fixed metadata cap. Each selected row can
+reclaim at most one bounded binding/profile pin. Existing VM/deadline/memory/slot
+limits bound reference lookups; there is no global orphan sweep or growing set.
+
+One immediate transaction deletes selected identities and only newly unreferenced
+pins, debits exact metadata/pin charges and updates identity marker/anchor/counts,
+clock floor, ledger and checksum. Shared references preserve pins. History UUID,
+committed high water/tail, payload anchor and surviving immutable corrections
+remain even when all rows are removed. No-op calls leave the floor unchanged;
+clock regression and stored corruption reject. Schema and encodings are unchanged.
+
+Referenced retries at/below the identity marker return typed `IdentityPruned`
+after current authorization; they never admit a replacement. Canonical receipt
+shape/deadline ordering and history/position are checked, as is the retained marker
+anchor. Below it, deleted original binding/prefix fields cannot be authenticated;
+the result classifies unavailable history only. Bare-ID absence is not lifetime
+deduplication. Surviving corrections replay without revalidating deleted targets.
+
+Local acceptance adds 16 regressions (74 coverage/336 workspace tests), including
+actual queued timeout/cancellation and pre/post identity-commit SIGKILL. A separate
+prune-all crash case executes final binding/profile deletion, checks exact empty
+root/anchors and appends sequence 3 after recovery. Exact shared-pin accounting,
+quota reuse, authorization, corruption and correction survival also pass.
+Evidence: `target/source-coverage-identity-pruning-20261007/`. No actual fsync
+cancellation, VFS injection, physical power loss, secure erasure, server/source/
+cloud integration or release qualification is claimed. Maintenance still lacks
+an exact retry receipt; reconcile markers after old-owner exit and recovery.
+Bounded fixed-frontier scans are next.

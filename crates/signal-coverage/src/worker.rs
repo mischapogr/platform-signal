@@ -1,7 +1,7 @@
 use crate::{
     AuthorizedBinding, CoverageConfig, CoverageError as Error, CoverageMetrics, CoverageSubmission,
-    IntakeContext, IntakeOutcome, PayloadPruneBudget, PayloadPruneOutcome, PreparedObservation,
-    Receipt,
+    IdentityPruneBudget, IdentityPruneOutcome, IntakeContext, IntakeOutcome, PayloadPruneBudget,
+    PayloadPruneOutcome, PreparedObservation, Receipt,
     format::Timestamp,
     store::{Engine, StoredObservation},
 };
@@ -97,6 +97,9 @@ struct Shared {
     payload_prune_operations: AtomicU64,
     payloads_pruned: AtomicU64,
     payload_bytes_pruned: AtomicU64,
+    identity_prune_operations: AtomicU64,
+    identities_pruned: AtomicU64,
+    identity_metadata_bytes_pruned: AtomicU64,
 }
 impl Shared {
     fn fail(&self) {
@@ -148,6 +151,7 @@ enum Operation {
     AuthorizedLoad(Uuid, Box<AuthorizedBinding>),
     Load(Uuid),
     PrunePayloads(Timestamp, PayloadPruneBudget),
+    PruneIdentities(Timestamp, IdentityPruneBudget),
     Wake,
     #[cfg(test)]
     Pause(oneshot::Sender<()>, std::sync::mpsc::Receiver<()>, bool),
@@ -162,6 +166,7 @@ enum Value {
     Intake(Box<IntakeOutcome>),
     Observation(Option<Box<StoredObservation>>),
     PayloadPrune(PayloadPruneOutcome),
+    IdentityPrune(IdentityPruneOutcome),
     Done,
 }
 struct Response {
@@ -214,6 +219,9 @@ impl CoverageStore {
             payload_prune_operations: AtomicU64::new(0),
             payloads_pruned: AtomicU64::new(0),
             payload_bytes_pruned: AtomicU64::new(0),
+            identity_prune_operations: AtomicU64::new(0),
+            identities_pruned: AtomicU64::new(0),
+            identity_metadata_bytes_pruned: AtomicU64::new(0),
         });
         let startup = WorkContext::new(
             OperationContext::new(config.operation_timeout),
@@ -279,6 +287,9 @@ impl CoverageStore {
                                 Operation::PrunePayloads(now, budget) => engine
                                     .prune_payloads(now, budget, &command.ctx)
                                     .map(Value::PayloadPrune),
+                                Operation::PruneIdentities(now, budget) => engine
+                                    .prune_identities(now, budget, &command.ctx)
+                                    .map(Value::IdentityPrune),
                                 Operation::Wake => Ok(Value::Done),
                                 #[cfg(test)]
                                 Operation::Pause(started, release, mutation) => {
@@ -324,6 +335,15 @@ impl CoverageStore {
                         increment_by(
                             &worker_shared.payload_bytes_pruned,
                             outcome.pruned_raw_bytes,
+                        );
+                    } else if let Ok(Value::IdentityPrune(outcome)) = &result
+                        && outcome.pruned_records > 0
+                    {
+                        increment(&worker_shared.identity_prune_operations);
+                        increment_by(&worker_shared.identities_pruned, outcome.pruned_records);
+                        increment_by(
+                            &worker_shared.identity_metadata_bytes_pruned,
+                            outcome.pruned_metadata_bytes,
                         );
                     }
                     worker_shared.publish(engine.metrics());
@@ -474,6 +494,26 @@ impl CoverageStore {
             _ => Err(Error::Unavailable),
         }
     }
+    /// Reclaim the expired global identity prefix after its payloads are unavailable.
+    /// Retains the durable anchors and tail; bare missing IDs carry no lifetime deduplication.
+    pub async fn prune_identities(
+        &self,
+        now: Timestamp,
+        budget: IdentityPruneBudget,
+        context: OperationContext,
+    ) -> Result<IdentityPruneOutcome, Error> {
+        if let Err(error) = budget.validate(&self.config) {
+            increment(&self.shared.rejected);
+            return Err(error);
+        }
+        match self
+            .request(Operation::PruneIdentities(now, budget), context)
+            .await?
+        {
+            Value::IdentityPrune(outcome) => Ok(outcome),
+            _ => Err(Error::Unavailable),
+        }
+    }
     async fn request(
         &self,
         operation: Operation,
@@ -549,6 +589,15 @@ impl CoverageStore {
         m.payload_prune_operations = self.shared.payload_prune_operations.load(Ordering::Relaxed);
         m.payloads_pruned = self.shared.payloads_pruned.load(Ordering::Relaxed);
         m.payload_bytes_pruned = self.shared.payload_bytes_pruned.load(Ordering::Relaxed);
+        m.identity_prune_operations = self
+            .shared
+            .identity_prune_operations
+            .load(Ordering::Relaxed);
+        m.identities_pruned = self.shared.identities_pruned.load(Ordering::Relaxed);
+        m.identity_metadata_bytes_pruned = self
+            .shared
+            .identity_metadata_bytes_pruned
+            .load(Ordering::Relaxed);
         m.rejected = self.shared.rejected.load(Ordering::Relaxed);
         m.timeouts = self.shared.timeouts.load(Ordering::Relaxed);
         m.failures = self.shared.failures.load(Ordering::Relaxed);
@@ -887,12 +936,125 @@ mod tests {
                 Err(Error::Invalid(_))
             ));
         }
+        for budget in [
+            IdentityPruneBudget {
+                max_records: 0,
+                max_metadata_bytes: 1,
+            },
+            IdentityPruneBudget {
+                max_records: 1,
+                max_metadata_bytes: 0,
+            },
+            IdentityPruneBudget {
+                max_records: config.max_identities + 1,
+                max_metadata_bytes: 1,
+            },
+            IdentityPruneBudget {
+                max_records: 1,
+                max_metadata_bytes: config.max_ledger_bytes + 1,
+            },
+        ] {
+            assert!(matches!(
+                store
+                    .prune_identities(clock("2026-10-07T00:05:29Z")?, budget, context())
+                    .await,
+                Err(Error::Invalid(_))
+            ));
+        }
         assert_eq!(store.metrics().operations_in_flight, 1);
         assert_eq!(store.metrics().command_depth, 0);
-        assert_eq!(store.metrics().rejected, 4);
+        assert_eq!(store.metrics().rejected, 8);
         release.send(())?;
         task.await??;
         assert!(store.metrics().available);
+        store.shutdown(context()).await?;
+        Ok(())
+    }
+    #[tokio::test]
+    async fn queued_identity_pruning_timeout_and_cancellation_preserve_receipt_pins_and_marker()
+    -> TestResult {
+        let t = tempfile::tempdir()?;
+        let store = Arc::new(
+            CoverageStore::initialize(
+                cfg(t.path().join("coverage"), 3),
+                Uuid::new_v4(),
+                clock("2026-10-07T00:05:29Z")?,
+            )
+            .await?,
+        );
+        let f = fixture()?;
+        let original = prepared(&f["chains"][0]["commits"][0], &f)?;
+        let receipt = store.append(original.clone(), context()).await?;
+        store
+            .prune_payloads(
+                clock(&receipt.replay_until)?,
+                PayloadPruneBudget {
+                    max_records: 1,
+                    max_raw_bytes: original.raw.len() as u64,
+                },
+                context(),
+            )
+            .await?;
+        let before = store.metrics();
+        let (started, wait) = oneshot::channel();
+        let (release, blocked) = std::sync::mpsc::sync_channel(1);
+        let task_store = store.clone();
+        let task = tokio::spawn(async move {
+            task_store
+                .request(Operation::Pause(started, blocked, false), context())
+                .await
+        });
+        wait.await?;
+        let now = clock(&receipt.identity_until)?;
+        let budget = IdentityPruneBudget {
+            max_records: 1,
+            max_metadata_bytes: 73728,
+        };
+        assert!(matches!(
+            store
+                .prune_identities(
+                    now,
+                    budget,
+                    OperationContext::new(Duration::from_millis(20))
+                )
+                .await,
+            Err(Error::Timeout)
+        ));
+        assert_eq!(store.metrics().operations_in_flight, 2);
+        let cancel_context = context();
+        let cancellation = cancel_context.cancellation.clone();
+        let cancel_store = store.clone();
+        let cancel_task = tokio::spawn(async move {
+            cancel_store
+                .prune_identities(now, budget, cancel_context)
+                .await
+        });
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while store.metrics().command_depth < 2 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await?;
+        cancellation.cancel();
+        assert!(matches!(cancel_task.await?, Err(Error::Cancelled)));
+        assert_eq!(store.metrics().operations_in_flight, 3);
+        release.send(())?;
+        task.await??;
+        let retained = store
+            .load(original.record_id(), context())
+            .await?
+            .ok_or("original")?;
+        assert_eq!(retained.receipt, receipt);
+        assert!(retained.raw.is_none());
+        let after = store.metrics();
+        assert_eq!(after.identity_pruned_through, 0);
+        assert_eq!(after.payload_pruned_through, 1);
+        assert_eq!(after.ledger_bytes, before.ledger_bytes);
+        assert_eq!(after.bindings, before.bindings);
+        assert_eq!(after.identities, before.identities);
+        assert_eq!(after.identity_prune_operations, 0);
+        assert_eq!(after.operations_in_flight, 0);
+        assert!(after.available);
         store.shutdown(context()).await?;
         Ok(())
     }

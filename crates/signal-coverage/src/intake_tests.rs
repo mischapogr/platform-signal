@@ -635,9 +635,12 @@ async fn receipt_shape_and_every_original_field_are_checked() -> TestResult {
         let mut value = serde_json::to_value(&r)?;
         value[field] = match field {
             "authority_revision" => json!("different"),
-            "accepted_at" | "replay_until" | "identity_until" => {
+            "accepted_at" | "replay_until" => {
                 json!("2026-10-07T00:05:31.000000000Z")
             }
+            // Keep this mutation semantically ordered so the test still verifies
+            // exact retained-receipt equality rather than the shape validator.
+            "identity_until" => json!("2026-10-07T00:15:31.000000000Z"),
             "correction_of" => json!(Uuid::new_v4()),
             _ => json!("0".repeat(64)),
         };

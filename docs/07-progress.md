@@ -11,8 +11,8 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 320, including 24 SDK SourceCoverage tests, 58 local-store/intake/correction/
-payload-pruning tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
+workspace gate has 336, including 24 SDK SourceCoverage tests, 74 local-store/intake/correction/
+payload/identity-pruning tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
 resource exhaustion before the application starts; the preceding image retains
 its passing kind evidence. The native CI matrix
@@ -38,6 +38,48 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Post-MVP SourceCoverage identity-prefix pruning — 2026-10-07
+
+`CoverageStore::prune_identities` reclaims only an expired global identity prefix
+whose payloads are already unavailable. Positive record/selected-metadata budgets,
+constant-memory point loads and existing VM/deadline/slot reserves bound work.
+The first unexpired or oversized identity blocks younger rows. Each removed row
+can reclaim at most one bounded binding/profile pin after checking surviving
+references; shared pins remain. Equality is eligible, regression rejects and
+no-op calls never advance the clock floor.
+
+One transaction removes identities/newly unreferenced pins and updates marker/
+anchor, counts, clock floor, logical charge and checksum. The history UUID,
+committed sequence/tail, payload anchor and surviving immutable correction links/
+receipts remain, including an empty store. Later append continues the old prefix.
+A referenced retry at/below the identity marker returns `IdentityPruned`, after
+current authorization and reference checks, and never becomes admission. The
+marker witness is checked; below it, deleted originals cannot authenticate every
+supplied receipt field. Unknown bare IDs carry no lifetime deduplication promise.
+Metrics expose the durable identity marker and successful nonempty runtime counts.
+
+Independent review accepted with no unresolved findings. All 74 focused coverage
+and 336 workspace tests pass, with strict Clippy/fmt, the 13-package guard and
+unchanged contract/reference-vector checkers. Sixteen new regressions include
+nanosecond equality, payload/time obstruction, budgets, exact shared-pin accounting,
+quota reuse, all-pruned restart/sequence continuity, stale-reference authorization,
+receipt ordering, bare-ID limitations, surviving corrections, corruption, actual
+queued timeout/cancellation and genuine SIGKILL before/after identity commit.
+The dedicated prune-all crash case executes final binding/profile deletion and
+checks empty-root recovery plus sequence-3 append. Generic active-worker ownership
+remains distinct from queued cancellation/process loss; actual fsync cancellation,
+VFS fault injection and physical power loss remain unqualified. One existing
+receipt fixture was kept semantically ordered to preserve its exact-field mismatch
+assertion; the independent malformed-time test covers the new early rejection.
+No production correction was required; review added the targeted crash proof.
+
+Evidence: `target/source-coverage-identity-pruning-20261007/`. No dependency,
+schema/encoding change or server/HTTP/cloud/observer integration is added.
+Maintenance uncertainty still requires owner exit/recovery and marker reconciliation;
+repeating a call can prune another prefix. Logical reclamation does not promise
+physical erasure, file shrinkage or a strict deletion deadline. Next: bounded
+fixed-frontier scans. Existing environment/release gates remain open.
 
 ## Post-MVP SourceCoverage payload-prefix pruning — 2026-10-07
 
@@ -72,8 +114,8 @@ Evidence: `target/source-coverage-payload-pruning-20261007/`. This post-MVP libr
 slice adds no dependency, wire/schema/encoding change or server/cloud/observer
 integration. UI-image reports retain their own reviewed runtime binding; they do
 not qualify the new library on ARM64 or in AWS. Logical reclamation is not secure
-physical deletion or page-file shrinkage. Next: separately bounded identity-prefix
-pruning, then scans. Existing environment/release gates remain open.
+physical deletion or page-file shrinkage. At that acceptance, identity-prefix
+pruning was next; its later acceptance is recorded above. Existing environment/release gates remain open.
 
 ## MVP SecOps UI-02 — 2026-10-07
 
