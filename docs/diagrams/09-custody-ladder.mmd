@@ -1,0 +1,35 @@
+%% Slide-sized view of 04-acknowledgement-milestones.mmd. Dashed = proposed, solid = current.
+flowchart LR
+    subgraph F1["Collector (F1)"]
+        M0["M0 capture<br/>under known config"]
+        M1["M1 durable<br/>source receipt"]
+    end
+    subgraph F2["Server WAL (F2)"]
+        M2["M2 HTTP 202<br/>accepted prefix"]
+    end
+    subgraph F35["Processing (F3-F5)"]
+        M4["M4 Parquet, rules,<br/>findings,<br/>checkpoint"]
+    end
+    subgraph F7["Delivery (F7)"]
+        M5["M5 delivery plan<br/>committed"]
+        M6["M6 destination<br/>receipt"]
+        M7["M7 analyst<br/>outcome"]
+    end
+    subgraph F6["Evidence (F6)"]
+        M3["M3 protected<br/>original +<br/>validation"]
+    end
+    M0 --> M1 --> M2 --> M4 --> M5 --> M6 --> M7
+    M0 ==>|"native delivery"| M3
+    classDef source fill:#fff7ed,stroke:#c2410c,color:#431407
+    classDef collector fill:#eff6ff,stroke:#1d4ed8,color:#172554
+    classDef core fill:#ecfdf5,stroke:#047857,color:#022c22
+    classDef evidence fill:#fef2f2,stroke:#b91c1c,color:#450a0a
+    classDef people fill:#f5f3ff,stroke:#6d28d9,color:#2e1065
+    classDef store fill:#f1f5f9,stroke:#334155,color:#0f172a
+    classDef proposed stroke-dasharray:6 4
+    class M0 source
+    class M2,M4 core
+    class M1,M5,M6,M7 collector
+    class M1,M5,M6,M7 proposed
+    class M3 evidence
+    class M3 proposed
