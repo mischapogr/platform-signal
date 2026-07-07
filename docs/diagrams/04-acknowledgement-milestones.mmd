@@ -1,0 +1,20 @@
+%% M0-M7 acknowledgement milestones. See docs/failure-domains.md. Milestones need not occur in numeric order.
+sequenceDiagram
+    participant S as Source / provider
+    participant C as Collector or agent (F1)
+    participant W as Server WAL (F2)
+    participant P as Processing (F3-F5)
+    participant E as Security evidence (F6)
+    participant D as Delivery + SecOps (F7)
+    S->>C: M0 evidence created under known collection config
+    C->>C: M1 durable source receipt (proposed)
+    C->>W: submit prepared records
+    W-->>C: M2 HTTP 202 for the accepted prefix (current)
+    Note over C,W: A lost response can hide admission. Retry the same identity.
+    S-)E: M3 native original delivered + validated (proposed)
+    W->>P: replay from WAL
+    P->>P: M4 Parquet + rules + findings, then checkpoint (current)
+    P->>D: M5 delivery plan committed (proposed)
+    D-->>P: M6 destination receipt (proposed)
+    D->>D: M7 analyst outcome recorded (proposed)
+    Note over W,D: 202 is not S3 custody, protected evidence, coverage or analyst acknowledgement.

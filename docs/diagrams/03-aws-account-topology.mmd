@@ -1,0 +1,35 @@
+%% Target Standard-profile AWS topology. One-account estates cannot provide the security-account boundary.
+flowchart LR
+    subgraph WORK["Workload accounts"]
+        AUDIT["Native AWS audit<br/>CloudTrail + control audit"]
+        AGENTS["Host / pod agents<br/>scoped source credentials"]
+        COLL["Scoped collectors<br/>per account / region"]
+    end
+    subgraph OBS["Observability account - target"]
+        SRV["SIGNAL servers x3 across AZs<br/>one owner per partition<br/>bounded intake + replay"]
+        TELE[("Telemetry S3<br/>Parquet + manifests<br/>cache is rebuildable")]
+        DB[("Control DB<br/>HA PostgreSQL<br/>pins, receipts, findings, fencing")]
+        UI["API + read-only UI<br/>OIDC identity, scoped access checks"]
+    end
+    subgraph SEC["Security account - target"]
+        ORIG[("Protected originals<br/>restricted S3, retention controls<br/>independent validation")]
+    end
+    AUDIT --> COLL
+    AGENTS --> SRV
+    COLL --> SRV
+    SRV --> TELE
+    SRV -->|"fenced progress"| DB
+    SRV --> UI
+    AUDIT ==>|"independent native delivery"| ORIG
+    ORIG -.->|"validated replay"| SRV
+    classDef source fill:#fff7ed,stroke:#c2410c,color:#431407
+    classDef collector fill:#eff6ff,stroke:#1d4ed8,color:#172554
+    classDef core fill:#ecfdf5,stroke:#047857,color:#022c22
+    classDef evidence fill:#fef2f2,stroke:#b91c1c,color:#450a0a
+    classDef people fill:#f5f3ff,stroke:#6d28d9,color:#2e1065
+    classDef store fill:#f1f5f9,stroke:#334155,color:#0f172a
+    class AUDIT source
+    class AGENTS,COLL collector
+    class SRV,UI core
+    class TELE,DB store
+    class ORIG evidence

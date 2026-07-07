@@ -47,6 +47,16 @@ flowchart TD
     COVER -.-> CONTEXT
     COVER -.-> DETECT
     COVER -.-> DELIVERY
+    classDef source fill:#fff7ed,stroke:#c2410c,color:#431407
+    classDef collector fill:#eff6ff,stroke:#1d4ed8,color:#172554
+    classDef core fill:#ecfdf5,stroke:#047857,color:#022c22
+    classDef evidence fill:#fef2f2,stroke:#b91c1c,color:#450a0a
+    classDef store fill:#f1f5f9,stroke:#334155,color:#0f172a
+    class AWS,API,K8S,HOST source
+    class CLOUD,CLUSTER,AGENT collector
+    class ADMIT,CONTEXT,UNSAMPLED,OBS,QUERY,DETECT,FIND,DELIVERY core
+    class PROTECT,SEC evidence
+    class STORE,COVER store
 ```
 
 F3 includes the observability account as a shared dependency. F4/F5 are logical
