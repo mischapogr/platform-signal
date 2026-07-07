@@ -225,3 +225,24 @@ runs on its caller's bounded blocking worker; retained copies need aggregate
 budgets. See [protected evidence contract](../../docs/38-protected-evidence-contract.md).
 Independent receipt custody, required ACK and actual AWS qualification remain
 separate from these read-only byte-proof mechanisms.
+
+## Independent complete-receipt custody
+
+`prepare_custody_manifest` and `verify_custody_witness` bind all framed receipt
+bytes, exact pins, stable archive version/commit time and retention. An independently
+configured Ed25519 authority verifies a fresh bounded challenge; the resulting
+nonserialized token expires at the earliest key/retention/challenge/context limit.
+These pure helpers do not publish archives, enforce storage permissions or prove
+native source completeness. Crypto work belongs on a caller-owned bounded worker.
+
+`ReceiptStore::verify_custody` commits on the existing physical worker with full
+CAS/current-history authority. Explicit independent begin/finish/recovery ACK
+updates each consume fresh verification of the exact saved manifest. Quarantine
+needs trusted purpose selection; pinned M2 and process-local denials remain.
+Tickets narrow source I/O budgets and expose an owner-fence future that adapters
+must select during authenticated work. The optional AWS adapter enforces it;
+handover/poison/worker exit cannot authorize new deletion using retained tickets.
+Already dispatched remote effects remain uncertain. Local retirement preserves
+custody controls and never deletes archive originals. The ordinary collector
+driver remains process-local. Independent enforced archive/checkpoint/coverage
+integration and actual AWS isolation require separate acceptance within EVIDENCE.

@@ -13,8 +13,9 @@ Every mutation checks the exact store-issued prior control, current full binding
 OS owner/generation and a fresh trusted independently current checkpoint.
 Checkpoint authentication/continuity remains the application’s responsibility.
 Process-local custody must be explicitly selected and match the pinned binding;
-stronger requirements fail closed until their independent custody verifier exists.
-All quarantine remains blocked in this initial ACK slice, including mixed
+stronger requirements fail closed in this process-local path. The separately
+selected EVIDENCE verifier and explicit stronger operations are described below.
+All quarantine remains blocked in this initial process-local ACK slice, including mixed
 receipts with any `quarantine_record`, quarantined objects and zero-prepared
 objects. Active retirement is mandatory.
 
@@ -90,3 +91,22 @@ actual AWS transport, credentials, source completeness or account-loss custody.
 RecoverUncertain) and returns an intent ticket/current token or settled token.
 `SourceAckOutcome` verifies only AWS JSON response shape or represents uncertainty.
 The application supplies fresh checkpoint authentication and provider transport.
+
+## Explicit independent custody operations
+
+The EVIDENCE mechanism adds `BeginIndependent`, `FinishIndependent` and
+`RecoverIndependent` without changing frozen control fields. Each operation
+consumes a fresh verified complete-receipt witness matching the saved immutable
+manifest; a stored `verified_independent` flag never supplies verification.
+Trusted quarantine purpose is selected separately, and pinned M2/horizon/history/
+owner guards still apply. The collector driver continues to select process-local
+ACK and cannot silently acquire this policy. See the precise bounded frame,
+expiry and trust contracts in [protected evidence](38-protected-evidence-contract.md).
+
+Observation strings have length 30 and allocation capacity at most 128 before
+queue admission. A strong ticket and physical custody/ACK I/O retain the earliest
+witness/key/archive/context deadline. Tickets carry an engine-owned cancellation
+fence: transfer, worker poison and exit prevent subsequent delete start and
+settlement. Source adapters must use the ticket's narrowed context and select its
+owner fence during transport. A remotely dispatched operation cannot be recalled;
+loss or cancellation remains uncertain and needs fresh recovery authority.

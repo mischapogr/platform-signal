@@ -671,7 +671,7 @@ fn emitted_indeterminate_content_remains_eligible_and_both_horizons_are_checked(
         receipt: r,
         progress: initial,
     };
-    assert!(ack::replacement(&replay, begin(1, AT)?, owner(), 1).is_ok());
+    assert!(ack::replacement(&replay, begin(1, AT)?, owner(), 1, CancellationToken::new()).is_ok());
     let (raw, _) = pure(false)?;
     let mut r = format::decode(raw, &ctx())?;
     r.metadata["retention"]["source_replay_until"] = "2026-10-07T13:00:01.000000000Z".into();
@@ -681,7 +681,7 @@ fn emitted_indeterminate_content_remains_eligible_and_both_horizons_are_checked(
         progress: p,
     };
     assert!(matches!(
-        ack::replacement(&replay, begin(1, AT)?, owner(), 1),
+        ack::replacement(&replay, begin(1, AT)?, owner(), 1, CancellationToken::new()),
         Err(ReceiptError::Ack)
     ));
     Ok(())

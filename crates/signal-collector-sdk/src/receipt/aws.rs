@@ -490,16 +490,22 @@ impl SourceQueue for AwsSourceClient {
         if ticket.binding() != b {
             return Err(SourceFailure::Denied);
         }
-        let (status, body) = self
-            .queue_request(
-                b,
-                "AmazonSQS.DeleteMessage",
-                serde_json::json!({"QueueUrl":self.config.queue_url.as_str(),
+        let ack_context = ticket
+            .current_context(ctx)
+            .map_err(|_| SourceFailure::Unavailable)?;
+        let response = self.queue_request(
+            b,
+            "AmazonSQS.DeleteMessage",
+            serde_json::json!({"QueueUrl":self.config.queue_url.as_str(),
             "ReceiptHandle":ticket.handle()}),
-                64 * 1024,
-                ctx,
-            )
-            .await?;
+            64 * 1024,
+            &ack_context,
+        );
+        let (status, body) = tokio::select! {
+            biased;
+            _ = ticket.owner_fenced() => return Err(SourceFailure::Unavailable),
+            response = response => response?,
+        };
         Ok(SourceAckOutcome::from_sqs_json_response(status, &body))
     }
 }

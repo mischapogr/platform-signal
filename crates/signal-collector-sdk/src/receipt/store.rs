@@ -17,12 +17,21 @@ enum Operation {
     Inspect(ReceiptBinding),
     Replay(ReceiptBinding),
     Advance(ReceiptBinding, ReceiptProgress, u32, ReceiptAttempt),
+    Custody(
+        Box<(
+            ReceiptBinding,
+            ReceiptProgress,
+            ReceiptRecoveryGrant,
+            VerifiedCustody,
+            String,
+        )>,
+    ),
     Transfer(ReceiptBinding, ReceiptProgress, ReceiptRecoveryGrant, Uuid),
     Ack(
         ReceiptBinding,
         ReceiptProgress,
         ReceiptRecoveryGrant,
-        ReceiptAckUpdate,
+        Box<ReceiptAckUpdate>,
     ),
     Control(ReceiptBinding),
     Retire(
@@ -160,11 +169,22 @@ impl ReceiptStore {
                         Operation::Advance(binding, expected, count, outcome) => engine
                             .advance(&binding, expected, count, outcome, &command.ctx, &wm)
                             .map(Answer::Advanced),
+                        Operation::Custody(input) => engine
+                            .custody(
+                                input.0,
+                                input.1,
+                                input.2,
+                                input.3,
+                                &input.4,
+                                &command.ctx,
+                                &wm,
+                            )
+                            .map(Answer::Advanced),
                         Operation::Transfer(binding, expected, grant, owner) => engine
                             .transfer(&binding, expected, grant, owner, &command.ctx, &wm)
                             .map(|()| Answer::Transferred),
                         Operation::Ack(binding, expected, grant, update) => engine
-                            .ack(&binding, expected, grant, update, &command.ctx, &wm)
+                            .ack(&binding, expected, grant, *update, &command.ctx, &wm)
                             .map(Answer::Ack),
                         Operation::Control(binding) => {
                             engine.control(&binding, &command.ctx).map(Answer::Control)
@@ -340,6 +360,33 @@ impl ReceiptStore {
             _ => Err(ReceiptError::Closed),
         }
     }
+    /// Commit verified whole-receipt custody on the existing physical worker.
+    /// Signed verification and fresh authenticated history are both required;
+    /// store flags alone are insufficient. Identical witness replay is idempotent.
+    pub async fn verify_custody(
+        &self,
+        binding: ReceiptBinding,
+        expected: ReceiptProgress,
+        grant: ReceiptRecoveryGrant,
+        verified: VerifiedCustody,
+        observed_at: String,
+        ctx: ExtensionContext,
+    ) -> Result<ReceiptProgress, ReceiptError> {
+        if observed_at.len() != 30 || observed_at.capacity() > 128 {
+            self.metrics.rejected.fetch_add(1, Ordering::AcqRel);
+            return Err(ReceiptError::Custody);
+        }
+        match self
+            .request(
+                Operation::Custody(Box::new((binding, expected, grant, verified, observed_at))),
+                ctx,
+            )
+            .await?
+        {
+            Answer::Advanced(progress) => Ok(progress),
+            _ => Err(ReceiptError::Closed),
+        }
+    }
     /// Commit a bounded ACK transition with fresh independently current authority.
     /// Intent's ticket is exposed only after physical control publication succeeds.
     /// Finish uses a fresh token even if admission advanced since ticket issuance.
@@ -356,7 +403,10 @@ impl ReceiptStore {
             return Err(e);
         }
         match self
-            .request(Operation::Ack(binding, expected, grant, update), ctx)
+            .request(
+                Operation::Ack(binding, expected, grant, Box::new(update)),
+                ctx,
+            )
             .await?
         {
             Answer::Ack(result) => Ok(result),
@@ -494,6 +544,14 @@ struct Engine {
     owner: Uuid,
     generation: u64,
     poisoned: bool,
+    ticket_owner_fence: tokio_util::sync::CancellationToken,
+}
+impl Drop for Engine {
+    fn drop(&mut self) {
+        // Invalidate remote-work start before physical ownership is released.
+        // Already dispatched requests remain uncertain; this is no remote fence.
+        self.ticket_owner_fence.cancel();
+    }
 }
 /// Explicitly release the physical owner's lock before closing its descriptor.
 /// A concurrent fork can briefly inherit the same open description before exec;
@@ -598,6 +656,7 @@ impl Engine {
             owner,
             generation,
             poisoned: false,
+            ticket_owner_fence: tokio_util::sync::CancellationToken::new(),
         };
         let state = engine.state(ctx)?;
         let current = match state {
@@ -814,6 +873,7 @@ impl Engine {
         if matches!(&result,Err(e) if !matches!(e,ReceiptError::Cancelled|ReceiptError::Timeout|ReceiptError::Retired))
         {
             self.poisoned = true;
+            self.ticket_owner_fence.cancel();
         }
         result
     }
@@ -889,11 +949,48 @@ impl Engine {
         } else {
             retirement::owner_replacement(&current, new_owner, generation)?
         };
+        // Fence issued tickets before the new owner control can become visible.
+        // Transfer is terminal even on I/O failure; tickets never regain life.
+        self.ticket_owner_fence.cancel();
         self.replace_control(&next.bytes, ctx)?;
         self.owner = new_owner;
         self.generation = generation;
         metrics.owner_transfers.fetch_add(1, Ordering::AcqRel);
         Ok(())
+    }
+    #[allow(clippy::too_many_arguments)] // One existing physical worker command; no parallel owner.
+    fn custody(
+        &mut self,
+        binding: ReceiptBinding,
+        expected: ReceiptProgress,
+        grant: ReceiptRecoveryGrant,
+        verified: VerifiedCustody,
+        observed_at: &str,
+        ctx: &ExtensionContext,
+        metrics: &Metrics,
+    ) -> Result<ReceiptProgress, ReceiptError> {
+        let bounded_context = ExtensionContext {
+            cancellation: ctx.cancellation().clone(),
+            deadline: verified.deadline().min(ctx.deadline()),
+        };
+        let ctx = &bounded_context;
+        let replay = self
+            .replay(&binding, ctx)?
+            .ok_or(ReceiptError::StaleProgress)?;
+        self.authorize(&replay.progress, &binding, &expected, &grant)?;
+        let next = custody::replacement(
+            &replay.receipt,
+            &replay.progress,
+            verified,
+            observed_at,
+            self.owner,
+            self.generation,
+        )?;
+        if next.bytes != replay.progress.bytes {
+            self.replace_control(&next.bytes, ctx)?;
+            metrics.progress_updates.fetch_add(1, Ordering::AcqRel);
+        }
+        Ok(next)
     }
     fn authorize(
         &self,
@@ -979,6 +1076,7 @@ impl Engine {
         })();
         if result.is_err() {
             self.poisoned = true;
+            self.ticket_owner_fence.cancel();
         }
         result
     }
@@ -1028,6 +1126,7 @@ impl Engine {
         })();
         if result.is_err() {
             self.poisoned = true;
+            self.ticket_owner_fence.cancel();
         }
         result
     }
@@ -1040,6 +1139,8 @@ impl Engine {
         ctx: &ExtensionContext,
         metrics: &Metrics,
     ) -> Result<ReceiptAckCommit, ReceiptError> {
+        let bounded_context = update.current_context(ctx);
+        let ctx = &bounded_context;
         let replay = self
             .replay(binding, ctx)?
             .ok_or(ReceiptError::StaleProgress)?;
@@ -1052,7 +1153,13 @@ impl Engine {
         if grant.control_checksum != replay.progress.checksum() {
             return Err(ReceiptError::History);
         }
-        let (next, ticket) = ack::replacement(&replay, update, self.owner, self.generation)?;
+        let (next, ticket) = ack::replacement(
+            &replay,
+            update,
+            self.owner,
+            self.generation,
+            self.ticket_owner_fence.clone(),
+        )?;
         self.replace_control(&next.bytes, ctx)?;
         metrics.progress_updates.fetch_add(1, Ordering::AcqRel);
         Ok(match ticket {
@@ -1084,6 +1191,7 @@ impl Engine {
         })();
         if result.is_err() {
             self.poisoned = true;
+            self.ticket_owner_fence.cancel();
         }
         result
     }
@@ -1172,6 +1280,7 @@ impl Engine {
         })();
         if result.is_err() {
             self.poisoned = true;
+            self.ticket_owner_fence.cancel();
         } else {
             metrics.admitted.fetch_add(1, Ordering::AcqRel);
         }

@@ -10,6 +10,8 @@ type TestResult = Result<(), Box<dyn std::error::Error>>;
 mod aws_tests;
 #[path = "capture_tests.rs"]
 mod capture_tests;
+#[path = "custody_tests.rs"]
+mod custody_tests;
 #[path = "discovery_tests.rs"]
 mod discovery_tests;
 #[path = "driver_tests.rs"]

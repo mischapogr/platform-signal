@@ -32,13 +32,23 @@ pub(super) fn decode(
         format::hash(&v[key])?;
     }
     format::validate_binding(&v["binding"])?;
-    if v["binding"]["custody_mode"] != "process_local"
-        || v["prepared_count"]
-            .as_u64()
-            .is_none_or(|n| n == 0 || n > 1024)
+    custody::validate_control_pins(
+        &v["custody"],
+        &v["binding"],
+        &v["retention"],
+        &v["receipt_sha256"],
+    )?;
+    let local = v["binding"]["custody_mode"] == "process_local";
+    if v["prepared_count"]
+        .as_u64()
+        .is_none_or(|n| n > 1024 || (local && n == 0))
         || v["verified_prefix"] != v["prepared_count"]
-        || v["custody"]
-            != serde_json::json!({"status":"local_only","witness_id":null,"receipt_sha256":null,"retain_until":null})
+        || v["custody"]["status"]
+            != if local {
+                "local_only"
+            } else {
+                "verified_independent"
+            }
         || v["attempt"]
             != serde_json::json!({"kind":"none","start":0,"count":0,"accepted":0,"response_sha256":null})
         || v["ack"]["state"] != "confirmed"
@@ -91,12 +101,13 @@ pub(super) fn verify_receipt(p: &ReceiptProgress, r: &StoredReceipt) -> Result<(
         || p.value["prepared_count"].as_u64() != Some(r.info.prepared_count as u64)
         || p.value["prefix_sha256"]
             != format::hex(&progress::prefix_hash(r, r.info.prepared_count)?)
-        || r.metadata["object_disposition"] != "prepared"
-        || r.metadata["records"].as_array().is_none_or(|records| {
-            records
-                .iter()
-                .any(|r| r["disposition"] == "quarantine_record")
-        })
+        || (r.metadata["binding"]["custody_mode"] == "process_local"
+            && (r.metadata["object_disposition"] != "prepared"
+                || r.metadata["records"].as_array().is_none_or(|records| {
+                    records
+                        .iter()
+                        .any(|r| r["disposition"] == "quarantine_record")
+                })))
     {
         return Err(ReceiptError::Retirement);
     }

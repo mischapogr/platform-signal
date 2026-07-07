@@ -6,6 +6,7 @@ mod ack;
 #[cfg(feature = "aws-source")]
 pub(crate) mod aws;
 mod capture;
+mod custody;
 mod discovery;
 mod driver;
 mod format;
@@ -24,6 +25,11 @@ pub use aws::{AwsCredentialsProvider, AwsSourceClient, AwsSourceConfig, SigningC
 pub use capture::{
     CaptureError, CaptureFailure, CapturePreparation, CaptureStream, CaptureTransport,
     CapturedObject, MAX_CAPTURE_BYTES, capture_object,
+};
+pub use custody::{
+    CustodyArchiveIdentity, CustodyAuthority, CustodyChallenge, CustodyPurpose,
+    MAX_CUSTODY_ATTESTATION_BYTES, MAX_CUSTODY_MANIFEST_BYTES, MAX_CUSTODY_WITNESS_BYTES,
+    VerifiedCustody, prepare_custody_manifest, verify_custody_witness,
 };
 pub use discovery::{
     DiscoveryError, MAX_DISCOVERY_BYTES, MAX_DISCOVERY_REFERENCES, ObjectDiscovery, discover_object,
@@ -63,6 +69,8 @@ pub const QUEUE_CAPACITY: usize = 1;
 
 #[derive(Debug, Error)]
 pub enum ReceiptError {
+    #[error("independent receipt custody preconditions or verification failed")]
+    Custody,
     #[error("invalid receipt configuration or owner")]
     Configuration,
     #[error("invalid receipt encoding: {0}")]
@@ -178,6 +186,11 @@ pub struct StoredReceipt {
     metadata_end: usize,
 }
 impl StoredReceipt {
+    /// Exact immutable full frame, including checksum trailer. A borrowed view
+    /// adds no second payload allocation; retained copies need a caller budget.
+    pub fn framed_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
     pub fn info(&self) -> ReceiptInfo {
         self.info
     }
