@@ -27,14 +27,15 @@ const assetHashes = Object.fromEntries(Object.entries(assets).map(([name, bytes]
 const token = 'browser-fixture-token-do-not-persist';
 const hostile = '<img src=x onerror="globalThis.SIGNAL_XSS=true"><script>globalThis.SIGNAL_XSS=true</script>';
 const eventId = '20000000-0000-4000-8000-000000000001';
+const missingEventId = '20000000-0000-4000-8000-000000000009';
 const finding = {
   schema_version: 1, id: '30000000-0000-4000-8000-000000000001',
   rule_id: 'fixture.browser.rule', created_at: '2026-10-07T10:00:00Z',
-  severity: 'high', title: hostile, event_ids: [eventId],
+  severity: 'high', title: hostile, event_ids: [eventId, missingEventId],
   attributes: { counter: '__RAW_INTEGER__', nested: { retained: true } },
 };
 const event = {
-  schema_version: 1, id: eventId, timestamp: '2026-10-07T09:59:00Z',
+  schema_version: 1, id: eventId, timestamp: '2026-09-27T09:59:00Z',
   observed_at: '2026-10-07T10:00:00Z', source: { type: 'fixture.browser', name: 'fixture' },
   severity: 'error', message: hostile, attributes: { counter: '__RAW_INTEGER__' },
   resource: { kind: 'fixture', id: 'fixture-resource', account_id: '000000000000', region: 'eu-central-1' },
@@ -50,9 +51,23 @@ let mode = 'normal';
 const requests = [];
 let pendingClosed = false;
 const pending = new Set();
-const response = endpoint => encode(endpoint === '/v1/findings'
-  ? { schema_version: 1, findings: [finding] }
-  : { schema_version: 1, events: [event], metadata: { scanned_partitions: 1, returned: 1, truncated: false } });
+const duplicateEvent = { ...event, attributes: { ...event.attributes, replay_copy: true } };
+const messageOnlyEvent = { ...event, id: '20000000-0000-4000-8000-000000000002', message: `Unrelated event references ${eventId} in its message.` };
+function response(url) {
+  if (url.pathname === '/v1/findings') return encode({ schema_version: 1, findings: [finding] });
+  // Match identity, not message content. Retained duplicates are legitimate
+  // at-least-once deliveries and must remain visible to the investigator.
+  let events = [event];
+  if (url.searchParams.has('event_id')) {
+    events = [event, duplicateEvent, messageOnlyEvent].filter(row => row.id === url.searchParams.get('event_id'));
+    const from = url.searchParams.get('from');
+    const to = url.searchParams.get('to');
+    events = events.filter(row => (!from || row.timestamp >= from) && (!to || row.timestamp < to));
+  } else if (url.searchParams.get('contains') === eventId) {
+    events = [messageOnlyEvent];
+  }
+  return encode({ schema_version: 1, events, metadata: { scanned_partitions: 1, returned: events.length, truncated: false } });
+}
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://127.0.0.1');
   if (url.pathname.startsWith('/v1/')) {
@@ -67,6 +82,11 @@ const server = http.createServer((req, res) => {
     if (mode === 'unauthorized' || req.headers.authorization !== `Bearer ${token}`) {
       res.writeHead(401);
       res.end(encode({ schema_version: 1, error: { code: 'unauthorized', message: 'valid bearer token required' } }));
+      return;
+    }
+    if (mode === 'lookup-error' && url.pathname === '/v1/events') {
+      res.writeHead(503);
+      res.end(encode({ schema_version: 1, error: { code: 'unavailable', message: 'fixture lookup unavailable' } }));
       return;
     }
     if (mode === 'rows') {
@@ -84,8 +104,8 @@ const server = http.createServer((req, res) => {
       return;
     }
     if (mode === 'malformed') { res.end('{"schema_version":1,'); return; }
-    if (mode === 'whitespace') { res.end(' \n\t\r' + response(url.pathname) + '\n\t '); return; }
-    res.end(response(url.pathname));
+    if (mode === 'whitespace') { res.end(' \n\t\r' + response(url) + '\n\t '); return; }
+    res.end(response(url));
     return;
   }
   const asset = { '/ui': ['index.html', 'text/html; charset=utf-8'], '/ui/': ['index.html', 'text/html; charset=utf-8'], '/ui/app.js': ['app.js', 'application/javascript; charset=utf-8'], '/ui/style.css': ['style.css', 'text/css; charset=utf-8'] }[url.pathname];
@@ -353,6 +373,74 @@ async function main() {
       await page.locator('#events-results .select-row').focus();
       await page.keyboard.press('Enter');
       assert.ok((await page.locator('#event-detail').textContent()).includes(eventId));
+    });
+    const openFinding = async () => {
+      await page.locator('#findings-tab').click();
+      await page.locator('#findings-results .select-row').click();
+    };
+    const evidenceLink = id => page.locator('.evidence-link').filter({ hasText: id }).first();
+    const waitEvidenceRows = count => page.waitForFunction(expected => document.querySelectorAll('#events-results .select-row').length === expected, count);
+    await check('finding evidence navigation uses exact ID and removes stale event filters/time range', async () => {
+      await openFinding();
+      const before = requests.length;
+      await evidenceLink(eventId).click();
+      await waitEvidenceRows(2);
+      assert.equal(await page.locator('#events-pane').isVisible(), true);
+      assert.equal(await page.locator('#events-id').inputValue(), eventId);
+      const query = requests.at(-1).query;
+      assert.ok(requests.length > before);
+      assert.equal(requests.at(-1).path, '/v1/events');
+      assert.equal(query.event_id, eventId);
+      assert.equal(query.order, 'desc');
+      assert.equal(query.limit, '100');
+      for (const field of ['from', 'to', 'source_type', 'account', 'resource_id', 'contains', 'severity']) assert.equal(query[field], undefined, `stale ${field} removed`);
+      for (const field of ['from', 'to', 'source', 'account', 'resource', 'contains', 'severity']) assert.equal(await page.locator(`#events-${field}`).inputValue(), '', `visible ${field} cleared`);
+      assert.equal((await rows('events').allInnerTexts()).join('\n').includes('Unrelated event'), false);
+    });
+    await check('exact evidence preserves both retained copies and original event timestamp/detail', async () => {
+      assert.match(await page.locator('#events-status').textContent(), /2/);
+      await page.locator('#events-results .select-row').nth(0).click();
+      const first = await page.locator('#event-detail').textContent();
+      assert.ok(first.includes('2026-09-27T09:59:00Z'));
+      assert.ok(first.includes('9007199254740993'));
+      assert.ok(first.includes(eventId));
+      await page.locator('#events-results .select-row').nth(1).click();
+      const second = await page.locator('#event-detail').textContent();
+      assert.ok(second.includes('"replay_copy":true'));
+      assert.ok(second.includes('9007199254740993'));
+    });
+    await check('missing evidence explains retained-data limits without claiming historical absence', async () => {
+      await openFinding();
+      await evidenceLink(missingEventId).click();
+      await page.waitForFunction(() => !document.querySelector('#events-form button[type="submit"]').disabled);
+      assert.equal(requests.at(-1).query.event_id, missingEventId);
+      assert.equal(await page.locator('#events-results .select-row').count(), 0);
+      const text = await page.locator('#events-status').textContent();
+      assert.match(text, /no.*match|not.*found|not.*retained|unavailable|missing/i);
+      assert.match(text, /retention|coverage|scope|does not|not.*prove|unknown|unavailable/i);
+      assert.doesNotMatch(text, /all sources healthy|complete coverage confirmed/i);
+    });
+    await check('keyboard activation of evidence UUID performs exact lookup', async () => {
+      await openFinding();
+      await evidenceLink(eventId).focus();
+      await page.keyboard.press('Enter');
+      await waitEvidenceRows(2);
+      assert.equal(requests.at(-1).query.event_id, eventId);
+      assert.equal(await page.locator('#events-pane').isVisible(), true);
+    });
+    await check('failed evidence lookup stays an error rather than empty evidence or healthy coverage', async () => {
+      mode = 'lookup-error';
+      await openFinding();
+      await evidenceLink(eventId).click();
+      await waitError('events');
+      assert.equal(requests.at(-1).query.event_id, eventId);
+      assert.equal(requests.at(-1).query.from, undefined);
+      assert.equal(requests.at(-1).query.to, undefined);
+      assert.equal(await page.locator('#events-results .select-row').count(), 0);
+      const text = await page.locator('#events-status').textContent();
+      assert.match(text, /failed|unavailable|error/i);
+      assert.doesNotMatch(text, /no.*match|no records|healthy|complete coverage/i);
+      mode = 'normal';
     });
     await check('phone width keeps page within viewport while tables scroll locally', async () => {
       await page.setViewportSize({ width: 390, height: 844 });

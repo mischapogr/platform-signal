@@ -42,7 +42,8 @@ SAMPLE_FILES = {'examples/logs/' + name for name in (
     'aws-nlb.json', 'aws-eks.json', 'aws-ecs.json', 'cloudflare.json', 'office365.json',
     'cato-vpn.json', 'fortigate.json')}
 UI_FILES = {'apps/signal-server/ui/' + name for name in ('index.html', 'app.js', 'style.css')}
-UI_TEST_HELPERS = {'scripts/test-secops-ui.cjs', 'scripts/test-secops-ui-process.cjs'}
+UI_TEST_HELPERS = {'scripts/test-secops-ui.cjs', 'scripts/test-secops-ui-process.cjs',
+                   'scripts/test-secops-ui-container.cjs'}
 CHART_FILES = {'Chart.yaml', 'README.md', 'values.yaml', 'values.schema.json',
                'templates/_helpers.tpl', 'templates/configmap.yaml', 'templates/deployment.yaml',
                'templates/pdb.yaml', 'templates/pvc.yaml', 'templates/service.yaml', 'templates/servicemonitor.yaml'}

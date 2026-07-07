@@ -1,8 +1,8 @@
 # MVP SecOps UI contract
 
 Status: owner-selected MVP requirement, 2026-10-07. UI-01 and UI-02 are bounded
-implementation/qualification items. This contract records required behavior;
-acceptance remains pending until evidence is recorded in
+implementation/qualification items with local AMD64 acceptance. Evidence and
+remaining external release gates are recorded in
 [progress](07-progress.md) and [release readiness](21-release-readiness.md).
 
 ## Product boundary
@@ -102,8 +102,8 @@ checks and 24 source-candidate helper regressions under
 `target/secops-ui-20261007/`. Actual-server asset responses match the source bytes;
 detail preserves large integers and hostile content remains text. Focused review
 corrected a cancelled/superseded 401 race and source-export asset omissions.
-Browser testing corrected mobile grid overflow. UI-02 exact evidence navigation
-and fresh container/architecture qualification remain open.
+Browser testing corrected mobile grid overflow. At UI-01 acceptance, UI-02 exact
+evidence navigation and fresh container/architecture qualification remained open.
 
 - Embedded routes return fixed typed assets with the intended security headers;
   malformed/unrecognized asset paths do not become arbitrary filesystem reads.
@@ -117,15 +117,31 @@ and fresh container/architecture qualification remain open.
   paths stop work and present clear state; no stale-response race.
 - Focused HTTP/static/client checks and the required Rust workspace gates pass.
   Static/source checks alone do not establish browser interaction or deployment
-  proof; those gates remain UI-02.
+  proof; those gates were assigned to UI-02.
 
 ## UI-02 — evidence navigation and qualification
 
-After UI-01, add exact event-ID evidence navigation from a finding's `event_ids`
-through a bounded versioned query extension and test it against persisted events.
-Searching a UUID as a message substring is not exact identity lookup. Define
-missing, duplicate/replayed, inaccessible and out-of-window evidence behavior
-before implementation. Do not imply absence means an event never existed.
+The finding detail supplies keyboard-accessible buttons for its first100 valid
+`event_ids`; further IDs remain visible in the complete detail for manual search.
+Each button switches to events, sets exact `event_id`, clears unrelated filters
+and both event-time bounds, and searches up to100 retained matches. A finding's
+creation time must not become an assumed source event time: delayed events can
+be much older. Manual event-ID search can optionally narrow either time bound;
+ordinary event search still requires both bounds.
+
+`GET /v1/events?event_id=<uuid>` accepts a canonical lowercase, hyphenated,
+non-nil UUID through the versioned optional `EventQuery.event_id` field. Absent
+fields remain compatible with the previous serialized contract. Identity is
+conjoined with other selected filters. Storage retains separate admissions with
+the same ID, so lookup can return multiple records in the existing timestamp/ID/
+WAL-sequence order. UUIDs occurring only in message text do not match.
+
+A blank result states absence within retained/search scope, not proof an event
+never existed. Authorization denial, unavailable evidence and scan/file/time/
+memory limits remain errors, rather than successful empty results. Clearing time
+bounds does not bypass these server budgets; narrow the interval when a broad
+retained-history query exceeds them. Exact row details preserve large numbers
+and hostile content as safe text.
 
 Qualify the complete workflow with an actual browser: configured-token success
 and denial, findings filters/detail, exact evidence navigation, event filters,
@@ -141,3 +157,23 @@ UI-02 is part of MVP acceptance. Advanced SOC UX starts only after MVP's locally
 runnable work is accepted; missing external evidence remains explicitly open.
 Coverage-history payload pruning, identity pruning and scans stay post-MVP PS-01,
 not prerequisites for these read-only UI slices.
+
+### UI-02 acceptance — local Linux AMD64
+
+Exact identity navigation and optional UUID query filtering are implemented.
+Acceptance records 307 workspace Rust tests (six new protocol/Parquet regressions),
+26 Chromium fixture checks, four real-server/browser/restart checks, 24 candidate
+helper regressions and 14 browser checks over the real immutable AMD64 container
+(seven before and seven after SIGTERM). The existing native container gate also
+passes nonroot/read-only/auth and SIGTERM/SIGKILL persistence checks. Current
+source export includes all embedded assets and the exact browser helpers;
+strict Helm lint passes. Evidence is retained under
+`target/secops-ui-evidence-20261007/` and reviewed independently.
+
+The container image is
+`sha256:14c56dcf65bcbb41d95a7ee1a8ced9464732ec71db80c014b3fab734b21cbf55`.
+Its asset bytes match the reviewed source. Delayed 10-day evidence returns both
+same-ID admissions, excludes a different-ID message containing the UUID,
+preserves large numbers, rejects wrong credentials, and survives restart.
+Native ARM64, current host-blocked kind, actual EKS, remote CI, released external
+dependencies and publication remain open. No advanced SOC workflow is implied.

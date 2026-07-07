@@ -64,6 +64,179 @@ fn ids(response: signal_protocol::EventQueryResponse) -> Vec<u128> {
 }
 
 #[tokio::test]
+async fn exact_event_id_preserves_independent_admissions_and_complete_evidence() -> TestResult {
+    let mut first = event(
+        0xabc,
+        "2026-09-01T12:00:00.000000001Z",
+        Some("first admission"),
+        "error",
+    )?;
+    first.attributes.insert(
+        "evidence".into(),
+        serde_json::from_str(
+            r#"{"nested":[{"counter":1844674407370955161600001,"fraction":1.234567890123456789},true,null]}"#,
+        )?,
+    );
+    let mut second = first.clone();
+    second.message = Some("independent admission with the same identity".into());
+    let mentioned_id = first.id.to_string();
+    let unrelated = event(
+        0xabd,
+        "2026-09-01T12:00:00.000000001Z",
+        Some(&mentioned_id),
+        "error",
+    )?;
+    let (_temp, store, engine) = fixture(
+        vec![first.clone(), second.clone(), unrelated],
+        QueryConfig::default(),
+    )
+    .await?;
+    let query = EventQuery {
+        event_id: Some(first.id),
+        ..Default::default()
+    };
+    // Equal timestamps and IDs still retain the two WAL admission rows in sequence order.
+    let response = engine.execute(query.clone(), context()).await?;
+    assert_eq!(response.events, vec![first.clone(), second.clone()]);
+    assert_eq!(
+        response.events[0].attributes["evidence"]["nested"][0]["counter"].to_string(),
+        "1844674407370955161600001"
+    );
+    assert_eq!(
+        engine
+            .execute(
+                EventQuery {
+                    limit: 1,
+                    ..query.clone()
+                },
+                context(),
+            )
+            .await?
+            .events,
+        vec![first]
+    );
+    assert_eq!(
+        engine
+            .execute(
+                EventQuery {
+                    order: QueryOrder::Desc,
+                    limit: 1,
+                    ..query
+                },
+                context(),
+            )
+            .await?
+            .events,
+        vec![second]
+    );
+    assert!(
+        engine
+            .execute(
+                EventQuery {
+                    event_id: Some(Uuid::from_u128(0x999)),
+                    ..Default::default()
+                },
+                context(),
+            )
+            .await?
+            .events
+            .is_empty()
+    );
+    store.shutdown(context()).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn exact_event_id_keeps_half_open_partition_pruning_and_filter_conjunction() -> TestResult {
+    let first = event(0xabc, "2026-09-01T12:00:00Z", Some("selected"), "error")?;
+    let later = event(0xabc, "2026-09-01T13:00:00Z", Some("later"), "info")?;
+    let unrelated = event(0xabd, "2026-09-01T12:00:00Z", Some("selected"), "error")?;
+    let (_temp, store, engine) = fixture(
+        vec![first.clone(), later, unrelated],
+        QueryConfig {
+            max_files: 1,
+            ..Default::default()
+        },
+    )
+    .await?;
+    let query = EventQuery {
+        event_id: Some(first.id),
+        from: Some(timestamp("2026-09-01T12:00:00Z")?),
+        to: Some(timestamp("2026-09-01T13:00:00Z")?),
+        contains: Some("selected".into()),
+        source_type: Some("application".into()),
+        account: Some("test-account".into()),
+        attributes: vec![AttributeFilter {
+            path: "user.name".into(),
+            value: json!("alice"),
+        }],
+        ..Default::default()
+    };
+    let response = engine.execute(query.clone(), context()).await?;
+    assert_eq!(response.events, vec![first]);
+    assert_eq!(response.metadata.candidate_partitions, 1);
+    assert_eq!(response.metadata.scanned_files, 1);
+    assert!(
+        engine
+            .execute(
+                EventQuery {
+                    severity: Some(signal_event::Severity::Info),
+                    ..query
+                },
+                context(),
+            )
+            .await?
+            .events
+            .is_empty()
+    );
+    store.shutdown(context()).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn exact_event_id_broad_lookup_fails_wholly_at_existing_file_budget() -> TestResult {
+    let (_temp, store, engine) = fixture(
+        vec![
+            event(1, "2026-09-01T12:00:00Z", Some("matching"), "info")?,
+            event(2, "2026-09-02T12:00:00Z", Some("unrelated"), "info")?,
+        ],
+        QueryConfig {
+            max_files: 1,
+            ..Default::default()
+        },
+    )
+    .await?;
+    assert_eq!(
+        engine
+            .execute(
+                EventQuery {
+                    event_id: Some(Uuid::from_u128(1)),
+                    ..Default::default()
+                },
+                context(),
+            )
+            .await,
+        Err(QueryError::Resource)
+    );
+    assert_eq!(
+        engine
+            .execute(
+                EventQuery {
+                    event_id: Some(Uuid::nil()),
+                    ..Default::default()
+                },
+                context(),
+            )
+            .await,
+        Err(QueryError::Invalid)
+    );
+    assert_eq!(engine.metrics().completed, 0);
+    assert_eq!(engine.metrics().depth, 0);
+    store.shutdown(context()).await?;
+    Ok(())
+}
+
+#[tokio::test]
 async fn actual_parquet_applies_every_filter_and_preserves_canonical_events() -> TestResult {
     let original = event(
         2,

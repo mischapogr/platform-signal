@@ -11,8 +11,8 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 300, including 24 SDK SourceCoverage tests and 45 local-store/intake/correction
-tests. The preceding source revision's AMD64 image has container, Helm, supply-chain and native
+workspace gate has 307, including 24 SDK SourceCoverage tests, 45 local-store/intake/correction
+tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
 resource exhaustion before the application starts; the preceding image retains
 its passing kind evidence. The native CI matrix
@@ -38,6 +38,49 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## MVP SecOps UI-02 — 2026-10-07
+
+Findings now open their referenced evidence by exact canonical non-nil UUID.
+The optional `EventQuery.event_id` field preserves older serialized clients;
+DataFusion applies equality together with the existing filters/budgets. Evidence
+links clear event-time and unrelated filters because finding creation time is not
+source event time. Independent same-ID admissions remain separate rows. Empty
+results state only absence in retained/search scope; auth/resource errors remain
+errors. Advanced SOC UX remains post-MVP.
+
+Accepted locally: 307 workspace Rust tests, strict Clippy/fmt, 13-package boundary,
+26 Chromium fixture checks, four actual-server/restart checks, 24 candidate-helper
+regressions, current source export and strict Helm lint. Fourteen real-container
+browser checks (seven before/after restart) verify current embedded asset bytes,
+authentication, delayed 10-day duplicate evidence, large-number preservation,
+hostile text, scoped absence and cleanup. Existing container auth/nonroot/read-only/
+SIGTERM/SIGKILL persistence checks pass on image
+`sha256:14c56dcf65bcbb41d95a7ee1a8ced9464732ec71db80c014b3fab734b21cbf55`.
+All six supply-chain checks pass: Cargo/image SBOMs 341/15 packages, RustSec zero
+vulnerabilities, Trivy HIGH/CRITICAL zero (MEDIUM 23, LOW 8).
+
+Evidence: `target/secops-ui-evidence-20261007/`, including independently accepted
+source/helper reviews, runtime reports and actual capture times. One test-only
+Clippy assertion correction was required; the first restricted-sandbox workspace
+run lacked socket permissions and its log is retained beside the passing run.
+The optimized image contains the reviewed runtime source; a subsequent test-only
+lint correction does not change its compiled production inputs.
+
+Current-image native qualification also passes nine hardening tests, seven
+pipeline profiles and two 120-second soaks. The pipeline admits 3,668 WAL-durable
+events versus 3,666 HTTP-confirmed; two additional events after an HTTP 408 prefix
+remain within the existing uncertainty bound. Both 1/4 KiB soaks retain 10,740/6,890
+accepted events, 537/345 findings and 20 queries each, with zero rejection or
+transport uncertainty. These are finite shared-host observations, not capacity
+or long-term stability guarantees.
+
+Remaining MVP work is the existing environment/release gates. A read-only host audit could not establish that the earlier kind
+root/node resource failure is resolved; no global settings or unrelated resources
+were changed. Native ARM64, actual EKS, remote CI, released dependencies and
+publication remain open. Local UI acceptance does not make `v0.1.0` ready.
+PS-01 payload-prefix pruning is the next post-MVP library slice after locally
+runnable MVP acceptance; no SOC workflow or collector rollout has been added.
 
 ## MVP SecOps UI-01 — 2026-10-07
 

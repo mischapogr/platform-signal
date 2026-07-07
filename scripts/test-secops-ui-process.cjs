@@ -64,14 +64,20 @@ async function api(endpoint) {
 async function main() {
   try {
     await start();
-    const stamp = new Date(Date.now() - 600000).toISOString();
-    const event = JSON.stringify({schema_version: 1, id: eventId, timestamp: stamp, observed_at: stamp, source: {type: 'fixture.ui'}, severity: 'info', message: '<img src=x onerror=globalThis.UI_XSS=true>', attributes: {large: '__INTEGER__'}, tags: []}).replace('"__INTEGER__"', rawInteger);
-    const admitted = await fetch(`${origin}/v1/events`, {method: 'POST', headers: {Authorization: `Bearer ${token}`, 'Content-Type': 'application/json'}, body: event, signal: AbortSignal.timeout(5000)});
-    assert.equal(admitted.status, 202);
+    const observed = new Date(Date.now() - 600000).toISOString();
+    const stamp = new Date(Date.now() - 10 * 86400000).toISOString();
+    const event = JSON.stringify({schema_version: 1, id: eventId, timestamp: stamp, observed_at: observed, source: {type: 'fixture.ui'}, severity: 'info', message: '<img src=x onerror=globalThis.UI_XSS=true>', attributes: {large: '__INTEGER__'}, tags: []}).replace('"__INTEGER__"', rawInteger);
+    const unrelated = JSON.stringify({schema_version: 1, id: '40000000-0000-4000-8000-000000000002', timestamp: stamp, observed_at: observed, source: {type: 'fixture.other'}, severity: 'info', message: eventId, attributes: {}, tags: []});
+    for (const body of [event, event, unrelated]) {
+      const admitted = await fetch(`${origin}/v1/events`, {method: 'POST', headers: {Authorization: `Bearer ${token}`, 'Content-Type': 'application/json'}, body, signal: AbortSignal.timeout(5000)});
+      assert.equal(admitted.status, 202);
+    }
     const deadline = Date.now() + 15000;
     while ((await api('findings')).findings.length !== 1 && Date.now() < deadline) await sleep(30);
     assert.equal((await api('findings')).findings.length, 1);
-    checks.push('actual HTTP admission persists event and finding');
+    while ((await api(`events?event_id=${eventId}`)).events.length !== 2 && Date.now() < deadline) await sleep(30);
+    assert.equal((await api(`events?event_id=${eventId}`)).events.length, 2);
+    checks.push('actual HTTP admissions retain duplicate identities and exclude message-only UUID');
     browser = await chromium.launch({executablePath: args['browser-path'] || process.env.SIGNAL_BROWSER_PATH, headless: true, args: ['--no-sandbox']});
     const context = await browser.newContext();
     const page = await context.newPage(); page.setDefaultTimeout(10000);
@@ -89,14 +95,21 @@ async function main() {
       await page.waitForFunction(() => document.querySelectorAll('#findings-results .select-row').length === 1);
       await page.locator('#findings-results .select-row').click();
       assert.ok((await page.locator('#finding-detail').textContent()).includes(eventId));
-      await page.locator('#events-tab').click(); await page.locator('#events-form button[type=submit]').click();
-      await page.waitForFunction(() => document.querySelectorAll('#events-results .select-row').length === 1);
-      await page.locator('#events-results .select-row').click();
+      await page.locator('.evidence-link').click();
+      await page.waitForFunction(() => document.querySelectorAll('#events-results .select-row').length === 2);
+      assert.equal(await page.locator('#events-id').inputValue(), eventId);
+      assert.equal(await page.locator('#events-from').inputValue(), '');
+      assert.equal(await page.locator('#events-to').inputValue(), '');
+      await page.locator('#events-results .select-row').first().click();
       const detail = await page.locator('#event-detail').textContent();
       assert.ok(detail.includes(eventId)); assert.ok(detail.includes(rawInteger));
       assert.equal(await page.evaluate(() => Boolean(globalThis.UI_XSS)), false);
+      await page.locator('#events-id').fill('40000000-0000-4000-8000-000000000099');
+      await page.locator('#events-form button[type=submit]').click();
+      await page.waitForFunction(() => document.querySelector('#events-status').textContent.includes('does not prove it never existed'));
+      assert.equal(await page.locator('#events-results .select-row').count(), 0);
     }
-    await inspect(); checks.push('real browser authenticated finding and lossless event detail');
+    await inspect(); checks.push('real browser exact-ID link finds delayed duplicate evidence with lossless detail and scoped absence');
     await page.locator('#disconnect-button').click();
     assert.equal(await page.locator('.select-row').count(), 0);
     await page.locator('#api-token').fill('wrong-token'); await page.locator('#connect-button').click();
