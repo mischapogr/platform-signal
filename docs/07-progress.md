@@ -40,6 +40,32 @@ Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
 
+## Post-MVP source-receipt/progress encoding contract — 2026-10-07
+
+[The v1 wire contract](30-source-receipt-contract.md) now freezes exact
+`SIGSRC01` immutable metadata/original/event framing and `SIGSCP01` replaceable
+progress. Full source binding, pinned retention/recovery budget, decoded record
+spans, prepared IDs/content and ordered M2 prefix witnesses have finite fields
+and encodings. Progress retains full binding/count/horizon after payload removal;
+explicit retirement intent/completion prevents missing active bytes from being
+mistaken for settled reclamation. Replay never regenerates original/prepared bytes.
+
+Offline acceptance passes three receipt and 20 progress binary vectors, 27
+transition cases and seven reclaim cases. Twenty-three focused negative/relational
+tests pass 180 rejection checks, including noncanonical/duplicate JSON, exact
+framing, numeric/Unicode/time bounds, full-binding changes, partial/uncertain
+admission, required independent custody, source-ACK intent/redelivery and
+retirement. A separate one-off reference encoder produced the checked-in pins;
+this is not independent source review. Focused writer review/evidence is under
+`target/cloudtrail-receipt-schema-20261007/`.
+
+This is an offline contract and checker; no Rust store, gzip/object reader, source
+ACK or AWS path is implemented. The previous 377-test Rust workspace and 13-package
+baseline are unchanged; no Rust/build input changed or new runtime campaign ran.
+Fresh source review and external release gates remain open. Next: implement one
+bounded local receipt publication/reopen/ownership/quota slice, followed by atomic
+progress/replay and crash/reclaim qualification before source transport.
+
 ## Post-MVP bounded CloudTrail record normalizer/profile — 2026-10-07
 
 `signal_collector_sdk::cloudtrail::normalize_record` now performs pure, bounded
@@ -76,9 +102,9 @@ and authorized AWS qualification remain separate. No external dependency version
 event/HTTP schema, workspace crate or service is added; SDK direct edges reuse
 existing `sha2`/`uuid`. Earlier image/candidate evidence retains its own bindings.
 
-Next: freeze source-receipt metadata/progress schemas, custody transitions and
-binary golden vectors, then implement bounded local receipt custody/replay before
-S3/SQS delivery. Keep fresh source review and external release gates explicit.
+The next schema/vector item at this normalizer acceptance is now recorded above.
+Bounded local receipt custody/replay remains ahead of S3/SQS delivery; fresh
+source review and external release gates remain explicit.
 
 ## Post-MVP CloudTrail source-receipt/profile design — 2026-10-07
 

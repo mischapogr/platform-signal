@@ -279,8 +279,10 @@ MVP or make all integrations prerequisites for the current release.
    supplies original synthetic fixtures and custody/replay requirements. The pure
    Rust record normalizer/profile and exact D01 correction now have 377-test
    workspace evidence; custody, native delivery and source coverage remain open.
-   Freeze source-receipt metadata/progress schemas and binary golden vectors next.
-   Offline projections do not qualify the receipt store.
+   [The exact receipt/progress schemas](30-source-receipt-contract.md) now have
+   offline binary/transition witnesses. Next implement bounded local publication/
+   reopen/ownership/quota, then progress/replay/reclaim. Offline projections and
+   encoding checks do not qualify the receipt store.
 3. Implement bounded source-receipt custody before retained CloudTrail S3 objects
    and SQS discovery, with replay/coverage fixtures and D01/D02/D03/D05 predicates.
    Reuse existing SDK/spool/WAL seams where they fit; do not build a universal
