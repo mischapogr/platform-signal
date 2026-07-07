@@ -244,10 +244,18 @@
         },
         {
           "id": "capture-delivery-simulation",
+          "status": "passed_simulated",
+          "evidence": [
+            "target/goal-execution-20261007/AWS-DELIVERY/delivery-simulation-validation.json",
+            "target/goal-execution-20261007/AWS-DELIVERY/delivery-simulation-independent-review.json"
+          ]
+        },
+        {
+          "id": "bounded-collector-driver",
           "status": "in_progress"
         }
       ],
-      "notes": "Discovery, exact capture, bounded retained-byte publisher and actual local HTTP transport accepted with 489 workspace tests and independent review. Complete source-to-M2/queue redelivery/ACK simulation remains runnable; real auth/provider deployment and stronger custody unqualified."
+      "notes": "Bounded discovery/capture/publication have local acceptance; source queue/HTTP and actual-server storage/replay/ACK simulation accepted with 492 workspace tests and independent review. Bounded collector orchestration remains runnable. No SigV4/TLS/IAM/real AWS/independent custody qualification."
     },
     {
       "id": "COVERAGE-OBSERVERS",

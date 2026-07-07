@@ -32,6 +32,8 @@ serde_json.workspace = true
 tokio-util.workspace = true
 
 [dev-dependencies]
+reqwest.workspace = true
+flate2.workspace = true
 tower.workspace = true
 tempfile.workspace = true
 uuid.workspace = true
@@ -44,3 +46,7 @@ harness = false
 [[test]]
 name = "foundation"
 path = "../../tests/integration/foundation.rs"
+
+[[test]]
+name = "cloudtrail-delivery"
+path = "../../tests/integration/cloudtrail-delivery.rs"
