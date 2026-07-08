@@ -8,6 +8,7 @@ mod discovery;
 mod format;
 mod preparation;
 mod progress;
+mod publisher;
 mod retirement;
 mod store;
 pub use ack::{
@@ -24,6 +25,10 @@ pub use preparation::{
     OriginalCapture, PreparationError, ReceiptPreparation, ReceiptRetention, prepare_receipt,
 };
 pub use progress::{ReceiptAttempt, ReceiptProgress, ReceiptRecoveryGrant, ReceiptReplay};
+pub use publisher::{
+    AdmissionReply, PreparedBatch, PublishFailure, PublishStep, ReceiptBatchLimits,
+    ReceiptPublisher, publish_receipt_batch,
+};
 #[cfg(all(test, unix))]
 mod tests;
 

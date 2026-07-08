@@ -43,7 +43,8 @@ acceptance. Retirement/reclamation and slot replacement now have 447-test
 workspace and independent review acceptance. Complete bounded gzip/native reading and pinned
 whole-object receipt encoding have 461-test acceptance; AWS-DELIVERY direct discovery
 has 468-test acceptance; exact bounded capture/physical preparation and inherited-lock
-correction have 477-test acceptance. Delivery/replay/queue simulation is next;
+correction have 477-test acceptance; retained-byte batch publication has 485-test
+acceptance. Local network/source queue/redelivery/ACK simulation is next;
 existing unavailable environment/release gates remain open. Keep
 one writer per coherent owned path set, independent focused review and a settled
 evidence pass. Do not overlap writers or treat permission to delegate as authority

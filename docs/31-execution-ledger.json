@@ -227,11 +227,19 @@
           ]
         },
         {
+          "id": "retained-batch-publication",
+          "status": "passed_local",
+          "evidence": [
+            "target/goal-execution-20261007/AWS-DELIVERY/publisher-validation.json",
+            "target/goal-execution-20261007/AWS-DELIVERY/publisher-independent-review.json"
+          ]
+        },
+        {
           "id": "capture-delivery-simulation",
-          "status": "pending"
+          "status": "in_progress"
         }
       ],
-      "notes": "Direct discovery and bounded stream capture/owned preparation accepted with 477 workspace tests and independent review. Actual network collector/queue/source ACK simulation remains runnable; auth/provider deployment and stronger custody unqualified."
+      "notes": "Discovery, exact capture and bounded retained-byte publisher accepted with 485 workspace tests and independent review. Network/source queue redelivery/ACK simulation remains runnable; real auth/provider deployment and stronger custody unqualified."
     },
     {
       "id": "COVERAGE-OBSERVERS",

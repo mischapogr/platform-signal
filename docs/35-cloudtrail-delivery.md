@@ -66,3 +66,25 @@ physical owner ends, including opening-error paths. Caller loss cannot release a
 live worker lock. Retained alias reproduces the former lock-after-exit defect.
 Evidence: `target/goal-execution-20261007/AWS-DELIVERY/capture-validation.json`.
 Delivery/replay/queue simulation remains runnable; no source ACK in this substep.
+
+## Retained batch publication
+
+`ReceiptReplay::batch` copies exact retained event bytes into the schema-v1 batch
+envelope without reserialization. Count and complete-body byte bounds are selected
+before allocation; an event that cannot fit holds work. Defaults match current
+ingest configuration (1,000 events, 1 MiB); the caller must align remote limits.
+
+`publish_receipt_batch` executes one request per invocation under fresh trusted
+binding, with no retry loop or task spawning. The application-owned publisher
+authenticates its endpoint, prevents untrusted redirects, bounds streamed responses
+and cancels owned I/O. Response schema/counts/ordered IDs use the shared admission
+verifier for retry classification and the physical store independently verifies
+the actual response before atomic prefix progress. Lost/denied/oversized/malformed
+responses never create phantom admission. Timeout/cancellation may race remote
+admission; replay the retained suffix. An empty suffix, including quarantine,
+does not authorize source ACK. Current history and selected custody remain separate.
+
+Retained publication has local acceptance: eight new tests, 485 workspace tests,
+zero failures, strict Clippy/format/boundary gates and independent source review.
+Evidence: `target/goal-execution-20261007/AWS-DELIVERY/publisher-validation.json`.
+Network/source-queue simulation remains runnable.
