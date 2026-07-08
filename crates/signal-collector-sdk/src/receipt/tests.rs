@@ -5,6 +5,8 @@ use std::{fs, os::unix::fs::PermissionsExt, time::Duration};
 use store::Stage;
 use tokio_util::sync::CancellationToken;
 type TestResult = Result<(), Box<dyn std::error::Error>>;
+#[path = "discovery_tests.rs"]
+mod discovery_tests;
 fn ctx() -> ExtensionContext {
     ExtensionContext::new(CancellationToken::new(), Duration::from_secs(5))
         .unwrap_or_else(|_| unreachable!("constant valid context"))
