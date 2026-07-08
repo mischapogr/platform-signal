@@ -1,7 +1,7 @@
 use crate::{
     AuthorizedBinding, CoverageConfig, CoverageError as Error, CoverageMetrics, CoverageSubmission,
     IdentityPruneBudget, IdentityPruneOutcome, IntakeContext, IntakeOutcome, PayloadPruneBudget,
-    PayloadPruneOutcome, PreparedObservation, Receipt,
+    PayloadPruneOutcome, PreparedObservation, Receipt, ScanBudget, ScanCursor, ScanPage,
     format::Timestamp,
     store::{Engine, StoredObservation},
 };
@@ -152,6 +152,7 @@ enum Operation {
     Load(Uuid),
     PrunePayloads(Timestamp, PayloadPruneBudget),
     PruneIdentities(Timestamp, IdentityPruneBudget),
+    Scan(Box<ScanCommand>),
     Wake,
     #[cfg(test)]
     Pause(oneshot::Sender<()>, std::sync::mpsc::Receiver<()>, bool),
@@ -161,12 +162,18 @@ struct IntakeCommand {
     intake: IntakeContext,
     reference: Option<Receipt>,
 }
+struct ScanCommand {
+    authority: AuthorizedBinding,
+    cursor: Option<ScanCursor>,
+    budget: ScanBudget,
+}
 enum Value {
     Receipt(Box<Receipt>),
     Intake(Box<IntakeOutcome>),
     Observation(Option<Box<StoredObservation>>),
     PayloadPrune(PayloadPruneOutcome),
     IdentityPrune(IdentityPruneOutcome),
+    Scan(Box<ScanPage>),
     Done,
 }
 struct Response {
@@ -180,7 +187,7 @@ struct Command {
     permit: Option<Arc<OwnedSemaphorePermit>>,
 }
 
-/// Single worker and private root owner. No service, observers or scan API.
+/// Single worker and private root owner. No service or observers.
 pub struct CoverageStore {
     sender: mpsc::Sender<Command>,
     shared: Arc<Shared>,
@@ -290,6 +297,9 @@ impl CoverageStore {
                                 Operation::PruneIdentities(now, budget) => engine
                                     .prune_identities(now, budget, &command.ctx)
                                     .map(Value::IdentityPrune),
+                                Operation::Scan(scan) => engine
+                                    .scan(scan.authority, scan.cursor, scan.budget, &command.ctx)
+                                    .map(|page| Value::Scan(Box::new(page))),
                                 Operation::Wake => Ok(Value::Done),
                                 #[cfg(test)]
                                 Operation::Pause(started, release, mutation) => {
@@ -347,6 +357,10 @@ impl CoverageStore {
                         );
                     }
                     worker_shared.publish(engine.metrics());
+                    if let Ok(Value::Scan(page)) = &mut result {
+                        // Response memory keeps the same slot after the worker physically settles.
+                        page.permit = command.permit.clone();
+                    }
                     if let Ok(mut deadline) = worker_shared.active_deadline.lock() {
                         *deadline = None;
                     }
@@ -511,6 +525,45 @@ impl CoverageStore {
             .await?
         {
             Value::IdentityPrune(outcome) => Ok(outcome),
+            _ => Err(Error::Unavailable),
+        }
+    }
+    /// Read one exact authorized binding at the first page's committed frontier.
+    /// The returned page retains its slot until dropped; copy only its bounded cursor to continue.
+    pub async fn scan(
+        &self,
+        authority: AuthorizedBinding,
+        cursor: Option<ScanCursor>,
+        budget: ScanBudget,
+        context: OperationContext,
+    ) -> Result<ScanPage, Error> {
+        if let Err(error) = budget.validate(&self.config) {
+            increment(&self.shared.rejected);
+            return Err(error);
+        }
+        if crate::scan::page_header_bytes(&authority) > budget.max_response_bytes {
+            increment(&self.shared.rejected);
+            return Err(Error::ResponseLimit);
+        }
+        // Decode validation is finite caller scratch; the command retains only the capped token.
+        if let Some(cursor) = &cursor
+            && let Err(error) = cursor.state()
+        {
+            increment(&self.shared.rejected);
+            return Err(error);
+        }
+        match self
+            .request(
+                Operation::Scan(Box::new(ScanCommand {
+                    authority,
+                    cursor,
+                    budget,
+                })),
+                context,
+            )
+            .await?
+        {
+            Value::Scan(page) => Ok(*page),
             _ => Err(Error::Unavailable),
         }
     }
@@ -967,6 +1020,162 @@ mod tests {
         release.send(())?;
         task.await??;
         assert!(store.metrics().available);
+        store.shutdown(context()).await?;
+        Ok(())
+    }
+    #[tokio::test]
+    async fn invalid_scan_budget_rejects_before_saturated_worker_dispatch() -> TestResult {
+        let t = tempfile::tempdir()?;
+        let c = cfg(t.path().join("coverage"), 1);
+        let store = Arc::new(
+            CoverageStore::initialize(c.clone(), Uuid::new_v4(), clock("2026-10-07T00:05:29Z")?)
+                .await?,
+        );
+        let f = fixture()?;
+        let original = prepared(&f["chains"][0]["commits"][0], &f)?;
+        let authority = crate::intake_tests::authority(&original)?;
+        let (started, wait) = oneshot::channel();
+        let (release, blocked) = std::sync::mpsc::sync_channel(1);
+        let task_store = store.clone();
+        let task = tokio::spawn(async move {
+            task_store
+                .request(Operation::Pause(started, blocked, false), context())
+                .await
+        });
+        wait.await?;
+        let valid = ScanBudget {
+            max_records: 1,
+            max_response_bytes: crate::MAX_SCAN_RESPONSE_BYTES,
+            max_scanned_records: 1,
+            max_scanned_bytes: c.max_ledger_bytes,
+        };
+        for budget in [
+            ScanBudget {
+                max_records: 0,
+                ..valid
+            },
+            ScanBudget {
+                max_records: c.max_identities + 1,
+                ..valid
+            },
+            ScanBudget {
+                max_response_bytes: crate::SCAN_PAGE_HEADER_BYTES - 1,
+                ..valid
+            },
+            ScanBudget {
+                max_response_bytes: crate::MAX_SCAN_RESPONSE_BYTES + 1,
+                ..valid
+            },
+            ScanBudget {
+                max_scanned_records: 0,
+                ..valid
+            },
+            ScanBudget {
+                max_scanned_records: c.max_identities + 1,
+                ..valid
+            },
+            ScanBudget {
+                max_scanned_bytes: 0,
+                ..valid
+            },
+            ScanBudget {
+                max_scanned_bytes: c.max_ledger_bytes + 1,
+                ..valid
+            },
+        ] {
+            assert!(matches!(
+                store.scan(authority.clone(), None, budget, context()).await,
+                Err(Error::Invalid(_))
+            ));
+        }
+        assert_eq!(store.metrics().operations_in_flight, 1);
+        assert_eq!(store.metrics().command_depth, 0);
+        assert_eq!(store.metrics().rejected, 8);
+        release.send(())?;
+        task.await??;
+        assert!(store.metrics().available);
+        store.shutdown(context()).await?;
+        Ok(())
+    }
+    #[tokio::test]
+    async fn queued_scan_timeout_and_cancellation_leave_history_and_operation_slots_settled()
+    -> TestResult {
+        let t = tempfile::tempdir()?;
+        let store = Arc::new(
+            CoverageStore::initialize(
+                cfg(t.path().join("coverage"), 3),
+                Uuid::new_v4(),
+                clock("2026-10-07T00:05:29Z")?,
+            )
+            .await?,
+        );
+        let f = fixture()?;
+        let original = prepared(&f["chains"][0]["commits"][0], &f)?;
+        let receipt = store.append(original.clone(), context()).await?;
+        let authority = crate::intake_tests::authority(&original)?;
+        let before = store.metrics();
+        let (started, wait) = oneshot::channel();
+        let (release, blocked) = std::sync::mpsc::sync_channel(1);
+        let task_store = store.clone();
+        let task = tokio::spawn(async move {
+            task_store
+                .request(Operation::Pause(started, blocked, false), context())
+                .await
+        });
+        wait.await?;
+        let budget = ScanBudget {
+            max_records: 1,
+            max_response_bytes: crate::MAX_SCAN_RESPONSE_BYTES,
+            max_scanned_records: 1,
+            max_scanned_bytes: 397312,
+        };
+        assert!(matches!(
+            store
+                .scan(
+                    authority.clone(),
+                    None,
+                    budget,
+                    OperationContext::new(Duration::from_millis(20))
+                )
+                .await,
+            Err(Error::Timeout)
+        ));
+        assert_eq!(store.metrics().operations_in_flight, 2);
+        let cancel_context = context();
+        let cancellation = cancel_context.cancellation.clone();
+        let cancel_store = store.clone();
+        let cancel_task = tokio::spawn(async move {
+            cancel_store
+                .scan(authority, None, budget, cancel_context)
+                .await
+        });
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while store.metrics().command_depth < 2 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await?;
+        cancellation.cancel();
+        assert!(matches!(cancel_task.await?, Err(Error::Cancelled)));
+        assert_eq!(store.metrics().operations_in_flight, 3);
+        release.send(())?;
+        task.await??;
+        let retained = store
+            .load(original.record_id(), context())
+            .await?
+            .ok_or("original")?;
+        assert_eq!(retained.receipt, receipt);
+        assert_eq!(retained.raw, Some(original.raw));
+        let after = store.metrics();
+        assert_eq!(after.committed_sequence, before.committed_sequence);
+        assert_eq!(after.ledger_bytes, before.ledger_bytes);
+        assert_eq!(after.payload_pruned_through, before.payload_pruned_through);
+        assert_eq!(
+            after.identity_pruned_through,
+            before.identity_pruned_through
+        );
+        assert_eq!(after.operations_in_flight, 0);
+        assert!(after.available);
         store.shutdown(context()).await?;
         Ok(())
     }

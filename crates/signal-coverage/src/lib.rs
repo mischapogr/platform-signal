@@ -1,11 +1,17 @@
 //! Bounded local coverage persistence and trusted intake. No credential authentication or observers.
 pub mod format;
 mod intake;
+mod scan;
 mod store;
 mod worker;
 
 pub use intake::{
     AuthorizedBinding, CoverageSubmission, IntakeContext, IntakeOutcome, IntakePolicy,
+};
+pub use scan::{
+    MAX_SCAN_CURSOR_TOKEN_BYTES, MAX_SCAN_RESPONSE_BYTES, SCAN_PAGE_HEADER_BYTES,
+    SCAN_RECORD_ALLOWANCE_BYTES, SCAN_WORK_ALLOWANCE_BYTES, ScanAvailability, ScanBudget,
+    ScanCursor, ScanPage, ScanRecord,
 };
 pub use store::{
     AdmissionMetadata, CoverageConfig, CoverageError, CoverageMetrics, IdentityPruneBudget,
@@ -28,3 +34,6 @@ mod pruning_tests;
 
 #[cfg(test)]
 mod identity_pruning_tests;
+
+#[cfg(test)]
+mod scan_tests;
