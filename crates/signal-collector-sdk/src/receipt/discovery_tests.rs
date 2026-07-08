@@ -3,7 +3,7 @@ use super::*;
 fn binding() -> Result<ReceiptBinding, Box<dyn std::error::Error>> {
     Ok(vector("prepared")?.1)
 }
-fn record() -> Value {
+pub(super) fn record() -> Value {
     json!({"eventVersion":"2.1","eventSource":"aws:s3","eventName":"ObjectCreated:Put",
         "s3":{"bucket":{"name":"fixture-source-evidence","ownerIdentity":{"principalId":"canonical-retail-not-account"}},
             "object":{"key":"AWSLogs%2Ffixture%2Fcaf%C3%A9+%2B+%25.json.gz","versionId":"fixture-version-001","size":393,"eTag":"opaque-not-a-sha256"}}})
