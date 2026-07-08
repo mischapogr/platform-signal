@@ -23,6 +23,7 @@ uuid.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 libc.workspace = true
+flate2.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
