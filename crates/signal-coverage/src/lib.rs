@@ -8,8 +8,9 @@ pub use intake::{
     AuthorizedBinding, CoverageSubmission, IntakeContext, IntakeOutcome, IntakePolicy,
 };
 pub use store::{
-    AdmissionMetadata, CoverageConfig, CoverageError, CoverageMetrics, PayloadPruneBudget,
-    PayloadPruneOutcome, PreparedObservation, Receipt, StoredObservation,
+    AdmissionMetadata, CoverageConfig, CoverageError, CoverageMetrics, IdentityPruneBudget,
+    IdentityPruneOutcome, PayloadPruneBudget, PayloadPruneOutcome, PreparedObservation, Receipt,
+    StoredObservation,
 };
 pub use worker::{CoverageStore, OperationContext};
 
@@ -24,3 +25,6 @@ mod correction_tests;
 
 #[cfg(test)]
 mod pruning_tests;
+
+#[cfg(test)]
+mod identity_pruning_tests;

@@ -60,6 +60,8 @@ pub enum CoverageError {
     ReportTooOld,
     #[error("coverage referenced history or position is unavailable")]
     HistoryUnavailable,
+    #[error("coverage referenced identity has been pruned")]
+    IdentityPruned,
     #[error("coverage supplied receipt differs from the committed receipt")]
     ReceiptMismatch,
     #[error("coverage correction target original evidence is unavailable")]
@@ -180,6 +182,7 @@ pub struct CoverageMetrics {
     pub history_id: Uuid,
     pub committed_sequence: u64,
     pub payload_pruned_through: u64,
+    pub identity_pruned_through: u64,
     pub payloads: u64,
     pub payload_capacity: u64,
     pub identities: u64,
@@ -200,6 +203,9 @@ pub struct CoverageMetrics {
     pub payload_prune_operations: u64,
     pub payloads_pruned: u64,
     pub payload_bytes_pruned: u64,
+    pub identity_prune_operations: u64,
+    pub identities_pruned: u64,
+    pub identity_metadata_bytes_pruned: u64,
     pub rejected: u64,
     pub timeouts: u64,
     pub failures: u64,
@@ -238,6 +244,40 @@ pub struct PayloadPruneOutcome {
     pub pruned_raw_bytes: u64,
     pub reclaimed_ledger_bytes: u64,
     pub payload_pruned_through: u64,
+}
+
+/// Per-call identity prefix limits. Metadata bytes count selected immutable commit encodings.
+/// Each selected record can reclaim at most one bounded binding and one bounded profile pin.
+#[derive(Clone, Copy, Debug)]
+pub struct IdentityPruneBudget {
+    pub max_records: u64,
+    pub max_metadata_bytes: u64,
+}
+impl IdentityPruneBudget {
+    pub(crate) fn validate(&self, config: &CoverageConfig) -> Result<(), CoverageError> {
+        let metadata_cap = config
+            .max_identities
+            .checked_mul(format::MAX_METADATA_BYTES as u64)
+            .ok_or(CoverageError::Invalid("identity pruning budget overflow"))?
+            .min(config.max_ledger_bytes);
+        if self.max_records == 0
+            || self.max_records > config.max_identities
+            || self.max_metadata_bytes == 0
+            || self.max_metadata_bytes > metadata_cap
+        {
+            return Err(CoverageError::Invalid("finite identity pruning budget"));
+        }
+        Ok(())
+    }
+}
+
+/// Successful identity prefix reclamation, including any newly unreferenced pins.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct IdentityPruneOutcome {
+    pub pruned_records: u64,
+    pub pruned_metadata_bytes: u64,
+    pub reclaimed_ledger_bytes: u64,
+    pub identity_pruned_through: u64,
 }
 
 /// Immutable receiver metadata supplied by a trusted local caller; no credentials or policy.
@@ -361,6 +401,9 @@ impl Receipt {
                 return Err(CoverageError::Invalid("receipt canonical time"));
             }
         }
+        if self.accepted_at >= self.replay_until || self.replay_until > self.identity_until {
+            return Err(CoverageError::Invalid("receipt retention ordering"));
+        }
         if let Some(id) = self.correction_of {
             format::non_nil(id)?;
         }
@@ -433,6 +476,15 @@ struct LoadedRow {
     metadata: Vec<u8>,
     prefix: Vec<u8>,
     raw: Option<Vec<u8>>,
+    binding: Vec<u8>,
+    profile_id: String,
+    profile_revision: String,
+}
+struct IdentityRow {
+    record_id: Vec<u8>,
+    metadata: Vec<u8>,
+    prefix: Vec<u8>,
+    raw_unavailable: bool,
     binding: Vec<u8>,
     profile_id: String,
     profile_revision: String,
@@ -648,6 +700,7 @@ impl Engine {
             history_id: self.state.history_id,
             committed_sequence: self.state.committed_sequence,
             payload_pruned_through: self.state.payload_pruned_through,
+            identity_pruned_through: self.state.identity_pruned_through,
             payloads: self.state.payload_count,
             payload_capacity: self.config.max_payloads,
             identities: self.state.identity_count,
@@ -792,6 +845,176 @@ impl Engine {
         tx.commit()?;
         #[cfg(test)]
         test_checkpoint("prune_after_commit", state.payload_pruned_through)?;
+        self.state = state;
+        self.database_bytes = fs::metadata(self.config.directory.join("coverage.sqlite3"))?.len();
+        ctx.check()?;
+        Ok(outcome)
+    }
+    pub fn prune_identities(
+        &mut self,
+        now: Timestamp,
+        budget: IdentityPruneBudget,
+        ctx: &WorkContext,
+    ) -> Result<IdentityPruneOutcome, CoverageError> {
+        budget.validate(&self.config)?;
+        ctx.check()?;
+        if now < self.state.clock_floor {
+            return Err(CoverageError::ClockRegression);
+        }
+        let mut outcome = IdentityPruneOutcome {
+            identity_pruned_through: self.state.identity_pruned_through,
+            ..IdentityPruneOutcome::default()
+        };
+        let mut anchor = self.state.identity_anchor;
+        while outcome.pruned_records < budget.max_records
+            && outcome.identity_pruned_through < self.state.payload_pruned_through
+        {
+            ctx.check()?;
+            let sequence = outcome
+                .identity_pruned_through
+                .checked_add(1)
+                .ok_or(CoverageError::Exhausted)?;
+            let row = identity_row(&self.connection, sequence)?;
+            let metadata =
+                validate_identity_row(&self.connection, &row, sequence, anchor, &self.state)?;
+            if metadata.identity_until > now {
+                break;
+            }
+            let total_metadata = add(outcome.pruned_metadata_bytes, row.metadata.len() as u64)?;
+            if total_metadata > budget.max_metadata_bytes {
+                break;
+            }
+            anchor = format::prefix(anchor, &row.metadata);
+            outcome.pruned_records = add(outcome.pruned_records, 1)?;
+            outcome.pruned_metadata_bytes = total_metadata;
+            outcome.reclaimed_ledger_bytes = add(
+                outcome.reclaimed_ledger_bytes,
+                row.metadata.len() as u64 + 8192,
+            )?;
+            outcome.identity_pruned_through = sequence;
+        }
+        ctx.check()?;
+        if outcome.pruned_records == 0 {
+            return Ok(outcome);
+        }
+        let mut state = self.state.clone();
+        state.identity_pruned_through = outcome.identity_pruned_through;
+        state.identity_anchor = anchor;
+        state.identity_count = state
+            .identity_count
+            .checked_sub(outcome.pruned_records)
+            .ok_or(CoverageError::Corrupt("identity pruning count"))?;
+        state.clock_floor = now;
+        ctx.start()?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        // Point-load one selected row at a time. Pin reclamation is bounded by those rows,
+        // with no global orphan scan, accumulated registry list or history-sized allocation.
+        let mut current_anchor = self.state.identity_anchor;
+        for offset in 1..=outcome.pruned_records {
+            ctx.check()?;
+            let sequence = self
+                .state
+                .identity_pruned_through
+                .checked_add(offset)
+                .ok_or(CoverageError::Exhausted)?;
+            let row = identity_row(&tx, sequence)?;
+            let metadata = validate_identity_row(&tx, &row, sequence, current_anchor, &self.state)?;
+            if metadata.identity_until > now {
+                return Err(CoverageError::Corrupt("identity pruning changed deadline"));
+            }
+            current_anchor = format::prefix(current_anchor, &row.metadata);
+            if tx.execute(
+                "DELETE FROM entries WHERE sequence=?1 AND raw IS NULL",
+                params![&sequence.to_be_bytes()[..]],
+            )? != 1
+            {
+                return Err(CoverageError::Corrupt("identity pruning cardinality"));
+            }
+            let binding_referenced = tx
+                .query_row(
+                    "SELECT 1 FROM entries WHERE binding=?1 LIMIT 1",
+                    params![&row.binding],
+                    |r| r.get::<_, i64>(0),
+                )
+                .optional()?
+                .is_some();
+            if !binding_referenced {
+                if tx.execute("DELETE FROM bindings WHERE key=?1", params![&row.binding])? != 1 {
+                    return Err(CoverageError::Corrupt(
+                        "identity pruning binding cardinality",
+                    ));
+                }
+                state.binding_count = state
+                    .binding_count
+                    .checked_sub(1)
+                    .ok_or(CoverageError::Corrupt("identity pruning binding count"))?;
+                outcome.reclaimed_ledger_bytes = add(
+                    outcome.reclaimed_ledger_bytes,
+                    row.binding.len() as u64 + 4096,
+                )?;
+                let profile_referenced = tx
+                    .query_row(
+                        "SELECT 1 FROM entries WHERE profile_id=?1 AND profile_revision=?2 LIMIT 1",
+                        params![&row.profile_id, &row.profile_revision],
+                        |r| r.get::<_, i64>(0),
+                    )
+                    .optional()?
+                    .is_some()
+                    || tx
+                        .query_row(
+                            "SELECT 1 FROM bindings WHERE profile_id=?1 AND profile_revision=?2 LIMIT 1",
+                            params![&row.profile_id, &row.profile_revision],
+                            |r| r.get::<_, i64>(0),
+                        )
+                        .optional()?
+                        .is_some();
+                if !profile_referenced {
+                    let profile = load_profile(&tx, &row.profile_id, &row.profile_revision)?;
+                    if tx.execute(
+                        "DELETE FROM profiles WHERE id=?1 AND revision=?2",
+                        params![&row.profile_id, &row.profile_revision],
+                    )? != 1
+                    {
+                        return Err(CoverageError::Corrupt(
+                            "identity pruning profile cardinality",
+                        ));
+                    }
+                    state.profile_count = state
+                        .profile_count
+                        .checked_sub(1)
+                        .ok_or(CoverageError::Corrupt("identity pruning profile count"))?;
+                    outcome.reclaimed_ledger_bytes = add(
+                        outcome.reclaimed_ledger_bytes,
+                        profile.encoded().len() as u64 + 4096,
+                    )?;
+                }
+            }
+        }
+        if current_anchor != state.identity_anchor {
+            return Err(CoverageError::Corrupt("identity pruning changed prefix"));
+        }
+        state.ledger_charge = state
+            .ledger_charge
+            .checked_sub(outcome.reclaimed_ledger_bytes)
+            .ok_or(CoverageError::Corrupt("identity pruning charge"))?;
+        let state_data = state.encode()?;
+        if tx.execute(
+            "UPDATE state SET data=?1,checksum=?2 WHERE id=1",
+            params![&state_data, &format::sha256(&state_data)[..]],
+        )? != 1
+        {
+            return Err(CoverageError::Corrupt("state update cardinality"));
+        }
+        #[cfg(test)]
+        test_checkpoint(
+            "identity_prune_before_commit",
+            state.identity_pruned_through,
+        )?;
+        tx.commit()?;
+        #[cfg(test)]
+        test_checkpoint("identity_prune_after_commit", state.identity_pruned_through)?;
         self.state = state;
         self.database_bytes = fs::metadata(self.config.directory.join("coverage.sqlite3"))?.len();
         ctx.check()?;
@@ -1158,10 +1381,35 @@ impl Engine {
         let retained = self.get_authorized(submission.record_id, &intake.authority, ctx)?;
         if let Some(reference) = &reference {
             let sequence = reference.validate_reference()?;
+            if retained.is_none() {
+                // Deleted originals cannot establish their historical binding or receipt
+                // authenticity. Authorize the supplied report's full binding before giving
+                // only a retention classification, never an original-receipt success.
+                let (binding, times) = HistoryBinding::from_record(&submission.raw)?;
+                if binding.encoded() != intake.authority.binding.encoded() {
+                    return Err(CoverageError::NotAuthorized);
+                }
+                if times.id != submission.record_id {
+                    return Err(CoverageError::Invalid("producer record identity mismatch"));
+                }
+                if reference.record_id != submission.record_id {
+                    return Err(CoverageError::ReceiptMismatch);
+                }
+            }
             if reference.history_id != self.state.history_id
                 || sequence > self.state.committed_sequence
-                || retained.is_none()
             {
+                return Err(CoverageError::HistoryUnavailable);
+            }
+            if sequence <= self.state.identity_pruned_through {
+                if sequence == self.state.identity_pruned_through
+                    && reference.prefix_digest != format::hex(&self.state.identity_anchor)
+                {
+                    return Err(CoverageError::ReceiptMismatch);
+                }
+                return Err(CoverageError::IdentityPruned);
+            }
+            if retained.is_none() {
                 return Err(CoverageError::HistoryUnavailable);
             }
         }
@@ -1381,6 +1629,60 @@ fn add(a: u64, b: u64) -> Result<u64, CoverageError> {
     a.checked_add(b)
         .filter(|n| *n <= i64::MAX as u64)
         .ok_or(CoverageError::Exhausted)
+}
+fn identity_row(c: &Connection, sequence: u64) -> Result<IdentityRow, CoverageError> {
+    c.query_row(
+        "SELECT record_id,metadata,prefix,raw IS NULL,binding,profile_id,profile_revision FROM entries WHERE sequence=?1",
+        params![&sequence.to_be_bytes()[..]],
+        |r| Ok(IdentityRow {
+            record_id: bounded_blob(r, 0, 16)?,
+            metadata: bounded_blob(r, 1, format::MAX_METADATA_BYTES)?,
+            prefix: bounded_blob(r, 2, 32)?,
+            raw_unavailable: r.get(3)?,
+            binding: bounded_blob(r, 4, format::MAX_BINDING_BYTES)?,
+            profile_id: bounded_text(r, 5)?,
+            profile_revision: bounded_text(r, 6)?,
+        }),
+    )
+    .optional()?
+    .ok_or(CoverageError::Corrupt("identity pruning missing prefix"))
+}
+fn validate_identity_row(
+    c: &Connection,
+    row: &IdentityRow,
+    sequence: u64,
+    previous: [u8; 32],
+    state: &State,
+) -> Result<CommitMetadata, CoverageError> {
+    let metadata = CommitMetadata::decode(&row.metadata)
+        .map_err(|_| CoverageError::Corrupt("identity pruning metadata"))?;
+    let prefix = format::prefix(previous, &row.metadata);
+    let profile = load_profile(c, &row.profile_id, &row.profile_revision)?;
+    let binding_profile = c.query_row(
+        "SELECT profile_id,profile_revision FROM bindings WHERE key=?1",
+        params![&row.binding],
+        |r| Ok((bounded_text(r, 0)?, bounded_text(r, 1)?)),
+    )?;
+    if metadata.sequence != sequence
+        || metadata.history_id != state.history_id
+        || metadata.record_id.as_bytes() != row.record_id.as_slice()
+        || metadata.accepted_at > state.clock_floor
+        || row.binding != metadata.binding.encoded()
+        || binding_profile.0 != row.profile_id
+        || binding_profile.1 != row.profile_revision
+        || !metadata.binding.profile_matches(&profile)
+        || metadata.profile_fingerprint != profile.fingerprint()
+        || row.prefix != prefix
+        || !row.raw_unavailable
+        || sequence > state.payload_pruned_through
+        || (sequence == state.payload_pruned_through && prefix != state.payload_anchor)
+        || (sequence == state.committed_sequence && prefix != state.committed_prefix)
+    {
+        return Err(CoverageError::Corrupt("identity pruning references/prefix"));
+    }
+    Receipt::from_metadata(&metadata, prefix)
+        .map_err(|_| CoverageError::Corrupt("identity pruning receipt"))?;
+    Ok(metadata)
 }
 fn load_state(c: &Connection) -> Result<State, CoverageError> {
     let n: i64 = c.query_row("SELECT count(*) FROM state", [], |r| r.get(0))?;
