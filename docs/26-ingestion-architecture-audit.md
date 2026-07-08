@@ -276,9 +276,11 @@ MVP or make all integrations prerequisites for the current release.
    and fixed-frontier scans) now pass locally with 96 coverage/358 workspace tests.
    Keep observer integration separate; no live source health follows.
 2. [The bounded CloudTrail receipt/profile design](29-cloudtrail-source-receipt.md)
-   supplies original synthetic fixtures and custody/replay requirements. Next
-   implement the pure Rust normalizer/profile and explicit D01 predicate correction.
-   Offline projections do not qualify the native runtime or receipt store.
+   supplies original synthetic fixtures and custody/replay requirements. The pure
+   Rust record normalizer/profile and exact D01 correction now have 377-test
+   workspace evidence; custody, native delivery and source coverage remain open.
+   Freeze source-receipt metadata/progress schemas and binary golden vectors next.
+   Offline projections do not qualify the receipt store.
 3. Implement bounded source-receipt custody before retained CloudTrail S3 objects
    and SQS discovery, with replay/coverage fixtures and D01/D02/D03/D05 predicates.
    Reuse existing SDK/spool/WAL seams where they fit; do not build a universal

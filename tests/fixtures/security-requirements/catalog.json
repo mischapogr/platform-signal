@@ -194,10 +194,6 @@
                 "eq": "cloudtrail"
               },
               {
-                "field": "attributes.security.action",
-                "eq": "resource.activity"
-              },
-              {
                 "field": "attributes.security.outcome",
                 "eq": "success"
               },

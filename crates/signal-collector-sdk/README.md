@@ -20,8 +20,9 @@ replay remains the sink's responsibility.
 staged copy, validates the result, and commits only on success. Failures,
 cancellation and timeout preserve the caller's event. Schema version, event ID,
 event timestamp and observed timestamp are immutable. Other fields can be
-annotated subject to canonical semantic validation. No attribute namespace or
-company metadata is built into the SDK. Arbitrary nested JSON and precise JSON
+annotated subject to canonical semantic validation. The enrichment hooks inject
+no attribute namespace or company metadata. Optional public source profiles define
+their own diagnostic paths. Arbitrary nested JSON and precise JSON
 numbers remain unchanged unless the extension edits them.
 
 `EventLimits` defaults to 64 KiB serialized JSON, attribute depth 32 and 16,384
@@ -64,6 +65,36 @@ Use `validate_event(&fixture, limits, &context)` to validate canonical fixtures
 or collected events without mutation or cloning. It uses the same bounded
 canonical validation as enrichment; `apply_enricher` adds transactional mutation
 and immutable identity checks.
+
+## CloudTrail management-record profile
+
+`cloudtrail::normalize_record(raw, &profile, preparation_identity)` is a pure
+decoded-record helper. `CloudTrailProfile::new` takes a trusted source name and
+bounded recipient-account/region lists; it does not authenticate native claims.
+`PreparationIdentity::new` takes caller-pinned non-nil event/receipt UUIDs,
+observation time and ordinal. The helper generates no IDs or clock values.
+
+Input is capped at 256 KiB, 16 container levels and 16,384 nodes, counting object
+keys as nodes. The decoder charges before child allocation and rejects duplicate
+decoded keys, invalid UTF-8/JSON, nonfinite floating exponents and trailing input.
+Unknown JSON objects cannot trigger Serde's internal number-map convention.
+Profile lists allow at most 128 accounts/64 regions; source names are 128 bytes
+and region strings 64 bytes. Prepared event JSON is capped at 64 KiB.
+
+The result borrows exact original bytes and exposes SHA-256, immutable canonical
+event/bytes, disposition and bounded reason codes. Field/scope rejection returns
+`quarantine_record` without an event. Unsupported/missing detection semantics
+may return `emit_indeterminate` with unknown fields omitted. This is a preparation
+disposition, not an implemented coverage or detection assessment. Caller copies
+and multiple results require a separate bounded owner. Historical prepared pins
+qualify canonical content; new encoding is deterministic, and pending receipts
+must replay stored bytes rather than re-encode under a changed implementation.
+
+This API parses one record, not gzip objects or notification envelopes. Original
+retention, source authorization, custody, proof validation, checkpoints and ACKs
+remain the application's responsibility. Nothing is sent or durably retained by
+the helper. See [the profile and custody contract](../../docs/29-cloudtrail-source-receipt.md)
+and the actual native-to-finding tests in `apps/signal-server/tests/cloudtrail-profile.rs`.
 
 ## SourceCoverage validation and assessment
 

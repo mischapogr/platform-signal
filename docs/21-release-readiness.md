@@ -36,10 +36,22 @@ adds offline native projection, identity/ACK witnesses and planned custody cases
 Local acceptance has 41 native projections, seven identity comparisons, two
 prepared pins, 19 ACK witnesses and 26 independent tests/262 rejection checks;
 19 custody scenarios remain unexecuted.
-It does not implement or qualify a Rust normalizer, source receipt store, AWS
-collector, protected archive or source observer. Runtime/build inputs are
-unchanged; the 358-test workspace result above remains the accepted prior baseline.
+That design acceptance did not implement a Rust normalizer, source receipt store,
+AWS collector, protected archive or source observer. Its 358-test workspace
+result remains historical.
 Design evidence is under `target/cloudtrail-receipt-design-20261007/`.
+
+The subsequent pure SDK normalizer executes all 41 native record cases, with
+16 parser/preparation tests and three actual native-to-finding profile tests.
+D01's generic action filter is removed exactly as specified by the independently
+reviewed design; root StopLogging yields D01+D02. Current local Rust gates pass
+377 tests, strict Clippy/fmt and the 13-package guard. Existing offline mutation
+checks pass 26 tests/262 rejections. This is decoded-record/library evidence and
+a focused writer review against prior independently reviewed requirements, not
+a new independent source review, source custody, AWS collection or cloud proof.
+SDK direct dependencies reuse already locked `sha2`/`uuid`; earlier image and
+candidate evidence still bind their own source/build snapshots. Current evidence
+is under `target/cloudtrail-normalizer-20261007/`.
 
 The public synthetic corpus covers 55 cases across 11 requested source families.
 The private overlay's version now matches `0.1.0-dev.0`; its three tests include
@@ -54,7 +66,7 @@ release gate.
 
 | ID | Observed proof | Exact source or retained artifact |
 | --- | --- | --- |
-| W | Current local OSS formatting, strict all-target Clippy and locked/offline workspace tests: 358 tests, zero failures; boundary gate validates 13 packages. Includes SourceCoverage process-crash, quota, corruption, cancellation, trusted intake/correction/replay, payload/identity-prefix pruning/scans and UI/exact-ID tests. | `target/source-coverage-scans-20261007/validation.json` and acceptance logs; bundled build evidence remains `target/source-coverage-store-20261007/sqlite-build.json`; [workspace guard](../scripts/check-workspace.py). Previous 286/273/255/231/228-test results remain historical. |
+| W | Current local OSS formatting, strict all-target Clippy and locked/offline workspace tests: 377 tests, zero failures; boundary guard validates 13 packages. Includes 16 bounded CloudTrail parser/preparation and three native-to-finding profile tests alongside existing coverage/UI/WAL/storage tests. | `target/cloudtrail-normalizer-20261007/validation.json` and logs; prior 358-test coverage acceptance and previous image/candidate reports retain their own bindings. Bundled SQLite build evidence remains `target/source-coverage-store-20261007/sqlite-build.json`; [workspace guard](../scripts/check-workspace.py). |
 | P | Separate private package: two tests; external normal-server process gate preserved one event/finding through SIGKILL and successful SIGTERM | `/tmp/signal-phase7b-private-gates.log`, `/tmp/signal-phase7b-process-gate.log`; [external overlay gate](17-external-overlay.md), [harness](../scripts/check-overlay.py) |
 | I | Single/batch validation, bounded request/queue admission, auth, cancellation, overload and exact partial admission | [HTTP integration tests](../crates/signal-ingest/tests/http.rs), included in W; [ingest API](09-phase1-ingest.md) |
 | B | Real WAL truncation/corruption/restart, bounded count/byte/segment quotas, block timeout, checkpoint I/O failure and replay | [WAL recovery tests](../crates/signal-buffer/tests/recovery.rs), included in W; [WAL contract](10-phase2-wal.md) |
@@ -85,7 +97,8 @@ release gate.
 
 W is the current full workspace result: the prior 231-test gate plus 24
 SourceCoverage SDK, 96 local-store/intake/correction/payload/identity-pruning/scans, one UI route
-and six exact-ID protocol/Parquet tests totals 358. Focused F/D/Z and Y results are
+and six exact-ID protocol/Parquet tests total the prior 358; adding 16 CloudTrail
+parser/preparation and three native-to-finding profile tests gives 377. Focused F/D/Z and Y results are
 already included and must not be added again. Earlier phase counts
 (including the 203-test Phase 6 run) remain historical evidence. The three
 Kubernetes cleanup tests, two standalone health-helper tests and H's one
