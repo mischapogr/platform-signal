@@ -23,6 +23,19 @@ enum Operation {
         ReceiptRecoveryGrant,
         ReceiptAckUpdate,
     ),
+    Control(ReceiptBinding),
+    Retire(
+        ReceiptBinding,
+        ReceiptProgress,
+        ReceiptRecoveryGrant,
+        String,
+    ),
+    PublishNext(
+        Vec<u8>,
+        ReceiptBinding,
+        ReceiptProgress,
+        ReceiptRecoveryGrant,
+    ),
 }
 enum Answer {
     Published(ReceiptInfo),
@@ -31,6 +44,7 @@ enum Answer {
     Advanced(ReceiptProgress),
     Transferred,
     Ack(ReceiptAckCommit),
+    Control(Option<ReceiptProgress>),
 }
 struct Command {
     op: Operation,
@@ -120,6 +134,15 @@ impl ReceiptStore {
                         Operation::Ack(binding, expected, grant, update) => engine
                             .ack(&binding, expected, grant, update, &command.ctx, &wm)
                             .map(Answer::Ack),
+                        Operation::Control(binding) => {
+                            engine.control(&binding, &command.ctx).map(Answer::Control)
+                        }
+                        Operation::Retire(binding, expected, grant, at) => engine
+                            .retire(&binding, expected, grant, at, &command.ctx, &wm)
+                            .map(Answer::Advanced),
+                        Operation::PublishNext(bytes, binding, expected, grant) => engine
+                            .publish_next(bytes, &binding, expected, grant, &command.ctx, &wm)
+                            .map(Answer::Published),
                         Operation::Inspect(binding) => engine.read(&command.ctx).and_then(|r| {
                             if r.as_ref()
                                 .is_some_and(|r| r.metadata["binding"] != binding.0)
@@ -277,6 +300,66 @@ impl ReceiptStore {
             _ => Err(ReceiptError::Closed),
         }
     }
+    /// Bounded current token, including retirement intent/completion after local
+    /// payload removal. It is not independent history authority.
+    pub async fn current_control(
+        &self,
+        binding: ReceiptBinding,
+        ctx: ExtensionContext,
+    ) -> Result<Option<ReceiptProgress>, ReceiptError> {
+        match self.request(Operation::Control(binding), ctx).await? {
+            Answer::Control(p) => Ok(p),
+            _ => Err(ReceiptError::Closed),
+        }
+    }
+    /// Retire local payload with intent-before-unlink and directory sync before
+    /// completion. Fresh authority can resume an already committed intent.
+    pub async fn retire(
+        &self,
+        binding: ReceiptBinding,
+        expected: ReceiptProgress,
+        grant: ReceiptRecoveryGrant,
+        observed_at: String,
+        ctx: ExtensionContext,
+    ) -> Result<ReceiptProgress, ReceiptError> {
+        if observed_at.len() != 30 {
+            self.metrics.rejected.fetch_add(1, Ordering::AcqRel);
+            return Err(ReceiptError::Retirement);
+        }
+        format::time(&Value::String(observed_at.clone()))?;
+        match self
+            .request(
+                Operation::Retire(binding, expected, grant, observed_at),
+                ctx,
+            )
+            .await?
+        {
+            Answer::Advanced(p) => Ok(p),
+            _ => Err(ReceiptError::Closed),
+        }
+    }
+    /// Explicitly replace a completed slot with a different UUID and trusted new
+    /// full binding. Retain old control until new immutable payload publication.
+    pub async fn publish_next(
+        &self,
+        bytes: Vec<u8>,
+        binding: ReceiptBinding,
+        expected: ReceiptProgress,
+        grant: ReceiptRecoveryGrant,
+        ctx: ExtensionContext,
+    ) -> Result<ReceiptInfo, ReceiptError> {
+        if bytes.len() > MAX_RECEIPT_BYTES {
+            self.metrics.rejected.fetch_add(1, Ordering::AcqRel);
+            return Err(ReceiptError::Invalid("receipt bytes"));
+        }
+        match self
+            .request(Operation::PublishNext(bytes, binding, expected, grant), ctx)
+            .await?
+        {
+            Answer::Published(i) => Ok(i),
+            _ => Err(ReceiptError::Closed),
+        }
+    }
     /// Voluntary local handover consumes the old handle. An independent trusted
     /// checkpoint is mandatory; this is not automatic recovery of arbitrary roots.
     /// Await physical worker exit before reporting success or releasing its lock.
@@ -331,6 +414,15 @@ pub(super) enum Stage {
     ProgressTempSynced,
     ProgressRenamed,
     ProgressDirectorySynced,
+    RetirementIntentCommitted,
+    ReceiptRemoved,
+    ReclaimDirectorySynced,
+    RetirementCompleteCommitted,
+}
+enum State {
+    Empty,
+    Active(Box<ReceiptReplay>),
+    Retired(ReceiptProgress),
 }
 struct Engine {
     config: ReceiptConfig,
@@ -412,7 +504,7 @@ impl Engine {
         lock.try_lock().map_err(|_| ReceiptError::Locked)?;
         root.sync_all().map_err(io_error)?;
         check(ctx)?;
-        let mut engine = Self {
+        let engine = Self {
             config,
             root,
             lock,
@@ -420,19 +512,23 @@ impl Engine {
             generation,
             poisoned: false,
         };
-        let receipt = engine.read(ctx)?;
+        let state = engine.state(ctx)?;
+        let current = match state {
+            State::Empty => None,
+            State::Active(r) => Some(r.progress),
+            State::Retired(p) => {
+                if grant.is_none() {
+                    return Err(ReceiptError::History);
+                }
+                Some(p)
+            }
+        };
         if let Some(grant) = grant {
-            let r = receipt.ok_or(ReceiptError::History)?;
-            if r.metadata["binding"] != grant.binding.0 {
+            let p = current.ok_or(ReceiptError::History)?;
+            if p.value["binding"] != grant.binding.0 {
                 return Err(ReceiptError::Scope);
             }
-            let current = progress::decode(
-                engine.load("control", 8 * 1024 * 1024, ctx)?,
-                &r,
-                owner,
-                generation,
-            )?;
-            if current.checksum() != grant.control_checksum {
+            if p.checksum() != grant.control_checksum {
                 return Err(ReceiptError::History);
             }
         }
@@ -527,7 +623,7 @@ impl Engine {
             return Err(ReceiptError::Quota);
         }
         self.stable(ctx)?;
-        if temp || control != id.is_some() {
+        if temp || (id.is_some() && !control) {
             return Err(ReceiptError::Uncertain);
         }
         Ok((id, control))
@@ -567,25 +663,69 @@ impl Engine {
         self.stable(ctx)?;
         Ok(out)
     }
-    fn read_inner(&self, ctx: &ExtensionContext) -> Result<Option<StoredReceipt>, ReceiptError> {
-        let (id, _) = self.scan(ctx)?;
-        let Some(id) = id else {
-            return Ok(None);
-        };
-        let r = format::decode(
-            self.load(&format!("{id}.src"), MAX_RECEIPT_BYTES, ctx)?,
-            ctx,
-        )?;
-        if r.info.id != id {
-            return Err(ReceiptError::Invalid("filename identity"));
+    fn state(&self, ctx: &ExtensionContext) -> Result<State, ReceiptError> {
+        let (id, control) = self.scan(ctx)?;
+        if !control {
+            return Ok(State::Empty);
         }
-        let control = self.load("control", 8 * 1024 * 1024, ctx)?;
-        progress::decode(control, &r, self.owner, self.generation)?;
-        Ok(Some(r))
+        let raw = self.load("control", 8 * 1024 * 1024, ctx)?;
+        let basic = progress::parse(raw, self.owner, self.generation)?;
+        let receipt = if let Some(id) = id {
+            let r = format::decode(
+                self.load(&format!("{id}.src"), MAX_RECEIPT_BYTES, ctx)?,
+                ctx,
+            )?;
+            if r.info.id != id {
+                return Err(ReceiptError::Invalid("filename identity"));
+            }
+            Some(r)
+        } else {
+            None
+        };
+        if basic.value["retirement"]["state"] == "active" {
+            let r = receipt.ok_or(ReceiptError::Uncertain)?;
+            let p = progress::decode(basic.bytes, &r, self.owner, self.generation)?;
+            Ok(State::Active(Box::new(ReceiptReplay {
+                receipt: r,
+                progress: p,
+            })))
+        } else {
+            let p = retirement::decode(basic.bytes, self.owner, self.generation)?;
+            if let Some(r) = receipt {
+                if p.value["retirement"]["state"] == "complete" {
+                    return Err(ReceiptError::Uncertain);
+                }
+                retirement::verify_receipt(&p, &r)?;
+            }
+            Ok(State::Retired(p))
+        }
+    }
+    fn read_inner(&self, ctx: &ExtensionContext) -> Result<Option<StoredReceipt>, ReceiptError> {
+        match self.state(ctx)? {
+            State::Empty => Ok(None),
+            State::Active(r) => Ok(Some(r.receipt)),
+            State::Retired(_) => Err(ReceiptError::Retired),
+        }
+    }
+    fn control(
+        &mut self,
+        binding: &ReceiptBinding,
+        ctx: &ExtensionContext,
+    ) -> Result<Option<ReceiptProgress>, ReceiptError> {
+        let p = match self.state(ctx)? {
+            State::Empty => return Ok(None),
+            State::Active(r) => r.progress,
+            State::Retired(p) => p,
+        };
+        if p.value["binding"] != binding.0 {
+            return Err(ReceiptError::Scope);
+        }
+        Ok(Some(p))
     }
     fn read(&mut self, ctx: &ExtensionContext) -> Result<Option<StoredReceipt>, ReceiptError> {
         let result = self.read_inner(ctx);
-        if matches!(&result,Err(e) if !matches!(e,ReceiptError::Cancelled|ReceiptError::Timeout)) {
+        if matches!(&result,Err(e) if !matches!(e,ReceiptError::Cancelled|ReceiptError::Timeout|ReceiptError::Retired))
+        {
             self.poisoned = true;
         }
         result
@@ -649,26 +789,160 @@ impl Engine {
         ctx: &ExtensionContext,
         metrics: &Metrics,
     ) -> Result<(), ReceiptError> {
-        let replay = self
-            .replay(binding, ctx)?
-            .ok_or(ReceiptError::StaleProgress)?;
-        if replay.progress.bytes != expected.bytes {
-            return Err(ReceiptError::StaleProgress);
-        }
-        if grant.binding != *binding {
-            return Err(ReceiptError::Scope);
-        }
-        if grant.control_checksum != replay.progress.checksum() {
-            return Err(ReceiptError::History);
-        }
+        let state = self.state(ctx)?;
+        let (current, receipt) = match state {
+            State::Active(r) => (r.progress, Some(r.receipt)),
+            State::Retired(p) => (p, None),
+            State::Empty => return Err(ReceiptError::StaleProgress),
+        };
+        self.authorize(&current, binding, &expected, &grant)?;
         let generation = self.generation.checked_add(1).ok_or(ReceiptError::Owner)?;
-        let next =
-            progress::owner_replacement(&replay.receipt, &replay.progress, new_owner, generation)?;
+        let next = if let Some(r) = receipt {
+            progress::owner_replacement(&r, &current, new_owner, generation)?
+        } else {
+            retirement::owner_replacement(&current, new_owner, generation)?
+        };
         self.replace_control(&next.bytes, ctx)?;
         self.owner = new_owner;
         self.generation = generation;
         metrics.owner_transfers.fetch_add(1, Ordering::AcqRel);
         Ok(())
+    }
+    fn authorize(
+        &self,
+        current: &ReceiptProgress,
+        binding: &ReceiptBinding,
+        expected: &ReceiptProgress,
+        grant: &ReceiptRecoveryGrant,
+    ) -> Result<(), ReceiptError> {
+        if current.value["binding"] != binding.0 || grant.binding != *binding {
+            return Err(ReceiptError::Scope);
+        }
+        if current.bytes != expected.bytes {
+            return Err(ReceiptError::StaleProgress);
+        }
+        if current.checksum() != grant.control_checksum {
+            return Err(ReceiptError::History);
+        }
+        Ok(())
+    }
+    fn retire(
+        &mut self,
+        binding: &ReceiptBinding,
+        expected: ReceiptProgress,
+        grant: ReceiptRecoveryGrant,
+        at: String,
+        ctx: &ExtensionContext,
+        metrics: &Metrics,
+    ) -> Result<ReceiptProgress, ReceiptError> {
+        let state = self.state(ctx)?;
+        let (old, active_receipt) = match state {
+            State::Empty => return Err(ReceiptError::StaleProgress),
+            State::Active(r) => (r.progress, Some(r.receipt)),
+            State::Retired(p) => (p, None),
+        };
+        self.authorize(&old, binding, &expected, &grant)?;
+        if old.value["retirement"]["state"] == "complete" {
+            return Ok(old);
+        }
+        let observed = format::time(&Value::String(at.clone()))?;
+        if !old.value["retirement"]["observed_at"].is_null()
+            && observed < format::time(&old.value["retirement"]["observed_at"])?
+        {
+            return Err(ReceiptError::Retirement);
+        }
+        let intent = if old.value["retirement"]["state"] == "active" {
+            let intent =
+                retirement::replacement(&old, at.clone(), false, self.owner, self.generation)?;
+            retirement::verify_receipt(
+                &intent,
+                active_receipt.as_ref().ok_or(ReceiptError::Retirement)?,
+            )?;
+            intent
+        } else {
+            old.clone()
+        };
+        // Precompute/bound the final control before issuing any destructive syscall.
+        let complete = retirement::replacement(&intent, at, true, self.owner, self.generation)?;
+        let result = (|| {
+            if old.value["retirement"]["state"] == "active" {
+                self.replace_control(&intent.bytes, ctx)?;
+                metrics.progress_updates.fetch_add(1, Ordering::AcqRel);
+            }
+            self.hit(Stage::RetirementIntentCommitted, ctx)?;
+            let name = format!("{}.src", format::uuid(&intent.value["receipt_id"])?);
+            self.stable(ctx)?;
+            match fs::remove_file(self.config.root.join(&name)) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => return Err(io_error(e)),
+            }
+            match fs::symlink_metadata(self.config.root.join(&name)) {
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => return Err(io_error(e)),
+                Ok(_) => return Err(ReceiptError::Uncertain),
+            }
+            self.hit(Stage::ReceiptRemoved, ctx)?;
+            self.root.sync_all().map_err(io_error)?;
+            self.hit(Stage::ReclaimDirectorySynced, ctx)?;
+            self.replace_control(&complete.bytes, ctx)?;
+            metrics.progress_updates.fetch_add(1, Ordering::AcqRel);
+            self.hit(Stage::RetirementCompleteCommitted, ctx)?;
+            Ok(complete)
+        })();
+        if result.is_err() {
+            self.poisoned = true;
+        }
+        result
+    }
+    fn publish_next(
+        &mut self,
+        bytes: Vec<u8>,
+        binding: &ReceiptBinding,
+        expected: ReceiptProgress,
+        grant: ReceiptRecoveryGrant,
+        ctx: &ExtensionContext,
+        metrics: &Metrics,
+    ) -> Result<ReceiptInfo, ReceiptError> {
+        let State::Retired(old) = self.state(ctx)? else {
+            return Err(ReceiptError::Retirement);
+        };
+        self.authorize(&old, &grant.binding, &expected, &grant)?;
+        if old.value["retirement"]["state"] != "complete" {
+            return Err(ReceiptError::Retirement);
+        }
+        let r = format::decode(bytes, ctx)?;
+        if r.metadata["binding"] != binding.0 {
+            return Err(ReceiptError::Scope);
+        }
+        if r.info.id == format::uuid(&old.value["receipt_id"])? {
+            return Err(ReceiptError::IdentityConflict);
+        }
+        let control = format::initial(&r, self.owner, self.generation)?;
+        if self.config.quota < 60 * 1024 * 1024 {
+            return Err(ReceiptError::Quota);
+        }
+        let result = (|| {
+            self.write("receipt.next", &r.bytes, ctx)?;
+            self.hit(Stage::ReceiptTempSynced, ctx)?;
+            fs::hard_link(
+                self.config.root.join("receipt.next"),
+                self.config.root.join(format!("{}.src", r.info.id)),
+            )
+            .map_err(io_error)?;
+            self.hit(Stage::ReceiptLinked, ctx)?;
+            fs::remove_file(self.config.root.join("receipt.next")).map_err(io_error)?;
+            self.hit(Stage::ReceiptRenamed, ctx)?;
+            self.root.sync_all().map_err(io_error)?;
+            self.hit(Stage::ReceiptDirectorySynced, ctx)?;
+            self.replace_control(&control, ctx)?;
+            metrics.admitted.fetch_add(1, Ordering::AcqRel);
+            Ok(r.info)
+        })();
+        if result.is_err() {
+            self.poisoned = true;
+        }
+        result
     }
     fn ack(
         &mut self,
