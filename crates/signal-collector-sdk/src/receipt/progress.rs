@@ -139,27 +139,41 @@ pub(super) fn decode(
     let start = number(&attempt["start"])?;
     let count = number(&attempt["count"])?;
     let accepted = number(&attempt["accepted"])?;
-    if count == 0
-        || start > prefix
-        || start
-            .checked_add(count)
-            .is_none_or(|end| end > r.info.prepared_count as u64)
-        || accepted > count
-        || start.checked_add(accepted) != Some(prefix)
-    {
-        return Err(invalid("attempt range"));
-    }
-    match attempt["kind"].as_str() {
-        Some("verified") => digest(&attempt["response_sha256"])?,
-        Some("uncertain" | "permanent")
-            if accepted == 0 && attempt["response_sha256"].is_null() => {}
-        _ => return Err(invalid("attempt outcome")),
+    let handover = attempt["kind"] == "none";
+    if handover {
+        if generation <= 1
+            || start != 0
+            || count != 0
+            || accepted != 0
+            || !attempt["response_sha256"].is_null()
+            || (revision == 1 && prefix != 0)
+        {
+            return Err(invalid("handover attempt"));
+        }
+    } else {
+        if count == 0
+            || start > prefix
+            || start
+                .checked_add(count)
+                .is_none_or(|end| end > r.info.prepared_count as u64)
+            || accepted > count
+            || start.checked_add(accepted) != Some(prefix)
+        {
+            return Err(invalid("attempt range"));
+        }
+        match attempt["kind"].as_str() {
+            Some("verified") => digest(&attempt["response_sha256"])?,
+            Some("uncertain" | "permanent")
+                if accepted == 0 && attempt["response_sha256"].is_null() => {}
+            _ => return Err(invalid("attempt outcome")),
+        }
     }
     // Compare every immutable and unsupported control field, including unknown
     // keys, against the complete initial pin set. This slice changes only these
     // five fields; custody/ACK/retirement remain local/not-requested/active.
     let initial = format::initial(r, owner, generation)?;
     if revision == 1
+        && !handover
         && (start != 0
             || value["previous_sha256"]
                 != format::hex(&Sha256::digest(&initial[..initial.len() - 32])))
@@ -247,4 +261,53 @@ pub(super) fn replacement(
     p["prefix_sha256"] = format::hex(&prefix_hash(r, prefix)?).into();
     p["attempt"] = serde_json::json!({"kind":kind,"start":start,"count":count,"accepted":accepted,"response_sha256":hash});
     decode(encode(&p)?, r, owner, generation)
+}
+
+/// Trusted application's independently reconciled current checkpoint, supplied
+/// afresh for one handover. Never infer it from the copied control file or producer
+/// attributes. Construction validates bounds, not witness authenticity: the
+/// application owns authentication/history reconciliation outside this library.
+/// There is deliberately no Deserialize implementation or persisted permission bit.
+pub struct ReceiptRecoveryGrant {
+    pub(super) binding: ReceiptBinding,
+    pub(super) control_checksum: [u8; 32],
+    _authority_revision: String,
+}
+impl ReceiptRecoveryGrant {
+    pub fn from_trusted_checkpoint(
+        binding: ReceiptBinding,
+        control_checksum: [u8; 32],
+        authority_revision: String,
+    ) -> Result<Self, ReceiptError> {
+        if authority_revision.is_empty() || authority_revision.len() > 128 {
+            return Err(ReceiptError::Configuration);
+        }
+        Ok(Self {
+            binding,
+            control_checksum,
+            _authority_revision: authority_revision,
+        })
+    }
+}
+pub(super) fn owner_replacement(
+    r: &StoredReceipt,
+    old: &ReceiptProgress,
+    new_owner: Uuid,
+    generation: u64,
+) -> Result<ReceiptProgress, ReceiptError> {
+    if new_owner.is_nil() || old.value["owner_id"] == new_owner.to_string() {
+        return Err(ReceiptError::Configuration);
+    }
+    let mut p = old.value.clone();
+    p["owner_id"] = new_owner.to_string().into();
+    p["owner_generation"] = generation.into();
+    p["revision"] = old
+        .revision()
+        .checked_add(1)
+        .ok_or_else(|| invalid("revision overflow"))?
+        .into();
+    p["previous_sha256"] = format::hex(&old.checksum()).into();
+    p["attempt"] =
+        serde_json::json!({"kind":"none","start":0,"count":0,"accepted":0,"response_sha256":null});
+    decode(encode(&p)?, r, new_owner, generation)
 }

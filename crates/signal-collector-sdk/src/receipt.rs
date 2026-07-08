@@ -4,7 +4,7 @@
 mod format;
 mod progress;
 mod store;
-pub use progress::{ReceiptAttempt, ReceiptProgress, ReceiptReplay};
+pub use progress::{ReceiptAttempt, ReceiptProgress, ReceiptRecoveryGrant, ReceiptReplay};
 #[cfg(all(test, unix))]
 mod tests;
 
@@ -51,6 +51,8 @@ pub enum ReceiptError {
     UnsupportedProgress,
     #[error("receipt progress snapshot is stale or belongs to another receipt")]
     StaleProgress,
+    #[error("receipt history checkpoint does not match independent current authority")]
+    History,
     #[error("invalid admission response; no prefix committed")]
     InvalidResponse,
     #[error("receipt operation cancelled; mutation outcome may be uncertain")]
@@ -159,6 +161,7 @@ struct Metrics {
     caller_uncertain: AtomicU64,
     unobserved_results: AtomicU64,
     progress_updates: AtomicU64,
+    owner_transfers: AtomicU64,
 }
 #[derive(Clone, Copy, Debug)]
 pub struct ReceiptMetrics {
@@ -172,6 +175,7 @@ pub struct ReceiptMetrics {
     pub caller_uncertain: u64,
     pub unobserved_results: u64,
     pub progress_updates: u64,
+    pub owner_transfers: u64,
 }
 impl Metrics {
     fn snapshot(&self) -> ReceiptMetrics {
@@ -186,6 +190,7 @@ impl Metrics {
             caller_uncertain: self.caller_uncertain.load(Ordering::Acquire),
             unobserved_results: self.unobserved_results.load(Ordering::Acquire),
             progress_updates: self.progress_updates.load(Ordering::Acquire),
+            owner_transfers: self.owner_transfers.load(Ordering::Acquire),
         }
     }
 }

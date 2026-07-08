@@ -693,3 +693,6 @@ fn event_context_and_recipient_scope_are_checked_independently_of_digest() -> Te
 
 #[path = "progress_tests.rs"]
 mod progress_tests;
+
+#[path = "handover_tests.rs"]
+mod handover_tests;
