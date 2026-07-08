@@ -54,7 +54,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | RECEIPT-BASE | passed_local | CORE | CloudTrail normalization/profile and initial receipt store |
 | RECEIPT-PROGRESS | passed_local | RECEIPT-BASE | Atomic verified-prefix progress and immutable suffix replay |
 | RECEIPT-RECOVERY | in_progress | RECEIPT-PROGRESS, SOURCE-ACK | Retirement, owner takeover and restore reconciliation |
-| SOURCE-ACK | pending | RECEIPT-PROGRESS | Source acknowledgement and selected custody seam |
+| SOURCE-ACK | passed_local | RECEIPT-PROGRESS | Source acknowledgement and selected custody seam |
 | OBJECT-READER | pending | RECEIPT-RECOVERY | Bounded CloudTrail gzip object reader/preparation |
 | AWS-DELIVERY | pending | SOURCE-ACK, OBJECT-READER | CloudTrail S3/SQS collector and local delivery simulation |
 | COVERAGE-OBSERVERS | pending | COVERAGE, AWS-DELIVERY | Source observers, health and SDK/server integration |

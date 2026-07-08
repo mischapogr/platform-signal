@@ -38,7 +38,8 @@ and bounded scans are accepted locally. The [CloudTrail receipt/profile design](
 now has pure Rust normalizer/profile evidence and an
 [offline wire/schema contract](30-source-receipt-contract.md). Atomic verified-prefix progress/replay has 410-test workspace and independent
 source-review acceptance. Owner handover/checkpoint-gated opening now have 422-test
-acceptance. Next is SOURCE-ACK control, then remaining retirement/reclamation;
+acceptance. SOURCE-ACK control has 436-test workspace and independent review
+acceptance. Next is remaining retirement/reclamation;
 existing unavailable environment/release gates remain open. Keep
 one writer per coherent owned path set, independent focused review and a settled
 evidence pass. Do not overlap writers or treat permission to delegate as authority
@@ -66,7 +67,7 @@ these rows do not authorize parallel agents or blanket cloud implementation.
 
 | Next task scope | Recommended new-task route | Required acceptance boundary |
 | --- | --- | --- |
-| Post-MVP PS-02 SOURCE-ACK control then receipt retirement | Sol/high for custody/checkpoint/replay decisions | Owner handover and checkpoint-gated opening have 422-test workspace and independent review acceptance. Implement durable source ACK intent/result/uncertainty and fresh current delivery authority first; [30](30-source-receipt-contract.md) requires confirmed ACK before retirement intent/unlink/sync/complete/new-slot publication. Qualify process-local custody explicitly; stronger source proof/custody stays blocked without independent witness. No transport or S3-original deletion from ACK alone |
+| Post-MVP PS-02 receipt retirement/reclamation | Sol/high for custody/checkpoint/replay decisions | Owner handover and checkpoint-gated opening have 422-test workspace and independent review acceptance. ACK intent/result/uncertainty and fresh current delivery control now have 436-test acceptance; implement retirement next; [30](30-source-receipt-contract.md) requires confirmed ACK before retirement intent/unlink/sync/complete/new-slot publication. Qualify process-local custody explicitly; stronger source proof/custody stays blocked without independent witness. No transport or S3-original deletion from ACK alone |
 | PS-02 source-receipt custody, then S3/SQS delivery | Sol/high for custody/checkpoint/replay decisions | Pinned original/prepared IDs/bytes/revision and separate verified-prefix progress; implement the design's bounded backend and crash/fault/restore/quota/ownership matrix before adapter delivery. Source receipts remain distinct from coverage history. Qualify selected ACK custody, source proofs/credentials/private policy and live AWS separately; existing M2 does not establish M3/M4 |
 | PS-03 public cursor runtime; private durable outbox as a separate task | Sol/high for replay/cursor/atomicity | Existing [25](25-findings-cursor-proposal.md) contract; divergent restore and delivery uncertainty; private paths need their own writable scope |
 | PS-04 one evidence/store publication contract or adapter | Sol/high for integrity/commit/recovery | Independent evidence authority, version/proof reference, retention permission and failure acceptance; no cloud provisioning from this design task |
