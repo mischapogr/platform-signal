@@ -44,7 +44,7 @@ SecOps UI (UI-01/UI-02). Keep those requirements in
 | 7 | Overlay integration proof in a separate repository | External SDK enrichment and private rules verified through normal OSS server ingest, query and restart |
 | 8 | Multi-arch image, Helm, SBOM, scanning | AMD64/ARM64 builds, Compose and Kubernetes smoke, Helm lint |
 | UI-01 (accepted locally) | Embedded read-only SecOps UI | 301 workspace tests, 21 browser fixture checks, four actual-server/browser/restart checks and 24 candidate-helper regressions; external qualification remains open |
-| UI-02 (next locally runnable) | Exact event evidence navigation and UI qualification | Bounded exact-ID query semantics, actual-browser accessibility/security/regression checks and packaging acceptance |
+| UI-02 (accepted locally) | Exact event evidence navigation and UI qualification | 307 Rust tests, 26 browser fixture checks, four actual-server/restart checks, 14 real-container browser checks, bounded exact-ID semantics and current-source export; external release gates remain open |
 | 10 | Hardening and `v0.1.0` | Every definition-of-done gate, including UI-01/UI-02, with measured evidence |
 | 9 (post-MVP) | AWS starter integrations | Optional extension after the release gate |
 

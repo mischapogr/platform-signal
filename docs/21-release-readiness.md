@@ -7,15 +7,16 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
-Minimal SecOps UI is now an owner-selected MVP requirement. UI-01 has local
-embedded-route, browser, real-server/restart and source-export acceptance;
-UI-02 exact event-ID evidence navigation and fresh container/package
-qualification remain open. See [the UI contract](28-secops-ui.md). Advanced SOC
-UX remains post-MVP. The prior 300-test source acceptance is followed by 301
-workspace tests at `target/secops-ui-20261007/`; older images do not qualify the
-new embedded assets.
+Minimal SecOps UI is now an owner-selected MVP requirement. UI-01/UI-02 have
+local embedded-route, browser, exact-ID query, real-server/restart, current source
+export and real-container acceptance. See [the UI contract](28-secops-ui.md).
+Advanced SOC UX remains post-MVP. Current acceptance has 307 workspace tests,
+26 fixture-browser checks and 14 real-container browser checks under
+`target/secops-ui-evidence-20261007/`; the new immutable AMD64 image passes
+container and all six supply-chain gates. Native qualification is recorded below;
+local proof does not close the existing external release gates.
 
-The current SourceCoverage SDK/store/intake/correction source passes 300 workspace tests and
+The earlier SourceCoverage SDK/store/intake/correction source passed 300 workspace tests and
 the 13-package boundary guard. The preceding source revision's AMD64 image passes container, all six
 supply-chain and native parser/pipeline/120-second-soak gates. The current kind
 campaign fails before SIGNAL starts: kube-proxy reports `too many open files`,
@@ -33,7 +34,7 @@ The public synthetic corpus covers 55 cases across 11 requested source families.
 The private overlay's version now matches `0.1.0-dev.0`; its three tests include
 all 55 real Rust event validations and one intended private IAM finding. This is
 source-path/local proof. The owner authorizes local Conventional Commits on
-`develop` with deliberately assigned July 7 evening Berlin dates; validation
+`develop` with deliberately assigned July evening Berlin dates; validation
 reports retain actual October 7 times. No revision is pushed, merged to `main`,
 tagged or published; no release version is selected. Local commits close no
 release gate.
@@ -42,7 +43,7 @@ release gate.
 
 | ID | Observed proof | Exact source or retained artifact |
 | --- | --- | --- |
-| W | Current local OSS formatting, strict all-target Clippy and locked/offline workspace tests: 300 tests, zero failures; boundary gate validates 13 packages. Includes SourceCoverage process-crash, quota, corruption, cancellation and trusted intake/correction/replay tests. | `target/source-coverage-corrections-20261007/validation.json` and acceptance logs; bundled build evidence remains `target/source-coverage-store-20261007/sqlite-build.json`; [workspace guard](../scripts/check-workspace.py). Previous 286/273/255/231/228-test results remain historical. |
+| W | Current local OSS formatting, strict all-target Clippy and locked/offline workspace tests: 307 tests, zero failures; boundary gate validates 13 packages. Includes SourceCoverage process-crash, quota, corruption, cancellation, trusted intake/correction/replay and UI/exact-ID tests. | `target/secops-ui-evidence-20261007/validation.json` and acceptance logs; bundled build evidence remains `target/source-coverage-store-20261007/sqlite-build.json`; [workspace guard](../scripts/check-workspace.py). Previous 286/273/255/231/228-test results remain historical. |
 | P | Separate private package: two tests; external normal-server process gate preserved one event/finding through SIGKILL and successful SIGTERM | `/tmp/signal-phase7b-private-gates.log`, `/tmp/signal-phase7b-process-gate.log`; [external overlay gate](17-external-overlay.md), [harness](../scripts/check-overlay.py) |
 | I | Single/batch validation, bounded request/queue admission, auth, cancellation, overload and exact partial admission | [HTTP integration tests](../crates/signal-ingest/tests/http.rs), included in W; [ingest API](09-phase1-ingest.md) |
 | B | Real WAL truncation/corruption/restart, bounded count/byte/segment quotas, block timeout, checkpoint I/O failure and replay | [WAL recovery tests](../crates/signal-buffer/tests/recovery.rs), included in W; [WAL contract](10-phase2-wal.md) |
@@ -64,10 +65,13 @@ release gate.
 | J | Refreshed native campaign included two 120-second profiles: 8,050/6,490 events accepted and WAL/persisted/rule-evaluated, 403/325 findings and 20 queries each; zero rejection, uncertainty, query or cleanup errors. Rates 67.030/54.059 EPS; campaign scope is native qualification, `full_qualification: true`. | Same native report directory as N, `soak.json` SHA256 `66b5e0b002b7ae6e3b14cba1326cb644709e7996e3e6e90ab721d66f0b3130f9`. The earlier 120-second soak-only result is historical `scope: native-soak`, `full_qualification: false`, preserved at `target/phase10-soak-team-20261006/final/20261006T203345.246930Z-6640d177/`. |
 | Y | Fixed 1 KiB Parquet header `BufReader`, three storage regressions and matched release-image 20-file/40-event diagnostic: calls 37,920→702; successful one-byte reads 37,698→0; process-returned bytes 532,926→968,300. Old-image 600-second profiles failed their first query with HTTP 408. Refreshed-image 1 KiB/4 KiB 600-second profiles both passed with 12,000 durable events, 600 findings and 20 queries each; zero rejection, uncertainty or failures. | Syscall reports `target/phase10-query-reads-20261006/run-{1,3-image}/report.json`; old failed soak reports `target/phase10-longer-soak-20261006/{validation.json,soak-1024.json,soak-4096.json}`; refreshed reports and pair validation under `target/phase10-longer-buffered-20261006/` and `target/phase10-longer-soak-20261006/review/longer-pair-validation.json`; current 231-test workspace in W. The call reduction is structural; strace timings are not capacity evidence and returned bytes are not physical-device I/O. Finite load RSS does not establish a universal plateau or prolonged stability. |
 | X | Final independent source approval: no unresolved findings; campaign/log/test hashes, both benchmark hashes/eight-profile counts, cleanup, storage EEXIST and threat-model/security/upgrade/changelog/audit claims checked | Consolidated review acceptance recorded in [progress](07-progress.md); local source/mechanism scope only |
+| UI | Read-only embedded console and exact-ID evidence navigation: 307 Rust tests, 26 fixture-browser checks, four actual-server/restart checks, 14 real-container browser checks; source export, 24 candidate-helper regressions, strict Helm and focused independent review pass. Real delayed 10-day duplicate evidence and large numbers survive restart; shell does not bypass API auth. Fresh nonroot/read-only container auth/TERM/KILL and all six supply-chain checks pass. | `target/secops-ui-evidence-20261007/`; image `sha256:14c56dcf65bcbb41d95a7ee1a8ced9464732ec71db80c014b3fab734b21cbf55`; [UI contract](28-secops-ui.md). Earlier C/K/V/N/J/Y/LC snapshots retain their own historical image/source bindings. |
+| NU | Fresh UI-image native AMD64 qualification: nine hardening tests, seven pipeline profiles (13,676 attempts, 3,666 HTTP-confirmed, 3,668 WAL-durable; two extra after HTTP 408 within allowed uncertainty) and 140 queries; two 120-second 1/4 KiB soaks retain 10,740/6,890 events, 537/345 findings and 20 queries each with zero rejection/transport uncertainty. Full native scope passes, owned cleanup passes. | `target/secops-ui-evidence-20261007/native/20261007T131955.011401Z-1b5080a4/qualification.json` and bound hardening/pipeline/soak reports; image matches UI. Finite shared-host proof, not scale-envelope, prolonged stability, ARM64 or AWS proof. |
 | LC | The 2026-10-07 dev0 candidate preview passed local preparation, offline integrity verification, relocated source-path-graph checks and four packaged-chart checks. It preserves the accepted AMD64 image and remains `full_release: false`; this is not alpha, release or remote-dependency evidence. | `target/local-candidate-team-20261007/preview2/` and `preview2-relocated/{validation.json,bundled-offline-verify.json}`; [procedure and scope](23-local-candidate.md). Final candidate export/review is separate. |
 
 W is the current full workspace result: the prior 231-test gate plus 24
-SourceCoverage SDK and 45 local-store/intake/correction tests totals 300. Focused F/D/Z and Y results are
+SourceCoverage SDK, 45 local-store/intake/correction, one UI route and six exact-ID
+protocol/Parquet tests totals 307. Focused F/D/Z and Y results are
 already included and must not be added again. Earlier phase counts
 (including the 203-test Phase 6 run) remain historical evidence. The three
 Kubernetes cleanup tests, two standalone health-helper tests and H's one

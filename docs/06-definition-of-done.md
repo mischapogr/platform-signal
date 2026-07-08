@@ -49,14 +49,14 @@ Evidence: I/B/S/Q/R/A/P in the [audit ledger](21-release-readiness.md#evidence-l
 
 ## MVP SecOps UI
 
-Owner-selected addition on 2026-10-07; checked criteria have local UI-01 evidence
+Owner-selected addition on 2026-10-07; checked criteria have local UI-01/UI-02 evidence
 in [progress](07-progress.md), including an actual browser/server gate. The
 [UI contract](28-secops-ui.md) separates UI-01 from UI-02.
 
 - [x] Same-origin `/ui` shell and assets embedded in `signal-server`; no separate
   frontend runtime/build service or production dependency.
 - [x] Findings filters/detail and bounded event search/complete row detail.
-- [ ] Exact event-ID navigation from finding evidence, with missing/duplicate
+- [x] Exact event-ID navigation from finding evidence, with missing/duplicate
   evidence behavior; substring searches do not satisfy this gate.
 - [x] Page-memory token handling and unchanged API auth enforcement.
 - [x] Safe text rendering, restrictive CSP and faithful large-number evidence.
@@ -64,7 +64,7 @@ in [progress](07-progress.md), including an actual browser/server gate. The
   100 results; clear empty/error/loading states and stale-response protection.
 - [x] Actual-browser keyboard, accessible control/focus and responsive regression
   checks (not a comprehensive accessibility certification).
-- [ ] Container/package checks include embedded UI assets on the reviewed revision.
+- [x] Container/package checks include embedded UI assets on the reviewed revision.
 
 Read-only inspection does not prove persisted analyst disposition, case state,
 source coverage, protected original evidence, OIDC/RBAC or tenant isolation.

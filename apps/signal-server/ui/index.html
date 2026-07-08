@@ -39,13 +39,14 @@
       </form>
       <p id="findings-status" class="status" role="status">Connect to load findings.</p>
       <div class="table-wrap"><table><caption>Findings · earliest first within the selected interval</caption><thead><tr><th>Severity</th><th>Finding</th><th>Rule</th><th>Created · UTC</th><th>Inspect</th></tr></thead><tbody id="findings-results"></tbody></table></div>
-      <section class="detail" aria-labelledby="finding-detail-heading"><h2 id="finding-detail-heading">Finding detail</h2><p class="hint">Source event IDs are references. Use event search to inspect available evidence.</p><pre id="finding-detail" tabindex="0">Select a finding.</pre></section>
+      <section class="detail" aria-labelledby="finding-detail-heading"><h2 id="finding-detail-heading">Finding detail</h2><p class="hint">Open a referenced event to search its exact identity in retained evidence.</p><div id="finding-evidence" class="evidence-links" aria-label="Referenced events"></div><pre id="finding-detail" tabindex="0">Select a finding.</pre></section>
     </section>
     <section id="events-pane" aria-labelledby="events-heading" hidden>
       <div class="heading"><div><p class="eyebrow">INVESTIGATE</p><h1 id="events-heading">Event search</h1></div><p>Search retained events by time, source and resource.</p></div>
       <form id="events-form" class="filters">
-        <label>From · local time<input id="events-from" type="datetime-local" required></label>
-        <label>To · local time<input id="events-to" type="datetime-local" required></label>
+        <label>Event ID<input id="events-id" maxlength="36" placeholder="Exact UUID"></label>
+        <label>From · local time<input id="events-from" type="datetime-local"></label>
+        <label>To · local time<input id="events-to" type="datetime-local"></label>
         <label>Log severity<select id="events-severity"><option value="">All severities</option><option>trace</option><option>debug</option><option>info</option><option>warn</option><option>error</option><option>critical</option></select></label>
         <label>Source type<input id="events-source" maxlength="256" placeholder="aws.cloudtrail"></label>
         <label>Account<input id="events-account" maxlength="256" placeholder="Any account"></label>
@@ -56,6 +57,7 @@
         <button id="events-cancel" type="button" class="secondary" disabled>Cancel</button>
       </form>
       <p id="events-status" class="status" role="status">Choose a time range and search.</p>
+      <p class="hint">Exact-ID searches can omit time bounds. Duplicate admissions remain separate rows. If a broad search exceeds server limits, add a time range.</p>
       <div class="table-wrap"><table><caption>Events · newest first within the selected interval</caption><thead><tr><th>Log severity</th><th>Message / event ID</th><th>Source</th><th>Resource / account</th><th>Event time · UTC</th><th>Inspect</th></tr></thead><tbody id="events-results"></tbody></table></div>
       <section class="detail" aria-labelledby="event-detail-heading"><h2 id="event-detail-heading">Event detail</h2><p class="hint">Complete API-returned record. Vendor-original evidence may be referenced separately.</p><pre id="event-detail" tabindex="0">Select an event.</pre></section>
     </section>

@@ -3,7 +3,7 @@
 `GET /v1/events` queries persisted Parquet events. Phase 4 is accepted locally
 after the workspace gates, real-process gate and independent review passed.
 This is local Phase 4 evidence; it does not complete the `v0.1.0` release gates.
-Findings are still future work. Query results include only events that have
+Findings are exposed separately by `GET /v1/findings`. Query results include only events that have
 reached Parquet; a recently accepted WAL event can be briefly invisible while
 the storage consumer is writing it.
 
@@ -19,6 +19,7 @@ select date/hour partitions before file scanning.
 | Parameter | Meaning |
 | --- | --- |
 | `from`, `to` | Inclusive lower and exclusive upper event timestamp bounds |
+| `event_id` | Exact non-nil lowercase hyphenated event UUID; all matching admission rows remain eligible |
 | `contains` | Case-sensitive substring in the event message |
 | `severity` | Exact lowercase severity: `trace`, `debug`, `info`, `warn`, `error`, or `critical` |
 | `source_type`, `source_name` | Exact source fields |
@@ -54,6 +55,37 @@ curl -G 'http://127.0.0.1:8080/v1/events' \
 
 Use `--data-urlencode 'attribute.status="7"'` to match the string `7` rather
 than numeric JSON value `7`.
+
+## Exact event evidence lookup
+
+`event_id` matches the persisted event's UUID projection by equality. It is not
+a message substring search. The decoded value must use canonical lowercase
+hyphenated UUID spelling; uppercase, compact, URN, braced, nil and malformed
+values are rejected. Repeated keys, including percent-encoded aliases of the
+same key, remain invalid. The optional typed field is compatible with existing
+serialized version-1 queries that omit it, and is omitted from serialization
+when absent. Programmatically constructed queries reject nil IDs too.
+
+An event UUID can occur in multiple independent admissions, including admissions
+with different content. Lookup returns all matching rows within the existing
+result limit and ordering; it does not deduplicate them or select an authoritative
+copy. Other filters apply in conjunction with `event_id`, and any supplied time
+bounds still prune UTC date/hour partitions before scanning.
+
+Finding `created_at` is the source event's observed time, not its original event
+timestamp. A delayed event may therefore precede a finding by much more than a
+day. Callers can omit time bounds for a retained-history lookup or supply their
+own event-time interval. Omitting bounds keeps the existing file-selection,
+scan-memory, response-byte, concurrency and deadline budgets; it does not create
+an unbounded scan or an ID index. An overly broad lookup fails the whole query
+with the existing resource error rather than returning a silent partial scan.
+
+A successful empty result means no matching retained event was found within
+the searched scope. It does not establish source completeness, original evidence
+retention or that the event never existed; WAL-admitted events may still await
+Parquet publication. A result count equal to `limit` may omit further matches.
+Authorization and error responses are identical to other event queries; a failed
+lookup must not be presented as a successful empty result.
 
 ## Response and errors
 

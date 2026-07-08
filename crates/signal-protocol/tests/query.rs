@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 use signal_protocol::{EventQuery, QueryOrder, QueryValidationError, parse_event_query};
+use uuid::Uuid;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
@@ -21,6 +22,99 @@ fn defaults_and_every_named_filter() -> TestResult {
     assert_eq!(query.account.as_deref(), Some("acct"));
     assert_eq!(query.limit, 999);
     assert_eq!(query.order, QueryOrder::Desc);
+    Ok(())
+}
+
+#[test]
+fn event_id_accepts_only_canonical_non_nil_uuid_and_rejects_duplicates() -> TestResult {
+    let canonical = "01234567-89ab-cdef-8123-456789abcdef";
+    let id = Uuid::parse_str(canonical)?;
+    assert_eq!(
+        parse_event_query(&format!("event_id={canonical}"), 1000)?.event_id,
+        Some(id)
+    );
+    assert_eq!(
+        parse_event_query(
+            "event_id=01234567%2D89ab%2Dcdef%2D8123%2D456789abcdef",
+            1000,
+        )?
+        .event_id,
+        Some(id)
+    );
+    for value in [
+        "",
+        "not-an-event-id",
+        "00000000-0000-0000-0000-000000000000",
+        "01234567-89AB-CDEF-8123-456789ABCDEF",
+        "0123456789abcdef8123456789abcdef",
+        "urn:uuid:01234567-89ab-cdef-8123-456789abcdef",
+        "%7B01234567-89ab-cdef-8123-456789abcdef%7D",
+        "%2001234567-89ab-cdef-8123-456789abcdef",
+        "01234567-89ab-cdef-8123-456789abcdef%20",
+    ] {
+        let Err(error) = parse_event_query(&format!("event_id={value}"), 1000) else {
+            panic!("noncanonical event identity must fail");
+        };
+        assert_eq!(error, QueryValidationError::InvalidEventId);
+        assert!(!error.to_string().contains(value) || value.is_empty());
+    }
+    for repeated in ["event_id", "%65vent_id"] {
+        assert_eq!(
+            parse_event_query(
+                &format!("event_id={canonical}&{repeated}={canonical}"),
+                1000,
+            ),
+            Err(QueryValidationError::DuplicateParameter)
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn event_id_is_optional_in_existing_serialized_query_contract() -> TestResult {
+    let legacy = json!({
+        "schema_version": 1, "from": null, "to": null, "contains": null,
+        "severity": null, "source": null, "resource": null, "account": null,
+        "attributes": [], "limit": 100, "order": "asc"
+    });
+    let query: EventQuery = serde_json::from_value(legacy)?;
+    assert_eq!(query, EventQuery::default());
+    assert!(serde_json::to_value(&query)?.get("event_id").is_none());
+
+    let id = Uuid::parse_str("01234567-89ab-cdef-8123-456789abcdef")?;
+    let query = EventQuery {
+        event_id: Some(id),
+        ..Default::default()
+    };
+    assert_eq!(
+        serde_json::from_slice::<EventQuery>(&serde_json::to_vec(&query)?)?,
+        query
+    );
+    query.validate(1000)?;
+    Ok(())
+}
+
+#[test]
+fn programmatic_event_id_validation_and_complexity_are_bounded() -> TestResult {
+    assert_eq!(
+        EventQuery {
+            event_id: Some(Uuid::nil()),
+            ..Default::default()
+        }
+        .validate(1000),
+        Err(QueryValidationError::InvalidEventId)
+    );
+    let mut query = EventQuery {
+        event_id: Some(Uuid::from_u128(1)),
+        contains: Some("a".repeat(4096)),
+        source_type: Some("b".repeat(4096)),
+        source_name: Some("c".repeat(4096)),
+        account: Some("d".repeat(4060)),
+        ..Default::default()
+    };
+    query.validate(1000)?;
+    query.account = Some("d".repeat(4061));
+    assert_eq!(query.validate(1000), Err(QueryValidationError::TooComplex));
     Ok(())
 }
 

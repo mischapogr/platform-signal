@@ -494,6 +494,9 @@ fn df_error(error: DataFusionError) -> QueryError {
 }
 fn predicates(query: &EventQuery) -> Vec<Expr> {
     let mut predicates = Vec::new();
+    if let Some(id) = query.event_id {
+        predicates.push(col("id").eq(lit(id.to_string())));
+    }
     if let Some(from) = query.from {
         predicates.push(time_predicate(from, true));
     }
