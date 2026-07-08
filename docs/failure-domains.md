@@ -12,7 +12,7 @@ the existing normalized predicate fixtures.
 | Milestone | Meaning and retained identity | Current status / recovery boundary |
 | --- | --- | --- |
 | M0 source capture | Provider/source created evidence under known collection configuration | Outside server; configuration and continuity require SourceCoverage; an API enable response alone is insufficient |
-| M1 durable source receipt | Original pointer/payload and prepared normalized bytes/checkpoint committed by collector or private intake | Proposed intake contract in [24](24-company-integration-proposal.md); current agent has a bounded local spool but no source-wide proof |
+| M1 durable source receipt | Original pointer/payload and prepared normalized bytes/checkpoint committed by collector or private intake | [CloudTrail receipt/profile design](29-cloudtrail-source-receipt.md) and proposed private intake in [24](24-company-integration-proposal.md); current agent has a bounded local spool but no source-wide proof |
 | M2 WAL admission | Complete record synced into server WAL; HTTP 202 acknowledges the accepted prefix and event IDs | **Current**; does not acknowledge Parquet, a finding, S3 evidence or SecOps delivery |
 | M3 protected evidence | Original object version exists with required retention controls; checksum/signature and provenance validation have separately recorded results | Proposed, independently obtained; `written`, `locked` and `source_validated` are separate states |
 | M4 processing checkpoint | Event persisted to Parquet, rules evaluated, required findings synced, then WAL checkpoint advanced | **Current** coordinated consumer; processing success is not complete source coverage |
@@ -80,8 +80,9 @@ corrections, uncertain commits and ownership requirements; its fixtures are offl
 expectations. [ADR-015](adr/015-source-coverage-store.md) records implemented
 prepared append/recovery, application-authorized intake, exact-byte receipt replay
 and immutable correction admission, with process-crash and cancellation evidence.
-Payload/identity pruning, scans, source observers and server integration remain
-unimplemented; the complete history state machine is not accepted. The
+Payload/identity-prefix pruning and bounded fixed-frontier scans now have local
+acceptance; source observers and server integration remain unimplemented. The
+complete history state machine is not accepted. The
 [ingestion audit](26-ingestion-architecture-audit.md) separately specifies the
 missing telemetry source-receipt/checkpoint boundary. This YAML
 example is an illustration of the JSON contract; it does not enable an observer.
