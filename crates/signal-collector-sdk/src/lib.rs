@@ -17,6 +17,7 @@ use tokio_util::sync::CancellationToken;
 pub mod cloudtrail;
 pub mod coverage;
 mod providers;
+pub mod receipt;
 pub use providers::{
     EnrichmentProvider, OverlayPath, RuleDocument, RuleDocumentLimits, RuleProvider, load_enricher,
     load_rules,

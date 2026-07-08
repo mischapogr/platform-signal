@@ -130,3 +130,42 @@ trusted intake/retry policy and observers remain separate tasks.
 The public integration tests establish local compatibility of generic hooks.
 They do not provide proof of an external overlay integration, private detection,
 released dependency, or deployment.
+
+## Initial local source-receipt store
+
+`receipt::ReceiptStore` implements one private local root, one retained immutable
+receipt and one physical blocking disk worker with a queue capacity of one.
+`ReceiptBinding::from_json` accepts the complete bounded canonical v1 binding
+from trusted application configuration; it is not authentication inferred from
+native metadata. Every `publish`/`inspect` takes that current full binding and an
+`ExtensionContext` deadline/cancellation budget. The root must already exist with
+Unix mode 0700; quota is at least 64 MiB. Call `close` to stop admission and await
+physical worker exit. A timeout/caller drop may race publication; it neither
+proves rejection nor releases a lock while the worker is doing disk I/O.
+
+The frozen [wire contract](../../docs/30-source-receipt-contract.md) is checked in
+Rust, including all three immutable and initial-control golden pairs, SHA256,
+canonical metadata, record/prepared mapping, event-v1 context and recipient scope.
+Original and prepared payloads stay byte-for-byte unchanged. Publication creates
+the immutable and initial-control names without overwriting an existing target;
+a temporary hard link shares one inode and is removed before directory sync.
+Only the final control-directory sync exposes local publication. Orphaned,
+corrupt, missing or non-initial controls fail closed and are retained. Full-scope,
+owner/generation and OS lock checks apply to reopen; consistent older backups
+still need independent history reconciliation. Identical retained receipt bytes
+replay; a different receipt holds the occupied slot, including after retention
+expiry. This slice has no eviction/reclaim API.
+
+Metrics expose queue depth/capacity, active/stopped worker, admitted receipts,
+replays, rejected work, caller uncertainty and unobserved replies. These are
+separate counters, not a sum proving delivery. Caller-retained buffers/results
+need an aggregate application budget. Kernel I/O cannot be forcibly cancelled;
+a blocked worker retains its lock, and process supervision/runtime shutdown
+must account for that physical boundary.
+
+There is no mutable admission progress, source dispatch/ACK, takeover, retirement,
+gzip/object reader, source-proof verifier or AWS adapter here. This is surviving
+local-filesystem process recovery evidence, not host/AZ/account-loss custody or
+source continuity. The caller must qualify original-to-record spans and native
+normalization before operating a real collector. Security policy, credentials,
+retention horizons and deployment remain in the private application.

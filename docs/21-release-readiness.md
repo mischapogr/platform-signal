@@ -44,8 +44,8 @@ Design evidence is under `target/cloudtrail-receipt-design-20261007/`.
 The subsequent pure SDK normalizer executes all 41 native record cases, with
 16 parser/preparation tests and three actual native-to-finding profile tests.
 D01's generic action filter is removed exactly as specified by the independently
-reviewed design; root StopLogging yields D01+D02. Current local Rust gates pass
-377 tests, strict Clippy/fmt and the 13-package guard. Existing offline mutation
+reviewed design; root StopLogging yields D01+D02. At normalizer acceptance,
+local Rust gates passed 377 tests, strict Clippy/fmt and the 13-package guard. Existing offline mutation
 checks pass 26 tests/262 rejections. This is decoded-record/library evidence and
 a focused writer review against prior independently reviewed requirements, not
 a new independent source review, source custody, AWS collection or cloud proof.
@@ -70,11 +70,21 @@ qualify schema/encoding decisions only, with focused writer review. They add no
 Rust runtime, filesystem custody, source ACK, cloud qualification or fresh
 independent source review. The previous 377-test Rust evidence retains its binding.
 
+The bounded initial source-receipt SDK store has current local Rust/filesystem
+acceptance: 21 new tests, including eight stage-specific process exits and eight
+fault paths, alongside 398 workspace tests and the 13-package guard. Evidence is
+`target/source-receipt-store-20261007/`. Exact initial wire/control pins, scope,
+lock/quota/corruption, queued cancellation and lost-caller work are covered.
+This is a focused writer review and surviving-filesystem process boundary only;
+mutable progress/ACK/reclaim, source parsing/proof, live AWS and fresh independent
+source review remain unimplemented or open. SDK edges reuse locked `libc` and
+test-only `tempfile`; event/HTTP v1 and previous image/candidate bindings are unchanged.
+
 ## Evidence ledger
 
 | ID | Observed proof | Exact source or retained artifact |
 | --- | --- | --- |
-| W | Current local OSS formatting, strict all-target Clippy and locked/offline workspace tests: 377 tests, zero failures; boundary guard validates 13 packages. Includes 16 bounded CloudTrail parser/preparation and three native-to-finding profile tests alongside existing coverage/UI/WAL/storage tests. | `target/cloudtrail-normalizer-20261007/validation.json` and logs; prior 358-test coverage acceptance and previous image/candidate reports retain their own bindings. Bundled SQLite build evidence remains `target/source-coverage-store-20261007/sqlite-build.json`; [workspace guard](../scripts/check-workspace.py). |
+| W | Current local OSS formatting, strict all-target Clippy and locked/offline workspace tests: 398 tests, zero failures; boundary guard validates 13 packages. Includes 21 initial source-receipt store tests, 16 bounded CloudTrail parser/preparation and three native-to-finding profile tests alongside existing coverage/UI/WAL/storage tests. | `target/source-receipt-store-20261007/validation.json` and logs; prior 377-test normalizer and 358-test coverage acceptance and previous image/candidate reports retain their own bindings. Bundled SQLite build evidence remains `target/source-coverage-store-20261007/sqlite-build.json`; [workspace guard](../scripts/check-workspace.py). |
 | P | Separate private package: two tests; external normal-server process gate preserved one event/finding through SIGKILL and successful SIGTERM | `/tmp/signal-phase7b-private-gates.log`, `/tmp/signal-phase7b-process-gate.log`; [external overlay gate](17-external-overlay.md), [harness](../scripts/check-overlay.py) |
 | I | Single/batch validation, bounded request/queue admission, auth, cancellation, overload and exact partial admission | [HTTP integration tests](../crates/signal-ingest/tests/http.rs), included in W; [ingest API](09-phase1-ingest.md) |
 | B | Real WAL truncation/corruption/restart, bounded count/byte/segment quotas, block timeout, checkpoint I/O failure and replay | [WAL recovery tests](../crates/signal-buffer/tests/recovery.rs), included in W; [WAL contract](10-phase2-wal.md) |
@@ -106,7 +116,8 @@ independent source review. The previous 377-test Rust evidence retains its bindi
 W is the current full workspace result: the prior 231-test gate plus 24
 SourceCoverage SDK, 96 local-store/intake/correction/payload/identity-pruning/scans, one UI route
 and six exact-ID protocol/Parquet tests total the prior 358; adding 16 CloudTrail
-parser/preparation and three native-to-finding profile tests gives 377. Focused F/D/Z and Y results are
+parser/preparation and three native-to-finding profile tests gives 377; the 21
+initial source-receipt tests bring current W to 398. Focused F/D/Z and Y results are
 already included and must not be added again. Earlier phase counts
 (including the 203-test Phase 6 run) remain historical evidence. The three
 Kubernetes cleanup tests, two standalone health-helper tests and H's one
