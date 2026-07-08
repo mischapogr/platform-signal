@@ -1,8 +1,10 @@
-//! Bounded, single-owner local immutable source-receipt storage. Initial progress
-//! only; no dispatch, ACK, progress update, reclamation, gzip or source proof.
+//! Bounded, single-owner immutable source receipts with verified-prefix progress.
+//! No network dispatch, source ACK, reclamation, gzip or source proof.
 //! A caller timeout/cancellation may race publication: reopen to settle it.
 mod format;
+mod progress;
 mod store;
+pub use progress::{ReceiptAttempt, ReceiptProgress, ReceiptReplay};
 #[cfg(all(test, unix))]
 mod tests;
 
@@ -45,8 +47,12 @@ pub enum ReceiptError {
     IdentityConflict,
     #[error("receipt publication or recovery is uncertain")]
     Uncertain,
-    #[error("non-initial progress is not supported by this store slice")]
+    #[error("custody, ACK or retirement progress is not supported by this store slice")]
     UnsupportedProgress,
+    #[error("receipt progress snapshot is stale or belongs to another receipt")]
+    StaleProgress,
+    #[error("invalid admission response; no prefix committed")]
+    InvalidResponse,
     #[error("receipt operation cancelled; mutation outcome may be uncertain")]
     Cancelled,
     #[error("receipt deadline expired; mutation outcome may be uncertain")]
@@ -152,6 +158,7 @@ struct Metrics {
     stopped: AtomicBool,
     caller_uncertain: AtomicU64,
     unobserved_results: AtomicU64,
+    progress_updates: AtomicU64,
 }
 #[derive(Clone, Copy, Debug)]
 pub struct ReceiptMetrics {
@@ -164,6 +171,7 @@ pub struct ReceiptMetrics {
     pub worker_stopped: bool,
     pub caller_uncertain: u64,
     pub unobserved_results: u64,
+    pub progress_updates: u64,
 }
 impl Metrics {
     fn snapshot(&self) -> ReceiptMetrics {
@@ -177,6 +185,7 @@ impl Metrics {
             worker_stopped: self.stopped.load(Ordering::Acquire),
             caller_uncertain: self.caller_uncertain.load(Ordering::Acquire),
             unobserved_results: self.unobserved_results.load(Ordering::Acquire),
+            progress_updates: self.progress_updates.load(Ordering::Acquire),
         }
     }
 }

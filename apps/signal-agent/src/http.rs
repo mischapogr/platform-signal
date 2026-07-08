@@ -4,25 +4,13 @@ use std::{io, time::Duration};
 use reqwest::{Client, StatusCode, header};
 use serde::Serialize;
 use signal_event::SignalEvent;
-use signal_protocol::{API_SCHEMA_VERSION, ErrorCode, IngestResponse};
+use signal_protocol::{API_SCHEMA_VERSION, IngestResponse};
 use thiserror::Error;
 use tokio_util::sync::CancellationToken;
 
 const RESPONSE_LIMIT: usize = 64 * 1024;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Disposition {
-    Complete,
-    Retry,
-    Permanent,
-    ReduceBatch,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct BatchOutcome {
-    pub accepted: usize,
-    pub disposition: Disposition,
-}
+pub use signal_protocol::{AdmissionDisposition as Disposition, AdmissionOutcome as BatchOutcome};
 
 /// All errors imply zero local acknowledgement. Diagnostics contain no caller data.
 #[derive(Clone, Copy, Debug, Error, Eq, PartialEq)]
@@ -217,71 +205,9 @@ fn verify(
     response: IngestResponse,
     events: &[SignalEvent],
 ) -> Result<BatchOutcome, SendError> {
-    let invalid = || SendError::InvalidResponse;
-    if response.schema_version != API_SCHEMA_VERSION
-        || response.accepted > events.len()
-        || response.event_ids.len() != response.accepted
-        || !response
-            .event_ids
-            .iter()
-            .zip(events)
-            .all(|(id, event)| *id == event.id)
-    {
-        return Err(invalid());
-    }
-    if status == StatusCode::ACCEPTED {
-        if response.accepted != events.len() || response.rejected != 0 || response.error.is_some() {
-            return Err(invalid());
-        }
-        return Ok(BatchOutcome {
-            accepted: response.accepted,
-            disposition: Disposition::Complete,
-        });
-    }
-    let error = response.error.ok_or_else(invalid)?;
-    let disposition = match (status.as_u16(), error.code) {
-        (429, ErrorCode::Full)
-        | (408, ErrorCode::RequestTimeout)
-        | (503, ErrorCode::Unavailable | ErrorCode::Stopping) => Disposition::Retry,
-        (413, ErrorCode::BatchTooLarge | ErrorCode::PayloadTooLarge) => Disposition::ReduceBatch,
-        (401, ErrorCode::Unauthorized)
-        | (
-            400,
-            ErrorCode::InvalidJson
-            | ErrorCode::InvalidEvent
-            | ErrorCode::UnsupportedVersion
-            | ErrorCode::EmptyBatch,
-        )
-        | (404, ErrorCode::NotFound)
-        | (405, ErrorCode::MethodNotAllowed)
-        | (415, ErrorCode::UnsupportedMediaType) => Disposition::Permanent,
-        _ => return Err(invalid()),
-    };
-    let known_total = response.accepted.checked_add(response.rejected) == Some(events.len());
-    // The server cannot know batch count before auth/body parsing/concurrency checks.
-    let unknown_total = response.accepted == 0 && response.rejected == 0 && error.index.is_none();
-    if !known_total && !unknown_total {
-        return Err(invalid());
-    }
-    if response.accepted != 0 {
-        if disposition != Disposition::Retry
-            || response.accepted == events.len()
-            || error.index != Some(response.accepted)
-        {
-            return Err(invalid());
-        }
-    } else if let Some(index) = error.index
-        && (index >= events.len()
-            || (disposition == Disposition::Retry
-                && error.code != ErrorCode::RequestTimeout
-                && index != 0))
-    {
-        return Err(invalid());
-    }
-    Ok(BatchOutcome {
-        accepted: response.accepted,
-        disposition,
-    })
+    let ids: Vec<_> = events.iter().map(|e| e.id).collect();
+    signal_protocol::verify_admission_response(status.as_u16(), response, &ids)
+        .map_err(|_| SendError::InvalidResponse)
 }
 
 /// Capped exponential delay with deterministic jitter supplied by the runtime.

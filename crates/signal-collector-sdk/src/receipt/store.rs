@@ -14,10 +14,14 @@ use tokio::{
 enum Operation {
     Publish(Vec<u8>, ReceiptBinding),
     Inspect(ReceiptBinding),
+    Replay(ReceiptBinding),
+    Advance(ReceiptBinding, ReceiptProgress, u32, ReceiptAttempt),
 }
 enum Answer {
     Published(ReceiptInfo),
     Inspected(Option<StoredReceipt>),
+    Replayed(Option<ReceiptReplay>),
+    Advanced(ReceiptProgress),
 }
 struct Command {
     op: Operation,
@@ -73,6 +77,12 @@ impl ReceiptStore {
                         Operation::Publish(bytes, binding) => engine
                             .publish(bytes, &binding, &command.ctx, &wm)
                             .map(Answer::Published),
+                        Operation::Replay(binding) => {
+                            engine.replay(&binding, &command.ctx).map(Answer::Replayed)
+                        }
+                        Operation::Advance(binding, expected, count, outcome) => engine
+                            .advance(&binding, expected, count, outcome, &command.ctx, &wm)
+                            .map(Answer::Advanced),
                         Operation::Inspect(binding) => engine.read(&command.ctx).and_then(|r| {
                             if r.as_ref()
                                 .is_some_and(|r| r.metadata["binding"] != binding.0)
@@ -162,6 +172,40 @@ impl ReceiptStore {
             _ => Err(ReceiptError::Closed),
         }
     }
+    /// Read immutable suffix and exact current compare-and-swap progress token.
+    pub async fn replay(
+        &self,
+        binding: ReceiptBinding,
+        ctx: ExtensionContext,
+    ) -> Result<Option<ReceiptReplay>, ReceiptError> {
+        match self.request(Operation::Replay(binding), ctx).await? {
+            Answer::Replayed(r) => Ok(r),
+            _ => Err(ReceiptError::Closed),
+        }
+    }
+    /// Commit progress only after actual schema/status/ordered-ID response verification.
+    /// Errors/timeouts after mutation begins leave the outcome uncertain: reopen.
+    pub async fn advance(
+        &self,
+        binding: ReceiptBinding,
+        expected: ReceiptProgress,
+        count: u32,
+        outcome: ReceiptAttempt,
+        ctx: ExtensionContext,
+    ) -> Result<ReceiptProgress, ReceiptError> {
+        if matches!(&outcome, ReceiptAttempt::Response { body, .. } if body.len() > progress::RESPONSE_LIMIT)
+        {
+            self.metrics.rejected.fetch_add(1, Ordering::AcqRel);
+            return Err(ReceiptError::InvalidResponse);
+        }
+        match self
+            .request(Operation::Advance(binding, expected, count, outcome), ctx)
+            .await?
+        {
+            Answer::Advanced(p) => Ok(p),
+            _ => Err(ReceiptError::Closed),
+        }
+    }
     pub fn metrics(&self) -> ReceiptMetrics {
         self.metrics.snapshot()
     }
@@ -184,6 +228,9 @@ pub(super) enum Stage {
     ControlLinked,
     ControlRenamed,
     ControlDirectorySynced,
+    ProgressTempSynced,
+    ProgressRenamed,
+    ProgressDirectorySynced,
 }
 struct Engine {
     config: ReceiptConfig,
@@ -416,13 +463,79 @@ impl Engine {
             return Err(ReceiptError::Invalid("filename identity"));
         }
         let control = self.load("control", 8 * 1024 * 1024, ctx)?;
-        format::verify_initial(&control, &r, self.owner, self.generation)?;
+        progress::decode(control, &r, self.owner, self.generation)?;
         Ok(Some(r))
     }
     fn read(&mut self, ctx: &ExtensionContext) -> Result<Option<StoredReceipt>, ReceiptError> {
         let result = self.read_inner(ctx);
         if matches!(&result,Err(e) if !matches!(e,ReceiptError::Cancelled|ReceiptError::Timeout)) {
             self.poisoned = true;
+        }
+        result
+    }
+    fn replay(
+        &mut self,
+        binding: &ReceiptBinding,
+        ctx: &ExtensionContext,
+    ) -> Result<Option<ReceiptReplay>, ReceiptError> {
+        let Some(r) = self.read(ctx)? else {
+            return Ok(None);
+        };
+        if r.metadata["binding"] != binding.0 {
+            return Err(ReceiptError::Scope);
+        }
+        let p = progress::decode(
+            self.load("control", 8 * 1024 * 1024, ctx)?,
+            &r,
+            self.owner,
+            self.generation,
+        )?;
+        Ok(Some(ReceiptReplay {
+            receipt: r,
+            progress: p,
+        }))
+    }
+    fn advance(
+        &mut self,
+        binding: &ReceiptBinding,
+        expected: ReceiptProgress,
+        count: u32,
+        outcome: ReceiptAttempt,
+        ctx: &ExtensionContext,
+        metrics: &Metrics,
+    ) -> Result<ReceiptProgress, ReceiptError> {
+        let replay = self
+            .replay(binding, ctx)?
+            .ok_or(ReceiptError::StaleProgress)?;
+        if replay.progress.bytes != expected.bytes {
+            return Err(ReceiptError::StaleProgress);
+        }
+        let next = progress::replacement(
+            &replay.receipt,
+            &replay.progress,
+            count,
+            outcome,
+            self.owner,
+            self.generation,
+        )?;
+        self.stable(ctx)?;
+        let result = (|| {
+            self.write("control.next", &next.bytes, ctx)?;
+            self.hit(Stage::ProgressTempSynced, ctx)?;
+            fs::rename(
+                self.config.root.join("control.next"),
+                self.config.root.join("control"),
+            )
+            .map_err(io_error)?;
+            self.hit(Stage::ProgressRenamed, ctx)?;
+            self.root.sync_all().map_err(io_error)?;
+            self.hit(Stage::ProgressDirectorySynced, ctx)?;
+            Ok(next)
+        })();
+        if result.is_err() {
+            self.poisoned = true;
+        } else {
+            metrics.progress_updates.fetch_add(1, Ordering::AcqRel);
         }
         result
     }

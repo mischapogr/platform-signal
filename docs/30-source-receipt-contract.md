@@ -281,9 +281,37 @@ normal enumeration and is invoked explicitly by its parent test. Evidence is
 `target/source-receipt-store-20261007/`; review is focused writer review, not new
 independent source review. Earlier offline vectors remain their separate scope.
 
-The API refuses any non-initial progress on reopen and never rewrites retained
-preparation. Original gzip validity, object-record span derivation and authenticity
+The initial-only slice refused non-initial progress on reopen and never rewrote
+retained preparation; the progress slice below supersedes that restriction. Original gzip validity, object-record span derivation and authenticity
 remain preparer/source qualification work. The next slice implements atomic
 verified-prefix progress and replay, then retirement/takeover/restore qualification
 before source delivery. Process exits on the current filesystem do not establish
 power-loss/device/AZ/account durability or administrator-resistant proof.
+
+## Atomic verified-prefix progress slice
+
+The SDK now exposes store-issued `ReceiptProgress` compare-and-swap tokens and
+`ReceiptReplay` immutable suffix views. `advance` receives the actual bounded
+response body/status and executes the shared v1 admission verifier in
+`signal-protocol`; the agent uses the same verifier. Schema, ordered IDs/counts
+and partial-error index must agree with the exact retained suffix. Response
+bytes are hashed after verification. Missing responses can be recorded as
+uncertain; no caller-provided accepted count or witness hash advances progress.
+A malformed response rejects before mutation; retry the committed suffix or
+record uncertainty. Application-supplied transport responses and grants remain
+trusted inputs: this library does not authenticate a remote endpoint itself.
+
+Each update checks the complete current binding, pinned owner/generation and
+exact prior control bytes, increments revision once, links its checksum and
+commits via bounded temp write/sync, atomic replacement and directory sync.
+The decoder verifies complete immutable pins and prefix witness on reopen.
+Revision one must follow the exact initial control and a zero starting prefix.
+Custody/ACK/retirement changes remain unsupported in this slice. Checksums do
+not detect an older self-consistent backup or prove source authenticity.
+
+Timeout/cancellation cannot preempt a kernel filesystem operation. One physical
+worker retains the OS lock until exit, queue capacity remains one, and a mutation
+error poisons further dispatch. A pre-replacement interrupted temp fails closed;
+a surviving post-replacement control can reopen only after full verification.
+This remains process recovery on the current filesystem. Evidence and independent
+review are retained in `target/goal-execution-20261007/`.
