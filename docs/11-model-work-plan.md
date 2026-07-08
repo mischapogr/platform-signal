@@ -24,7 +24,7 @@ The owner classifies minimal SecOps UI as MVP and advanced SOC UX as post-MVP,
 and explicitly authorizes the current agent team to continue item by item.
 [UI-01/UI-02](28-secops-ui.md) have local source/browser/process/container acceptance;
 current-image container/supply-chain/native checks also pass. PS-01 payload pruning
-is the next library slice; existing unavailable environment/release gates remain open. Keep
+is accepted locally; identity-prefix pruning is the next library slice; existing unavailable environment/release gates remain open. Keep
 one writer per coherent owned path set, independent focused review and a settled
 evidence pass. Do not overlap writers or treat permission to delegate as authority
 for publication, external resources or release claims.
@@ -51,7 +51,7 @@ these rows do not authorize parallel agents or blanket cloud implementation.
 
 | Next task scope | Recommended new-task route | Required acceptance boundary |
 | --- | --- | --- |
-| Post-MVP PS-01 bounded payload-prefix pruning | Sol/high for retention/clock/transaction decisions | Existing [ADR-015](adr/015-source-coverage-store.md) library and accepted intake/corrections; reclaim only an eligible global prefix under finite work/byte limits, preserving identity/receipt/pins/correction links. Atomically advance payload marker/anchor/accounting, retain unexpired acknowledged evidence, reject clock regression and recover pre/post-commit loss. Identity pruning and scans follow separately; no HTTP/server/cloud wiring |
+| Post-MVP PS-01 bounded identity-prefix pruning | Sol/high for retention/clock/transaction decisions | Accepted payload-prefix pruning and [ADR-015](adr/015-source-coverage-store.md); delete only an eligible global identity prefix whose payloads are already unavailable. Atomically update identity marker/anchor/counters/checksum and reclaim only unreferenced pins. Preserve committed frontier, surviving receipts/links and old-receipt identity-pruned behavior; bounded work/memory/clock/cancellation and pre/post-commit recovery. Scans follow separately; no HTTP/server/cloud wiring |
 | PS-02 one source normalizer and predicate profile | Sol 6.1/medium or Sonnet/medium | Current source docs, original synthetic payload fixtures, field/type/provenance checks, missing/duplicate cases; authorized environment separately |
 | PS-03 public cursor runtime; private durable outbox as a separate task | Sol/high for replay/cursor/atomicity | Existing [25](25-findings-cursor-proposal.md) contract; divergent restore and delivery uncertainty; private paths need their own writable scope |
 | PS-04 one evidence/store publication contract or adapter | Sol/high for integrity/commit/recovery | Independent evidence authority, version/proof reference, retention permission and failure acceptance; no cloud provisioning from this design task |
@@ -85,7 +85,7 @@ include frozen-chain admission, quota/concurrency, target/link corruption, queue
 cancellation, process loss and pre-pruned fixture behavior. This is not runtime GC
 or complete history acceptance. Evidence: `target/source-coverage-corrections-20261007/`.
 UI-01/UI-02 have local implementation/browser/process/container acceptance; continue
-the next post-MVP PS-01 payload-prefix pruning slice after local MVP acceptance.
+the next post-MVP PS-01 identity-prefix pruning slice after payload-pruning acceptance.
 Existing environment/release gates remain open and pruning is not their substitute.
 The current user authorizes a team with disjoint writer paths and focused review.
 An observer and live source coverage remain unimplemented; production
@@ -216,7 +216,7 @@ have not been measured. Calibrate on Phase 3 before forecasting the remaining wo
 ## Remaining tasks in order
 
 UI-01/UI-02 and locally runnable current-image checks are accepted. Next is
-PS-01 payload-prefix pruning, then separately bounded post-MVP items. Historical phase rows below retain their evidence and
+PS-01 identity-prefix pruning, then scans and separately bounded post-MVP items. Historical phase rows below retain their evidence and
 do not override that priority or require completed phases to run again.
 
 Rows within a phase run in order unless their inputs already exist. The reviewer

@@ -5,7 +5,8 @@ Status: PS-01 design/fixture contract, 2026-10-07. The
 primitives and trusted application-grant intake/retry are implemented.
 [ADR-015](adr/015-source-coverage-store.md) records prepared append, immutable
 receipts, recovery, full-binding authorized reads, original-byte replay and bounded
-correction admission. Pruning, scans and source observers remain **unimplemented**;
+correction admission and bounded payload-prefix pruning. Identity pruning, scans
+and source observers remain **unimplemented**;
 the complete 56-outcome state machine remains planned. This
 contract selects responsibilities and acceptance. The local backend and
 exact encodings are selected in ADR-015;
@@ -172,7 +173,8 @@ are not followed. Target expiry alone does not make retained original evidence
 unavailable. A retained correction replays its original immutable receipt before
 its own deadline without revalidating target availability; later pruning cannot
 erase or reinterpret an admitted correction. It still requires the correction's
-current exact authorization grant, and changed links conflict. Pruning itself
+current exact authorization grant, and changed links conflict. Payload-prefix
+pruning now preserves this behavior in real maintenance tests; identity pruning
 remains a separate task.
 
 Storage does not select the last appended row as current health, assemble intervals
@@ -256,13 +258,18 @@ python3 scripts/check-source-coverage-contract.py
 [ADR-015](adr/015-source-coverage-store.md) now selects SQLite on one worker,
 freezes profile/binding/commit/state/identity encodings and supplies executable
 golden checks and a limited system-SQLite mechanics probe. The probe is not the
-complete Rust history state machine. The persistence/intake/correction slices now
-pass 45 focused tests and 300 workspace tests, including process-crash recovery,
+complete Rust history state machine. The earlier persistence/intake/correction slices
+passed 45 focused tests and 300 workspace tests, including process-crash recovery,
 corruption, page exhaustion, cancellation ownership and immutable-link receipt replay.
 The application's fresh `AuthorizedBinding` grant represents its authenticated
 observer and current full-binding permission; credential authentication/revocation
 and independently supervised current health remain application responsibilities.
 Admission checks finite report-age/skew/retention policy with fixed original
-deadlines. Next implement bounded payload-prefix pruning; identity pruning and scans
-follow separately. Do not adapt the event
+deadlines. Bounded payload-prefix pruning now adds 13 regressions (58 focused/320
+workspace tests), preserving receipts/pins/links and atomically advancing only an
+eligible global prefix under finite record/raw-byte/VM/deadline bounds. No-op calls
+leave the floor unchanged; clock regression and corruption reject. Evidence:
+`target/source-coverage-payload-pruning-20261007/`. Identity pruning and scans follow
+separately. Maintenance has no durable operation receipt: reconcile markers after
+unknown-outcome recovery rather than assuming an exact retry. Do not adapt the event
 WAL/findings journal by assuming its contracts already satisfy this one.

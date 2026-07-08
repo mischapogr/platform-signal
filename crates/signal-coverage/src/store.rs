@@ -44,7 +44,7 @@ pub enum CoverageError {
     Cancelled,
     #[error("coverage operation timed out before mutation")]
     Timeout,
-    #[error("coverage mutation outcome unknown; reconcile the original identity")]
+    #[error("coverage mutation outcome unknown; reconcile durable history after recovery")]
     OutcomeUnknown,
     #[error("coverage record identity is already retained")]
     IdentityExists,
@@ -179,6 +179,7 @@ impl CoverageConfig {
 pub struct CoverageMetrics {
     pub history_id: Uuid,
     pub committed_sequence: u64,
+    pub payload_pruned_through: u64,
     pub payloads: u64,
     pub payload_capacity: u64,
     pub identities: u64,
@@ -196,10 +197,47 @@ pub struct CoverageMetrics {
     pub command_capacity: usize,
     pub accepted: u64,
     pub replayed: u64,
+    pub payload_prune_operations: u64,
+    pub payloads_pruned: u64,
+    pub payload_bytes_pruned: u64,
     pub rejected: u64,
     pub timeouts: u64,
     pub failures: u64,
     pub available: bool,
+}
+
+/// Per-call prefix work limits. Raw bytes exclude the fixed logical payload charge.
+/// This trusted local mechanism has no serialized configuration or wire contract.
+#[derive(Clone, Copy, Debug)]
+pub struct PayloadPruneBudget {
+    pub max_records: u64,
+    pub max_raw_bytes: u64,
+}
+impl PayloadPruneBudget {
+    pub(crate) fn validate(&self, config: &CoverageConfig) -> Result<(), CoverageError> {
+        let raw_cap = config
+            .max_payloads
+            .checked_mul(format::MAX_RAW_BYTES as u64)
+            .ok_or(CoverageError::Invalid("payload pruning budget overflow"))?
+            .min(config.max_ledger_bytes);
+        if self.max_records == 0
+            || self.max_records > config.max_payloads
+            || self.max_raw_bytes == 0
+            || self.max_raw_bytes > raw_cap
+        {
+            return Err(CoverageError::Invalid("finite payload pruning budget"));
+        }
+        Ok(())
+    }
+}
+
+/// Successful global prefix reclamation; zero records means no durable mutation.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct PayloadPruneOutcome {
+    pub pruned_records: u64,
+    pub pruned_raw_bytes: u64,
+    pub reclaimed_ledger_bytes: u64,
+    pub payload_pruned_through: u64,
 }
 
 /// Immutable receiver metadata supplied by a trusted local caller; no credentials or policy.
@@ -609,6 +647,7 @@ impl Engine {
         CoverageMetrics {
             history_id: self.state.history_id,
             committed_sequence: self.state.committed_sequence,
+            payload_pruned_through: self.state.payload_pruned_through,
             payloads: self.state.payload_count,
             payload_capacity: self.config.max_payloads,
             identities: self.state.identity_count,
@@ -627,6 +666,136 @@ impl Engine {
     }
     pub fn begin(&self, ctx: &WorkContext) -> Result<(), CoverageError> {
         set_progress(&self.connection, ctx, &self.config)
+    }
+    pub fn prune_payloads(
+        &mut self,
+        now: Timestamp,
+        budget: PayloadPruneBudget,
+        ctx: &WorkContext,
+    ) -> Result<PayloadPruneOutcome, CoverageError> {
+        budget.validate(&self.config)?;
+        ctx.check()?;
+        if now < self.state.clock_floor {
+            return Err(CoverageError::ClockRegression);
+        }
+        let mut outcome = PayloadPruneOutcome {
+            payload_pruned_through: self.state.payload_pruned_through,
+            ..PayloadPruneOutcome::default()
+        };
+        let mut anchor = self.state.payload_anchor;
+        let mut blocked = false;
+        // One owned worker holds the store throughout selection and commit. Stream metadata,
+        // then read only a byte-budget-eligible payload; never retain a history-sized vector.
+        {
+            let mut stmt = self.connection.prepare(
+                "SELECT sequence,metadata,prefix,length(raw) FROM entries WHERE sequence>?1 ORDER BY sequence LIMIT ?2",
+            )?;
+            let mut rows = stmt.query(params![
+                &self.state.payload_pruned_through.to_be_bytes()[..],
+                budget.max_records as i64
+            ])?;
+            while let Some(row) = rows.next()? {
+                ctx.check()?;
+                let sequence = outcome
+                    .payload_pruned_through
+                    .checked_add(1)
+                    .ok_or(CoverageError::Exhausted)?;
+                let data = bounded_blob(row, 1, format::MAX_METADATA_BYTES)?;
+                let metadata = CommitMetadata::decode(&data)
+                    .map_err(|_| CoverageError::Corrupt("payload pruning metadata"))?;
+                let prefix = format::prefix(anchor, &data);
+                let raw_length: Option<i64> = row.get(3)?;
+                if bounded_blob(row, 0, 8)? != sequence.to_be_bytes()
+                    || metadata.sequence != sequence
+                    || metadata.history_id != self.state.history_id
+                    || sequence > self.state.committed_sequence
+                    || bounded_blob(row, 2, 32)? != prefix
+                    || raw_length != Some(i64::from(metadata.raw_length))
+                {
+                    return Err(CoverageError::Corrupt("payload pruning prefix"));
+                }
+                if metadata.replay_until > now {
+                    blocked = true;
+                    break;
+                }
+                let total_raw = add(outcome.pruned_raw_bytes, u64::from(metadata.raw_length))?;
+                if total_raw > budget.max_raw_bytes {
+                    blocked = true;
+                    break;
+                }
+                let raw = self.connection.query_row(
+                    "SELECT raw FROM entries WHERE sequence=?1",
+                    params![&sequence.to_be_bytes()[..]],
+                    |r| bounded_blob(r, 0, format::MAX_RAW_BYTES),
+                )?;
+                if raw.len() != metadata.raw_length as usize
+                    || format::sha256(&raw) != metadata.content_sha256
+                {
+                    return Err(CoverageError::Corrupt("payload pruning original bytes"));
+                }
+                outcome.pruned_records = add(outcome.pruned_records, 1)?;
+                outcome.pruned_raw_bytes = total_raw;
+                outcome.reclaimed_ledger_bytes = add(
+                    outcome.reclaimed_ledger_bytes,
+                    u64::from(metadata.raw_length) + 256,
+                )?;
+                outcome.payload_pruned_through = sequence;
+                anchor = prefix;
+            }
+        }
+        ctx.check()?;
+        if !blocked
+            && outcome.pruned_records < budget.max_records
+            && outcome.payload_pruned_through < self.state.committed_sequence
+        {
+            return Err(CoverageError::Corrupt("payload pruning missing prefix"));
+        }
+        if outcome.pruned_records == 0 {
+            return Ok(outcome);
+        }
+        let mut state = self.state.clone();
+        state.payload_pruned_through = outcome.payload_pruned_through;
+        state.payload_anchor = anchor;
+        state.clock_floor = now;
+        state.payload_count = state
+            .payload_count
+            .checked_sub(outcome.pruned_records)
+            .ok_or(CoverageError::Corrupt("payload pruning count"))?;
+        state.ledger_charge = state
+            .ledger_charge
+            .checked_sub(outcome.reclaimed_ledger_bytes)
+            .ok_or(CoverageError::Corrupt("payload pruning charge"))?;
+        let state_data = state.encode()?;
+        ctx.start()?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let pruned = tx.execute(
+            "UPDATE entries SET raw=NULL WHERE sequence>?1 AND sequence<=?2 AND raw IS NOT NULL",
+            params![
+                &self.state.payload_pruned_through.to_be_bytes()[..],
+                &state.payload_pruned_through.to_be_bytes()[..]
+            ],
+        )?;
+        if pruned as u64 != outcome.pruned_records {
+            return Err(CoverageError::Corrupt("payload pruning cardinality"));
+        }
+        let updated = tx.execute(
+            "UPDATE state SET data=?1,checksum=?2 WHERE id=1",
+            params![&state_data, &format::sha256(&state_data)[..]],
+        )?;
+        if updated != 1 {
+            return Err(CoverageError::Corrupt("state update cardinality"));
+        }
+        #[cfg(test)]
+        test_checkpoint("prune_before_commit", state.payload_pruned_through)?;
+        tx.commit()?;
+        #[cfg(test)]
+        test_checkpoint("prune_after_commit", state.payload_pruned_through)?;
+        self.state = state;
+        self.database_bytes = fs::metadata(self.config.directory.join("coverage.sqlite3"))?.len();
+        ctx.check()?;
+        Ok(outcome)
     }
     fn recover(&self, ctx: &WorkContext) -> Result<(), CoverageError> {
         let mut schema = self

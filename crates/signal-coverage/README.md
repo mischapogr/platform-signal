@@ -29,7 +29,7 @@ clock floor and accounting. It returns a receipt only after commit. A retained I
 returns `IdentityExists`, including identical bytes. Use `submit`/`retry` for
 authorized exact-byte replay. Profile revision reuse with different canonical bytes and
 receiver clock regression reject new admission. Exhausted quotas preserve
-acknowledged history; this slice has no eviction or pruning operation.
+acknowledged history; payload pruning reclaims only eligible prefixes.
 
 `load` is trusted local inspection by UUID, returning a bounded original report
 and receipt or explicit absence. It validates metadata, references, raw bytes,
@@ -90,15 +90,42 @@ pruning therefore cannot erase or reinterpret an already admitted correction.
 Changed links still conflict on a retained ID. No correction counters, queues,
 indexes, database schema or serialization format were added.
 
+`prune_payloads(now, PayloadPruneBudget, context)` is trusted local maintenance.
+The caller supplies receiver time and positive record/raw-byte limits bounded by
+store configuration. Selection streams at most `max_records` bounded metadata
+rows; only eligible bodies fitting `max_raw_bytes` are read and hashed. Existing
+VM, deadline, operation-slot and memory reserves apply. The oldest unexpired or
+oversized row blocks later rows across every binding. Equality at the original
+`replay_until` is eligible; clock regression rejects, and no-op calls do not
+advance the clock floor.
+
+One transaction clears selected payloads and advances the durable payload marker,
+matching prefix anchor, receiver clock floor, count and logical ledger checksum.
+It preserves identities, receipts, pins, correction links and committed tail.
+Reclaimed logical charge is original raw length plus 256 bytes per payload;
+SQLite page slack/blocks can remain. This is not physical secure erasure or a
+maximum deletion-delay guarantee. Historical reads return `raw: None` with the
+original receipt; expired original replay stays expired. New corrections cannot
+use unavailable original evidence, but retained corrections remain valid.
+
+Metrics expose the durable `payload_pruned_through` marker. Prune operation/count/
+raw-byte counters measure successfully completed nonempty calls and restart at
+zero. Maintenance has no durable operation receipt or exact retry identity:
+after `OutcomeUnknown`, reopen only when the old owner exits and reconcile the
+marker/accounting before proceeding. Another call can prune the next eligible
+prefix. Lower configured caps fail readiness with `Quota`, preserving history;
+restore sufficient limits before maintenance rather than deleting evidence.
+
 `OperationContext` carries cancellation and a deadline, capped at the configured
 timeout (at most 300 seconds). One ordinary worker owns SQLite; operation slots
 and the command queue are finite. Cancellation before mutation prevents it from
 starting. Cancellation or failure after mutation starts returns `OutcomeUnknown`
 and closes admission. An abandoned active request keeps its slot and root lock
 until physical work settles. A shutdown deadline does not kill a blocked syscall
-or authorize a replacement owner. Reopen and inspect the original identity to
-reconcile uncertainty; never create another report ID solely because a response
-was lost.
+or authorize a replacement owner. For admission, reopen and inspect the original
+identity to reconcile uncertainty; never create another report ID solely because
+a response was lost. For maintenance, reconcile the durable marker/accounting
+as described above.
 
 `CoverageConfig` supplies finite laboratory limits for payloads, identities,
 bindings, ledger bytes, database pages, journal reserve, operation slots, memory
@@ -111,7 +138,7 @@ EXTRA synchronization and the pinned bundled Unix VFS. Hashes detect inconsisten
 stored content; they do not authenticate a source or prevent coherent host-admin
 rewrites. Filesystem/device flush guarantees remain deployment prerequisites.
 
-Local Linux AMD64 acceptance has 45 focused tests, including frozen independent
+Earlier Linux AMD64 persistence/intake/correction acceptance had 45 focused tests, including frozen independent
 vectors, actual page exhaustion, corruption, ownership/cancellation races,
 closed relocation and subprocess SIGKILL at three transaction boundaries.
 Thirteen intake regressions add authorization across all ten binding dimensions,
@@ -125,7 +152,12 @@ quotas/concurrent duplicates, corruption of target/link, one-hop corrections,
 queued timeout and SIGKILL at three transaction boundaries. A manually constructed
 pre-pruned persisted fixture checks unavailable-target rejection and retained
 correction replay/one-hop behavior; it does not test a pruning implementation.
-Current acceptance: `target/source-coverage-corrections-20261007/`.
+Historical correction acceptance: `target/source-coverage-corrections-20261007/`.
+Payload pruning adds 13 regressions, for 58 focused tests and 320 workspace tests
+under `target/source-coverage-payload-pruning-20261007/`. Actual queued pruning
+timeout/cancellation, generic active-worker ownership tests and actual pruning
+SIGKILL before/after commit are separate evidence; no in-process fsync cancellation
+or physical power-loss qualification is implied.
 Bundled SQLite 3.53.2 build options and the reviewed source fingerprint are retained
 in `target/source-coverage-store-20261007/sqlite-build.json`. VFS write/sync fault
 injection, power-loss behavior, refreshed images and native ARM64 remain open.
@@ -135,6 +167,6 @@ cargo test -p signal-coverage --locked --offline
 python3 scripts/check-source-coverage-backend.py --self-test
 ```
 
-Payload/identity prefix pruning, frontier scans, observers and cloud/server
+Identity prefix pruning, frontier scans, observers and cloud/server
 integration require separately bounded tasks. The 56 planned history outcomes
 are not claimed as implemented by these primitives.
