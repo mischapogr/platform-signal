@@ -40,6 +40,24 @@ Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
 
+## Private outbox transaction — 2026-10-08
+
+The separate private application now atomically commits a complete bounded page
+of immutable delivery plans and its exact findings cursor in SQLite. Routing and
+destination pins remain private; the public monolith and contracts are unchanged.
+Input allocation bounds, physical worker/owner retention, EXTRA/DELETE durability
+settings and exact retained-row replay checks are qualified locally. Thirteen new
+private regressions pass; the complete private suite has 16 passes, zero failures
+and one bounded subprocess helper invoked by its parent test. Process crashes
+before/after commit recover an atomic plan/cursor; this is not hardware/power-loss
+proof. Private fmt, strict Clippy/build and the existing process overlay gate pass.
+Evidence: `target/goal-execution-20261007/OUTBOX/transaction-validation/validation.json`.
+
+OUTBOX remains in_progress for bounded dispatch and notification simulations.
+The public default557/all-feature580 accepted campaign is retained unchanged.
+No native ARM64, actual AWS/EKS/vendors, remote CI, released-dependency,
+publication or final-candidate gate is closed by this private slice.
+
 ## Durable findings cursor — 2026-10-08
 
 `GET /v1/findings/feed` now provides bounded durable append-order pages, explicit

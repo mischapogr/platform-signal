@@ -7,6 +7,24 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Private outbox transaction — 2026-10-08
+
+The separate private application now atomically commits a complete bounded page
+of immutable delivery plans and its exact findings cursor in SQLite. Routing and
+destination pins remain private; the public monolith and contracts are unchanged.
+Input allocation bounds, physical worker/owner retention, EXTRA/DELETE durability
+settings and exact retained-row replay checks are qualified locally. Thirteen new
+private regressions pass; the complete private suite has 16 passes, zero failures
+and one bounded subprocess helper invoked by its parent test. Process crashes
+before/after commit recover an atomic plan/cursor; this is not hardware/power-loss
+proof. Private fmt, strict Clippy/build and the existing process overlay gate pass.
+Evidence: `target/goal-execution-20261007/OUTBOX/transaction-validation/validation.json`.
+
+OUTBOX remains in_progress for bounded dispatch and notification simulations.
+The public default557/all-feature580 accepted campaign is retained unchanged.
+No native ARM64, actual AWS/EKS/vendors, remote CI, released-dependency,
+publication or final-candidate gate is closed by this private slice.
+
 AWS-DELIVERY now has simulated end-to-end source/receipt/M2/ACK acceptance,
 including the optional official SigV4 SQS/S3 HTTP adapter. Current local gates:
 default 500 and all-feature 512 tests, fmt, strict Clippy and package guard;
