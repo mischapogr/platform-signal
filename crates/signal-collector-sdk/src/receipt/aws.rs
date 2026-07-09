@@ -91,13 +91,13 @@ pub struct AwsSourceConfig {
     s3_region: String,
     visibility: i32,
 }
-fn region(s: &str) -> bool {
+pub(crate) fn region(s: &str) -> bool {
     s.len() >= 3
         && s.len() <= 64
         && s.bytes()
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
 }
-fn endpoint(s: &str, local: bool) -> Result<Url, SourceFailure> {
+pub(crate) fn endpoint(s: &str, local: bool) -> Result<Url, SourceFailure> {
     if s.is_empty() || s.len() > 2048 {
         return Err(SourceFailure::Malformed);
     }
@@ -174,13 +174,15 @@ impl AwsSourceConfig {
     }
 }
 pub struct AwsSourceClient {
-    client: Client,
+    transport: SignedAwsTransport,
     config: AwsSourceConfig,
+}
+pub(crate) struct SignedAwsTransport {
+    client: Client,
     credentials: Arc<dyn AwsCredentialsProvider>,
 }
-impl AwsSourceClient {
-    pub fn new(
-        config: AwsSourceConfig,
+impl SignedAwsTransport {
+    pub(crate) fn new(
         credentials: Arc<dyn AwsCredentialsProvider>,
         connect_timeout: Duration,
     ) -> Result<Self, SourceFailure> {
@@ -200,19 +202,10 @@ impl AwsSourceClient {
             .map_err(|_| SourceFailure::Malformed)?;
         Ok(Self {
             client,
-            config,
             credentials,
         })
     }
-    fn queue_scope(&self, b: &ReceiptBinding) -> Result<(), SourceFailure> {
-        if b.0["queue_arn"] != self.config.queue_arn
-            || b.0["queue_owner"] != self.config.queue_owner
-        {
-            return Err(SourceFailure::Denied);
-        }
-        Ok(())
-    }
-    async fn signed_request(
+    pub(crate) async fn signed_request(
         &self,
         method: Method,
         url: Url,
@@ -312,6 +305,26 @@ impl AwsSourceClient {
             result=work=>{ctx.check().map_err(|_|SourceFailure::Unavailable)?;result}
         }
     }
+}
+impl AwsSourceClient {
+    pub fn new(
+        config: AwsSourceConfig,
+        credentials: Arc<dyn AwsCredentialsProvider>,
+        connect_timeout: Duration,
+    ) -> Result<Self, SourceFailure> {
+        Ok(Self {
+            transport: SignedAwsTransport::new(credentials, connect_timeout)?,
+            config,
+        })
+    }
+    fn queue_scope(&self, b: &ReceiptBinding) -> Result<(), SourceFailure> {
+        if b.0["queue_arn"] != self.config.queue_arn
+            || b.0["queue_owner"] != self.config.queue_owner
+        {
+            return Err(SourceFailure::Denied);
+        }
+        Ok(())
+    }
     async fn queue_request(
         &self,
         b: &ReceiptBinding,
@@ -332,6 +345,7 @@ impl AwsSourceClient {
             return Err(SourceFailure::Malformed);
         }
         let r = self
+            .transport
             .signed_request(
                 Method::POST,
                 self.config.sqs_endpoint.clone(),
@@ -365,7 +379,7 @@ fn validate_headers(headers: &HeaderMap) -> Result<(), SourceFailure> {
     }
     Ok(())
 }
-fn source_error(status: u16, body: &[u8]) -> SourceFailure {
+pub(crate) fn source_error(status: u16, body: &[u8]) -> SourceFailure {
     let code = crate::cloudtrail::decode_json(body, QUEUE_REPLY_LIMIT, 16, 8192)
         .ok()
         .and_then(|v| v["__type"].as_str().map(str::to_owned));
@@ -392,7 +406,7 @@ fn source_error(status: u16, body: &[u8]) -> SourceFailure {
         SourceFailure::Unavailable
     }
 }
-async fn read_body(
+pub(crate) async fn read_body(
     mut response: reqwest::Response,
     cap: usize,
     ctx: &ExtensionContext,
@@ -524,6 +538,7 @@ impl CaptureTransport for AwsSourceClient {
                 .map_err(|_| CaptureFailure::Malformed)?,
         );
         let r = self
+            .transport
             .signed_request(
                 Method::GET,
                 url,

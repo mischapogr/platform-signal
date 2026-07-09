@@ -618,6 +618,18 @@ async fn caller_dropping_query_future_releases_admission() -> TestResult {
     assert_eq!(engine.metrics().depth, 1);
     drop(first);
     assert_eq!(engine.metrics().depth, 0);
+    // Dropped query admission and started physical I/O have distinct lifetimes.
+    // A worker still finishing the first read legitimately rejects replacement
+    // queries as Busy. Wait finitely for its actual lease, not a scheduler guess.
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while engine.metrics().io_depth != 0 {
+            let metrics = engine.metrics();
+            assert!(metrics.io_running <= metrics.io_worker_capacity);
+            assert!(metrics.io_depth <= metrics.io_capacity);
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await?;
     assert_eq!(
         ids(engine.execute(EventQuery::default(), context()).await?),
         vec![1]

@@ -50,7 +50,7 @@ The bounded collector driver has 500-test acceptance with seven SDK regressions
 and one actual-source/real-server test. Optional signed AWS source transport now
 has default500/all-feature512 acceptance, including an independent AWS signature
 vector/wire witness and signed-source/real-server fault/recovery test. AWS-DELIVERY
-is passed_simulated; COVERAGE-OBSERVERS bounded state is accepted with default509/all-feature521 gates and nine regressions. Continue independent native probes, then physical history/server integration and degraded-silence simulation;
+is passed_simulated; COVERAGE-OBSERVERS bounded state is accepted with default509/all-feature521 gates and nine regressions. The regional CloudTrail configuration probe now has eleven regressions and default509/all-feature532 acceptance. Continue durable history/server integration and independent checkpoint/gap/degraded-silence simulation;
 existing unavailable environment/release gates remain open. Keep
 one writer per coherent owned path set, independent focused review and a settled
 evidence pass. Do not overlap writers or treat permission to delegate as authority
