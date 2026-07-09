@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 489, including four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+workspace gate has 492, including three source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,36 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Source-to-real-server delivery simulation — 2026-10-08
+
+Three reproducible integration tests pass using a bounded loopback S3/SQS subset
+and the actual `signal-server` process. Exact compressed originals become M1;
+a deliberately lost valid admission reply preserves the prepared suffix. A real
+Parquet create_new failure leaves checkpoint zero. Restart replays WAL, then
+exact duplicate publication produces three stored rows with two event identities,
+one deterministic root finding and checkpoint three. A further crash/restart
+preserves those rows. Unauthorized ingest and source throttling/denial/missing/
+outage/version mismatch/revoked scope/malformed gzip retain work.
+
+Visibility expiry supplies a new ephemeral handle. Durable ACK intent precedes
+delete; lost ticket/result is recovered uncertain before fresh redelivery.
+Post-confirmation duplicate sends no additional event. The negative protocol
+probe shows old-handle HTTP 200 can leave a message pending. No queue handles
+appear in receipt files. Source operations are emulated, visibility uses a
+logical clock, and the source adapter buffers one capped object; none qualifies
+SigV4, TLS, IAM, real AWS or independent custody. Production polling is next.
+
+Review's timeout-cleanup observation is resolved by aborting/awaiting the owned
+source task. The workspace's existing 32 MiB structural gzip assertion hit a
+short-context failure under parallel debug tests; its finite budget now matches
+the adjacent 30-second ceiling case. Production and independent timeout/cancel
+checks remain unchanged; failed evidence is retained. All acceptance passes:
+492 tests, zero failures, fmt, strict all-target Clippy and 13-package guard;
+independent review has no blocker/high. Evidence:
+`target/goal-execution-20261007/AWS-DELIVERY/delivery-simulation-validation.json`.
+Continue immediately with the bounded collector driver. AWS-DELIVERY remains
+in_progress. Historical image/SBOM/candidate bindings do not transfer.
 
 ## Configured HTTP receipt publisher — 2026-10-08
 
