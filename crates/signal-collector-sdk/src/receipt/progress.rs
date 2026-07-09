@@ -13,6 +13,15 @@ pub struct ReceiptProgress {
     pub(super) value: Value,
 }
 impl ReceiptProgress {
+    pub fn source_ack_state(&self) -> SourceAckState {
+        // Every store-issued control decodes and validates the frozen ACK enum.
+        match self.value["ack"]["state"].as_str() {
+            Some("intent") => SourceAckState::Intent,
+            Some("uncertain") => SourceAckState::Uncertain,
+            Some("confirmed") => SourceAckState::Confirmed,
+            _ => SourceAckState::NotRequested,
+        }
+    }
     /// Read-only syntax check for bounded application reconciliation after payload
     /// removal. This does not acquire a lock, attest history or authorize mutation.
     /// Authenticate continuity independently, then open_reconciled rechecks it.

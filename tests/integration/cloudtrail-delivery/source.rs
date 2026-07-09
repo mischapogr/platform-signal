@@ -330,3 +330,33 @@ pub async fn body(mut r: reqwest::Response, cap: usize) -> TestResult<Vec<u8>> {
     }
     Ok(bytes)
 }
+
+#[signal_collector_sdk::extension]
+impl SourceQueue for SourceClient {
+    async fn receive(
+        &self,
+        _binding: &ReceiptBinding,
+        _context: &ExtensionContext,
+    ) -> Result<Option<QueueDelivery>, SourceFailure> {
+        // The test endpoint's queue/configuration is fixed and locally trusted.
+        // A production adapter must enforce ARN/owner and use current credentials.
+        let delivery = SourceClient::receive(self)
+            .await
+            .map_err(|_| SourceFailure::Unavailable)?;
+        delivery
+            .map(|d| {
+                QueueDelivery::new(d.body, d.id, d.handle).map_err(|_| SourceFailure::Malformed)
+            })
+            .transpose()
+    }
+    async fn delete(
+        &self,
+        _binding: &ReceiptBinding,
+        ticket: &SourceAckTicket,
+        _context: &ExtensionContext,
+    ) -> Result<SourceAckOutcome, SourceFailure> {
+        SourceClient::delete(self, ticket.handle())
+            .await
+            .map_err(|_| SourceFailure::Unavailable)
+    }
+}

@@ -561,3 +561,107 @@ async fn expired_handle_success_does_not_prove_source_deletion() -> TestResult {
     mock.close().await?;
     Ok(())
 }
+
+struct LocalPolicy {
+    binding: ReceiptBinding,
+}
+#[signal_collector_sdk::extension]
+impl DeliveryPolicy for LocalPolicy {
+    async fn binding(&self, _: &ExtensionContext) -> Result<ReceiptBinding, SourceFailure> {
+        Ok(self.binding.clone())
+    }
+    async fn preparation(
+        &self,
+        _: &ObjectDiscovery,
+        d: &QueueDelivery,
+        _: &ExtensionContext,
+    ) -> Result<CapturePreparation, SourceFailure> {
+        let mut p = pins(2).map_err(|_| SourceFailure::Malformed)?;
+        p.delivery_id = d.message_id().into();
+        Ok(p)
+    }
+    async fn acknowledge(
+        &self,
+        b: &ReceiptBinding,
+        p: &ReceiptProgress,
+        _: &ExtensionContext,
+    ) -> Result<AckAuthorization, SourceFailure> {
+        // This fixture coordinator is live in-process; it cannot attest a copied
+        // root or host-loss restore. Independent authority remains an external
+        // application obligation and later object-custody qualification.
+        Ok(AckAuthorization {
+            grant: grant(b.clone(), p).map_err(|_| SourceFailure::Denied)?,
+            observed_at: AT.into(),
+        })
+    }
+}
+#[tokio::test]
+async fn bounded_collector_driver_runs_real_source_and_ingest_then_recovers_uncertain_delete()
+-> TestResult {
+    let d = tempfile::tempdir()?;
+    let cfg = config(&d)?;
+    let b = binding()?;
+    let mut store = ReceiptStore::open(cfg.clone(), OWNER, 1, ctx()?).await?;
+    let mock = source::LocalSource::start(original()?, notification()).await?;
+    let src = source::SourceClient::new(mock.url.clone())?;
+    let policy = LocalPolicy { binding: b.clone() };
+    let runtime = tempfile::tempdir()?;
+    let mut srv = server::Server::new(runtime.path())?;
+    srv.start().await?;
+    let publish = publisher(&srv.url, true)?;
+    mock.state.lock().await.fault = "delete_uncertain";
+    let p = match collect_delivery(
+        &store,
+        &src,
+        &src,
+        &publish,
+        &policy,
+        ReceiptBatchLimits::default(),
+        ctx()?,
+    )
+    .await?
+    {
+        DeliveryStep::Settled { receipt, progress } => {
+            assert_eq!(receipt.prepared_count, 2);
+            assert_eq!(progress.source_ack_state(), SourceAckState::Uncertain);
+            progress
+        }
+        _ => return Err("uncertain settlement".into()),
+    };
+    assert!(mock.state.lock().await.pending);
+    assert_eq!(mock.state.lock().await.deletes, 1);
+    srv.persisted(2, 2).await?;
+    let events = srv.rows("events").await?;
+    store.close(ctx()?).await?;
+    store = ReceiptStore::open_reconciled(cfg, OWNER, 1, grant(b.clone(), &p)?, ctx()?).await?;
+    mock.state.lock().await.fault = "none";
+    mock.expire().await;
+    assert!(
+        matches!(collect_delivery(&store,&src,&src,&publish,&policy,ReceiptBatchLimits::default(),ctx()?).await?,
+        DeliveryStep::Settled{progress,..} if progress.source_ack_state()==SourceAckState::Confirmed)
+    );
+    assert!(!mock.state.lock().await.pending);
+    assert_eq!(mock.state.lock().await.deletes, 2);
+    assert_eq!(srv.rows("events").await?, events);
+    assert_eq!(srv.checkpoint()?, 2);
+    assert!(matches!(
+        collect_delivery(
+            &store,
+            &src,
+            &src,
+            &publish,
+            &policy,
+            ReceiptBatchLimits::default(),
+            ctx()?
+        )
+        .await?,
+        DeliveryStep::Idle
+    ));
+    store.close(ctx()?).await?;
+    srv.crash()?;
+    srv.start().await?;
+    srv.persisted(2, 2).await?;
+    srv.assert_redacted()?;
+    mock.close().await?;
+    Ok(())
+}

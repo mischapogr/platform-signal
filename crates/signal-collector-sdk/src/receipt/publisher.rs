@@ -138,10 +138,40 @@ pub async fn publish_receipt_batch(
     limits: ReceiptBatchLimits,
     ctx: ExtensionContext,
 ) -> Result<PublishStep, ReceiptError> {
+    publish_batch(store, binding, None, publisher, limits, ctx).await
+}
+/// Publish only the exact receipt selected for a source delivery. Compare the
+/// store-issued identity inside the replay used to build the request, never in
+/// a separate preflight that can race slot replacement. Physical progress CAS
+/// fences a replacement after request dispatch; remote effects may be uncertain.
+pub async fn publish_pinned_receipt_batch(
+    store: &ReceiptStore,
+    binding: ReceiptBinding,
+    receipt: ReceiptInfo,
+    publisher: &dyn ReceiptPublisher,
+    limits: ReceiptBatchLimits,
+    ctx: ExtensionContext,
+) -> Result<PublishStep, ReceiptError> {
+    publish_batch(store, binding, Some(receipt), publisher, limits, ctx).await
+}
+async fn publish_batch(
+    store: &ReceiptStore,
+    binding: ReceiptBinding,
+    expected: Option<ReceiptInfo>,
+    publisher: &dyn ReceiptPublisher,
+    limits: ReceiptBatchLimits,
+    ctx: ExtensionContext,
+) -> Result<PublishStep, ReceiptError> {
     check(&ctx)?;
     let Some(replay) = store.replay(binding.clone(), ctx.clone()).await? else {
+        if expected.is_some() {
+            return Err(ReceiptError::StaleProgress);
+        }
         return Ok(PublishStep::Empty);
     };
+    if expected.is_some_and(|info| info != replay.receipt.info()) {
+        return Err(ReceiptError::StaleProgress);
+    }
     let Some(batch) = replay.batch(limits)? else {
         return Ok(PublishStep::Complete {
             progress: replay.progress,
