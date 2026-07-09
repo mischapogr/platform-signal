@@ -72,6 +72,24 @@ pub trait CoverageProbe: Send + Sync {
         context: &ExtensionContext,
     ) -> Result<ProbeReport, ProbeFailure>;
 }
+/// Native durable intake outcome; neither variant proves native source coverage.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ReportCommit {
+    Accepted,
+    Replayed,
+}
+#[extension]
+pub trait CoverageReportSink: Send + Sync {
+    /// Authenticate/authorize the full binding and exact trusted profile before
+    /// durable intake. Retain bounded exact bytes on uncertain mutation. A replay
+    /// is not a new independent observer-health/verification observation.
+    async fn commit(
+        &self,
+        report: &[u8],
+        profile: &CoverageProfile,
+        context: &ExtensionContext,
+    ) -> Result<ReportCommit, ProbeFailure>;
+}
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ObserverHealth {
     Unknown,
@@ -83,6 +101,7 @@ pub enum ObserverHealth {
 pub struct ObserverPoll {
     record_id: String,
     assessment: CoverageAssessment,
+    commit: Option<ReportCommit>,
 }
 impl ObserverPoll {
     pub fn record_id(&self) -> &str {
@@ -90,6 +109,10 @@ impl ObserverPoll {
     }
     pub fn assessment(&self) -> &CoverageAssessment {
         &self.assessment
+    }
+    /// None is an ephemeral probe without a physical history sink.
+    pub fn commit(&self) -> Option<ReportCommit> {
+        self.commit
     }
 }
 struct AcceptedReport {
@@ -200,7 +223,27 @@ impl CoverageObserver {
         trusted_context: &[u8],
         context: &ExtensionContext,
     ) -> Result<ObserverPoll, ObserverError> {
+        self.poll_inner(probe, None, trusted_context, context).await
+    }
+    pub async fn poll_persisted(
+        &mut self,
+        probe: &dyn CoverageProbe,
+        sink: &dyn CoverageReportSink,
+        trusted_context: &[u8],
+        context: &ExtensionContext,
+    ) -> Result<ObserverPoll, ObserverError> {
+        self.poll_inner(probe, Some(sink), trusted_context, context)
+            .await
+    }
+    async fn poll_inner(
+        &mut self,
+        probe: &dyn CoverageProbe,
+        sink: Option<&dyn CoverageReportSink>,
+        trusted_context: &[u8],
+        context: &ExtensionContext,
+    ) -> Result<ObserverPoll, ObserverError> {
         let mut current = self.context(trusted_context)?;
+        let previous_health = self.health;
         // Mutate before awaiting: a dropped invocation stays unknown; it cannot
         // refresh any evidence or leave the previous health flag promoted.
         self.health = ObserverHealth::Unknown;
@@ -219,15 +262,30 @@ impl CoverageObserver {
             context.check()?;
             let accepted = self.validate_report(report, &current)?;
             context.check()?;
-            Ok::<_, ObserverError>(accepted)
+            let commit = if let Some(sink) = sink {
+                let outcome = tokio::select! {
+                    biased;
+                    _ = context.cancellation().cancelled() => return Err(ExtensionError::Cancelled.into()),
+                    _ = tokio::time::sleep_until(context.deadline()) => return Err(ExtensionError::Timeout.into()),
+                    result = sink.commit(&accepted.raw, &self.profile, context) => result?,
+                };
+                context.check()?;
+                Some(outcome)
+            } else { None };
+            Ok::<_, ObserverError>((accepted, commit))
         }.await;
         match result {
-            Ok(report) => {
-                self.health = ObserverHealth::Healthy;
-                current.wire.observer_status = ObserverStatus::Healthy;
+            Ok((report, commit)) => {
+                self.health = if commit == Some(ReportCommit::Replayed) {
+                    previous_health
+                } else {
+                    ObserverHealth::Healthy
+                };
+                current.wire.observer_status = self.status();
                 let result = ObserverPoll {
                     record_id: report.validated.record_id().into(),
                     assessment: report.validated.assess(&current),
+                    commit,
                 };
                 self.latest = Some(report);
                 Ok(result)

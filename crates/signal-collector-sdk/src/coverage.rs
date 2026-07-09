@@ -141,7 +141,7 @@ fn serialize_reason<S: Serializer>(
     reason.as_slice().serialize(serializer)
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
 enum Component {
     Configuration,
@@ -150,7 +150,7 @@ enum Component {
     SourceIntegrity,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct ProfileWire {
     schema_version: u32,
@@ -196,6 +196,27 @@ impl CoverageProfile {
     }
     pub fn revision(&self) -> &str {
         &self.0.revision
+    }
+    /// Existing version-1 profile schema for exact trusted definition pinning.
+    /// Requirements only; no source credentials or report data.
+    pub fn definition_bytes(&self) -> Result<Vec<u8>, CoverageError> {
+        serde_json::to_vec(&self.0).map_err(|_| CoverageError::InvalidProfile)
+    }
+    /// Compare immutable requirements. Component order is insignificant, matching
+    /// the physical history's canonical component-set fingerprint.
+    pub fn same_definition(&self, other: &Self) -> bool {
+        self.0.id == other.0.id
+            && self.0.revision == other.0.revision
+            && self.0.requires_checkpoint == other.0.requires_checkpoint
+            && self.0.max_interval_seconds == other.0.max_interval_seconds
+            && self.0.max_verification_age_seconds == other.0.max_verification_age_seconds
+            && self.0.max_clock_skew_seconds == other.0.max_clock_skew_seconds
+            && self.0.required_components.len() == other.0.required_components.len()
+            && self
+                .0
+                .required_components
+                .iter()
+                .all(|component| other.0.required_components.contains(component))
     }
 }
 

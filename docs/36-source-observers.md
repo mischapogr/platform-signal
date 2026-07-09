@@ -122,3 +122,35 @@ capacity guards are unchanged. Evidence:
 `target/goal-execution-20261007/COVERAGE-OBSERVERS/native-probe-validation.json`.
 This is a locally accepted configuration slice, not completed server coverage
 integration or authenticated interval continuity/source proof.
+
+## Durable observer/history bridge
+
+`CoverageObserver::poll_persisted` validates an independent report, then awaits
+`CoverageReportSink` before adopting its bytes or healthy status. The generic
+`HistoryReportSink` in `signal-coverage` uses the existing single-worker history
+store. Its application-owned `CoverageIntakeProvider` must freshly authenticate
+and authorize the complete binding and supply current receiver time, profile and
+retention policy per operation. Report identities or proof hashes are no grant.
+
+Direct bridge callers are semantically validated before input copies or authority
+calls. The current trusted profile must match the SDK definition by all required
+components and time/checkpoint limits; component order is immaterial. Retired
+profiles may authorize exact retained replay without a current definition, but
+the returned immutable receipt must match the original physical profile pin.
+Global retained identity rejects changed older record IDs beyond the observer's
+one-report cache. New reports require current profile policy. The basic poll seam
+does not manufacture correction links; existing explicit intake handles backfill.
+
+Accepted intake permits new health/evidence adoption. Replayed intake preserves
+prior health and cannot heal unknown/unhealthy status or renew verification.
+Finite cancellation/deadline guards apply before and after authority, physical
+intake and receipt verification. Failure retains the prior immutable cache;
+dropping a poll leaves health unknown. Physical uncertain-write/reopen guarantees
+remain the store's existing contract, without a replacement worker or retry loop.
+
+Thirteen SDK observer tests and ten bridge physical-history tests pass; current
+default 523/all-feature 546 workspace gates and independent review pass. Evidence:
+`target/goal-execution-20261007/COVERAGE-OBSERVERS/history-bridge-validation.json`.
+This bridges libraries only. Server scoped authentication/configuration, request
+budgets, lifecycle, metrics and runtime gap/degraded-silence qualification remain
+open; no stored row is automatically selected as current source health.

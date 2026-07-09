@@ -11,8 +11,8 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-default workspace gate has 509; the all-feature gate has 532 (11 regional CloudTrail observer regressions, nine bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
-profile tests, 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
+default workspace gate has 523; the all-feature gate has 546 (11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+profile tests, 24 SDK SourceCoverage tests, 106 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
 resource exhaustion before the application starts; the preceding image retains
@@ -39,6 +39,27 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Durable observer/history bridge — 2026-10-08
+
+Independent observers can now commit through the existing bounded coverage
+history before adopting new cached evidence or healthy status. Fresh application
+full-binding authorization, the exact original trusted profile and global
+retained record identity are checked. Exact replay preserves prior health;
+retired-profile replay cannot reinterpret the original receipt. Quota, denial,
+malformed input, cancellation and uncertain outcomes retain previous evidence.
+Dropping a pending poll leaves health unknown. No worker, queue, service,
+credential discovery or wire-format change is added by this bridge.
+
+Four SDK and ten physical SQLite regressions cover replay, older record identity,
+profile retirement/alias rejection, permission revocation, quota, restart and
+pending-authority cancellation/drop. Default 523/all-feature 546 tests, zero
+failures, five existing ignored helpers, strict Clippy/fmt/package guard and
+focused independent review pass. Evidence:
+`target/goal-execution-20261007/COVERAGE-OBSERVERS/history-bridge-validation.json`.
+COVERAGE-OBSERVERS remains in progress for scoped server configuration/API,
+lifecycle/metrics and independent checkpoint/gap/degraded-silence simulation.
+Historical package/image/candidate reports retain their original source bindings.
 
 ## Regional CloudTrail configuration observation — 2026-10-08
 

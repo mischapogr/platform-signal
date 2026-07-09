@@ -276,3 +276,15 @@ position fixtures. Two worker tests cover actual queued timeout/cancellation
 and invalid budgets under saturation. Evidence:
 `target/source-coverage-scans-20261007/`. Independent review accepted. The next
 source work is a bounded CloudTrail source-receipt/normalization-profile design.
+
+## Independent observer bridge
+
+`HistoryReportSink` implements the SDK's bounded `CoverageReportSink`.
+Applications supply a fresh `CoverageIntakeProvider` for authenticated complete
+binding, receiver time, profile and retention policy on every operation. Semantic
+validation precedes authority calls; exact global identity and the original
+physical profile pin precede observer adoption. Retired-profile replay is allowed
+only under fresh authority and the immutable original pin. Replay preserves health
+and cannot heal a cold/unhealthy observer. No credential discovery, polling loop,
+worker or queue is added. See [the observer contract](../../docs/36-source-observers.md).
+Server integration and real source proof qualification remain separate work.
