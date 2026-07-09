@@ -216,6 +216,7 @@ section!(Telemetry {
     queue_bytes: Count,
     max_record_bytes: Count,
 });
+section!(Coverage { config: Text });
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Document {
@@ -237,6 +238,8 @@ struct Document {
     findings: Findings,
     #[serde(default, deserialize_with = "section_map")]
     telemetry: Telemetry,
+    #[serde(default, deserialize_with = "section_map")]
+    coverage: Coverage,
 }
 trait Value {
     fn setting_value(&self) -> String;
@@ -423,6 +426,7 @@ impl Settings {
         mapping!(values,document.rules,{max_rules=>"SIGNAL_RULES_MAX_RULES",max_directory_entries=>"SIGNAL_RULES_MAX_DIRECTORY_ENTRIES",max_document_bytes=>"SIGNAL_RULES_MAX_DOCUMENT_BYTES",max_total_bytes=>"SIGNAL_RULES_MAX_TOTAL_BYTES",max_value_nodes=>"SIGNAL_RULES_MAX_VALUE_NODES",max_depth=>"SIGNAL_RULES_MAX_DEPTH",max_predicates=>"SIGNAL_RULES_MAX_PREDICATES",max_field_bytes=>"SIGNAL_RULES_MAX_FIELD_BYTES",max_title_bytes=>"SIGNAL_RULES_MAX_TITLE_BYTES"});
         mapping!(values,document.findings,{directory=>"SIGNAL_FINDINGS_DIR",max_disk_bytes=>"SIGNAL_FINDINGS_BYTES",max_findings=>"SIGNAL_FINDINGS_MAX_FINDINGS",max_record_bytes=>"SIGNAL_FINDINGS_RECORD_BYTES",max_append_rows=>"SIGNAL_FINDINGS_BATCH_EVENTS",max_append_bytes=>"SIGNAL_FINDINGS_BATCH_BYTES",max_query_rows=>"SIGNAL_FINDINGS_QUERY_LIMIT",max_query_bytes=>"SIGNAL_FINDINGS_QUERY_BYTES",max_index_bytes=>"SIGNAL_FINDINGS_INDEX_BYTES",command_capacity=>"SIGNAL_FINDINGS_COMMANDS"});
         mapping!(values,document.telemetry,{metrics_listen=>"SIGNAL_METRICS_LISTEN",queue_records=>"SIGNAL_LOG_RECORDS",queue_bytes=>"SIGNAL_LOG_BYTES",max_record_bytes=>"SIGNAL_LOG_RECORD_BYTES"});
+        mapping!(values,document.coverage,{config=>"SIGNAL_COVERAGE_CONFIG"});
         duration(
             &mut values,
             "SIGNAL_CONNECTION_TIMEOUT_MS",
@@ -534,6 +538,20 @@ impl Settings {
             None => Ok(default),
         }
     }
+    pub fn secret_environment(&self, name: &str) -> Result<String, ConfigError> {
+        if name.is_empty()
+            || name.len() > 128
+            || !name
+                .bytes()
+                .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_')
+            || name.as_bytes()[0].is_ascii_digit()
+        {
+            return Err(ConfigError::Invalid("coverage credential environment name"));
+        }
+        self.environment.get(name)?.ok_or(ConfigError::Invalid(
+            "coverage credential environment missing",
+        ))
+    }
     pub fn rules_directories(&self) -> Result<Vec<PathBuf>, ConfigError> {
         let directories = if let Some(paths) = self.environment.get("SIGNAL_RULE_DIRS")? {
             env::split_paths(&paths)
@@ -613,13 +631,14 @@ impl Drop for CancelOnDrop {
         self.0.cancel();
     }
 }
-async fn run_worker<F>(
+async fn run_worker<F, T>(
     deadline: Instant,
     cancellation: &CancellationToken,
     operation: F,
-) -> Result<Settings, ConfigError>
+) -> Result<T, ConfigError>
 where
-    F: FnOnce() -> Result<Settings, ConfigError> + Send + 'static,
+    F: FnOnce() -> Result<T, ConfigError> + Send + 'static,
+    T: Send + 'static,
 {
     check(deadline, cancellation)?;
     let permit = Arc::new(
@@ -669,6 +688,32 @@ where
         worker.join().map_err(|_| ConfigError::Unavailable)?;
     }
     drop(permit);
+    result
+}
+
+/// Reuses the settings worker and physical lease; never spawns detached file I/O.
+pub async fn read_document<T, F>(
+    path: PathBuf,
+    deadline: Instant,
+    cancellation: CancellationToken,
+    parse: F,
+) -> Result<T, ConfigError>
+where
+    T: Send + 'static,
+    F: FnOnce(&str) -> Result<T, ConfigError> + Send + 'static,
+{
+    let worker_cancel = cancellation.child_token();
+    let operation_cancel = worker_cancel.clone();
+    let guard = CancelOnDrop(worker_cancel.clone());
+    let result = run_worker(deadline, &worker_cancel, move || {
+        let text = read_file(path, deadline, &operation_cancel)?;
+        check(deadline, &operation_cancel)?;
+        let result = parse(&text)?;
+        check(deadline, &operation_cancel)?;
+        Ok(result)
+    })
+    .await;
+    drop(guard);
     result
 }
 

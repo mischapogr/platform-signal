@@ -26,6 +26,9 @@ signal-query.workspace = true
 signal-rules.workspace = true
 signal-findings.workspace = true
 signal-collector-sdk.workspace = true
+signal-coverage.workspace = true
+chrono.workspace = true
+uuid.workspace = true
 axum.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
@@ -40,7 +43,6 @@ reqwest.workspace = true
 flate2.workspace = true
 tower.workspace = true
 tempfile.workspace = true
-uuid.workspace = true
 
 [[bench]]
 name = "harness"
@@ -54,3 +56,7 @@ path = "../../tests/integration/foundation.rs"
 [[test]]
 name = "cloudtrail-delivery"
 path = "../../tests/integration/cloudtrail-delivery.rs"
+
+[[test]]
+name = "coverage-server"
+path = "../../tests/integration/coverage-server.rs"
