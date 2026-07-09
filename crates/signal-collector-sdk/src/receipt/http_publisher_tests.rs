@@ -12,7 +12,7 @@ async fn setup(
     s.publish(wire, b.clone(), ctx()).await?;
     Ok((s, b))
 }
-async fn request(
+pub(super) async fn request(
     stream: &mut TcpStream,
 ) -> Result<(String, Vec<u8>), Box<dyn std::error::Error + Send + Sync>> {
     let mut all = Vec::new();
@@ -38,7 +38,7 @@ async fn request(
                 .filter(|(name, _)| name.eq_ignore_ascii_case("content-length"))
                 .map(|(_, v)| v.trim().parse::<usize>())
         })
-        .ok_or("length")??;
+        .unwrap_or(Ok(0))?;
     if length > 1024 * 1024 {
         return Err("request cap".into());
     }

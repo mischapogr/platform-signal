@@ -180,8 +180,9 @@ checkpoint and full scope. `open_reconciled` checks that checkpoint before
 exposing state; ordinary `open` remains process-local only. The library checks
 bounds and equality, not checkpoint authenticity.
 
-There is no source dispatch/ACK or retirement,
-gzip/object reader, source-proof verifier or AWS adapter here. This is surviving
+The receipt store alone does not authenticate source proofs or establish
+provider continuity. Delivery helpers and the optional signed adapter below
+compose the bounded reader/retirement/ACK mechanisms. This is surviving
 local-filesystem process recovery evidence, not host/AZ/account-loss custody or
 source continuity. The caller must qualify original-to-record spans and native
 normalization before operating a real collector. Security policy, credentials,
@@ -197,3 +198,12 @@ intent and exact receipt identity guard side effects. Caller owns credentials,
 aggregate work/retry policy and independently authenticated reconciliation.
 See [delivery contract and simulations](../../docs/35-cloudtrail-delivery.md).
 No AWS credentials, deployment policy or company topology are built into the SDK.
+
+
+The optional `aws-source` feature provides an official SigV4-signed SQS/S3 HTTP
+adapter with application-supplied rotating credentials, trusted endpoint/queue
+scope, actual response bounds and finite cancellation. It retains exact key,
+version and expected-owner checks and accepts ACK tickets only for the same
+full binding. Default dependencies require no AWS SDK. See the delivery contract
+for supported source capacity and local signed-wire/runtime evidence; real AWS
+and independent protected custody remain separate qualification gates.

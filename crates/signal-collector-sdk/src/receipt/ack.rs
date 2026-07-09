@@ -28,11 +28,17 @@ fn bounded(s: &str, cap: usize) -> bool {
 /// not attest current source permission. Owner transfer invalidates the ticket.
 pub struct SourceAckTicket {
     receipt: [u8; 32],
+    binding: ReceiptBinding,
     owner: Uuid,
     generation: u64,
     delivery: SourceDelivery,
 }
 impl SourceAckTicket {
+    /// Store-validated scope at intent publication. Adapters must also check the
+    /// current application binding; this is not a grant of source permission.
+    pub fn binding(&self) -> &ReceiptBinding {
+        &self.binding
+    }
     pub fn handle(&self) -> &str {
         &self.delivery.handle
     }
@@ -241,6 +247,7 @@ pub(super) fn replacement(
     let next = progress::decode(progress::encode(&p)?, &replay.receipt, owner, generation)?;
     let ticket = delivery.map(|delivery| SourceAckTicket {
         receipt: replay.receipt.info.checksum,
+        binding: ReceiptBinding(replay.receipt.metadata["binding"].clone()),
         owner,
         generation,
         delivery,

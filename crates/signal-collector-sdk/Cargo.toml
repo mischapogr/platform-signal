@@ -10,7 +10,15 @@ publish = false
 [lints]
 workspace = true
 
+[features]
+aws-source = ["dep:aws-sigv4", "dep:aws-credential-types", "dep:aws-smithy-runtime-api", "dep:futures-util", "dep:tracing", "reqwest/stream", "tokio-util/io"]
+
 [dependencies]
+aws-sigv4 = { workspace = true, optional = true }
+aws-credential-types = { workspace = true, optional = true }
+aws-smithy-runtime-api = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
 signal-event.workspace = true
 signal-protocol.workspace = true
 async-trait.workspace = true

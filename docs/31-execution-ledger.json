@@ -193,7 +193,7 @@
     {
       "id": "AWS-DELIVERY",
       "title": "CloudTrail S3/SQS collector and local delivery simulation",
-      "status": "in_progress",
+      "status": "passed_simulated",
       "dependencies": [
         "SOURCE-ACK",
         "OBJECT-READER"
@@ -260,10 +260,14 @@
         },
         {
           "id": "signed-source-transport",
-          "status": "in_progress"
+          "status": "passed_local",
+          "evidence": [
+            "target/goal-execution-20261007/AWS-DELIVERY/signed-transport-validation.json",
+            "target/goal-execution-20261007/AWS-DELIVERY/signed-transport-independent-review.json"
+          ]
         }
       ],
-      "notes": "Bounded collector driver and actual local source/real-server integration accepted with 500 workspace tests; high receipt-substitution race reproduced/corrected and independently reviewed. Signed AWS source transport remains local implementation work. Real provider IAM/TLS/deployment/source completeness and stronger custody unqualified."
+      "notes": "Bounded discovery/capture/M1/pinned one-batch publication/HTTP/driver and optional official SigV4 SQS/S3 adapter accepted. Default500/all-feature512 tests; actual loopback signing and real-server throttle/intent/reopen/redelivery proof. No real AWS IAM/TLS/source completeness/stronger custody qualification. Continue COVERAGE-OBSERVERS."
     },
     {
       "id": "COVERAGE-OBSERVERS",

@@ -7,6 +7,20 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+AWS-DELIVERY now has simulated end-to-end source/receipt/M2/ACK acceptance,
+including the optional official SigV4 SQS/S3 HTTP adapter. Current local gates:
+default 500 and all-feature 512 tests, fmt, strict Clippy and package guard;
+independent review has no blocker/high. Actual-wire signatures match an
+independent witness and published AWS test vector; throttling, credential
+rotation, durable failed-delete intent and redelivery recovery run against the
+real local server. Evidence:
+`target/goal-execution-20261007/AWS-DELIVERY/signed-transport-validation.json`.
+CI checks optional features, but remote CI remains pending. This does not qualify
+real AWS/IAM/TLS/trail/digests, source continuity or independent custody. Source
+observers/server coverage integration are next. New optional dependencies and
+the declared compiler minimum (matching the existing pin) require fresh final
+package/SBOM/candidate evidence; old artifact reports retain their own bindings.
+
 Minimal SecOps UI is now an owner-selected MVP requirement. UI-01/UI-02 have
 local embedded-route, browser, exact-ID query, real-server/restart, current source
 export and real-container acceptance. See [the UI contract](28-secops-ui.md).
