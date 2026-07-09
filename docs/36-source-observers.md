@@ -1,6 +1,6 @@
 # Bounded source observers
 
-COVERAGE-OBSERVERS is in progress in the frozen execution ledger. This contract
+COVERAGE-OBSERVERS is passed_simulated in the frozen execution ledger. This contract
 adds polling/current health to the existing SourceCoverage v1 validator and
 physical history; it introduces no service or alternate coverage format.
 
@@ -239,3 +239,24 @@ Evidence: `target/goal-execution-20261007/COVERAGE-OBSERVERS/server-integration-
 Current health remains unknown without qualified independent application
 supervision. Native source continuity/digest proof adapters remain unimplemented
 and unqualified; they are not made real by this local history/server acceptance.
+
+## Independent source runtime acceptance
+
+Four actual-source/monolith HTTP simulations derive reports from separate bounded
+synthetic source truth, rather than from successful telemetry admission. They
+verify quiet coverage, a missing capture position despite HTTP 202, fresh backfill
+correction with preserved historical failure, denied/throttled/malformed/oversize
+source responses, blind intervals, expiry and arrival without renewed verification.
+Lost history responses retain exact intent; server/observer restart and replay
+cannot heal supervision. Scope/profile alias denials preserve original history.
+
+Default 539/all-feature 562 tests pass, with zero failures and five existing
+ignored helpers; format, strict Clippy and package checks pass. Independent review
+has no blocker/high after two test-helper lifecycle corrections: owned bootstrap
+children have a finite deadline, and source-task shutdown retains ownership through
+abort/join. Evidence: `target/goal-execution-20261007/COVERAGE-OBSERVERS/runtime-validation.json`.
+COVERAGE-OBSERVERS is passed_simulated; native CloudTrail checkpoint/continuity/
+digest adapters remain unimplemented/unqualified. Applicable proof work remains
+within EVIDENCE; simulation closes no real environment gate. Server history health
+stays unknown without application-owned independent supervision. Next is the
+bounded public findings cursor; historical artifacts need fresh final qualification.
