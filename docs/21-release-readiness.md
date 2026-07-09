@@ -79,6 +79,34 @@ within EVIDENCE; simulation closes no real environment gate. Server history heal
 stays unknown without application-owned independent supervision. Next is the
 bounded public findings cursor; historical artifacts need fresh final qualification.
 
+## Durable findings cursor — 2026-10-08
+
+`GET /v1/findings/feed` now provides bounded durable append-order pages, explicit
+bootstrap and a versioned stream/position/exact-payload prefix digest. Existing
+journal bytes, finding identity and filtered list order are preserved. Identical
+replay creates no position; late findings remain visible. Missing/divergent/foreign
+prefixes fail without replacement progress. Recovery syncs validated retained
+frames before readiness. Requested frames are rechecked against their exact
+indexed prefix before return; corruption closes the store.
+
+Eighteen new protocol/store/HTTP/process regressions cover original JSON and
+semantic duplicate frames, replay, paging, live corruption, response/memory/index
+quotas, cancellation and retained physical leases. The actual monolith test
+preserves cursors through SIGKILL/restart and rejects shorter/divergent restores.
+Default 557/all-feature 580 tests pass, zero failures and five existing ignored
+helpers, with fmt, strict Clippy and the 13-package guard. Independent review has
+no unresolved blocker/high after exact-byte, startup-budget and empty-allocation
+corrections. Evidence: `target/goal-execution-20261007/FINDINGS-CURSOR/validation.json`.
+
+The index charge rises from 256 to 512 bytes per unique finding; preflight this
+budget before upgrade. Server startup requires at least 288 query bytes to
+represent the empty feed; smaller cursor-free library settings remain supported.
+No locked package/version changes, service, destination or consumer ACK is added.
+The cursor proves its consumed prefix, not an unseen suffix or writer fencing.
+FINDINGS-CURSOR is passed_local; next is private transactional OUTBOX. Native
+ARM64, actual AWS/EKS/vendors, remote CI, released dependencies and publication
+remain open. Historical package/SBOM/candidate bindings need final requalification.
+
 Minimal SecOps UI is now an owner-selected MVP requirement. UI-01/UI-02 have
 local embedded-route, browser, exact-ID query, real-server/restart, current source
 export and real-container acceptance. See [the UI contract](28-secops-ui.md).

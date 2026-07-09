@@ -234,7 +234,7 @@ spec:
         exact(expected)
         assert checkpoint() == 5
         stop()
-        start(overrides={"SIGNAL_FINDINGS_QUERY_BYTES": "128"})
+        start(overrides={"SIGNAL_FINDINGS_QUERY_BYTES": "288"})
         assert "error" in rows("findings", status=413)
         stop()
 

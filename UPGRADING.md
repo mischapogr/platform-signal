@@ -90,3 +90,9 @@ bytes in a renamed old file, and unspooled partial lines are not durable. Preser
 rotated source files and establish source retention outside the OSS mechanism.
 Retention, archive ownership and deployment-specific backup schedules belong to
 the external application.
+
+## Findings feed preflight
+
+The version-1 [append feed](docs/25-findings-cursor-proposal.md) preserves journal bytes and rebuilds exact-original prefix digests. Its index charge is now 512 bytes per unique finding, twice the earlier charge. Before replacement, calculate the retained unique finding count times 512 using checked arithmetic and provision the configured index budget (within hard limits); default 16 MiB admits at most 32,768 findings. An undersized restored store refuses readiness rather than serving a partial prefix. Feed-enabled server configuration needs at least 288 query bytes for its empty envelope.
+
+Back up server history and each private consumer cursor/delivery plan consistently. A shorter or divergent consumed prefix produces explicit cursor errors; never replace saved progress with `begin` or a timestamp watermark. A byte-identical consumed prefix remains valid even if an unseen suffix changed. Old cursor-free binaries can read the unchanged journal, but cannot serve the feed: retain consumer progress until a compatible feed is restored. These local development tests are not a released-version upgrade qualification.

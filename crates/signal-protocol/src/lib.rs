@@ -12,6 +12,7 @@ pub use admission::{
     AdmissionDisposition, AdmissionOutcome, InvalidAdmissionResponse, verify_admission_response,
 };
 
+pub mod findings_feed;
 pub mod query;
 pub use query::{
     AttributeFilter, EventQuery, EventQueryResponse, QueryMetadata, QueryOrder,

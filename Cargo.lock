@@ -2982,6 +2982,7 @@ dependencies = [
  "serde",
  "serde_json",
  "signal-event",
+ "signal-protocol",
  "tempfile",
  "thiserror",
  "tokio",
@@ -3026,10 +3027,12 @@ dependencies = [
 name = "signal-protocol"
 version = "0.1.0-dev.0"
 dependencies = [
+ "base64 0.22.1",
  "chrono",
  "serde",
  "serde_json",
  "serde_urlencoded",
+ "sha2",
  "signal-event",
  "thiserror",
  "uuid",

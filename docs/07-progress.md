@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-default workspace gate has 539; the all-feature gate has 562 (11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+default workspace gate has 557; the all-feature gate has 580 (11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 106 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,34 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Durable findings cursor — 2026-10-08
+
+`GET /v1/findings/feed` now provides bounded durable append-order pages, explicit
+bootstrap and a versioned stream/position/exact-payload prefix digest. Existing
+journal bytes, finding identity and filtered list order are preserved. Identical
+replay creates no position; late findings remain visible. Missing/divergent/foreign
+prefixes fail without replacement progress. Recovery syncs validated retained
+frames before readiness. Requested frames are rechecked against their exact
+indexed prefix before return; corruption closes the store.
+
+Eighteen new protocol/store/HTTP/process regressions cover original JSON and
+semantic duplicate frames, replay, paging, live corruption, response/memory/index
+quotas, cancellation and retained physical leases. The actual monolith test
+preserves cursors through SIGKILL/restart and rejects shorter/divergent restores.
+Default 557/all-feature 580 tests pass, zero failures and five existing ignored
+helpers, with fmt, strict Clippy and the 13-package guard. Independent review has
+no unresolved blocker/high after exact-byte, startup-budget and empty-allocation
+corrections. Evidence: `target/goal-execution-20261007/FINDINGS-CURSOR/validation.json`.
+
+The index charge rises from 256 to 512 bytes per unique finding; preflight this
+budget before upgrade. Server startup requires at least 288 query bytes to
+represent the empty feed; smaller cursor-free library settings remain supported.
+No locked package/version changes, service, destination or consumer ACK is added.
+The cursor proves its consumed prefix, not an unseen suffix or writer fencing.
+FINDINGS-CURSOR is passed_local; next is private transactional OUTBOX. Native
+ARM64, actual AWS/EKS/vendors, remote CI, released dependencies and publication
+remain open. Historical package/SBOM/candidate bindings need final requalification.
 
 ## Independent source coverage runtime — 2026-10-08
 
