@@ -8,6 +8,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use std::{collections::BTreeMap, fmt};
 use thiserror::Error;
 
+pub mod observer;
+
 pub const MAX_RECORD_BYTES: usize = 65_536;
 pub const MAX_STRING_BYTES: usize = 1_024;
 const MAX_GAPS: usize = 128;
@@ -286,7 +288,7 @@ impl Binding {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
 enum Milestone {
     Capture,
@@ -294,7 +296,7 @@ enum Milestone {
     ProcessedInput,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
 struct Checkpoint {
     schema_version: u32,
@@ -312,7 +314,7 @@ enum Recoverability {
     Unknown,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
 struct Gap {
     id: String,
@@ -326,7 +328,7 @@ struct Gap {
     proof_ref: Option<String>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
 struct GapSummary {
     #[serde(deserialize_with = "nullable")]
@@ -334,7 +336,7 @@ struct GapSummary {
     truncated: bool,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
 struct Validation {
     configuration: CoverageStatus,

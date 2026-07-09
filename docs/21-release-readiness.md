@@ -21,6 +21,14 @@ observers/server coverage integration are next. New optional dependencies and
 the declared compiler minimum (matching the existing pin) require fresh final
 package/SBOM/candidate evidence; old artifact reports retain their own bindings.
 
+COVERAGE-OBSERVERS bounded state now has nine regressions, default 509/all-feature
+521 passing tests and independent review. Immutable verification/record identity
+and observer-owned current health are accepted locally. Native probes,
+physical history/server integration and end-to-end degraded-silence simulation
+remain local unfinished work. Evidence:
+`target/goal-execution-20261007/COVERAGE-OBSERVERS/observer-validation.json`.
+This acceptance does not change source proof, live-environment or release gates.
+
 Minimal SecOps UI is now an owner-selected MVP requirement. UI-01/UI-02 have
 local embedded-route, browser, exact-ID query, real-server/restart, current source
 export and real-container acceptance. See [the UI contract](28-secops-ui.md).

@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-default workspace gate has 500; the all-feature gate has 512 (11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+default workspace gate has 509; the all-feature gate has 521 (nine bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,28 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Bounded source observer state — 2026-10-08
+
+COVERAGE-OBSERVERS remains in progress. Its first slice holds one bounded raw
+SourceCoverage v1 report and validated interpretation per configured observer,
+with exact full binding/profile/observer checks and independent probe health.
+Dropped polls become unknown; failures retain immutable evidence and mark health
+unhealthy. Later arrivals cannot renew verification, checkpoint, interval or
+expiry. Reusing the retained record ID requires exact bytes; wider identity
+history enforcement remains the physical store's responsibility.
+
+Nine regressions pass, including denied/outage, scope mismatch, stale/future
+verification, cancellation/deadline, dropped polling and immutable claim/identity
+cases. Independent review resolved the reproduced identity conflict and added a
+final context check after validation. Default 509 and all-feature 521 workspace
+tests pass with zero failures, fmt, strict default/all-feature Clippy and the
+13-package guard. Evidence:
+`target/goal-execution-20261007/COVERAGE-OBSERVERS/observer-validation.json`.
+See [the bounded observer contract](36-source-observers.md). Independent native
+configuration/continuity probes, physical history/server integration and visible
+degraded-silence runtime simulation remain authorized local work. This generic
+seam does not authenticate native proofs or qualify any live source environment.
 
 ## Signed AWS source transport — 2026-10-08
 

@@ -272,7 +272,7 @@
     {
       "id": "COVERAGE-OBSERVERS",
       "title": "Source observers, health and SDK/server integration",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "COVERAGE",
         "AWS-DELIVERY"
@@ -287,7 +287,30 @@
       "references": [
         "docs/source-coverage-contract.md",
         "docs/source-detection-catalog.md"
-      ]
+      ],
+      "substeps": [
+        {
+          "id": "bounded-observer-state",
+          "status": "passed_local",
+          "evidence": [
+            "target/goal-execution-20261007/COVERAGE-OBSERVERS/observer-validation.json",
+            "target/goal-execution-20261007/COVERAGE-OBSERVERS/observer-independent-review.json"
+          ]
+        },
+        {
+          "id": "independent-source-probes",
+          "status": "pending"
+        },
+        {
+          "id": "store-server-integration",
+          "status": "pending"
+        },
+        {
+          "id": "observer-runtime-simulation",
+          "status": "pending"
+        }
+      ],
+      "notes": "Bounded observer state accepted locally with nine regressions and independent review. Native independent probes, history/server wiring and end-to-end degraded-silence simulation remain local work."
     },
     {
       "id": "FINDINGS-CURSOR",
