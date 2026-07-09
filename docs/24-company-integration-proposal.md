@@ -1,8 +1,9 @@
 # Company integration design proposal
 
-**Status:** Proposed design, 2026-10-07. This walkthrough supplies a candidate
-post-MVP integration task; it does not change accepted contracts or release
-gates. Private implementation, schemas, fixtures and deployment remain in the
+**Status:** Integration design with locally accepted public append feed and
+private transactional outbox/notification simulations, 2026-10-08. Complete
+source-to-notification composition remains the SMALL-PILOT item; acceptance of
+these bounded mechanisms does not close real-environment or release gates. Private implementation, schemas, fixtures and deployment remain in the
 separate application. AWS collection requires its own task.
 
 One company integration should consume public SIGNAL components through their
@@ -39,8 +40,9 @@ bounded finding consumption <-------------------------------------+
 durable delivery plan -> external destination
 ```
 
-The public findings feed is locally accepted; private receipt/delivery composition
-remains proposed here.
+The public findings feed and private transactional delivery mechanisms are
+accepted locally/synthetically under FINDINGS-CURSOR and OUTBOX. Full operational
+receipt/enrichment/source-to-notification composition remains SMALL-PILOT.
 The existing [SDK](16-collector-sdk.md) invokes cooperative providers; it does
 not create a durable integration runner, wire enrichers into the normal server,
 or sandbox extensions. The existing [external gate](17-external-overlay.md)

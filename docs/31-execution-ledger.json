@@ -352,7 +352,7 @@
     {
       "id": "OUTBOX",
       "title": "Private transactional finding cursor/outbox and notification simulation",
-      "status": "in_progress",
+      "status": "passed_simulated",
       "dependencies": [
         "FINDINGS-CURSOR"
       ],
@@ -361,7 +361,9 @@
         "Keep destination policy/private data in separately authorized writable overlay."
       ],
       "evidence": [
-        "target/goal-execution-20261007/OUTBOX/"
+        "target/goal-execution-20261007/OUTBOX/transaction-validation/validation.json",
+        "target/goal-execution-20261007/OUTBOX/dispatch-validation/validation.json",
+        "target/goal-execution-20261007/OUTBOX/dispatch-validation/independent-review.json"
       ],
       "references": [
         "docs/25-findings-cursor-proposal.md",
@@ -378,10 +380,14 @@
         },
         {
           "id": "bounded-dispatch-and-notification-simulation",
-          "status": "in_progress"
+          "status": "passed_simulated",
+          "evidence": [
+            "target/goal-execution-20261007/OUTBOX/dispatch-validation/validation.json",
+            "target/goal-execution-20261007/OUTBOX/dispatch-validation/independent-review.json"
+          ]
         }
       ],
-      "notes": "Private complete page/cursor transaction accepted locally with bounded physical ownership, EXTRA commit durability, immutable retained plan verification and 13 new regressions. Bounded dispatcher/notification simulation remains runnable; parent stays open."
+      "notes": "Private atomic page/cursor plans and bounded notification attempts/outcomes accepted locally. Full private 28 tests, zero failures, two invoked subprocess helpers; nine local HTTP scenarios and three dispatcher review regressions. Immutable pins, physical worker ownership, schema2 refusal, canceled caller and actual notification process kill recovery qualified synthetically. No universal external deduplication, live notification, released-dependency or hardware/power-loss claim."
     },
     {
       "id": "DISPOSITIONS",

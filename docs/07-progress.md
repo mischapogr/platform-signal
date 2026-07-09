@@ -40,6 +40,28 @@ Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
 
+## Private bounded notification delivery — 2026-10-08
+
+OUTBOX is passed_simulated. The separate private application persists attempting
+intent before network, pins immutable plans and uses finite single-request
+concurrency, deadlines, response bytes, attempts/backoff and exact-token outcome
+CAS. Restart/crash uncertainty preserves retry identity; permission/redirect
+failures and exhausted retries stay visible and quota-charged. Credentials remain
+runtime-only; source cancellation wins before a ready network poll.
+
+Nine local HTTP scenarios and three deterministic review regressions pass. The
+full private suite has 28 passes, zero failures and two subprocess helpers
+invoked by their parent tests. Actual process kill after destination receipt
+recovers the identical pending payload/identity. Private fmt/strict Clippy/build
+and the existing public/private process gate pass; source review has no high
+findings. Evidence: `target/goal-execution-20261007/OUTBOX/dispatch-validation/validation.json`.
+Public default557/all-feature580 source acceptance is retained unchanged.
+
+Private schema 2 refuses older development stores without implicit migration or
+reset; explicit migration remains UPGRADE work. These simulations do not qualify
+live tenants, universal external deduplication, native ARM64, real AWS/EKS, remote
+CI, released dependencies, publication or the final candidate. Next: DISPOSITIONS.
+
 ## Private outbox transaction — 2026-10-08
 
 The separate private application now atomically commits a complete bounded page
