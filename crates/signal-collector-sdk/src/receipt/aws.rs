@@ -23,7 +23,7 @@ use std::{
 const QUEUE_REPLY_LIMIT: usize = 2 * 1024 * 1024;
 // S3 canonical URI encoding differs from a generic URL path encoder: reserved
 // bytes such as '+' must be encoded; actual key slashes remain unchanged.
-fn uri_encode(input: &str, preserve_slashes: bool) -> String {
+pub(crate) fn uri_encode(input: &str, preserve_slashes: bool) -> String {
     const HEX: &[u8; 16] = b"0123456789ABCDEF";
     let mut out = String::with_capacity(input.len());
     for byte in input.bytes() {
