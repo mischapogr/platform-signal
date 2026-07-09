@@ -88,3 +88,26 @@ Retained publication has local acceptance: eight new tests, 485 workspace tests,
 zero failures, strict Clippy/format/boundary gates and independent source review.
 Evidence: `target/goal-execution-20261007/AWS-DELIVERY/publisher-validation.json`.
 Network/source-queue simulation remains runnable.
+
+## Configured HTTP publisher
+
+`HttpReceiptPublisher` implements the publisher seam for the existing ingest API.
+It accepts a bounded configured HTTP/HTTPS base or exact batch endpoint, rejects
+userinfo/query/fragment/foreign paths and unsafe/oversized token headers, marks
+Authorization sensitive and never formats transport errors with endpoint/content.
+It matches the agent's explicit no-proxy/redirect-none policy, disables automatic
+response decompression and bounds its idle pool. Context covers connect/send/body
+reads; actual response bytes are capped at 64 KiB irrespective of Content-Length.
+A bounded extra request-body copy is retained while the request is active.
+
+The SDK consumes already locked reqwest 0.12.28 via a new direct edge. Context7
+documents redirect-none, no-decompression methods and incremental Response::chunk;
+the actual 0.12.28 sources confirm those APIs. Local TCP tests exercise exact batch
+and Authorization, declared/chunked overflow, redirected destinations receiving
+neither body nor token and cancellation dropping a stalled response socket. This
+does not establish mTLS, actual AWS endpoints, source queue ACK or production trust.
+
+HTTP transport acceptance: four actual TCP regressions, 489 workspace tests,
+formatting, strict all-target Clippy, 13-package guard and independent review
+without blocker/high. Evidence:
+`target/goal-execution-20261007/AWS-DELIVERY/http-publisher-validation.json`.

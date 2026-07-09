@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-workspace gate has 485, including eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+workspace gate has 489, including four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 96 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,21 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## Configured HTTP receipt publisher — 2026-10-08
+
+The HTTP transport substep passes local acceptance: four actual TCP regressions,
+489 workspace tests, formatting, strict all-target Clippy and the 13-package guard.
+Authenticated requests preserve retained batch bytes; declared and incremental
+response sizes are capped at 64 KiB. Redirects and automatic decompression are
+disabled. Cancellation/deadline cover request and response reads; diagnostics do
+not expose endpoint credentials or payloads. Endpoint/header configuration is
+validated before use. Independent review has no blocker/high. The SDK adds only
+an edge to existing locked reqwest 0.12.28, with no package version change.
+Evidence: `target/goal-execution-20261007/AWS-DELIVERY/http-publisher-validation.json`.
+Continue immediately with the complete source-to-M2/redelivery/ACK simulation.
+AWS-DELIVERY remains in_progress; provider IAM, mTLS, real AWS and stronger custody
+remain separate gates. Existing image/SBOM/candidate bindings are historical.
 
 ## Retained-byte bounded batch publication — 2026-10-08
 
