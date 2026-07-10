@@ -484,7 +484,7 @@
     {
       "id": "S3-QUERY",
       "title": "Object-backed Parquet and committed query manifests",
-      "status": "in_progress",
+      "status": "passed_simulated",
       "dependencies": [
         "CORE"
       ],
@@ -504,7 +504,12 @@
         "target/goal-execution-20261007/S3-QUERY/s3-adapter-validation-accepted/validation.json",
         "target/goal-execution-20261007/S3-QUERY/s3-adapter-review.json",
         "target/goal-execution-20261007/S3-QUERY/query-materialization-validation-resumed/validation.json",
-        "target/goal-execution-20261007/S3-QUERY/query-materialization-review.json"
+        "target/goal-execution-20261007/S3-QUERY/query-materialization-review.json",
+        "target/goal-execution-20261007/S3-QUERY/server-backend-validation-corrected/validation.json",
+        "target/goal-execution-20261007/S3-QUERY/server-backend-review.json",
+        "target/goal-execution-20261007/S3-QUERY/server-simulation-final-reviewed/report.json",
+        "target/goal-execution-20261007/S3-QUERY/server-simulation-checks/",
+        "target/goal-execution-20261007/S3-QUERY/server-simulation-review.json"
       ],
       "references": [
         "docs/12-phase3-storage.md",
@@ -532,15 +537,20 @@
         },
         {
           "id": "object-query-cache-and-server-simulation",
-          "status": "in_progress",
-          "notes": "Generic committed-file query source and bounded Small materialization accepted: eight actual Parquet/DataFusion regressions, three cache tests, storage76/default and85/S3, default638/all-feature681 strict gates and source review. Retained physical child admission and whole-query shutdown correction have red/green evidence. Monolithic integration and persistent process simulation remain required; substep and parent stay in_progress.",
+          "status": "passed_simulated",
+          "notes": "Generic query/cache and monolithic optional S3 backend accepted: default641/all-feature686 strict gates, source review, six helper regressions and eleven persistent S3/actual-server scenarios. Data-orphan and synced-manifest-before-reply source/server SIGKILL replay preserve four exact canonical events/findings, four manifests/eight objects and checkpoint ordering. New-image/remote/AWS/TLS/native/shared/custody gates not closed.",
           "evidence": [
             "target/goal-execution-20261007/S3-QUERY/query-materialization-validation-resumed/validation.json",
-            "target/goal-execution-20261007/S3-QUERY/query-materialization-review.json"
+            "target/goal-execution-20261007/S3-QUERY/query-materialization-review.json",
+            "target/goal-execution-20261007/S3-QUERY/server-backend-validation-corrected/validation.json",
+            "target/goal-execution-20261007/S3-QUERY/server-backend-review.json",
+            "target/goal-execution-20261007/S3-QUERY/server-simulation-final-reviewed/report.json",
+            "target/goal-execution-20261007/S3-QUERY/server-simulation-checks/",
+            "target/goal-execution-20261007/S3-QUERY/server-simulation-review.json"
           ]
         }
       ],
-      "notes": "Manifest/codec/Small I/O/publication, selected bounded S3 adapter and generic committed query/cache pass local acceptance. Latest storage76/default and85/S3, default638/all-feature681 strict gates and focused review. No persistent process/AWS/TLS runtime/HA/custody qualification. Continue monolithic integration and persistent process simulation within this item."
+      "notes": "Generic query/cache and monolithic optional S3 backend accepted: default641/all-feature686 strict gates, source review, six helper regressions and eleven persistent S3/actual-server scenarios. Data-orphan and synced-manifest-before-reply source/server SIGKILL replay preserve four exact canonical events/findings, four manifests/eight objects and checkpoint ordering. New-image/remote/AWS/TLS/native/shared/custody gates not closed."
     },
     {
       "id": "RETENTION",

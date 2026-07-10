@@ -18,7 +18,7 @@ actual observability outage with M2 ACK gating, lost archive reply/exact replay,
 actual server and source crashes, uncertainty/reconciled reopen and fresh ACK.
 Private77 strict tests plus exact parent1 compound process gate and review pass;
 public588/622 remains unchanged. All source completeness, AWS/TLS/HA/shared-runtime
-and release exceptions stay visible. S3-QUERY remains in_progress. The selected adapter and committed query/cache pass storage76/default and85/S3, default638/all-feature681 strict gates and focused review. Monolithic integration and persistent process simulation remain required, then dependency-ready items. Local query fixtures do not close AWS/TLS/runtime/custody/HA gates.
+and release exceptions stay visible. S3-QUERY is passed_simulated: default641/all-feature686 strict gates, source review, six helper regressions and eleven persistent S3/monolith scenarios pass. Four exact events/findings survive data-orphan and manifest-before-reply process crashes. Continue RETENTION; changed CI/images and AWS/TLS/native/HA/custody gates remain unqualified.
 
 
 ## Execution and evidence
@@ -70,7 +70,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | OUTBOX | passed_simulated | FINDINGS-CURSOR | Private transactional finding cursor/outbox and notification simulation |
 | DISPOSITIONS | passed_local | OUTBOX | Disposition/outcome backend seam |
 | EVIDENCE | passed_simulated | AWS-DELIVERY | Independent protected original route and validation simulation |
-| S3-QUERY | in_progress | CORE | Object-backed Parquet and committed query manifests |
+| S3-QUERY | passed_simulated | CORE | Object-backed Parquet and committed query manifests |
 | RETENTION | pending | S3-QUERY, EVIDENCE | Selective query acceleration, retention and cost controls |
 | SECURITY-ACCESS | pending | CORE | OIDC/trusted identity, scoped credentials and RBAC |
 | SECURITY-TRANSPORT | pending | SECURITY-ACCESS | mTLS and credential/certificate rotation |

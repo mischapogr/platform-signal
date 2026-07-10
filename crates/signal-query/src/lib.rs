@@ -197,8 +197,13 @@ impl QueryEngine {
             .map_err(df_error)?;
         let io_capacity = (config.max_concurrent * config.target_partitions).min(16);
         let io = Arc::new(
-            io::BoundedLocalStore::new(io_capacity, config.memory_bytes, config.max_files.max(128))
-                .map_err(|_| QueryError::Config("filesystem query capacities"))?,
+            io::BoundedLocalStore::with_source(
+                io_capacity,
+                config.memory_bytes,
+                config.max_files.max(128),
+                Some(store.clone()),
+            )
+            .map_err(|_| QueryError::Config("filesystem query capacities"))?,
         );
         let local_url =
             url::Url::parse("file:///").map_err(|_| QueryError::Config("filesystem registry"))?;
@@ -491,6 +496,7 @@ fn storage_error(error: StorageError) -> QueryError {
         StorageError::Timeout => QueryError::Timeout,
         StorageError::Cancelled => QueryError::Cancelled,
         StorageError::Full => QueryError::Resource,
+        StorageError::Busy => QueryError::Busy,
         _ => QueryError::Unavailable,
     }
 }
@@ -803,6 +809,139 @@ mod tests {
         store
             .shutdown(OperationContext::new(Duration::from_secs(2)))
             .await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn physical_reader_retains_object_owner_after_shutdown_timeout_and_engine_drop()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use signal_storage::{
+            object_cache::MaterializationConfig,
+            object_io::{ObjectIo, ObjectIoError, ObjectIoLimits, SmallOwnerConfig},
+            object_publication::{ObjectPublisher, PublicationConfig},
+        };
+        let temp = tempfile::TempDir::new()?;
+        let objects = temp.path().join("remote");
+        std::fs::create_dir(&objects)?;
+        let owner = SmallOwnerConfig {
+            directory: temp.path().join("control"),
+            stream_id: uuid::Uuid::new_v4(),
+            backend_id: uuid::Uuid::new_v4(),
+        };
+        let remote = object_store::local::LocalFileSystem::new_with_prefix(&objects)?;
+        let io = ObjectIo::open_small_local(
+            &owner,
+            remote,
+            ObjectIoLimits::default(),
+            OperationContext::new(Duration::from_secs(2)),
+        )
+        .await?;
+        let publisher = Arc::new(ObjectPublisher::new(
+            io,
+            tokio::runtime::Handle::current(),
+            PublicationConfig {
+                materialization: Some(MaterializationConfig {
+                    directory: temp.path().join("derived"),
+                    max_files: 10,
+                    max_disk_bytes: 1024 * 1024,
+                }),
+                ..Default::default()
+            },
+        )?);
+        let input: signal_event::IngestEvent = serde_json::from_str(
+            r#"{"timestamp":"2026-10-06T12:00:00Z","source":{"type":"physical-owner"},"message":"retained"}"#,
+        )?;
+        publisher
+            .append(
+                &[signal_storage::StoredEvent {
+                    sequence: 1,
+                    event: input.normalize(Utc::now())?,
+                }],
+                OperationContext::new(Duration::from_secs(2)),
+            )
+            .await?;
+        let engine = Arc::new(QueryEngine::with_source(
+            QueryConfig {
+                max_concurrent: 1,
+                ..Default::default()
+            },
+            publisher.clone(),
+        )?);
+        let (started, release) = engine.io.pause_read();
+        let active = engine.clone();
+        let task = tokio::spawn(async move {
+            active
+                .execute(
+                    EventQuery::default(),
+                    OperationContext::new(Duration::from_secs(2)),
+                )
+                .await
+        });
+        tokio::time::timeout(Duration::from_secs(2), started).await??;
+        task.abort();
+        let _ = task.await;
+        assert_eq!(
+            engine
+                .shutdown(OperationContext::new(Duration::from_millis(20)))
+                .await,
+            Err(QueryError::Timeout)
+        );
+        let weak = Arc::downgrade(&publisher);
+        drop(engine);
+        drop(publisher);
+        let retained = weak.upgrade().is_some();
+        let remote = object_store::local::LocalFileSystem::new_with_prefix(&objects)?;
+        let second = ObjectIo::open_small_local(
+            &owner,
+            remote,
+            ObjectIoLimits::default(),
+            OperationContext::new(Duration::from_secs(2)),
+        )
+        .await;
+        let locked = matches!(second, Err(ObjectIoError::OwnerLocked));
+        if let Ok(second) = second {
+            second
+                .shutdown(OperationContext::new(Duration::from_secs(2)))
+                .await?;
+        }
+        release.send(())?;
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while weak.upgrade().is_some() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await?;
+        // Owner cleanup is on its original fixed worker, with no replacement.
+        let until = Instant::now() + Duration::from_secs(2);
+        loop {
+            let remote = object_store::local::LocalFileSystem::new_with_prefix(&objects)?;
+            match ObjectIo::open_small_local(
+                &owner,
+                remote,
+                ObjectIoLimits::default(),
+                OperationContext {
+                    deadline: until,
+                    cancellation: tokio_util::sync::CancellationToken::new(),
+                },
+            )
+            .await
+            {
+                Ok(io) => {
+                    io.shutdown(OperationContext::new(Duration::from_secs(2)))
+                        .await?;
+                    break;
+                }
+                Err(ObjectIoError::OwnerLocked) if Instant::now() < until => {
+                    tokio::time::sleep(Duration::from_millis(2)).await
+                }
+                Err(error) => return Err(error.into()),
+            }
+        }
+        assert!(
+            retained,
+            "source owner dropped while physical query reader survived"
+        );
+        assert!(locked, "successor admitted while physical reader survived");
         Ok(())
     }
 

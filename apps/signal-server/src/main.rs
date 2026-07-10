@@ -5,6 +5,7 @@ mod finding_api;
 mod logging;
 mod pipeline;
 mod query_api;
+mod storage;
 mod ui;
 use config::Settings;
 use logging::{LoggerGuard, LoggingConfig};
@@ -18,7 +19,7 @@ use signal_ingest::{
 use signal_protocol::EventSink;
 use signal_query::{QueryConfig, QueryEngine, QueryError};
 use signal_rules::{RuleContext, RuleLimits, RuleSet};
-use signal_storage::{OperationContext, ParquetStore, StorageConfig, StorageError};
+use signal_storage::{OperationContext, StorageConfig, StorageError};
 use std::{
     env,
     net::SocketAddr,
@@ -26,6 +27,7 @@ use std::{
     sync::{Arc, atomic::AtomicU64},
     time::Duration,
 };
+use storage::Backend;
 use thiserror::Error;
 use tokio::{
     net::TcpListener,
@@ -316,7 +318,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
     .await?;
     let sink = Arc::new(DurableBuffer::open(wal_config).await?);
     let wal = sink.snapshot();
-    let store = Arc::new(ParquetStore::open(storage_config, wal.stream_id).await?);
+    let store = Arc::new(Backend::open(&settings, storage_config, wal.stream_id).await?);
     let high_water = store.metrics().high_water;
     if high_water > wal.last_sequence || wal.checkpoint.saturating_sub(high_water) > wal.dropped {
         sink.shutdown().await?;
@@ -337,7 +339,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
         matches: AtomicU64::new(0),
         failures: AtomicU64::new(0),
     });
-    let query = Arc::new(QueryEngine::new(query_config, store.clone())?);
+    let query = Arc::new(QueryEngine::with_source(query_config, store.clone())?);
     let query_auth = config.clone();
     let coverage_stopping = CancellationToken::new();
     let coverage = match coverage_configuration {
@@ -463,7 +465,22 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
     query_cancel.cancel();
     coverage_stopping.cancel();
     service.stop_admission();
-    let stopped = stop_pipeline(&sink, &store, consumer, drain, cancel, deadline).await;
+    let query_stopped = query
+        .shutdown(OperationContext {
+            deadline,
+            cancellation: CancellationToken::new(),
+        })
+        .await;
+    let stopped = stop_pipeline(
+        &sink,
+        &store,
+        consumer,
+        drain,
+        cancel,
+        deadline,
+        query_stopped.is_ok(),
+    )
+    .await;
     let findings_flushed = if stopped.is_ok() {
         findings
             .flush(FindingContext {
@@ -476,12 +493,6 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
     };
     let findings_stopped = findings
         .shutdown(FindingContext {
-            deadline,
-            cancellation: CancellationToken::new(),
-        })
-        .await;
-    let query_stopped = query
-        .shutdown(OperationContext {
             deadline,
             cancellation: CancellationToken::new(),
         })
@@ -520,11 +531,12 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
 
 async fn stop_pipeline(
     sink: &DurableBuffer,
-    store: &ParquetStore,
+    store: &Backend,
     mut consumer: tokio::task::JoinHandle<Result<(), pipeline::PipelineError>>,
     drain: CancellationToken,
     cancel: CancellationToken,
     deadline: Instant,
+    release_source: bool,
 ) -> Result<(), AppError> {
     drain.cancel();
     // Retain the handle through the deadline. Cancelling never starts a second disk worker.
@@ -540,7 +552,7 @@ async fn stop_pipeline(
             Err(AppError::DrainTimeout)
         }
     };
-    let flushed = if consumed.is_ok() {
+    let flushed = if consumed.is_ok() && release_source {
         store
             .flush(OperationContext {
                 deadline,
@@ -550,12 +562,18 @@ async fn stop_pipeline(
     } else {
         Ok(())
     };
-    let storage_stopped = store
-        .shutdown(OperationContext {
-            deadline,
-            cancellation: CancellationToken::new(),
-        })
-        .await;
+    let storage_stopped = if release_source {
+        store
+            .shutdown(OperationContext {
+                deadline,
+                cancellation: CancellationToken::new(),
+            })
+            .await
+    } else {
+        // Physical query jobs retain the source through error/drop cleanup.
+        // Explicit source shutdown would release its owner before those jobs exit.
+        Err(StorageError::Timeout)
+    };
     let wal_stopped = timeout_at(deadline, sink.shutdown())
         .await
         .map_err(|_| AppError::DrainTimeout);
@@ -585,14 +603,16 @@ mod shutdown_tests {
         let observed = input.timestamp;
         let event = input.normalize(observed)?;
         sink.admit(event.clone()).await?;
-        let store = ParquetStore::open(
-            StorageConfig {
-                directory: temp.path().join("events"),
-                ..Default::default()
-            },
-            sink.snapshot().stream_id,
-        )
-        .await?;
+        let store = Backend::local(
+            signal_storage::ParquetStore::open(
+                StorageConfig {
+                    directory: temp.path().join("events"),
+                    ..Default::default()
+                },
+                sink.snapshot().stream_id,
+            )
+            .await?,
+        );
         let consumer = tokio::spawn(std::future::pending::<Result<(), pipeline::PipelineError>>());
         sink.close();
         let started = Instant::now();
@@ -603,6 +623,7 @@ mod shutdown_tests {
             CancellationToken::new(),
             CancellationToken::new(),
             started + Duration::from_millis(50),
+            true,
         )
         .await;
         assert!(matches!(result, Err(AppError::DrainTimeout)));
