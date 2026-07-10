@@ -495,7 +495,9 @@
       "evidence": [
         "target/goal-execution-20261007/S3-QUERY/",
         "target/goal-execution-20261007/S3-QUERY/manifest-validation-final/validation.json",
-        "target/goal-execution-20261007/S3-QUERY/manifest-review.json"
+        "target/goal-execution-20261007/S3-QUERY/manifest-review.json",
+        "target/goal-execution-20261007/S3-QUERY/codec-validation-accepted/validation.json",
+        "target/goal-execution-20261007/S3-QUERY/codec-review.json"
       ],
       "references": [
         "docs/12-phase3-storage.md",
@@ -514,7 +516,12 @@
         },
         {
           "id": "conditional-publication-and-committed-recovery",
-          "status": "pending"
+          "status": "in_progress",
+          "evidence": [
+            "target/goal-execution-20261007/S3-QUERY/codec-validation-accepted/validation.json",
+            "target/goal-execution-20261007/S3-QUERY/codec-review.json"
+          ],
+          "notes": "Parquet preparation/inspection CPU seam accepted: seven actor regressions, storage45, default599/all-feature633 strict gates and focused review. Conditional object publication/readback and committed recovery still unfinished; substep and parent remain in_progress. No disk/network or storage custody follows."
         },
         {
           "id": "object-query-cache-and-server-simulation",

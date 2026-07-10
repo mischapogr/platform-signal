@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-default workspace gate has 592; the all-feature gate has 626 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+default workspace gate has 599; the all-feature gate has 633 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 106 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,26 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## S3-QUERY bounded Parquet codec — 2026-10-08
+
+Seven new regressions qualify actual Parquet preparation/inspection on one bounded
+CPU worker. Borrowed typed input keeps caller spare capacity/deep invalid values
+outside the worker; finite wire copies enter only after admission. Results and
+physical work retain the sole permit through cancellation/timeouts/unpolled replies.
+Output capacity, rows/partitions/sequences, exact SHA/metadata, decoded page budget
+and raw JSON depth/nodes/bytes are checked before relevant decoding/allocation.
+Every rejected public call is counted once. Storage45, default599/all-feature633
+workspace tests, fmt, strict Clippy, ownership guard and independent focused review
+pass. The decoded-preflight and owned-input review findings were corrected; early
+compile/footer/Clippy logs remain beside accepted evidence:
+`target/goal-execution-20261007/S3-QUERY/codec-validation-accepted/validation.json`
+and `codec-review.json` there. No version changed; bytes uses an existing dependency.
+
+This CPU-only seam performs no disk/network publication or query commitment.
+The conditional-publication/recovery substep and S3-QUERY parent remain in_progress;
+continue immutable create/readback, committed discovery and query/cache/server
+simulation, then RETENTION. Real AWS/HA/custody/release gates remain open.
 
 ## S3-QUERY bounded manifest slice — 2026-10-08
 

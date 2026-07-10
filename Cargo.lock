@@ -3120,6 +3120,7 @@ name = "signal-storage"
 version = "0.1.0-dev.0"
 dependencies = [
  "arrow",
+ "bytes",
  "chrono",
  "crc32fast",
  "futures-core",
