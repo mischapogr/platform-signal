@@ -7,6 +7,15 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Selected query S3 adapter boundary — 2026-10-08
+
+Optional bounded S3 transport passes nine native-wire tests plus versionless
+inventory checks: storage73/default and82/S3, default627/all-feature670 strict
+workspace acceptance and focused review. Actual query/materialization/server and
+persistent process simulation remain incomplete within S3-QUERY. This grants no
+AWS/TLS runtime/custody/HA/native ARM64 or full release qualification. See
+[progress](07-progress.md) and `target/goal-execution-20261007/S3-QUERY/s3-adapter-validation-accepted/validation.json`.
+
 ## Small query publication boundary — 2026-10-08
 
 Storage72/default626/all-feature660 strict local gates and focused review now
