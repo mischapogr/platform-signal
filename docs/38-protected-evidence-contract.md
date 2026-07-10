@@ -319,3 +319,26 @@ states cannot use this path. Grant revocation reaches physical work while the
 root/permit remains held until I/O returns. Consistently restoring both owners
 cannot be detected by signatures over copied bits; independent owner reconciliation
 remains required. These mechanism gates do not qualify the parent protected route.
+
+## Native-required custody and conservative coverage
+
+The private native-required operation consumes a fresh independently current
+supervisor grant. Restore revalidates all retained native inputs before receipt
+copying. Exact bucket/key/version/configured owner/compressed SHA must match a
+retained signed log reference, and native retention must cover receipt retention.
+No latest-version fallback or alternate compressed encoding is accepted. A bounded
+opaque result retains the confirmed head and current known history gaps; grant
+revocation and original request/operation clocks remain effective after reply.
+Custody signing checks that proof before and after the generic SDK witness path.
+
+Its SourceCoverage v1 bridge is always Unknown overall: native byte integrity is
+verified, while configuration/scope/source-capture continuity and completeness
+remain unknown. Gap count is explicitly unknown/truncated. File-delivery gaps
+remain in the native observation/history, not fabricated into API-capture gap
+intervals. The immutable record retains original proof verification time, profile
+age capped at thirty seconds and native retention, with stable content identity
+and exact replay. A new current-head challenge does not retime that record.
+Profiles/observer identity must be resolved by trusted host configuration and
+pinned at actual intake; names or these constructors alone grant no authority.
+Authenticated provider capture/version/owner/key origin and role HTTP/protected
+source-ACK/M2 outage composition remain separate unfinished route requirements.

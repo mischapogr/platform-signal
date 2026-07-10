@@ -7,6 +7,18 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Native original/receipt and conservative coverage — 2026-10-08
+
+The native validation/continuity substep now passes locally: current-confirmed
+exact native-log/receipt/custody binding and immutable SDK coverage. Full private
+72-test strict acceptance, signed nonempty source fixtures/reproducibility,
+actual overlay/server crash recovery and focused review pass. Public Rust remains
+at accepted588/622. See the [current progress](07-progress.md) and
+`target/goal-execution-20261007/EVIDENCE/native-link-validation/validation.json`.
+Coverage remains Unknown overall and preserves original proof age. EVIDENCE is
+still in_progress for authenticated provider/role HTTP and protected source-ACK/M2
+outage composition. Simulation closes no real environment gate.
+
 ## Retained native proof history and independent current head — 2026-10-08
 
 The private EVIDENCE native mechanism now retains exact native bundles, immutable
