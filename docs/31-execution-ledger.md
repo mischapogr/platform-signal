@@ -18,7 +18,7 @@ actual observability outage with M2 ACK gating, lost archive reply/exact replay,
 actual server and source crashes, uncertainty/reconciled reopen and fresh ACK.
 Private77 strict tests plus exact parent1 compound process gate and review pass;
 public588/622 remains unchanged. All source completeness, AWS/TLS/HA/shared-runtime
-and release exceptions stay visible. S3-QUERY is in_progress with the selected optional bounded S3 adapter accepted (storage73/default and82/S3, default627/all-feature670 strict gates and review). Actual query/materialization/cache/server and persistent process simulation remain next, then dependency-ready items. Native wire fixtures do not close AWS/TLS/runtime/custody/HA gates.
+and release exceptions stay visible. S3-QUERY remains in_progress. The selected adapter and committed query/cache pass storage76/default and85/S3, default638/all-feature681 strict gates and focused review. Monolithic integration and persistent process simulation remain required, then dependency-ready items. Local query fixtures do not close AWS/TLS/runtime/custody/HA gates.
 
 
 ## Execution and evidence

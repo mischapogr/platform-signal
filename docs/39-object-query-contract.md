@@ -67,6 +67,20 @@ item must neither invent consensus nor close those gates.
 
 ## Query and cache boundary
 
+The next Small slice adds a generic committed-file source for the existing query
+engine. It selects bounded references and sums selected decoded bytes before any
+data-object GET. Each selected pinned object is authenticated and its actual
+Parquet schema/rows/partition inspected before materialization or DataFusion.
+The exclusive derived root has finite file/disk quotas, immutable SHA-named
+copies, and a stream/backend binding. Copies survive restart and can be rebuilt
+after an operator deletes the derived root while the server is stopped. There is
+no eviction while readers exist in this slice; quota exhaustion rejects the whole
+query. RETENTION owns later eviction/deletion and reader horizons. Every selected
+object is still read/authenticated remotely: this first materialization mechanism
+makes no cache-hit/network-cost optimization claim. Shutdown drains query physical
+I/O before releasing the derived root. A failed query never changes source ACK,
+protected originals or committed object references.
+
 Readers discover bounded committed manifests and authenticate exact referenced
 bytes, not every object matching a bucket prefix. Time ranges prune UTC hour
 partitions before object reads; query snapshots retain referenced versions.
@@ -215,3 +229,30 @@ AWS/IAM/KMS/Object Lock/TLS runtime, source custody or throughput. Query/cache,
 monolithic server and persistent process simulation continue; S3-QUERY stays open.
 Evidence: `target/goal-execution-20261007/S3-QUERY/s3-adapter-validation-accepted/validation.json`
 and `s3-adapter-review.json` in its task directory. Earlier failed logs are retained.
+
+## Accepted committed query/materialization slice — 2026-10-08
+
+Eight actual Parquet/DataFusion object-query regressions and three cache tests pass;
+storage76/default and85/S3, default638/all-feature681 strict workspace gates and
+focused source review pass. The generic `QueryFileSource` retains the existing
+local constructor and URL filters. Committed UTC selection checks file/decoded
+budgets before data GET, authenticates pinned bytes/schema, and materializes
+immutable derived copies in a bounded, exclusively owned Small cache. Nested
+attributes, account/source filters, pruning, cache deletion/rebuild, quota,
+denial/corruption, cancellation and retained physical ownership are exercised.
+No eviction or source-original deletion is authorized by the query cache.
+
+A reproduced high review finding showed shutdown returning while remote selection
+remained admitted. Shutdown now drains all admitted query lifetimes before local
+I/O; the original deadline and cancellation remain binding. Cancelled publisher
+commands retain admission until physical child workers actually drain. Red/green
+logs and source hashes are retained. Final evidence:
+`target/goal-execution-20261007/S3-QUERY/query-materialization-validation-resumed/validation.json`
+and `query-materialization-review.json`. Completed unchanged-source formatting,
+Clippy and build checks were reused after a session interruption; only unfinished
+workspace tests and the workspace check were resumed, with interrupted logs kept.
+
+S3-QUERY remains in_progress. Next: monolithic server backend/configuration,
+query-before-source shutdown and bounded append/query contention, then persistent
+source/server outage, SIGKILL and replay simulation. This slice provides no server
+process, AWS/TLS/runtime/custody/HA/native ARM64 or release qualification.

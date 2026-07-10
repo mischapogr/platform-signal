@@ -24,7 +24,7 @@ use signal_event::{Severity, lookup_attribute_path};
 use signal_protocol::{
     API_SCHEMA_VERSION, EventQuery, EventQueryResponse, QueryMetadata, QueryOrder,
 };
-use signal_storage::{OperationContext, ParquetStore, StorageError, codec};
+use signal_storage::{OperationContext, ParquetStore, QueryFileSource, StorageError, codec};
 use std::{
     io::Write,
     sync::{
@@ -166,7 +166,7 @@ impl Drop for ExecutionObservation<'_> {
 /// Every session uses one shared memory pool; spill is disabled and admission never waits.
 pub struct QueryEngine {
     config: QueryConfig,
-    store: Arc<ParquetStore>,
+    store: Arc<dyn QueryFileSource>,
     runtime: Arc<RuntimeEnv>,
     pool: Arc<dyn MemoryPool>,
     io: Arc<io::BoundedLocalStore>,
@@ -175,6 +175,12 @@ pub struct QueryEngine {
 }
 impl QueryEngine {
     pub fn new(config: QueryConfig, store: Arc<ParquetStore>) -> Result<Self, QueryError> {
+        Self::with_source(config, store)
+    }
+    pub fn with_source(
+        config: QueryConfig,
+        store: Arc<dyn QueryFileSource>,
+    ) -> Result<Self, QueryError> {
         config.validate()?;
         let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(config.memory_bytes));
         let caches = CacheManagerConfig::default()
@@ -310,11 +316,23 @@ impl QueryEngine {
     }
     pub async fn shutdown(&self, context: OperationContext) -> Result<(), QueryError> {
         self.permits.close();
+        check_context(&context)?;
         tokio::select! {
             biased;
             _ = context.cancellation.cancelled() => Err(QueryError::Cancelled),
-            finished = self.io.shutdown(context.deadline) => {
+            result = timeout_at(context.deadline, async {
+                // Selection may be remote while local read depth is still zero.
+                // Drain the entire admitted execute lifetime before local I/O.
+                while self.permits.available_permits() != self.config.max_concurrent {
+                    check_context(&context)?;
+                    tokio::time::sleep(Duration::from_millis(2)).await;
+                }
+                check_context(&context)?;
+                let finished = self.io.shutdown(context.deadline).await;
+                check_context(&context)?;
                 if finished { Ok(()) } else { Err(QueryError::Timeout) }
+            }) => {
+                result.map_err(|_| QueryError::Timeout)?
             }
         }
     }
@@ -326,9 +344,18 @@ impl QueryEngine {
     ) -> Result<EventQueryResponse, QueryError> {
         let selection = self
             .store
-            .select_files(query.from, query.to, self.config.max_files, context.clone())
+            .select_query_files(
+                query.from,
+                query.to,
+                self.config.max_files,
+                self.config.memory_bytes as u64,
+                context.clone(),
+            )
             .await
             .map_err(storage_error)?;
+        if selection.files.len() > self.config.max_files {
+            return Err(QueryError::Resource);
+        }
         let mut response = EventQueryResponse {
             schema_version: API_SCHEMA_VERSION,
             events: Vec::new(),

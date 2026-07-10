@@ -1,6 +1,7 @@
 //! Small single-owner query publication. Immutable objects and manifests are
 //! validated before the local head advances. This is not original custody,
 //! distributed fencing, source completeness, or backend durability qualification.
+use crate::object_cache::{Cache, MaterializationConfig};
 use crate::object_codec::{ObjectCodec, intake};
 use crate::object_io::{ObjectIo, ObjectIoError};
 use crate::object_manifest::{
@@ -8,8 +9,10 @@ use crate::object_manifest::{
     QueryObjectRef, data_key, manifest_key,
 };
 use crate::{
-    OperationContext, StorageConfig, StorageError, StoreReceipt, StoredEvent, check_context,
+    FileSelection, OperationContext, QueryFileSource, StorageConfig, StorageError, StoreFuture,
+    StoreReceipt, StoredEvent, check_context,
 };
+use chrono::{DateTime, Utc};
 use std::{
     collections::BTreeSet,
     sync::{
@@ -33,6 +36,7 @@ pub struct PublicationConfig {
     pub inventory_objects: usize,
     pub catalog_bytes: usize,
     pub normalizer_revision: String,
+    pub materialization: Option<MaterializationConfig>,
 }
 impl Default for PublicationConfig {
     fn default() -> Self {
@@ -42,12 +46,16 @@ impl Default for PublicationConfig {
             inventory_objects: 10_000,
             catalog_bytes: 16 * 1024 * 1024,
             normalizer_revision: "signal-event-v1".into(),
+            materialization: None,
         }
     }
 }
 impl PublicationConfig {
     fn validate(&self) -> Result<(), StorageError> {
         self.storage.validate()?;
+        if let Some(config) = &self.materialization {
+            config.validate()?;
+        }
         self.manifests
             .validate()
             .map_err(|_| StorageError::Config("publication manifest bounds"))?;
@@ -132,10 +140,12 @@ impl Drop for Cancel {
 enum Work {
     Append(Vec<u8>),
     Snapshot,
+    Select(Option<DateTime<Utc>>, Option<DateTime<Utc>>, usize, u64),
 }
 enum Reply {
     Receipt(StoreReceipt),
     Snapshot(CommittedSnapshot),
+    Selection(FileSelection),
 }
 struct Completion {
     result: Result<Reply, StorageError>,
@@ -163,7 +173,7 @@ impl ObjectPublisher {
         config: PublicationConfig,
     ) -> Result<Self, StorageError> {
         config.validate()?;
-        let (stream, _) = io
+        let (stream, backend) = io
             .small_owner_binding()
             .ok_or(StorageError::Config("Small publication owner required"))?;
         let codec = ObjectCodec::new(config.storage.clone(), config.manifests)?;
@@ -183,11 +193,13 @@ impl ObjectPublisher {
             .name("signal-object-publish".into())
             .spawn(move || {
                 let _exit = WorkerExit(state.clone());
-                let controller = Controller {
+                let mut controller = Controller {
                     io,
                     codec,
                     config: policy,
                     stream,
+                    backend,
+                    cache: None,
                 };
                 while let Some(command) = receiver.blocking_recv() {
                     state.processed.fetch_add(1, Ordering::Relaxed);
@@ -213,6 +225,31 @@ impl ObjectPublisher {
                                     _slot: command.slot.clone(),
                                 }))
                             }
+                            Work::Select(from, to, max_files, max_decoded_bytes) => {
+                                let (selection, high_water) = controller
+                                    .select(
+                                        from,
+                                        to,
+                                        max_files,
+                                        max_decoded_bytes,
+                                        &command.context,
+                                    )
+                                    .await?;
+                                state.high_water.store(high_water, Ordering::Release);
+                                Ok(Reply::Selection(selection))
+                            }
+                        }
+                    });
+                    // A cancelled child future can finish before its physical
+                    // worker drops a retained reply or exits a kernel call.
+                    // Keep this command's parent admission until every child
+                    // lease has actually drained; caller cancellation/deadline
+                    // still returns independently through the front receiver.
+                    runtime.block_on(async {
+                        while controller.io.metrics().depth != 0
+                            || controller.codec.metrics().depth != 0
+                        {
+                            tokio::time::sleep(std::time::Duration::from_millis(2)).await;
                         }
                     });
                     state.running.store(0, Ordering::Release);
@@ -373,6 +410,48 @@ impl ObjectPublisher {
         }
     }
 }
+impl QueryFileSource for ObjectPublisher {
+    fn select_query_files(
+        &self,
+        from: Option<DateTime<Utc>>,
+        to: Option<DateTime<Utc>>,
+        max_files: usize,
+        max_decoded_bytes: u64,
+        mut context: OperationContext,
+    ) -> StoreFuture<'_, FileSelection> {
+        Box::pin(async move {
+            let mut reject = Reject(self.shared.clone(), true);
+            let result = async {
+                let slot = self.admit(&mut context)?;
+                if max_files == 0
+                    || max_files > 100_000
+                    || max_decoded_bytes == 0
+                    || max_decoded_bytes > 4 * 1024 * 1024 * 1024
+                    || from.zip(to).is_some_and(|(from, to)| from >= to)
+                {
+                    return Err(StorageError::InvalidBatch);
+                }
+                if self.config.materialization.is_none() {
+                    return Err(StorageError::Config("query materialization required"));
+                }
+                match self
+                    .request(
+                        Work::Select(from, to, max_files, max_decoded_bytes),
+                        context,
+                        slot,
+                    )
+                    .await?
+                {
+                    Reply::Selection(selection) => Ok(selection),
+                    _ => Err(StorageError::Closed),
+                }
+            }
+            .await;
+            reject.1 = result.is_err();
+            result
+        })
+    }
+}
 impl Drop for ObjectPublisher {
     fn drop(&mut self) {
         self.close();
@@ -408,8 +487,92 @@ struct Controller {
     codec: ObjectCodec,
     config: PublicationConfig,
     stream: Uuid,
+    backend: Uuid,
+    cache: Option<Cache>,
 }
 impl Controller {
+    async fn select(
+        &mut self,
+        from: Option<DateTime<Utc>>,
+        to: Option<DateTime<Utc>>,
+        max_files: usize,
+        max_decoded_bytes: u64,
+        context: &OperationContext,
+    ) -> Result<(FileSelection, u64), StorageError> {
+        let catalog = self.recover(None, context).await?;
+        let high_water = catalog.high_water();
+        let mut selected = Vec::new();
+        let mut partitions = BTreeSet::new();
+        let mut decoded = 0u64;
+        for committed in &catalog.manifests {
+            for file in &committed.manifest.files {
+                check_context(Some(context))?;
+                if !file
+                    .intersects(from, to)
+                    .map_err(|_| StorageError::Corrupt("selected partition"))?
+                {
+                    continue;
+                }
+                if selected.len() >= max_files {
+                    return Err(StorageError::Full);
+                }
+                decoded = decoded
+                    .checked_add(file.decoded_bytes)
+                    .ok_or(StorageError::Full)?;
+                if decoded > max_decoded_bytes {
+                    return Err(StorageError::Full);
+                }
+                selected.push((
+                    file,
+                    committed.reference.first_sequence,
+                    committed.reference.last_sequence,
+                ));
+                partitions.insert((file.date.clone(), file.hour));
+            }
+        }
+        if selected.is_empty() {
+            return Ok((FileSelection::default(), high_water));
+        }
+        if self.cache.is_none() {
+            let config = self
+                .config
+                .materialization
+                .as_ref()
+                .ok_or(StorageError::Config("query materialization required"))?;
+            self.cache = Some(Cache::open(config, self.stream, self.backend, context)?);
+        }
+        let mut files = Vec::with_capacity(selected.len());
+        for (file, first, last) in selected {
+            check_context(Some(context))?;
+            let read = self
+                .io
+                .read_exact(&file.object, context.clone())
+                .await
+                .map_err(io_error)?;
+            let inspected = self
+                .codec
+                .inspect(file, read.bytes(), first, last, context.clone())
+                .await?;
+            // Actual byte/schema/row checks precede local publication. Materialized
+            // copies are immutable until query shutdown, with no eviction here.
+            files.push(
+                self.cache
+                    .as_ref()
+                    .ok_or(StorageError::Closed)?
+                    .materialize(file, read.bytes(), context)?,
+            );
+            drop(inspected);
+            drop(read);
+        }
+        check_context(Some(context))?;
+        Ok((
+            FileSelection {
+                files,
+                partitions: partitions.len(),
+            },
+            high_water,
+        ))
+    }
     async fn manifest(
         &self,
         reference: &PreviousManifest,
