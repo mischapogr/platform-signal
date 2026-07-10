@@ -18,7 +18,7 @@ actual observability outage with M2 ACK gating, lost archive reply/exact replay,
 actual server and source crashes, uncertainty/reconciled reopen and fresh ACK.
 Private77 strict tests plus exact parent1 compound process gate and review pass;
 public588/622 remains unchanged. All source completeness, AWS/TLS/HA/shared-runtime
-and release exceptions stay visible. S3-QUERY is passed_simulated: default641/all-feature686 strict gates, source review, six helper regressions and eleven persistent S3/monolith scenarios pass. Four exact events/findings survive data-orphan and manifest-before-reply process crashes. Continue RETENTION; changed CI/images and AWS/TLS/native/HA/custody gates remain unqualified.
+and release exceptions stay visible. S3-QUERY is passed_simulated: default641/all-feature686 strict gates, source review, six helper regressions and eleven persistent S3/monolith scenarios pass. Four exact events/findings survive data-orphan and manifest-before-reply process crashes. RETENTION is in_progress: advisory policies/reachability pass strict default644/all-feature689 and review; deletion/cache/measurement acceptance remains unfinished. Continue RETENTION; changed CI/images and AWS/TLS/native/HA/custody gates remain unqualified.
 
 
 ## Execution and evidence
@@ -71,7 +71,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | DISPOSITIONS | passed_local | OUTBOX | Disposition/outcome backend seam |
 | EVIDENCE | passed_simulated | AWS-DELIVERY | Independent protected original route and validation simulation |
 | S3-QUERY | passed_simulated | CORE | Object-backed Parquet and committed query manifests |
-| RETENTION | pending | S3-QUERY, EVIDENCE | Selective query acceleration, retention and cost controls |
+| RETENTION | in_progress | S3-QUERY, EVIDENCE | Selective query acceleration, retention and cost controls |
 | SECURITY-ACCESS | pending | CORE | OIDC/trusted identity, scoped credentials and RBAC |
 | SECURITY-TRANSPORT | pending | SECURITY-ACCESS | mTLS and credential/certificate rotation |
 | SECURITY-AUDIT | pending | SECURITY-ACCESS, EVIDENCE | Restricted independent audit and secrets/encryption integration seams |

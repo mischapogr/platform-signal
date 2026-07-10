@@ -7,6 +7,16 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Advisory retention boundary — 2026-10-08
+
+RETENTION remains in_progress. Strict default644/all-feature689 and focused
+review qualify explicit bounded policies and a conservative exact-reference
+report only. No retention report authorizes deletion or proves a supplied WAL
+checkpoint current. Query retirement/cache pruning/rebuild and measurements stay
+unfinished. Evidence: [progress](07-progress.md),
+`target/goal-execution-20261007/RETENTION/policy-validation/validation.json`
+and `policy-review.json`. External and full release gates remain open.
+
 ## Monolithic S3 query simulation boundary — 2026-10-08
 
 S3-QUERY is passed_simulated with default641/all-feature686 strict gates, focused

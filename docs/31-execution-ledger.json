@@ -555,7 +555,7 @@
     {
       "id": "RETENTION",
       "title": "Selective query acceleration, retention and cost controls",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "S3-QUERY",
         "EVIDENCE"
@@ -565,12 +565,16 @@
         "Caches rebuildable; measure before adding optional field index; protected originals not deleted by query policy."
       ],
       "evidence": [
-        "target/goal-execution-20261007/RETENTION/"
+        "target/goal-execution-20261007/RETENTION/",
+        "target/goal-execution-20261007/RETENTION/policy-validation/validation.json",
+        "target/goal-execution-20261007/RETENTION/policy-review.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
-        "docs/04-implementation-plan.md"
-      ]
+        "docs/04-implementation-plan.md",
+        "docs/41-retention-contract.md"
+      ],
+      "notes": "Bounded explicit policy/advisory reachability accepted: actual Parquet snapshot, three regressions, strict default644/all-feature689 and focused review. No deletion/checkpoint/custody authority; synced retirement, stopped cache pruning/rebuild, simulation and measurements remain required."
     },
     {
       "id": "SECURITY-ACCESS",
