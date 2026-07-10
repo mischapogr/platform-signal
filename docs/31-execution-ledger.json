@@ -459,7 +459,7 @@
         {
           "id": "independent-route-custody-ack-and-outage-simulation",
           "status": "in_progress",
-          "notes": "Whole-receipt signed independent custody, fresh explicit stronger ACK and owner-ticket fence accepted locally with fourteen custody/two optional source-fence regressions, default585/all-feature619/private37 gates and review. Independently enforced archive/version/retention/access and native checkpoint/coverage/outage/crash route integration remain unfinished. Parent EVIDENCE stays open. Separate private bounded physical archive worker/immutable receipt readback/signing now accepted locally: sixteen private/three generic regressions, default588/all-feature622/private53 strict gates and independent source review. Exact schema and consumed-native-row reset guards enforced. Native history/current reconciliation, authenticated role HTTP and protected outage/archive-crash/redelivery composition remain unfinished. Native history/current-authority mechanism now accepted with private70 strict gates and four actual SIGKILL cases. Native-log/receipt linkage, role HTTP and source-ACK/M2 protected outage composition remain unfinished. Current-confirmed native-log/receipt binding and conservative SDK coverage accepted with private72 strict gates/review; only authenticated provider/role HTTP and protected source-ACK/M2 outage/replay composition remain.",
+          "notes": "Whole-receipt signed independent custody, fresh explicit stronger ACK and owner-ticket fence accepted locally with fourteen custody/two optional source-fence regressions, default585/all-feature619/private37 gates and review. Independently enforced archive/version/retention/access and native checkpoint/coverage/outage/crash route integration remain unfinished. Parent EVIDENCE stays open. Separate private bounded physical archive worker/immutable receipt readback/signing now accepted locally: sixteen private/three generic regressions, default588/all-feature622/private53 strict gates and independent source review. Exact schema and consumed-native-row reset guards enforced. Native history/current reconciliation, authenticated role HTTP and protected outage/archive-crash/redelivery composition remain unfinished. Native history/current-authority mechanism now accepted with private70 strict gates and four actual SIGKILL cases. Native-log/receipt linkage, role HTTP and source-ACK/M2 protected outage composition remain unfinished. Current-confirmed native-log/receipt binding and conservative SDK coverage accepted with private72 strict gates/review; only authenticated provider/role HTTP and protected source-ACK/M2 outage/replay composition remain. Authenticated provider/producer/verifier/owner loopback routes and verifier-owned fixed capture fetch now pass private77 strict acceptance/review, actual stalled-reader memory and connection-cap tests, immutable native/current-owner custody and source/owner outages. Protected observability outage/source-ACK/M2/crash composition remains unfinished.",
           "evidence": [
             "target/goal-execution-20261007/EVIDENCE/custody-validation/validation.json",
             "target/goal-execution-20261007/EVIDENCE/custody-private-validation/validation.json",
@@ -468,7 +468,9 @@
             "target/goal-execution-20261007/EVIDENCE/archive-private-validation/validation.json",
             "target/goal-execution-20261007/EVIDENCE/archive-review.json",
             "target/goal-execution-20261007/EVIDENCE/native-supervisor-validation/validation.json",
-            "target/goal-execution-20261007/EVIDENCE/native-supervisor-review.json"
+            "target/goal-execution-20261007/EVIDENCE/native-supervisor-review.json",
+            "target/goal-execution-20261007/EVIDENCE/protected-http-validation/validation.json",
+            "target/goal-execution-20261007/EVIDENCE/protected-http-review.json"
           ]
         }
       ]
