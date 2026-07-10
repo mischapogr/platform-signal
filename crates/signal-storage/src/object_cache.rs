@@ -1,4 +1,5 @@
-//! Exclusively owned derived copies. No source evidence/retention or eviction.
+//! Exclusively owned derived copies and stopped-cache maintenance. No source
+//! evidence, remote-object deletion or automatic eviction.
 //! All filesystem calls execute on the ordinary publication controller worker.
 use crate::object_manifest::QueryFile;
 use crate::object_owner::{SmallOwner, SmallOwnerConfig};
@@ -7,6 +8,7 @@ use std::{
     fs::{self, File},
     io::{Read, Write},
     path::{Component, Path, PathBuf},
+    sync::Arc,
 };
 use uuid::Uuid;
 #[cfg(test)]
@@ -39,7 +41,7 @@ impl MaterializationConfig {
 }
 pub(crate) struct Cache {
     config: MaterializationConfig,
-    _owner: SmallOwner,
+    owner: Arc<SmallOwner>,
     objects: PathBuf,
 }
 impl Cache {
@@ -93,9 +95,12 @@ impl Cache {
         let objects = objects.canonicalize().map_err(StorageError::Io)?;
         Ok(Self {
             config: config.clone(),
-            _owner: owner,
+            owner: Arc::new(owner),
             objects,
         })
+    }
+    pub(crate) fn owner(&self) -> Arc<SmallOwner> {
+        self.owner.clone()
     }
     pub(crate) fn materialize(
         &self,
@@ -158,6 +163,130 @@ impl Cache {
         })
     }
 }
+
+#[derive(Clone, Copy, Debug, serde::Serialize)]
+pub struct MaterializationPrune {
+    pub schema_version: u16,
+    pub removed_files: usize,
+    pub removed_bytes: u64,
+}
+
+/// Explicit stopped-cache maintenance, called on an ordinary host worker.
+/// Requires an existing exact stream/backend binding and exclusive cache lock.
+/// This synchronous call retains the lock through physical filesystem work,
+/// even if its operation context is cancelled. It does not delete remote query
+/// objects, originals, or control state. Errors may leave a partially pruned
+/// derived cache; retry after revalidating ownership, then rebuild from source.
+pub fn prune_stopped_materialization(
+    config: &MaterializationConfig,
+    stream: Uuid,
+    backend: Uuid,
+    context: &OperationContext,
+) -> Result<MaterializationPrune, StorageError> {
+    prune(config, stream, backend, context, |_| Ok(()))
+}
+
+fn prune(
+    config: &MaterializationConfig,
+    stream: Uuid,
+    backend: Uuid,
+    context: &OperationContext,
+    after_synced_unlink: impl Fn(usize) -> Result<(), StorageError>,
+) -> Result<MaterializationPrune, StorageError> {
+    check_context(Some(context))?;
+    config.validate()?;
+    // Never initialize a new or unknown cleanup root. Cache::open checks the
+    // actual binding contents before returning ownership.
+    let binding = fs::symlink_metadata(config.directory.join("control/binding.json"))
+        .map_err(StorageError::Io)?;
+    if !regular(&binding) || binding.len() > 256 {
+        return Err(StorageError::Corrupt("cache maintenance binding"));
+    }
+    validate_stopped_controls(&config.directory.join("control"), context)?;
+    let cache = Cache::open(config, stream, backend, context)?;
+    // Validate every entry before the first deletion, then capture finite names
+    // while exclusively owned. Only the exact derived objects directory is used.
+    let (count, bytes) = inventory(&cache.objects, config, context)?;
+    let mut names = Vec::with_capacity(count);
+    for entry in fs::read_dir(&cache.objects).map_err(StorageError::Io)? {
+        check_context(Some(context))?;
+        if names.len() >= count {
+            return Err(StorageError::Corrupt("cache maintenance inventory changed"));
+        }
+        let name = entry.map_err(StorageError::Io)?.file_name();
+        let name = name.to_str().ok_or(StorageError::Corrupt("cache name"))?;
+        validate_name(name)?;
+        names.push(name.to_owned());
+    }
+    if names.len() != count {
+        return Err(StorageError::Corrupt("cache maintenance inventory changed"));
+    }
+    names.sort_unstable();
+    for (index, name) in names.into_iter().enumerate() {
+        check_context(Some(context))?;
+        let path = cache.objects.join(name);
+        let metadata = fs::symlink_metadata(&path).map_err(StorageError::Io)?;
+        if !regular(&metadata) {
+            return Err(StorageError::Corrupt("cache maintenance file type"));
+        }
+        fs::remove_file(&path).map_err(StorageError::Io)?;
+        crate::fs::sync_dir(&cache.objects)?;
+        after_synced_unlink(index + 1)?;
+    }
+    // Also sync a recovered empty directory before claiming completion.
+    crate::fs::sync_dir(&cache.objects)?;
+    check_context(Some(context))?;
+    Ok(MaterializationPrune {
+        schema_version: 1,
+        removed_files: count,
+        removed_bytes: bytes,
+    })
+}
+
+fn validate_stopped_controls(root: &Path, context: &OperationContext) -> Result<(), StorageError> {
+    let mut present = 0u8;
+    let mut count = 0usize;
+    for entry in fs::read_dir(root).map_err(StorageError::Io)? {
+        check_context(Some(context))?;
+        count += 1;
+        if count > 2 {
+            return Err(StorageError::Corrupt("cache maintenance control inventory"));
+        }
+        let entry = entry.map_err(StorageError::Io)?;
+        let metadata = fs::symlink_metadata(entry.path()).map_err(StorageError::Io)?;
+        if !regular(&metadata) {
+            return Err(StorageError::Corrupt("cache maintenance control type"));
+        }
+        match entry.file_name().to_str() {
+            Some(".lock") if metadata.len() == 0 => present |= 1,
+            Some("binding.json") if metadata.len() <= 256 => present |= 2,
+            // General owner opening can recover temp/head/genesis controls.
+            // Maintenance has no permission to change any such record.
+            _ => return Err(StorageError::Corrupt("cache maintenance control entry")),
+        }
+    }
+    if present != 3 {
+        return Err(StorageError::Corrupt(
+            "cache maintenance incomplete controls",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_name(name: &str) -> Result<(), StorageError> {
+    let stem = name
+        .strip_suffix(".parquet")
+        .or_else(|| name.strip_suffix(".tmp"))
+        .ok_or(StorageError::Corrupt("cache entry"))?;
+    if stem.len() != 64
+        || !stem
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(StorageError::Corrupt("cache name"));
+    }
+    Ok(())
+}
 fn regular(meta: &fs::Metadata) -> bool {
     #[cfg(unix)]
     {
@@ -185,17 +314,7 @@ fn inventory(
         let entry = entry.map_err(StorageError::Io)?;
         let name = entry.file_name();
         let name = name.to_str().ok_or(StorageError::Corrupt("cache name"))?;
-        let stem = name
-            .strip_suffix(".parquet")
-            .or_else(|| name.strip_suffix(".tmp"))
-            .ok_or(StorageError::Corrupt("cache entry"))?;
-        if stem.len() != 64
-            || !stem
-                .bytes()
-                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-        {
-            return Err(StorageError::Corrupt("cache name"));
-        }
+        validate_name(name)?;
         let meta = fs::symlink_metadata(entry.path()).map_err(StorageError::Io)?;
         if !regular(&meta) {
             return Err(StorageError::Corrupt("cache file type"));

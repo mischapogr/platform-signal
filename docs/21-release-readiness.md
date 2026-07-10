@@ -7,6 +7,17 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Stopped derived-cache boundary — 2026-10-08
+
+RETENTION stays in_progress. Strict default651/all-feature696, focused127,
+source review, actual cache SIGKILL/reopen and retained physical-reader ownership
+qualify stopped derived-cache maintenance. Eleven current-binary persistent
+S3/monolith scenarios also pass. Temporary controls, protected originals and
+remote query objects are preserved; this closes no query-retirement, cloud/native,
+remote CI/HA/custody or full release gate. See [progress](07-progress.md),
+`target/goal-execution-20261007/RETENTION/cache-validation/validation.json`,
+`cache-review.json` and `cache-server-simulation-final/report.json`.
+
 ## Advisory retention boundary — 2026-10-08
 
 RETENTION remains in_progress. Strict default644/all-feature689 and focused
