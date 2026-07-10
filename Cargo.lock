@@ -3249,6 +3249,7 @@ dependencies = [
  "axum",
  "chrono",
  "flate2",
+ "object_store",
  "reqwest",
  "serde",
  "serde-saphyr",

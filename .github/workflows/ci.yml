@@ -44,6 +44,10 @@ jobs:
         run: python3 scripts/run-ci-check.py --name build --timeout 1200 -- cargo build --workspace --all-features --locked
       - name: Tests
         run: python3 scripts/run-ci-check.py --name tests --timeout 1200 -- cargo test --workspace --all-features --locked
+      - name: Object simulator failure cleanup
+        run: python3 scripts/run-ci-check.py --name object-query-helpers --timeout 60 -- python3 scripts/test-object-query.py
+      - name: Persistent object query and crash replay simulation
+        run: python3 scripts/run-ci-check.py --name object-query --timeout 120 -- python3 scripts/check-object-query.py --output target/ci/object-query-simulation
       - name: Workspace boundaries
         run: python3 scripts/run-ci-check.py --name workspace --timeout 60 -- python3 scripts/check-workspace.py
       - name: Healthcheck formatting

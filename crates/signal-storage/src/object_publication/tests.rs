@@ -115,7 +115,7 @@ async fn actual_publication_replay_split_restart_and_snapshot_lease() -> Result 
     assert_eq!(writer.metrics().depth, 1);
     assert!(matches!(
         writer.append(&rows, context()).await,
-        Err(StorageError::Full)
+        Err(StorageError::Busy)
     ));
     drop(snapshot);
     writer.shutdown(context()).await?;
@@ -441,7 +441,7 @@ async fn cancelled_manifest_response_keeps_lease_until_exit_and_recovers_from_ge
     .await?;
     assert!(matches!(
         writer.append(&original, context()).await,
-        Err(StorageError::Full)
+        Err(StorageError::Busy)
     ));
     assert!(control.path().join("genesis.json").exists());
     assert!(!control.path().join("head.json").exists());

@@ -7,7 +7,8 @@ COPY crates ./crates
 COPY apps ./apps
 COPY tests ./tests
 COPY benchmarks ./benchmarks
-RUN cargo build --locked --release -p signal-server -p signal-agent
+ARG SIGNAL_SERVER_FEATURES=s3-query
+RUN cargo build --locked --release -p signal-server -p signal-agent --features "$SIGNAL_SERVER_FEATURES"
 COPY deploy/docker/healthcheck.rs /tmp/signal-healthcheck.rs
 RUN rustc --edition=2024 -D warnings -C opt-level=s -C strip=symbols \
     /tmp/signal-healthcheck.rs -o /usr/local/bin/signal-healthcheck \

@@ -207,6 +207,8 @@ pub enum StorageError {
     Io(#[source] std::io::Error),
     #[error("query object operation failed")]
     ObjectIo(#[source] object_io::ObjectIoError),
+    #[error("storage operation admission is busy")]
+    Busy,
     #[error("storage capacity is full")]
     Full,
     #[error("storage operation deadline exceeded; an active commit may have completed")]
