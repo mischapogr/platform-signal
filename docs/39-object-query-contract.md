@@ -77,3 +77,17 @@ review. Validation does not grant commitment or prove actual predecessor/Parquet
 rows/sequence/partitions/decoded sizes; those remain publication/recovery inputs
 and must be checked before a query snapshot is exposed. The parent S3-QUERY item
 remains in_progress. Context7 quota and real-environment exceptions remain visible.
+
+## Bounded Parquet preparation and inspection
+
+The accepted codec seam uses one ordinary CPU thread and one admission lease;
+borrowed typed intake validates finite nesting/nodes/scalars before canonical wire
+copies. Prepared and inspected result ownership retains that lease. Physical work
+keeps it after caller timeout/drop. Before inspecting untrusted Parquet, bounded
+footer/page metadata, actual decoded byte budget and raw canonical JSON byte/node/
+depth preflight prevent unchecked page/Value allocations. Exact schema, row count,
+partition/sequence range and SHA references are checked against actual bytes.
+This produces sealed prepared/inspected data only. It performs no disk/network
+operations and cannot establish a manifest commit, source ACK or custody.
+Seven regressions, storage45/default599/all-feature633 strict acceptance and focused
+review pass; publication/recovery/query/server remain pending in the parent task.
