@@ -33,6 +33,11 @@ campaign and reviewed-revision CI acceptance remain open. CI/candidate tooling
 preparation belongs to the existing release/external items, not new product scope;
 see [OSS CI and cloud qualification](40-oss-ci-and-cloud-qualification.md).
 
+RETENTION policy/report acceptance is default644/all-feature689 with focused
+review; the parent remains in_progress. Continue bounded stopped cache pruning,
+synced query retirement/reclamation, simulation and measurements before moving
+to the next finite ledger item. No external or release qualification follows.
+
 S3-QUERY is passed_simulated: default641/all-feature686 strict acceptance,
 focused source review, six helper regressions and eleven persistent S3/real-server
 scenarios pass. Four canonical events/findings survive data-orphan and uncertain
