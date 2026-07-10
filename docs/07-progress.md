@@ -1,5 +1,29 @@
 # Implementation progress
 
+## RETENTION policy and advisory reachability — 2026-10-08
+
+RETENTION is in_progress. Explicit version1 raw/query/index policies validate
+replay, evidence-reference and reader horizons without enabling default retention.
+An authenticated committed snapshot yields a bounded read-only exact-reference
+report. Expired query partitions require a separate retirement commit; incomplete
+WAL checkpoints and unknown-age orphans remain blocked. No age report grants
+object deletion, custody, owner fencing or checkpoint authority.
+
+Three new regressions use actual publication/Parquet and cover conflicting
+horizons, namespace/pin/duplicate bounds, original cancellation, clock overflow,
+empty-report budgets and output limits. Review corrected header/pre-insert budget
+checks and dedup lifetime; the actual regression passes. Strict default644/
+all-feature689 (storage79/default,88/S3; six parent helpers ignored standalone)
+pass formatting, both Clippy gates, all-feature build, workspace tests and the
+workspace guard. Evidence:
+`target/goal-execution-20261007/RETENTION/policy-validation/validation.json`
+and `policy-review.json`; earlier compilation/review correction logs are retained.
+
+The parent remains unfinished for synced query retirement/reclamation, stopped
+cache pruning and rebuild, simulation and query measurements. Protected originals
+are unaffected. No new image, AWS/TLS/native/remoteCI/HA or release gate closes.
+Next: bounded exclusively owned cache pruning within RETENTION.
+
 ## S3-QUERY monolith and persistent simulation — 2026-10-08
 
 S3-QUERY is passed_simulated. Optional `s3-query` backend selection stays inside
@@ -158,7 +182,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-default workspace gate has 641; the all-feature gate has 686 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+default workspace gate has 644; the all-feature gate has 689 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 106 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
