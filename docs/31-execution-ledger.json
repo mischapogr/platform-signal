@@ -484,7 +484,7 @@
     {
       "id": "S3-QUERY",
       "title": "Object-backed Parquet and committed query manifests",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "CORE"
       ],
@@ -493,11 +493,33 @@
         "Source originals distinct from query copies; PUT alone is not committed custody."
       ],
       "evidence": [
-        "target/goal-execution-20261007/S3-QUERY/"
+        "target/goal-execution-20261007/S3-QUERY/",
+        "target/goal-execution-20261007/S3-QUERY/manifest-validation-final/validation.json",
+        "target/goal-execution-20261007/S3-QUERY/manifest-review.json"
       ],
       "references": [
         "docs/12-phase3-storage.md",
-        "docs/27-product-architecture.md"
+        "docs/27-product-architecture.md",
+        "docs/39-object-query-contract.md"
+      ],
+      "substeps": [
+        {
+          "id": "bounded-object-manifest-contract",
+          "status": "passed_local",
+          "evidence": [
+            "target/goal-execution-20261007/S3-QUERY/manifest-validation-final/validation.json",
+            "target/goal-execution-20261007/S3-QUERY/manifest-review.json"
+          ],
+          "notes": "Shape/content binding and exclusive UTC partition pruning only: four regressions, default592/all-feature626 strict gates and focused review. Conditional publication, committed recovery and actual object query/cache/server remain pending; no object custody or AWS/HA claim."
+        },
+        {
+          "id": "conditional-publication-and-committed-recovery",
+          "status": "pending"
+        },
+        {
+          "id": "object-query-cache-and-server-simulation",
+          "status": "pending"
+        }
       ]
     },
     {
