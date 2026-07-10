@@ -498,7 +498,9 @@
         "target/goal-execution-20261007/S3-QUERY/manifest-review.json",
         "target/goal-execution-20261007/S3-QUERY/codec-validation-accepted/validation.json",
         "target/goal-execution-20261007/S3-QUERY/codec-review.json",
-        "target/goal-execution-20261007/S3-QUERY/io-validation-late-final/validation.json"
+        "target/goal-execution-20261007/S3-QUERY/io-validation-late-final/validation.json",
+        "target/goal-execution-20261007/S3-QUERY/publication-validation-accepted/validation.json",
+        "target/goal-execution-20261007/S3-QUERY/publication-review.json"
       ],
       "references": [
         "docs/12-phase3-storage.md",
@@ -517,19 +519,19 @@
         },
         {
           "id": "conditional-publication-and-committed-recovery",
-          "status": "in_progress",
+          "status": "passed_local",
           "evidence": [
-            "target/goal-execution-20261007/S3-QUERY/codec-validation-accepted/validation.json",
-            "target/goal-execution-20261007/S3-QUERY/codec-review.json"
+            "target/goal-execution-20261007/S3-QUERY/publication-validation-accepted/validation.json",
+            "target/goal-execution-20261007/S3-QUERY/publication-review.json"
           ],
-          "notes": "Parquet preparation/inspection CPU seam accepted: seven actor regressions, storage45, default599/all-feature633 strict gates and focused review. Conditional object publication/readback and committed recovery still unfinished; substep and parent remain in_progress. No disk/network or storage custody follows."
+          "notes": "Small generic publication/head/genesis, exact immutable readback, bounded uncertain-tail recovery and actual-content replay accepted: thirteen publication/four head-genesis regressions, storage72/default626/all-feature660 strict gates and review. Trusted immutable pinned backend identities required. In-process fixtures/control reopen only; selected S3 adapter, query/cache/server and process simulation remain parent requirements. No custody, distributed fencing or AWS claim."
         },
         {
           "id": "object-query-cache-and-server-simulation",
           "status": "pending"
         }
       ],
-      "notes": "Manifest, bounded codec and generic object-I/O/Small owner seams pass local strict acceptance. Actual conditional publication/recovery and selected S3 adapter/query/cache/server simulation remain unfinished. Parent stays in_progress."
+      "notes": "Manifest, bounded codec/I/O/Small owner and generic conditional publication/committed recovery pass local strict acceptance. Selected bounded S3 backend adapter plus actual query/cache/server/process simulation remain unfinished. Parent stays in_progress."
     },
     {
       "id": "RETENTION",

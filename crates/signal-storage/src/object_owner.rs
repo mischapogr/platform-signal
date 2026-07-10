@@ -44,6 +44,7 @@ struct Binding {
 }
 pub(crate) struct SmallOwner {
     _lock: LockGuard,
+    config: SmallOwnerConfig,
 }
 struct LockGuard(File);
 impl Drop for LockGuard {
@@ -95,7 +96,7 @@ impl SmallOwner {
         for entry in fs::read_dir(&config.directory).map_err(StorageError::Io)? {
             check_context(Some(context))?;
             entries += 1;
-            if entries > 3 {
+            if entries > 7 {
                 return Err(StorageError::Corrupt("owner inventory"));
             }
             let entry = entry.map_err(StorageError::Io)?;
@@ -107,6 +108,9 @@ impl SmallOwner {
                 Some(".lock") if metadata.len() == 0 => {}
                 Some("binding.json") if metadata.len() <= 256 => has_binding = true,
                 Some("binding.tmp") if metadata.len() <= 256 => has_temp = true,
+                Some("genesis.json" | "genesis.tmp") if metadata.len() <= 256 => {}
+                Some("head.json" | "head.tmp")
+                    if metadata.len() <= crate::object_head::HEAD_BYTES as u64 => {}
                 _ => return Err(StorageError::Corrupt("owner unknown entry")),
             }
         }
@@ -117,13 +121,38 @@ impl SmallOwner {
         };
         let binding = config.directory.join("binding.json");
         let temp = config.directory.join("binding.tmp");
+        let owner = Self {
+            _lock: lock,
+            config,
+        };
+        // Refused initialization records have the same no-poison rule as heads.
+        for name in ["genesis.json", "genesis.tmp"] {
+            let path = owner.config.directory.join(name);
+            match fs::symlink_metadata(&path) {
+                Ok(_) => verify(&path, &expected, context)?,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(StorageError::Io(error)),
+            }
+        }
+        // Refused retained heads must not pin a fresh root to the wrong owner.
+        // Preflight both records/pair without renaming before writing binding.
+        let current_head = owner.read_record(&owner.config.directory.join("head.json"), context)?;
+        let temp_head = owner.read_record(&owner.config.directory.join("head.tmp"), context)?;
+        if let Some(candidate) = &temp_head
+            && current_head.as_ref() != Some(candidate)
+            && candidate.previous.as_ref() != current_head.as_ref().map(|h| &h.current)
+        {
+            return Err(StorageError::Corrupt(
+                "Small query head recovery predecessor",
+            ));
+        }
         if has_binding {
             verify(&binding, &expected, context)?;
             // Complete matching temp can be removed; unknown/truncated temp holds.
             if has_temp {
                 verify(&temp, &expected, context)?;
                 fs::remove_file(&temp).map_err(StorageError::Io)?;
-                crate::fs::sync_dir(&config.directory)?;
+                crate::fs::sync_dir(&owner.config.directory)?;
             }
         } else {
             if has_temp {
@@ -137,12 +166,159 @@ impl SmallOwner {
             }
             check_context(Some(context))?;
             fs::rename(&temp, &binding).map_err(StorageError::Io)?;
-            crate::fs::sync_dir(&config.directory)?;
+            crate::fs::sync_dir(&owner.config.directory)?;
         }
-        lock.0.sync_all().map_err(StorageError::Io)?;
-        crate::fs::sync_dir(&config.directory)?;
+        owner._lock.0.sync_all().map_err(StorageError::Io)?;
+        crate::fs::sync_dir(&owner.config.directory)?;
         check_context(Some(context))?;
-        Ok(Self { _lock: lock })
+        owner.read_head(context)?;
+        owner.query_initialized(context)?;
+        Ok(owner)
+    }
+    /// Synced initialization witnesses a previously checked empty query namespace.
+    /// Only a trusted publisher may create it after bounded backend inventory.
+    pub(crate) fn initialize_query(&self, context: &OperationContext) -> Result<(), StorageError> {
+        if self.query_initialized(context)? {
+            return Ok(());
+        }
+        let expected = Binding {
+            schema_version: 1,
+            stream_id: self.config.stream_id,
+            backend_id: self.config.backend_id,
+        };
+        let bytes =
+            serde_json::to_vec(&expected).map_err(|_| StorageError::Corrupt("query genesis"))?;
+        let temp = self.config.directory.join("genesis.tmp");
+        let mut file = crate::fs::create(&temp)?;
+        file.write_all(&bytes).map_err(StorageError::Io)?;
+        check_context(Some(context))?;
+        file.sync_all().map_err(StorageError::Io)?;
+        check_context(Some(context))?;
+        fs::rename(&temp, self.config.directory.join("genesis.json")).map_err(StorageError::Io)?;
+        crate::fs::sync_dir(&self.config.directory)?;
+        check_context(Some(context))
+    }
+    pub(crate) fn query_initialized(
+        &self,
+        context: &OperationContext,
+    ) -> Result<bool, StorageError> {
+        check_context(Some(context))?;
+        let expected = Binding {
+            schema_version: 1,
+            stream_id: self.config.stream_id,
+            backend_id: self.config.backend_id,
+        };
+        let path = self.config.directory.join("genesis.json");
+        let temp = self.config.directory.join("genesis.tmp");
+        let exists = match fs::symlink_metadata(&path) {
+            Ok(m) if m.is_file() && m.len() <= 256 => {
+                verify(&path, &expected, context)?;
+                true
+            }
+            Ok(_) => return Err(StorageError::Corrupt("query genesis file")),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
+            Err(e) => return Err(StorageError::Io(e)),
+        };
+        match fs::symlink_metadata(&temp) {
+            Ok(m) if m.is_file() && m.len() <= 256 => {
+                verify(&temp, &expected, context)?;
+                check_context(Some(context))?;
+                if exists {
+                    fs::remove_file(&temp).map_err(StorageError::Io)?;
+                } else {
+                    fs::rename(&temp, &path).map_err(StorageError::Io)?;
+                }
+                crate::fs::sync_dir(&self.config.directory)?;
+                check_context(Some(context))?;
+                Ok(true)
+            }
+            Ok(_) => Err(StorageError::Corrupt("query genesis temp")),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(exists),
+            Err(e) => Err(StorageError::Io(e)),
+        }
+    }
+    /// A missing head is uninitialized control, never proof of an empty backend.
+    pub(crate) fn read_head(
+        &self,
+        context: &OperationContext,
+    ) -> Result<Option<crate::object_head::HeadRecord>, StorageError> {
+        let current_path = self.config.directory.join("head.json");
+        let temp_path = self.config.directory.join("head.tmp");
+        let current = self.read_record(&current_path, context)?;
+        let Some(temp) = self.read_record(&temp_path, context)? else {
+            return Ok(current);
+        };
+        if current.as_ref() == Some(&temp) {
+            check_context(Some(context))?;
+            fs::remove_file(&temp_path).map_err(StorageError::Io)?;
+            crate::fs::sync_dir(&self.config.directory)?;
+            check_context(Some(context))?;
+            return Ok(current);
+        }
+        if temp.previous.as_ref() != current.as_ref().map(|h| &h.current) {
+            return Err(StorageError::Corrupt(
+                "Small query head recovery predecessor",
+            ));
+        }
+        check_context(Some(context))?;
+        fs::rename(&temp_path, &current_path).map_err(StorageError::Io)?;
+        crate::fs::sync_dir(&self.config.directory)?;
+        check_context(Some(context))?;
+        Ok(Some(temp))
+    }
+    pub(crate) fn advance_head(
+        &self,
+        next: &crate::object_head::HeadRecord,
+        context: &OperationContext,
+    ) -> Result<(), StorageError> {
+        check_context(Some(context))?;
+        next.validate(self.config.stream_id, self.config.backend_id)?;
+        let current = self.read_head(context)?;
+        if current.as_ref() == Some(next) {
+            return check_context(Some(context));
+        }
+        if next.previous.as_ref() != current.as_ref().map(|h| &h.current) {
+            return Err(StorageError::InvalidBatch);
+        }
+        let bytes = next.encode(context)?;
+        let temp_path = self.config.directory.join("head.tmp");
+        let mut file = crate::fs::create(&temp_path)?;
+        file.write_all(&bytes).map_err(StorageError::Io)?;
+        check_context(Some(context))?;
+        file.sync_all().map_err(StorageError::Io)?;
+        check_context(Some(context))?;
+        fs::rename(&temp_path, self.config.directory.join("head.json"))
+            .map_err(StorageError::Io)?;
+        crate::fs::sync_dir(&self.config.directory)?;
+        check_context(Some(context))
+    }
+    fn read_record(
+        &self,
+        path: &std::path::Path,
+        context: &OperationContext,
+    ) -> Result<Option<crate::object_head::HeadRecord>, StorageError> {
+        check_context(Some(context))?;
+        match fs::symlink_metadata(path) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Ok(m) if m.is_file() && m.len() <= crate::object_head::HEAD_BYTES as u64 => {}
+            Ok(_) => return Err(StorageError::Corrupt("Small query head file")),
+            Err(error) => return Err(StorageError::Io(error)),
+        }
+        let mut file = File::open(path).map_err(StorageError::Io)?;
+        let mut bytes = Vec::new();
+        (&mut file)
+            .take(crate::object_head::HEAD_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(StorageError::Io)?;
+        let record = crate::object_head::HeadRecord::decode(
+            &bytes,
+            self.config.stream_id,
+            self.config.backend_id,
+            context,
+        )?;
+        file.sync_all().map_err(StorageError::Io)?;
+        check_context(Some(context))?;
+        Ok(Some(record))
     }
 }
 fn verify(
