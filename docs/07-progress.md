@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-default workspace gate has 571; the all-feature gate has 603 (12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+default workspace gate has 585; the all-feature gate has 619 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 106 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -40,6 +40,39 @@ Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
 
+## Independent receipt custody and fenced source ACK — 2026-10-08
+
+The bounded EVIDENCE custody mechanism now passes local acceptance. An independent
+Ed25519 authority signs the complete framed receipt and immutable archive manifest;
+fresh challenges cannot renew its original commit time or retarget identity.
+Strong ACK begin/finish/recovery each require fresh verification of the exact saved
+witness. Trusted quarantine selection, pinned M2, full CAS/current-history and
+recovery horizons remain mandatory. Worker I/O and tickets expire at the earliest
+challenge/key/archive/context deadline. Transfer, poison and worker exit fence
+retained tickets before new source credentials/HTTP work; dispatched remote effects
+remain uncertain. Local retirement preserves custody and deletes no archive original.
+
+Fourteen custody regressions and two optional source-fence regressions pass,
+including six actual SIGKILL publication cases, syscall faults, physical-expiry
+ownership, prequeue allocation limits, key/retention expiry, M2/quarantine and
+reopen/handover. Public default585/all-feature619 and private37 tests pass, zero
+failures; six public and three private subprocess helpers retain parent-invoked
+scope. Required fmt, strict default/all-feature Clippy, package guard, private
+build and the local overlay SIGKILL/SIGTERM gate pass. Independent review has no
+remaining blocker/high. Evidence: `target/goal-execution-20261007/EVIDENCE/`
+`custody-validation/validation.json`, `custody-private-validation/validation.json`,
+`custody-review.json` and `custody-handoff.json`. Initial compilation/assertion,
+sandbox loopback denial and strict enum-size corrections remain recorded separately.
+No package version or release authority changed.
+
+EVIDENCE remains in_progress. The next runnable slice is independently enforced
+archive/version/retention/access and durable native-proof checkpoint/coverage
+integration, including protected capture during observability outage and crash/
+redelivery recovery. These are implementation requirements, not credential-only
+exceptions. Signed assertions alone do not establish archive isolation, native
+source completeness or real AWS/Object Lock/IAM/KMS qualification. The collector
+driver remains explicitly process-local; final candidate and external gates stay open.
+
 ## Native CloudTrail byte proofs and read-only capture — 2026-10-08
 
 EVIDENCE now has an accepted native mechanism slice: exact uncompressed-byte RSA
@@ -60,11 +93,12 @@ Only existing locked ring/base64 dependency edges were added; no package version
 or selected release changed. See [protected evidence contract](38-protected-evidence-contract.md).
 
 EVIDENCE remains in_progress. Independent durable proof checkpoints/coverage,
-whole-receipt custody and required ACK, protected-route outage/proof/crash recovery
-still need implementation and acceptance. These read-only byte proofs neither
+protected-route outage/proof/crash recovery still need implementation and
+acceptance. Whole-receipt custody/stronger ACK mechanisms have the later
+local acceptance above; independent archive integration is still unfinished. These read-only byte proofs neither
 establish complete collection nor close real AWS/Object Lock/IAM/KMS/native ARM64,
 actual EKS/vendor/remote-CI/released-dependency/publication or final-candidate gates.
-Continue EVIDENCE with the independently verified custody seam and retained proof
+Continue EVIDENCE with independently enforced archive and retained native-proof
 checkpoint/route integration; process-local quarantine ACK remains denied.
 
 ## Scoped audited disposition backend — 2026-10-08

@@ -474,6 +474,122 @@ async fn credential_denial_expiry_scope_and_cancel_stop_before_network() -> Test
 }
 
 #[tokio::test]
+async fn retired_or_transferred_ticket_starts_no_credentials_or_delete_request() -> TestResult {
+    for transfer in [false, true] {
+        let directory = root()?;
+        let store = ReceiptStore::open(config(&directory)?, owner(), 1, ctx()).await?;
+        let (raw, binding) = ack_tests::pure(false)?;
+        store.publish(raw, binding.clone(), ctx()).await?;
+        let initial = store
+            .replay(binding.clone(), ctx())
+            .await?
+            .ok_or("receipt")?
+            .progress;
+        let grant = ReceiptRecoveryGrant::from_trusted_checkpoint(
+            binding.clone(),
+            initial.checksum(),
+            "synthetic-current-ticket-fence".into(),
+        )?;
+        let ReceiptAckCommit::Intent { ticket, progress } = store
+            .acknowledge(
+                binding.clone(),
+                initial,
+                grant,
+                ReceiptAckUpdate::BeginProcessLocal {
+                    delivery: SourceDelivery::new(
+                        Uuid::new_v4(),
+                        "synthetic-delivery".into(),
+                        "synthetic-ephemeral-handle".into(),
+                    )?,
+                    observed_at: "2026-10-07T12:00:02.000000000Z".into(),
+                },
+                ctx(),
+            )
+            .await?
+        else {
+            return Err("intent".into());
+        };
+        if transfer {
+            let grant = ReceiptRecoveryGrant::from_trusted_checkpoint(
+                binding.clone(),
+                progress.checksum(),
+                "synthetic-current-ticket-fence".into(),
+            )?;
+            store
+                .transfer_owner(binding.clone(), progress, grant, Uuid::new_v4(), ctx())
+                .await?;
+        } else {
+            store.close(ctx()).await?;
+        }
+        let c = credentials("ok");
+        let source = client("http://127.0.0.1:9", c.clone())?;
+        assert!(matches!(
+            ticket.current_context(&ctx()),
+            Err(ReceiptError::Owner)
+        ));
+        assert!(matches!(
+            source.delete(&binding, &ticket, &ctx()).await,
+            Err(SourceFailure::Unavailable)
+        ));
+        assert_eq!(c.calls.load(Ordering::Acquire), 0);
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn owner_exit_cancels_stalled_delete_credentials_before_any_request() -> TestResult {
+    let directory = root()?;
+    let store = ReceiptStore::open(config(&directory)?, owner(), 1, ctx()).await?;
+    let (raw, binding) = ack_tests::pure(false)?;
+    store.publish(raw, binding.clone(), ctx()).await?;
+    let initial = store
+        .replay(binding.clone(), ctx())
+        .await?
+        .ok_or("receipt")?
+        .progress;
+    let grant = ReceiptRecoveryGrant::from_trusted_checkpoint(
+        binding.clone(),
+        initial.checksum(),
+        "synthetic-current-ticket-fence".into(),
+    )?;
+    let ReceiptAckCommit::Intent { ticket, .. } = store
+        .acknowledge(
+            binding.clone(),
+            initial,
+            grant,
+            ReceiptAckUpdate::BeginProcessLocal {
+                delivery: SourceDelivery::new(
+                    Uuid::new_v4(),
+                    "synthetic-delivery".into(),
+                    "synthetic-ephemeral-handle".into(),
+                )?,
+                observed_at: "2026-10-07T12:00:02.000000000Z".into(),
+            },
+            ctx(),
+        )
+        .await?
+    else {
+        return Err("intent".into());
+    };
+    let c = credentials("stall");
+    let source = client("http://127.0.0.1:9", c.clone())?;
+    let delete = tokio::spawn(async move { source.delete(&binding, &ticket, &ctx()).await });
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while c.calls.load(Ordering::Acquire) == 0 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await?;
+    store.close(ctx()).await?;
+    assert!(matches!(
+        tokio::time::timeout(Duration::from_secs(1), delete).await??,
+        Err(SourceFailure::Unavailable)
+    ));
+    assert_eq!(c.calls.load(Ordering::Acquire), 1);
+    Ok(())
+}
+
+#[tokio::test]
 async fn delete_requires_durable_ticket_scope_and_only_empty_200_confirms() -> TestResult {
     let d = root()?;
     let store = ReceiptStore::open(config(&d)?, owner(), 1, ctx()).await?;

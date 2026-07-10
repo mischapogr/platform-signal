@@ -454,7 +454,13 @@
         },
         {
           "id": "independent-route-custody-ack-and-outage-simulation",
-          "status": "pending"
+          "status": "in_progress",
+          "notes": "Whole-receipt signed independent custody, fresh explicit stronger ACK and owner-ticket fence accepted locally with fourteen custody/two optional source-fence regressions, default585/all-feature619/private37 gates and review. Independently enforced archive/version/retention/access and native checkpoint/coverage/outage/crash route integration remain unfinished. Parent EVIDENCE stays open.",
+          "evidence": [
+            "target/goal-execution-20261007/EVIDENCE/custody-validation/validation.json",
+            "target/goal-execution-20261007/EVIDENCE/custody-private-validation/validation.json",
+            "target/goal-execution-20261007/EVIDENCE/custody-review.json"
+          ]
         }
       ]
     },

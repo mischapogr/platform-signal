@@ -180,6 +180,10 @@ requires a current independently verified witness binding the **entire receipt**
 (original plus every prepared/quarantined entry and revisions), with a retention
 horizon at least the pinned horizon. A local field set to `verified_independent`
 is not the verification mechanism. No custody downgrade is a safe ACK transition.
+The bounded Ed25519 whole-receipt witness and explicit stronger ACK mechanism
+are specified in [protected evidence](38-protected-evidence-contract.md). Their
+immutable manifest identity is retained in the existing custody fields; fresh
+verification and trusted quarantine permission are not serialized into progress.
 `process_local` accepts local custody only with explicit current owner authority
 for process-only recovery. The other modes require the independent witness.
 All ACK attempts also require a fresh full grant, exclusive ownership, known

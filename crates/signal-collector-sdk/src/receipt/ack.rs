@@ -28,10 +28,12 @@ fn bounded(s: &str, cap: usize) -> bool {
 /// not attest current source permission. Owner transfer invalidates the ticket.
 pub struct SourceAckTicket {
     receipt: [u8; 32],
-    binding: ReceiptBinding,
+    binding: Box<ReceiptBinding>,
     owner: Uuid,
     generation: u64,
     delivery: SourceDelivery,
+    custody_deadline: Option<tokio::time::Instant>,
+    owner_fence: tokio_util::sync::CancellationToken,
 }
 impl SourceAckTicket {
     /// Store-validated scope at intent publication. Adapters must also check the
@@ -41,6 +43,34 @@ impl SourceAckTicket {
     }
     pub fn handle(&self) -> &str {
         &self.delivery.handle
+    }
+    /// Source adapters must use this budget before polling delete work. Stronger
+    /// custody cannot outlive its fresh independently verified challenge lease.
+    /// This narrows the original deadline without renewing it.
+    pub fn current_context(
+        &self,
+        ctx: &ExtensionContext,
+    ) -> Result<ExtensionContext, ReceiptError> {
+        check(ctx)?;
+        if self.owner_fence.is_cancelled() {
+            return Err(ReceiptError::Owner);
+        }
+        let deadline = self
+            .custody_deadline
+            .unwrap_or(ctx.deadline())
+            .min(ctx.deadline());
+        if tokio::time::Instant::now() >= deadline {
+            return Err(ReceiptError::Custody);
+        }
+        Ok(ExtensionContext {
+            cancellation: ctx.cancellation().clone(),
+            deadline,
+        })
+    }
+    /// Adapters must select this fence alongside their bounded authenticated
+    /// work. Cancellation cannot recall a request already accepted remotely.
+    pub async fn owner_fenced(&self) {
+        self.owner_fence.cancelled().await;
     }
 }
 /// Narrow response-shape verification from an authenticated AWS JSON adapter.
@@ -69,13 +99,28 @@ pub enum ReceiptAckUpdate {
         delivery: SourceDelivery,
         observed_at: String,
     },
+    BeginIndependent {
+        delivery: SourceDelivery,
+        custody: Box<VerifiedCustody>,
+        observed_at: String,
+    },
     Finish {
         ticket: SourceAckTicket,
         outcome: SourceAckOutcome,
         observed_at: String,
     },
+    FinishIndependent {
+        ticket: SourceAckTicket,
+        outcome: SourceAckOutcome,
+        custody: Box<VerifiedCustody>,
+        observed_at: String,
+    },
     /// Lost tickets/results must not be reconstructed from persisted IDs/handles.
     RecoverUncertain { observed_at: String },
+    RecoverIndependent {
+        custody: Box<VerifiedCustody>,
+        observed_at: String,
+    },
 }
 pub enum ReceiptAckCommit {
     Intent {
@@ -85,13 +130,28 @@ pub enum ReceiptAckCommit {
     Settled(ReceiptProgress),
 }
 impl ReceiptAckUpdate {
+    pub(super) fn current_context(&self, ctx: &ExtensionContext) -> ExtensionContext {
+        let deadline = match self {
+            Self::BeginIndependent { custody, .. }
+            | Self::FinishIndependent { custody, .. }
+            | Self::RecoverIndependent { custody, .. } => custody.deadline().min(ctx.deadline()),
+            _ => ctx.deadline(),
+        };
+        ExtensionContext {
+            cancellation: ctx.cancellation().clone(),
+            deadline,
+        }
+    }
     pub(super) fn validate_bounds(&self) -> Result<(), ReceiptError> {
         let observed = match self {
             Self::BeginProcessLocal { observed_at, .. }
+            | Self::BeginIndependent { observed_at, .. }
             | Self::Finish { observed_at, .. }
-            | Self::RecoverUncertain { observed_at } => observed_at,
+            | Self::FinishIndependent { observed_at, .. }
+            | Self::RecoverUncertain { observed_at }
+            | Self::RecoverIndependent { observed_at, .. } => observed_at,
         };
-        if observed.len() != 30 {
+        if observed.len() != 30 || observed.capacity() > 128 {
             return Err(ReceiptError::Ack);
         }
         format::time(&Value::String(observed.clone()))?;
@@ -126,7 +186,7 @@ pub(super) fn validate(value: &Value, r: &StoredReceipt) -> Result<(), ReceiptEr
         {
             return Err(ReceiptError::Ack);
         }
-        eligible(r)?;
+        eligible_control(r, &value["custody"])?;
         if r.metadata["binding"]["ack_requires_m2"] == true
             && value["verified_prefix"].as_u64() != Some(r.info.prepared_count as u64)
         {
@@ -155,6 +215,20 @@ fn eligible(r: &StoredReceipt) -> Result<(), ReceiptError> {
     }
     Ok(())
 }
+fn eligible_control(r: &StoredReceipt, control: &Value) -> Result<(), ReceiptError> {
+    if r.metadata["binding"]["custody_mode"] == "process_local" {
+        eligible(r)?;
+        if control["status"] != "local_only" {
+            return Err(ReceiptError::Ack);
+        }
+    } else {
+        custody::validate_control(control, r)?;
+        if control["status"] != "verified_independent" {
+            return Err(ReceiptError::Ack);
+        }
+    }
+    Ok(())
+}
 fn intent_budget(r: &StoredReceipt, observed: &Value) -> Result<(), ReceiptError> {
     let at = format::time(observed)?;
     let retention = &r.metadata["retention"];
@@ -177,13 +251,43 @@ pub(super) fn replacement(
     update: ReceiptAckUpdate,
     owner: Uuid,
     generation: u64,
+    owner_fence: tokio_util::sync::CancellationToken,
 ) -> Result<(ReceiptProgress, Option<SourceAckTicket>), ReceiptError> {
-    eligible(&replay.receipt)?;
     let old = &replay.progress;
+    let custody_deadline = match &update {
+        ReceiptAckUpdate::BeginIndependent {
+            custody,
+            observed_at,
+            ..
+        }
+        | ReceiptAckUpdate::FinishIndependent {
+            custody,
+            observed_at,
+            ..
+        }
+        | ReceiptAckUpdate::RecoverIndependent {
+            custody,
+            observed_at,
+        } => {
+            custody.current(&replay.receipt, observed_at)?;
+            custody.matches_control(&old.value["custody"])?;
+            eligible_control(&replay.receipt, &old.value["custody"])?;
+            Some(custody.deadline())
+        }
+        _ => {
+            eligible(&replay.receipt)?;
+            None
+        }
+    };
     let (observed_at, delivery, state) = match update {
         ReceiptAckUpdate::BeginProcessLocal {
             delivery,
             observed_at,
+        }
+        | ReceiptAckUpdate::BeginIndependent {
+            delivery,
+            observed_at,
+            ..
         } => {
             if old.value["ack"]["state"] == "intent"
                 || old.value["ack"]["attempt_id"] == delivery.attempt.to_string()
@@ -199,10 +303,17 @@ pub(super) fn replacement(
             ticket,
             outcome,
             observed_at,
+        }
+        | ReceiptAckUpdate::FinishIndependent {
+            ticket,
+            outcome,
+            observed_at,
+            ..
         } => {
             if ticket.receipt != replay.receipt.info.checksum
                 || ticket.owner != owner
                 || ticket.generation != generation
+                || ticket.owner_fence.is_cancelled()
                 || old.value["ack"]["state"] != "intent"
                 || old.value["ack"]["attempt_id"] != ticket.delivery.attempt.to_string()
                 || old.value["ack"]["delivery_id"] != ticket.delivery.delivery
@@ -215,7 +326,8 @@ pub(super) fn replacement(
                 if outcome.0 { "confirmed" } else { "uncertain" },
             )
         }
-        ReceiptAckUpdate::RecoverUncertain { observed_at } => {
+        ReceiptAckUpdate::RecoverUncertain { observed_at }
+        | ReceiptAckUpdate::RecoverIndependent { observed_at, .. } => {
             if old.value["ack"]["state"] != "intent" {
                 return Err(ReceiptError::Ack);
             }
@@ -247,10 +359,12 @@ pub(super) fn replacement(
     let next = progress::decode(progress::encode(&p)?, &replay.receipt, owner, generation)?;
     let ticket = delivery.map(|delivery| SourceAckTicket {
         receipt: replay.receipt.info.checksum,
-        binding: ReceiptBinding(replay.receipt.metadata["binding"].clone()),
+        binding: Box::new(ReceiptBinding(replay.receipt.metadata["binding"].clone())),
         owner,
         generation,
         delivery,
+        custody_deadline,
+        owner_fence,
     });
     Ok((next, ticket))
 }
