@@ -276,9 +276,46 @@ in a trigger. Owner, full binding and actual key/revision are pinned. One comman
 slot and operation permit hold allocation/physical ownership until bounded reply
 consumption; interruption cannot refund active work or release the disk lock.
 
-The native tables are still deliberately empty. Reopen rejects nonzero proof
-head or retained native rows under zero metadata. Native inputs/checkpoints,
-authenticated current-head/CAS/reconciliation and conservative coverage need the
-next implementation slice; role HTTP, protected outage and archive crash/replay
-composition remain unfinished. Signed archive custody alone claims none of these.
+At that earlier archive acceptance the native tables were empty. The retained
+native mechanism below now supports authenticated history reconciliation; zero
+metadata still cannot adopt retained native rows. Role HTTP, conservative SDK
+coverage and protected source-ACK/M2 outage composition remain unfinished. Signed
+archive custody alone claims none of these.
 See the current progress/release evidence for local gate counts and limitations.
+
+## Locally accepted native history mechanism
+
+Archive development schema2 additionally pins the exact optional trusted native
+scope/key policy. No migration/reset or key rotation is inferred. Exact bounded
+SIGNAT01 inputs retain compressed native digest/log originals, provider-selected
+version/owner captures and exact signature metadata. RSA validates native JSON
+and references; authenticated provider capture must separately establish version
+and owner. Pinned configured keys never come from a producer bundle.
+
+Immutable derived records retain a regular checkpoint, native delivery interval
+and cumulative known gaps. Backfill does not advance the regular checkpoint or
+heal gaps. Configuration, API categories and collection completeness remain
+unknown. Native inputs and observation/history/head commit atomically. Every
+transition signature revalidates actual retained bundles, hashes, signatures,
+references, predecessor chain and deterministic classifications, with input copies
+dropped before the bounded restore pass.
+
+SIGADV01 is a bounded exact archive-signed transition naming the pinned archive
+identity, revision, prior hash and actual committed head. A separate private root
+and key own the supervisor's exact schema and immutable transitions. Its CAS
+admits only the next predecessor or exact latest replay. SIGHIS01 challenges read
+that actual retained head; callers cannot provide a head to sign. One active
+supervisor operation and zero queued commands expose finite depth/capacity,
+rejection, failure and timeout counters; four global startup slots remain held
+until physical startup exits. EXTRA/DELETE, 16 MiB pages, finite VM/row/cache/time
+and schema/root/descriptor/owner/key checks apply before signing.
+
+Explicit ahead-one recovery requires a fresh prior supervisor grant, exactly one
+new archive revision and exact predecessor. It revalidates the whole retained
+chain and physically closes before returning only a transition. It never returns
+an archive/custody handle. Confirm the supervisor, fetch a fresh current grant,
+then use ordinary reconciled reopen. Farther, behind, divergent and exact-current
+states cannot use this path. Grant revocation reaches physical work while the
+root/permit remains held until I/O returns. Consistently restoring both owners
+cannot be detected by signatures over copied bits; independent owner reconciliation
+remains required. These mechanism gates do not qualify the parent protected route.
