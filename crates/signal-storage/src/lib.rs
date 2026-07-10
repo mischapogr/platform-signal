@@ -2,9 +2,11 @@
 pub mod codec;
 mod fs;
 pub mod object_codec;
+mod object_head;
 pub mod object_io;
 pub mod object_manifest;
 mod object_owner;
+pub mod object_publication;
 mod pages;
 
 use chrono::{DateTime, Utc};
@@ -187,6 +189,8 @@ pub enum StorageError {
     Corrupt(&'static str),
     #[error("storage filesystem operation failed")]
     Io(#[source] std::io::Error),
+    #[error("query object operation failed")]
+    ObjectIo(#[source] object_io::ObjectIoError),
     #[error("storage capacity is full")]
     Full,
     #[error("storage operation deadline exceeded; an active commit may have completed")]

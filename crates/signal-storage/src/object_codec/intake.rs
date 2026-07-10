@@ -128,7 +128,7 @@ fn walk(
     }
     Ok(())
 }
-pub(super) fn encode(
+pub(crate) fn encode(
     rows: &[StoredEvent],
     config: &StorageConfig,
     context: &OperationContext,
@@ -164,7 +164,7 @@ pub(super) fn encode(
     }
     Ok(writer.bytes)
 }
-pub(super) fn decode(
+pub(crate) fn decode(
     bytes: &[u8],
     context: &OperationContext,
 ) -> Result<Vec<StoredEvent>, StorageError> {

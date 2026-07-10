@@ -121,6 +121,10 @@ enum Work {
     Create(String, Vec<u8>),
     Read(String, Option<QueryObjectRef>, usize),
     List(String),
+    ReadHead,
+    ReadGenesis,
+    InitializeGenesis,
+    AdvanceHead(crate::object_head::HeadRecord),
     #[cfg(test)]
     Pause(oneshot::Sender<()>, std::sync::mpsc::Receiver<()>),
 }
@@ -128,6 +132,8 @@ enum ResultData {
     Created(QueryObjectRef),
     Read(ObjectRead),
     Inventory(ObjectInventory),
+    Head(Option<crate::object_manifest::PreviousManifest>),
+    Genesis(bool),
     #[cfg(test)]
     Done,
 }
@@ -260,7 +266,7 @@ impl ObjectIo {
                 let _exit = WorkerExit(shared.clone());
                 // The physical worker retains the root lock even if the caller
                 // drops the frontend during non-cancellable filesystem work.
-                let _owner = match owner {
+                let owner = match owner {
                     None => None,
                     Some((config, context, reply)) => {
                         match crate::object_owner::SmallOwner::open(&config, &context) {
@@ -277,7 +283,7 @@ impl ObjectIo {
                     shared.running.store(1, Ordering::Release);
                     let future = execute(
                         &*store, command.work, limits, &command.context,
-                        command.slot.clone(), runtime.is_some(),
+                        command.slot.clone(), runtime.is_some(), owner.as_ref(),
                     );
                     let result = match &runtime {
                         Some(handle) => handle.block_on(async {
@@ -309,6 +315,90 @@ impl ObjectIo {
     }
     pub fn small_owner_binding(&self) -> Option<(uuid::Uuid, uuid::Uuid)> {
         self.owner_binding
+    }
+    pub async fn small_query_initialized(
+        &self,
+        context: OperationContext,
+    ) -> Result<bool, ObjectIoError> {
+        self.genesis(false, context).await
+    }
+    /// Trusted publisher must first verify bounded empty query inventory.
+    pub async fn initialize_small_query(
+        &self,
+        context: OperationContext,
+    ) -> Result<(), ObjectIoError> {
+        self.genesis(true, context).await.map(|_| ())
+    }
+    async fn genesis(
+        &self,
+        initialize: bool,
+        mut context: OperationContext,
+    ) -> Result<bool, ObjectIoError> {
+        let mut rejected = RejectGuard(self.state.clone(), true);
+        let result = async {
+            let slot = self.admit(&mut context)?;
+            if self.owner_binding.is_none() {
+                return Err(ObjectIoError::Config);
+            }
+            let work = if initialize {
+                Work::InitializeGenesis
+            } else {
+                Work::ReadGenesis
+            };
+            match self.submit(work, context, slot).await? {
+                ResultData::Genesis(value) => Ok(value),
+                _ => Err(ObjectIoError::Closed),
+            }
+        }
+        .await;
+        rejected.1 = result.is_err();
+        result
+    }
+    /// None is uninitialized control, not proof of an empty backend.
+    pub async fn read_small_head(
+        &self,
+        mut context: OperationContext,
+    ) -> Result<Option<crate::object_manifest::PreviousManifest>, ObjectIoError> {
+        let mut rejected = RejectGuard(self.state.clone(), true);
+        let result = async {
+            let slot = self.admit(&mut context)?;
+            if self.owner_binding.is_none() {
+                return Err(ObjectIoError::Config);
+            }
+            match self.submit(Work::ReadHead, context, slot).await? {
+                ResultData::Head(head) => Ok(head),
+                _ => Err(ObjectIoError::Closed),
+            }
+        }
+        .await;
+        rejected.1 = result.is_err();
+        result
+    }
+    /// Trusted publisher calls only after manifest/data validation. This CASes
+    /// a local witness and grants no remote durability, source ACK or custody.
+    pub async fn advance_small_head(
+        &self,
+        expected: Option<&crate::object_manifest::PreviousManifest>,
+        next: &crate::object_manifest::PreviousManifest,
+        mut context: OperationContext,
+    ) -> Result<(), ObjectIoError> {
+        let mut rejected = RejectGuard(self.state.clone(), true);
+        let result = async {
+            let slot = self.admit(&mut context)?;
+            let (stream, backend) = self.owner_binding.ok_or(ObjectIoError::Config)?;
+            let record = crate::object_head::HeadRecord::new(stream, backend, expected, next)
+                .map_err(owner_error)?;
+            match self
+                .submit(Work::AdvanceHead(record), context, slot)
+                .await?
+            {
+                ResultData::Head(_) => Ok(()),
+                _ => Err(ObjectIoError::Closed),
+            }
+        }
+        .await;
+        rejected.1 = result.is_err();
+        result
     }
     pub fn metrics(&self) -> ObjectIoMetrics {
         ObjectIoMetrics {
@@ -532,6 +622,7 @@ fn owner_error(error: crate::StorageError) -> ObjectIoError {
         crate::StorageError::Cancelled => ObjectIoError::Cancelled,
         crate::StorageError::Config(_) => ObjectIoError::Config,
         crate::StorageError::Corrupt(_) => ObjectIoError::Corrupt,
+        crate::StorageError::InvalidBatch => ObjectIoError::Condition,
         _ => ObjectIoError::Backend,
     }
 }
@@ -614,9 +705,31 @@ async fn execute(
     ctx: &OperationContext,
     slot: Arc<OwnedSemaphorePermit>,
     remote: bool,
+    owner: Option<&crate::object_owner::SmallOwner>,
 ) -> Result<ResultData, ObjectIoError> {
     check(ctx)?;
     match work {
+        Work::ReadGenesis => {
+            let owner = owner.ok_or(ObjectIoError::Config)?;
+            Ok(ResultData::Genesis(
+                owner.query_initialized(ctx).map_err(owner_error)?,
+            ))
+        }
+        Work::InitializeGenesis => {
+            let owner = owner.ok_or(ObjectIoError::Config)?;
+            owner.initialize_query(ctx).map_err(owner_error)?;
+            Ok(ResultData::Genesis(true))
+        }
+        Work::ReadHead => {
+            let owner = owner.ok_or(ObjectIoError::Config)?;
+            let head = owner.read_head(ctx).map_err(owner_error)?;
+            Ok(ResultData::Head(head.map(|h| h.current)))
+        }
+        Work::AdvanceHead(next) => {
+            let owner = owner.ok_or(ObjectIoError::Config)?;
+            owner.advance_head(&next, ctx).map_err(owner_error)?;
+            Ok(ResultData::Head(Some(next.current)))
+        }
         #[cfg(test)]
         Work::Pause(entered, release) => {
             let _ = entered.send(());

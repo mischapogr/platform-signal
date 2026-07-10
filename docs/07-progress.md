@@ -1,5 +1,29 @@
 # Implementation progress
 
+## Small object publication and committed recovery — 2026-10-08
+
+S3-QUERY remains in_progress. Synced stream/backend-bound initialization and exact
+head controls, conditional immutable publication/readback, authenticated manifest
+predecessors, bounded unique uncertain-tail recovery and actual-content replay now
+pass storage72/default626/all-feature660 strict workspace gates and focused review.
+Thirteen publication and four new head/genesis regressions cover split replay,
+initial lost-response recovery, cancellation/late replies, conflicting content,
+missing data/identity drift, unknown branches and exact-capacity orphan reuse.
+Six existing subprocess helpers remain parent-invoked, not standalone proof. See
+[object query contract](39-object-query-contract.md) and
+`target/goal-execution-20261007/S3-QUERY/publication-validation-accepted/validation.json`.
+The first workspace run was denied local sockets; its failed log is retained,
+and the accepted campaign had authorized loopback/socket access.
+
+Review corrected exact submitted receipt ranges, historical pinned identity
+checks, and duplicate orphan quota reservation. Metadata snapshots are not event
+results; trusted immutable backend identities and authenticated selected reads
+remain required. The finite in-process fault fixture and owned control reopen
+prove these mechanisms locally, not an actual process crash, durable S3 backend,
+query/cache/server integration, source custody, Standard fencing or AWS/ARM64/HA.
+Next: selected bounded S3 adapter and actual query/cache/server simulation inside
+the same frozen item. No release, push or publication was performed.
+
 ## Bounded object I/O / Small ownership — 2026-10-08
 
 S3-QUERY remains in_progress. Conditional Create, pinned exact readback, finite
@@ -42,7 +66,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-default workspace gate has 599; the all-feature gate has 633 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+default workspace gate has 626; the all-feature gate has 660 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 106 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy

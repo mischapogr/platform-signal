@@ -1,7 +1,7 @@
 //! One bounded CPU worker for object Parquet preparation/inspection. It performs
 //! no network or disk I/O and grants no publication, checkpoint or source custody.
 //! Outstanding results retain admission until they are dropped or consumed.
-mod intake;
+pub(crate) mod intake;
 mod parquet;
 use crate::object_manifest::{ManifestLimits, QueryFile};
 use crate::{OperationContext, StorageConfig, StorageError, StoredEvent, check_context};
