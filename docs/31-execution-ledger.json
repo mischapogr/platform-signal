@@ -500,7 +500,9 @@
         "target/goal-execution-20261007/S3-QUERY/codec-review.json",
         "target/goal-execution-20261007/S3-QUERY/io-validation-late-final/validation.json",
         "target/goal-execution-20261007/S3-QUERY/publication-validation-accepted/validation.json",
-        "target/goal-execution-20261007/S3-QUERY/publication-review.json"
+        "target/goal-execution-20261007/S3-QUERY/publication-review.json",
+        "target/goal-execution-20261007/S3-QUERY/s3-adapter-validation-accepted/validation.json",
+        "target/goal-execution-20261007/S3-QUERY/s3-adapter-review.json"
       ],
       "references": [
         "docs/12-phase3-storage.md",
@@ -531,7 +533,7 @@
           "status": "pending"
         }
       ],
-      "notes": "Manifest, bounded codec/I/O/Small owner and generic conditional publication/committed recovery pass local strict acceptance. Selected bounded S3 backend adapter plus actual query/cache/server/process simulation remain unfinished. Parent stays in_progress."
+      "notes": "Manifest/codec/Small I/O/publication and selected optional bounded S3 adapter pass local strict acceptance and review: storage73/default and82/S3, default627/all-feature670. Nine finite native-wire tests include second commit/reopen/exact prefix replay with versionless lists. No persistent process/AWS/TLS runtime/HA/custody qualification. Actual query/materialization/cache/server/process simulation remains unfinished; parent in_progress."
     },
     {
       "id": "RETENTION",

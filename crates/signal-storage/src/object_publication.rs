@@ -905,8 +905,13 @@ fn check_inventory_identity(
         .find(|r| r.key == expected.key)
         .ok_or(StorageError::Corrupt("committed query object missing"))?;
     if actual.bytes != expected.bytes
-        || actual.version != expected.version
         || actual.etag != expected.etag
+        || match &actual.version {
+            Some(version) => expected.version.as_ref() != Some(version),
+            // S3 ListObjectsV2 omits versions. Matching ETag/length detect
+            // current-object drift, but never replace the pinned read version.
+            None => expected.etag.as_ref().is_none_or(String::is_empty),
+        }
     {
         return Err(StorageError::Corrupt(
             "committed query object identity drift",
