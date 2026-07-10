@@ -87,6 +87,7 @@ struct WorkCounts {
 
 struct State {
     local: LocalFileSystem,
+    owner: Option<Arc<dyn signal_storage::QueryFileSource>>,
     sender: Mutex<Option<SyncSender<Job>>>,
     // Handles are retained for the lifetime of the fixed pool. Dropping a handle
     // detaches an ordinary thread; runtime shutdown never waits on kernel I/O.
@@ -120,10 +121,19 @@ pub struct BoundedLocalStore {
 }
 
 impl BoundedLocalStore {
+    #[cfg(test)]
     pub fn new(
         capacity: usize,
         max_read_bytes: usize,
         max_list_entries: usize,
+    ) -> Result<Self, IoLimitError> {
+        Self::with_source(capacity, max_read_bytes, max_list_entries, None)
+    }
+    pub(crate) fn with_source(
+        capacity: usize,
+        max_read_bytes: usize,
+        max_list_entries: usize,
+        owner: Option<Arc<dyn signal_storage::QueryFileSource>>,
     ) -> Result<Self, IoLimitError> {
         let waiter_capacity = capacity
             .checked_mul(max_list_entries)
@@ -174,6 +184,7 @@ impl BoundedLocalStore {
         Ok(Self {
             state: Arc::new(State {
                 local: LocalFileSystem::new(),
+                owner,
                 sender: Mutex::new(Some(sender)),
                 workers: Mutex::new(workers),
                 work,
@@ -308,6 +319,7 @@ impl State {
         drop(waiter);
         let (send, receive) = oneshot::channel();
         let state = self.clone();
+        let owner = self.owner.clone();
         let job = Box::new(move || {
             // Discard cancelled queued work before starting any filesystem call.
             if send.is_closed() {
@@ -321,6 +333,9 @@ impl State {
                 result,
                 _permit: permit,
             });
+            // Retain source/cache ownership even after caller or engine drop.
+            // No explicit source shutdown is permitted before this physical job drains.
+            drop(owner);
         });
         {
             let sender = self

@@ -7,6 +7,20 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Monolithic S3 query simulation boundary — 2026-10-08
+
+S3-QUERY is passed_simulated with default641/all-feature686 strict gates, focused
+source review, six process-bound/cleanup regressions and eleven actual persistent
+S3/monolith scenarios. Checkpoint-gated orphan/manifest crash replay preserves
+four exact canonical events/findings without duplicate query rows. See [progress](07-progress.md)
+and `target/goal-execution-20261007/S3-QUERY/server-simulation-final-reviewed/report.json`.
+
+Updated CI includes the bounded simulation on both architectures, and Docker now
+builds optional S3 support explicitly. Local source/helper/workflow evidence does
+not qualify a fresh image or remote execution. AWS/IAM/KMS/Object Lock/TLS runtime,
+native ARM64/EKS/shared HA/custody and full release gates remain open. Continue
+RETENTION; do not publish or select a release version from this acceptance.
+
 ## Committed object-query boundary — 2026-10-08
 
 Default638/all-feature681 strict gates and focused review qualify eight object-query

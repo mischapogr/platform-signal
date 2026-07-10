@@ -9,8 +9,8 @@ use crate::object_manifest::{
     QueryObjectRef, data_key, manifest_key,
 };
 use crate::{
-    FileSelection, OperationContext, QueryFileSource, StorageConfig, StorageError, StoreFuture,
-    StoreReceipt, StoredEvent, check_context,
+    FileSelection, OperationContext, QueryFileSource, StorageConfig, StorageError, StorageMetrics,
+    StoreFuture, StoreReceipt, StoredEvent, check_context,
 };
 use chrono::{DateTime, Utc};
 use std::{
@@ -51,7 +51,7 @@ impl Default for PublicationConfig {
     }
 }
 impl PublicationConfig {
-    fn validate(&self) -> Result<(), StorageError> {
+    pub fn validate(&self) -> Result<(), StorageError> {
         self.storage.validate()?;
         if let Some(config) = &self.materialization {
             config.validate()?;
@@ -112,6 +112,13 @@ struct Shared {
     rejected: AtomicU64,
     high_water: AtomicU64,
     cleanup_failed: AtomicBool,
+    disk_bytes: AtomicU64,
+    files: AtomicUsize,
+    persisted: AtomicU64,
+    replayed: AtomicU64,
+    full: AtomicU64,
+    timeouts: AtomicU64,
+    failures: AtomicU64,
 }
 struct WorkerExit(Arc<Shared>);
 impl Drop for WorkerExit {
@@ -185,6 +192,13 @@ impl ObjectPublisher {
             rejected: AtomicU64::new(0),
             high_water: AtomicU64::new(0),
             cleanup_failed: AtomicBool::new(false),
+            disk_bytes: AtomicU64::new(0),
+            files: AtomicUsize::new(0),
+            persisted: AtomicU64::new(0),
+            replayed: AtomicU64::new(0),
+            full: AtomicU64::new(0),
+            timeouts: AtomicU64::new(0),
+            failures: AtomicU64::new(0),
         });
         let state = shared.clone();
         let policy = config.clone();
@@ -200,6 +214,7 @@ impl ObjectPublisher {
                     stream,
                     backend,
                     cache: None,
+                    state: state.clone(),
                 };
                 while let Some(command) = receiver.blocking_recv() {
                     state.processed.fetch_add(1, Ordering::Relaxed);
@@ -212,6 +227,12 @@ impl ObjectPublisher {
                                 let (receipt, high_water) =
                                     controller.append(&rows, &command.context).await?;
                                 state.high_water.store(high_water, Ordering::Release);
+                                state
+                                    .persisted
+                                    .fetch_add(receipt.new_count as u64, Ordering::Relaxed);
+                                state
+                                    .replayed
+                                    .fetch_add(receipt.replay_count as u64, Ordering::Relaxed);
                                 Ok(Reply::Receipt(receipt))
                             }
                             Work::Snapshot => {
@@ -287,6 +308,43 @@ impl ObjectPublisher {
             closed: self.shared.closed.load(Ordering::Acquire),
         }
     }
+    /// Remote query namespace totals from the last completely validated inventory
+    /// or completed commit. Includes manifests and orphans, excludes local cache.
+    pub fn storage_metrics(&self) -> StorageMetrics {
+        let m = self.metrics();
+        StorageMetrics {
+            high_water: m.high_water,
+            persisted: self.shared.persisted.load(Ordering::Relaxed),
+            replayed: self.shared.replayed.load(Ordering::Relaxed),
+            disk_bytes: self.shared.disk_bytes.load(Ordering::Acquire),
+            disk_capacity: self.config.storage.max_disk_bytes,
+            files: self.shared.files.load(Ordering::Acquire),
+            file_capacity: self
+                .config
+                .inventory_objects
+                .min(self.config.storage.max_files),
+            command_depth: m.depth,
+            command_capacity: m.capacity,
+            operations_in_flight: m.running,
+            operation_capacity: m.worker_capacity,
+            timeouts: self.shared.timeouts.load(Ordering::Relaxed),
+            full: self.shared.full.load(Ordering::Relaxed),
+            failures: self.shared.failures.load(Ordering::Relaxed),
+            closed: m.closed,
+            fail_closed: self.shared.cleanup_failed.load(Ordering::Acquire),
+        }
+    }
+    fn record_result<T>(&self, result: &Result<T, StorageError>) {
+        let counter = match result {
+            Err(StorageError::Full) => Some(&self.shared.full),
+            Err(StorageError::Timeout) => Some(&self.shared.timeouts),
+            Err(StorageError::Busy | StorageError::Cancelled) | Ok(_) => None,
+            Err(_) => Some(&self.shared.failures),
+        };
+        if let Some(counter) = counter {
+            counter.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     fn admit(
         &self,
         context: &mut OperationContext,
@@ -307,7 +365,7 @@ impl ObjectPublisher {
                 if self.shared.closed.load(Ordering::Acquire) {
                     StorageError::Closed
                 } else {
-                    StorageError::Full
+                    StorageError::Busy
                 }
             })
     }
@@ -361,6 +419,7 @@ impl ObjectPublisher {
         }
         .await;
         reject.1 = result.is_err();
+        self.record_result(&result);
         result
     }
     pub async fn snapshot(
@@ -377,6 +436,7 @@ impl ObjectPublisher {
         }
         .await;
         reject.1 = result.is_err();
+        self.record_result(&result);
         result
     }
     pub fn close(&self) {
@@ -448,6 +508,7 @@ impl QueryFileSource for ObjectPublisher {
             }
             .await;
             reject.1 = result.is_err();
+            self.record_result(&result);
             result
         })
     }
@@ -489,6 +550,7 @@ struct Controller {
     stream: Uuid,
     backend: Uuid,
     cache: Option<Cache>,
+    state: Arc<Shared>,
 }
 impl Controller {
     async fn select(
@@ -788,6 +850,8 @@ impl Controller {
             .cloned()
             .collect();
         check_context(Some(context))?;
+        self.state.disk_bytes.store(bytes, Ordering::Release);
+        self.state.files.store(entries.len(), Ordering::Release);
         Ok(Catalog {
             manifests,
             orphans,
@@ -1047,6 +1111,12 @@ impl Controller {
             .advance_small_head(catalog.head(), &head, context.clone())
             .await
             .map_err(io_error)?;
+        self.state
+            .files
+            .store(prospective_objects, Ordering::Release);
+        self.state
+            .disk_bytes
+            .store(prospective_bytes + body.len() as u64, Ordering::Release);
         check_context(Some(context))?;
         Ok((
             StoreReceipt {

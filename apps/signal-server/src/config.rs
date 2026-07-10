@@ -151,6 +151,17 @@ section!(Storage {
     #[serde(rename = "type")]
     storage_type: Text,
     directory: Text,
+    s3_endpoint: Text,
+    s3_region: Text,
+    s3_bucket: Text,
+    s3_backend_id: Text,
+    s3_cache_directory: Text,
+    s3_cache_files: Count,
+    s3_cache_bytes: Count,
+    s3_object_bytes: Count,
+    s3_inventory_objects: Count,
+    s3_catalog_bytes: Count,
+    s3_allow_loopback_http: Text,
     #[serde(alias = "max_batch_events")]
     flush_events: Count,
     max_batch_bytes: Count,
@@ -335,6 +346,18 @@ pub struct Settings {
     environment: Environment,
 }
 impl Settings {
+    #[cfg(test)]
+    pub(crate) fn for_test(yaml: &str, entries: &[(&str, &str)]) -> Result<Self, ConfigError> {
+        Self::from_document(
+            parse(yaml)?,
+            Environment::Injected(
+                entries
+                    .iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect(),
+            ),
+        )
+    }
     pub async fn load(
         path: Option<PathBuf>,
         deadline: Instant,
@@ -384,7 +407,7 @@ impl Settings {
             .storage
             .storage_type
             .as_ref()
-            .is_some_and(|s| s.0 != "parquet")
+            .is_some_and(|s| !matches!(s.0.as_str(), "parquet" | "s3"))
         {
             return Err(ConfigError::Invalid("storage type"));
         }
@@ -421,7 +444,7 @@ impl Settings {
         mapping!(values,document.server,{listen=>"SIGNAL_LISTEN",max_connections=>"SIGNAL_MAX_CONNECTIONS"});
         mapping!(values,document.ingest,{max_request_bytes=>"SIGNAL_MAX_REQUEST_BYTES",max_batch_events=>"SIGNAL_MAX_BATCH_EVENTS",max_in_flight=>"SIGNAL_MAX_IN_FLIGHT",api_token=>"SIGNAL_API_TOKEN"});
         mapping!(values,document.buffer,{wal_directory=>"SIGNAL_WAL_DIR",memory_events=>"SIGNAL_MEMORY_EVENTS",memory_bytes=>"SIGNAL_MEMORY_BYTES",max_record_bytes=>"SIGNAL_WAL_RECORD_BYTES",max_wal_bytes=>"SIGNAL_WAL_BYTES",segment_bytes=>"SIGNAL_WAL_SEGMENT_BYTES",max_segments=>"SIGNAL_WAL_SEGMENTS",command_capacity=>"SIGNAL_WAL_COMMANDS",max_waiters=>"SIGNAL_WAL_WAITERS",admission_policy=>"SIGNAL_ADMISSION_POLICY"});
-        mapping!(values,document.storage,{directory=>"SIGNAL_STORAGE_DIR",flush_events=>"SIGNAL_STORAGE_BATCH_EVENTS",max_batch_bytes=>"SIGNAL_STORAGE_BATCH_BYTES",max_event_bytes=>"SIGNAL_STORAGE_EVENT_BYTES",max_disk_bytes=>"SIGNAL_STORAGE_BYTES",max_files=>"SIGNAL_STORAGE_FILES",command_capacity=>"SIGNAL_STORAGE_COMMANDS",compression=>"SIGNAL_STORAGE_COMPRESSION"});
+        mapping!(values,document.storage,{storage_type=>"SIGNAL_STORAGE_TYPE",s3_endpoint=>"SIGNAL_S3_ENDPOINT",s3_region=>"SIGNAL_S3_REGION",s3_bucket=>"SIGNAL_S3_BUCKET",s3_backend_id=>"SIGNAL_S3_BACKEND_ID",s3_cache_directory=>"SIGNAL_S3_CACHE_DIR",s3_cache_files=>"SIGNAL_S3_CACHE_FILES",s3_cache_bytes=>"SIGNAL_S3_CACHE_BYTES",s3_object_bytes=>"SIGNAL_S3_OBJECT_BYTES",s3_inventory_objects=>"SIGNAL_S3_INVENTORY_OBJECTS",s3_catalog_bytes=>"SIGNAL_S3_CATALOG_BYTES",s3_allow_loopback_http=>"SIGNAL_S3_ALLOW_LOOPBACK_HTTP",directory=>"SIGNAL_STORAGE_DIR",flush_events=>"SIGNAL_STORAGE_BATCH_EVENTS",max_batch_bytes=>"SIGNAL_STORAGE_BATCH_BYTES",max_event_bytes=>"SIGNAL_STORAGE_EVENT_BYTES",max_disk_bytes=>"SIGNAL_STORAGE_BYTES",max_files=>"SIGNAL_STORAGE_FILES",command_capacity=>"SIGNAL_STORAGE_COMMANDS",compression=>"SIGNAL_STORAGE_COMPRESSION"});
         mapping!(values,document.query,{memory_bytes=>"SIGNAL_QUERY_MEMORY_BYTES",max_concurrent=>"SIGNAL_QUERY_CONCURRENCY",max_files=>"SIGNAL_QUERY_FILES",max_limit=>"SIGNAL_QUERY_LIMIT",max_response_bytes=>"SIGNAL_QUERY_RESPONSE_BYTES",batch_rows=>"SIGNAL_QUERY_BATCH_ROWS",target_partitions=>"SIGNAL_QUERY_PARTITIONS"});
         mapping!(values,document.rules,{max_rules=>"SIGNAL_RULES_MAX_RULES",max_directory_entries=>"SIGNAL_RULES_MAX_DIRECTORY_ENTRIES",max_document_bytes=>"SIGNAL_RULES_MAX_DOCUMENT_BYTES",max_total_bytes=>"SIGNAL_RULES_MAX_TOTAL_BYTES",max_value_nodes=>"SIGNAL_RULES_MAX_VALUE_NODES",max_depth=>"SIGNAL_RULES_MAX_DEPTH",max_predicates=>"SIGNAL_RULES_MAX_PREDICATES",max_field_bytes=>"SIGNAL_RULES_MAX_FIELD_BYTES",max_title_bytes=>"SIGNAL_RULES_MAX_TITLE_BYTES"});
         mapping!(values,document.findings,{directory=>"SIGNAL_FINDINGS_DIR",max_disk_bytes=>"SIGNAL_FINDINGS_BYTES",max_findings=>"SIGNAL_FINDINGS_MAX_FINDINGS",max_record_bytes=>"SIGNAL_FINDINGS_RECORD_BYTES",max_append_rows=>"SIGNAL_FINDINGS_BATCH_EVENTS",max_append_bytes=>"SIGNAL_FINDINGS_BATCH_BYTES",max_query_rows=>"SIGNAL_FINDINGS_QUERY_LIMIT",max_query_bytes=>"SIGNAL_FINDINGS_QUERY_BYTES",max_index_bytes=>"SIGNAL_FINDINGS_INDEX_BYTES",command_capacity=>"SIGNAL_FINDINGS_COMMANDS"});
@@ -758,7 +781,7 @@ mod tests {
             "schema_version: 1\nserver: {<<: {listen: 'localhost:80'}}",
             "schema_version: 1\nserver: !custom {listen: 'localhost:80'}",
             "schema_version: 1\n---\nschema_version: 1",
-            "schema_version: 1\nstorage: {type: s3}",
+            "schema_version: 1\nstorage: {type: unsupported}",
             "schema_version: 1\nstorage: {flush_interval: '0ms'}",
             "schema_version: 1\nstorage: {flush_interval: '61s'}",
             "schema_version: 1\nstorage: {flush_interval: '1.5s'}",

@@ -1,5 +1,42 @@
 # Implementation progress
 
+## S3-QUERY monolith and persistent simulation — 2026-10-08
+
+S3-QUERY is passed_simulated. Optional `s3-query` backend selection stays inside
+`signal-server`; default local storage and unsupported/configuration failure
+behavior are preserved. Startup authenticates committed object state before the
+existing WAL frontier check. Busy query/append contention is distinct from durable
+quota: only Busy retries under the original batch deadline, and no unfinished
+batch checkpoints. Queries drain before source release; failed drain/drop retains
+the source through physical query jobs. The actual stalled-read red/green regression
+and source review are retained.
+
+Strict workspace acceptance passes default641/all-feature686 (storage76/default,
+85/S3; six parent-invoked helpers ignored standalone). Final evidence:
+`target/goal-execution-20261007/S3-QUERY/server-backend-validation-corrected/validation.json`
+and `server-backend-review.json`. Earlier quota-fixture failures used an undersized
+50ms physical-inventory deadline; corrected quota checks allow5s while contention
+keeps its50ms original deadline. Superseded logs are preserved.
+
+The real monolith and disk-backed bounded loopback S3 simulator pass11 scenarios:
+committed search/findings/pruning, denied/corrupt/malformed/oversized/throttled/
+unavailable reads, stopped cache deletion/rebuild, actual source/server SIGKILL
+after unreferenced data publication, and a second crash after synced manifest but
+before reply/local head. WAL checkpoints stay behind unfinished effects; recovery
+preserves four exact canonical events/findings with four manifests/eight objects,
+no duplicate query rows or altered prior events. Six helper regressions verify
+hard output caps, creation interruption/evidence failure, SIGTERM, both-child
+cleanup and failed-report nonzero. Evidence:
+`target/goal-execution-20261007/S3-QUERY/server-simulation-final-reviewed/report.json`,
+`server-simulation-checks/` and `server-simulation-review.json`.
+
+CI runs these helper/process gates through its existing bounded wrapper on both
+native architectures. Docker builds explicitly include `s3-query`; this source
+change requires a fresh image/campaign. Actionlint passes locally. No remote CI
+execution, fresh image, actual TLS/AWS/IAM/KMS/Object Lock, native ARM64/EKS,
+shared HA, custody/completeness or release qualification is implied. Standard
+shared fencing remains a later item. Next: RETENTION in the frozen ledger.
+
 ## Bounded committed object queries — 2026-10-08
 
 Eight actual Parquet/DataFusion object-query regressions and three cache tests pass;
@@ -121,7 +158,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-default workspace gate has 627; the all-feature gate has 670 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+default workspace gate has 641; the all-feature gate has 686 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 106 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy

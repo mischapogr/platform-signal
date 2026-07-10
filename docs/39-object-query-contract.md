@@ -1,6 +1,6 @@
 # Object-backed query publication and committed snapshots
 
-Status: selected frozen S3-QUERY task, in_progress. This extends the existing
+Status: selected frozen S3-QUERY task, passed_simulated (Small local profile). This extends the existing
 EventStore/query seam without adding services or private source policy. EVIDENCE
 is passed_simulated independently. Query objects are not protected originals,
 native source proofs, source ACKs or distributed custody.
@@ -256,3 +256,82 @@ S3-QUERY remains in_progress. Next: monolithic server backend/configuration,
 query-before-source shutdown and bounded append/query contention, then persistent
 source/server outage, SIGKILL and replay simulation. This slice provides no server
 process, AWS/TLS/runtime/custody/HA/native ARM64 or release qualification.
+
+## Monolithic selected backend contract — implementation in progress
+
+`signal-server` keeps a local filesystem backend by default. Explicit
+`storage.type: s3` requires the `s3-query` build feature; missing features,
+unknown types or unused S3 settings fail startup without local fallback. The
+same WAL stream binds the Small query owner. Startup authenticates its committed
+chain before the existing storage/WAL frontier compatibility check and readiness.
+Production Docker builds explicitly include `s3-query`; changed images still need
+fresh qualification. No version or publication is selected here.
+
+S3 settings are endpoint, region, bucket, stable non-nil canonical backend UUID,
+owner directory (`storage.directory`), derived cache directory and finite cache,
+object, inventory and catalog limits. YAML uses `s3_endpoint`, `s3_region`,
+`s3_bucket`, `s3_backend_id`, `s3_cache_directory`, `s3_cache_files`, `s3_cache_bytes`,
+`s3_object_bytes`, `s3_inventory_objects`, `s3_catalog_bytes` and string
+`s3_allow_loopback_http: 'true'|'false'`. Corresponding environment overrides use
+`SIGNAL_S3_*` (cache directory is `SIGNAL_S3_CACHE_DIR`), and backend selection
+uses `SIGNAL_STORAGE_TYPE`. Credentials come only from host environment
+`SIGNAL_S3_ACCESS_KEY`, `SIGNAL_S3_SECRET_KEY` and optional `SIGNAL_S3_SESSION_TOKEN`.
+There is no ambient credential provider or credential value in YAML. Explicit
+loopback HTTP is only for local fixtures; ordinary endpoints require HTTPS.
+
+Publisher admission contention is typed `Busy`, distinct from durable quota
+`Full`. The single consumer retries only `Busy`, retaining its bounded batch and
+original deadline/cancellation. Quota, corruption, timeout and uncertain effects
+leave the checkpoint unchanged. Query contention uses existing Busy/429 rather
+than resource-limit/413. Publication completes before rule/findings completion
+and the shared WAL checkpoint, as on the local backend.
+
+Reported storage bytes/files count the last fully validated remote query inventory
+or completed commit, including manifests and orphans; they exclude derived cache
+and protected originals. Actual committed/replayed rows and rejected quota,
+timeout and failed operations are counted separately. Inventory freshness is not
+continuous historical scrubbing or external storage custody.
+
+Shutdown closes ingress, cancels/drains queries before source release, then drains
+the consumer and storage/WAL under one original shutdown deadline. A failed query
+drain cannot explicitly release the source owner. Physical query jobs retain the
+source owner through actual kernel work, including caller/engine drop; no new
+worker is started to wait for a stalled read. Persistent simulator/server acceptance
+and the parent S3-QUERY status remain pending until executable evidence passes.
+
+## Accepted monolith/persistent simulation — 2026-10-08
+
+S3-QUERY is passed_simulated. Optional `s3-query` backend selection stays inside
+`signal-server`; default local storage and unsupported/configuration failure
+behavior are preserved. Startup authenticates committed object state before the
+existing WAL frontier check. Busy query/append contention is distinct from durable
+quota: only Busy retries under the original batch deadline, and no unfinished
+batch checkpoints. Queries drain before source release; failed drain/drop retains
+the source through physical query jobs. The actual stalled-read red/green regression
+and source review are retained.
+
+Strict workspace acceptance passes default641/all-feature686 (storage76/default,
+85/S3; six parent-invoked helpers ignored standalone). Final evidence:
+`target/goal-execution-20261007/S3-QUERY/server-backend-validation-corrected/validation.json`
+and `server-backend-review.json`. Earlier quota-fixture failures used an undersized
+50ms physical-inventory deadline; corrected quota checks allow5s while contention
+keeps its50ms original deadline. Superseded logs are preserved.
+
+The real monolith and disk-backed bounded loopback S3 simulator pass11 scenarios:
+committed search/findings/pruning, denied/corrupt/malformed/oversized/throttled/
+unavailable reads, stopped cache deletion/rebuild, actual source/server SIGKILL
+after unreferenced data publication, and a second crash after synced manifest but
+before reply/local head. WAL checkpoints stay behind unfinished effects; recovery
+preserves four exact canonical events/findings with four manifests/eight objects,
+no duplicate query rows or altered prior events. Six helper regressions verify
+hard output caps, creation interruption/evidence failure, SIGTERM, both-child
+cleanup and failed-report nonzero. Evidence:
+`target/goal-execution-20261007/S3-QUERY/server-simulation-final-reviewed/report.json`,
+`server-simulation-checks/` and `server-simulation-review.json`.
+
+CI runs these helper/process gates through its existing bounded wrapper on both
+native architectures. Docker builds explicitly include `s3-query`; this source
+change requires a fresh image/campaign. Actionlint passes locally. No remote CI
+execution, fresh image, actual TLS/AWS/IAM/KMS/Object Lock, native ARM64/EKS,
+shared HA, custody/completeness or release qualification is implied. Standard
+shared fencing remains a later item. Next: RETENTION in the frozen ledger.

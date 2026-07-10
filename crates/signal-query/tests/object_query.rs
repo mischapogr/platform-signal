@@ -445,7 +445,7 @@ async fn noncancellable_child_keeps_parent_admission_and_owner_after_front_timeo
     assert_eq!(writer.metrics().depth, 1);
     assert_eq!(
         engine.execute(first_hour()?, context()).await.err(),
-        Some(QueryError::Resource)
+        Some(QueryError::Busy)
     );
     engine.shutdown(context()).await?;
     assert!(matches!(

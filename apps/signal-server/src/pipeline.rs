@@ -8,7 +8,7 @@ use signal_protocol::{
 };
 use signal_query::QueryEngine;
 use signal_rules::{RuleContext, RuleError, RuleSet};
-use signal_storage::{OperationContext, ParquetStore, StorageError, StoredEvent};
+use signal_storage::{OperationContext, StorageError, StoredEvent};
 use std::{
     io::Write,
     sync::{
@@ -23,7 +23,7 @@ use tokio_util::sync::CancellationToken;
 
 pub struct PipelineSink {
     pub buffer: Arc<DurableBuffer>,
-    pub store: Arc<ParquetStore>,
+    pub store: Arc<crate::storage::Backend>,
     pub query: Option<Arc<QueryEngine>>,
     pub detection: Option<Arc<DetectionPipeline>>,
     pub logging: Option<crate::logging::LogWriter>,
@@ -249,22 +249,42 @@ async fn consume_inner(
         let first = batch.first().ok_or(PipelineError::Receipt)?.sequence;
         let last = batch.last().ok_or(PipelineError::Receipt)?.sequence;
         let deadline = Instant::now() + config.operation_timeout;
-        let receipt = pipeline
-            .store
-            .append(
-                batch
-                    .iter()
-                    .map(|row| StoredEvent {
-                        sequence: row.sequence,
-                        event: row.event.clone(),
-                    })
-                    .collect(),
-                OperationContext {
-                    deadline,
-                    cancellation: cancel.child_token(),
+        let rows: Vec<_> = batch
+            .iter()
+            .map(|row| StoredEvent {
+                sequence: row.sequence,
+                event: row.event.clone(),
+            })
+            .collect();
+        // Only admission contention is retryable. Durable quota/corruption and
+        // uncertain effects return without advancing the shared WAL checkpoint.
+        let receipt = loop {
+            if cancel.is_cancelled() {
+                return Err(PipelineError::Cancelled);
+            }
+            if Instant::now() >= deadline {
+                return Err(PipelineError::Deadline);
+            }
+            match pipeline
+                .store
+                .append(
+                    &rows,
+                    OperationContext {
+                        deadline,
+                        cancellation: cancel.child_token(),
+                    },
+                )
+                .await
+            {
+                Ok(receipt) => break receipt,
+                Err(StorageError::Busy) => tokio::select! {biased;
+                    _=cancel.cancelled()=>return Err(PipelineError::Cancelled),
+                    _=tokio::time::sleep_until(deadline)=>return Err(PipelineError::Deadline),
+                    _=sleep(Duration::from_millis(2))=>{},
                 },
-            )
-            .await?;
+                Err(error) => return Err(error.into()),
+            }
+        };
         if receipt.first_sequence != first || receipt.last_sequence != last {
             return Err(PipelineError::Receipt);
         }
@@ -438,7 +458,9 @@ mod tests {
     }
     async fn open(wal: BufferConfig, storage: StorageConfig) -> Result<Arc<PipelineSink>> {
         let buffer = Arc::new(DurableBuffer::open(wal).await?);
-        let store = Arc::new(ParquetStore::open(storage, buffer.snapshot().stream_id).await?);
+        let store = Arc::new(crate::storage::Backend::local(
+            signal_storage::ParquetStore::open(storage, buffer.snapshot().stream_id).await?,
+        ));
         Ok(Arc::new(PipelineSink {
             buffer,
             store,
@@ -485,7 +507,9 @@ mod tests {
     ) -> Result<Arc<PipelineSink>> {
         let buffer = Arc::new(DurableBuffer::open(wal).await?);
         let stream = buffer.snapshot().stream_id;
-        let store = Arc::new(ParquetStore::open(storage, stream).await?);
+        let store = Arc::new(crate::storage::Backend::local(
+            signal_storage::ParquetStore::open(storage, stream).await?,
+        ));
         let max_rows = finding_config.max_append_rows;
         let max_bytes = finding_config.max_append_bytes;
         let findings = Arc::new(FindingStore::open(finding_config, stream).await?);
@@ -609,13 +633,13 @@ mod tests {
         pipeline
             .store
             .append(
-                batch
+                &batch
                     .iter()
                     .map(|row| StoredEvent {
                         sequence: row.sequence,
                         event: row.event.clone(),
                     })
-                    .collect(),
+                    .collect::<Vec<_>>(),
                 OperationContext::new(Duration::from_secs(5)),
             )
             .await?;
@@ -703,13 +727,13 @@ mod tests {
         pipeline
             .store
             .append(
-                batch
+                &batch
                     .into_iter()
                     .map(|row| StoredEvent {
                         sequence: row.sequence,
                         event: row.event,
                     })
-                    .collect(),
+                    .collect::<Vec<_>>(),
                 OperationContext::new(Duration::from_secs(5)),
             )
             .await?;
@@ -751,13 +775,13 @@ mod tests {
         pipeline
             .store
             .append(
-                batch
+                &batch
                     .into_iter()
                     .map(|row| StoredEvent {
                         sequence: row.sequence,
                         event: row.event,
                     })
-                    .collect(),
+                    .collect::<Vec<_>>(),
                 OperationContext::new(Duration::from_secs(5)),
             )
             .await?;
@@ -815,6 +839,141 @@ mod tests {
             .count();
         assert_eq!(manifests, 1);
         stop(&pipeline).await?;
+        Ok(())
+    }
+    #[cfg(feature = "s3-query")]
+    async fn object_pipeline(
+        temp: &TempDir,
+        max_disk_bytes: u64,
+    ) -> Result<(
+        Arc<PipelineSink>,
+        Arc<signal_storage::object_publication::ObjectPublisher>,
+    )> {
+        use signal_storage::{
+            object_io::{ObjectIo, ObjectIoLimits, SmallOwnerConfig},
+            object_publication::{ObjectPublisher, PublicationConfig},
+        };
+        let (wal, mut storage) = configs(temp);
+        storage.max_disk_bytes = max_disk_bytes;
+        let buffer = Arc::new(DurableBuffer::open(wal).await?);
+        let objects = temp.path().join("remote");
+        std::fs::create_dir(&objects)?;
+        let remote = object_store::local::LocalFileSystem::new_with_prefix(&objects)?;
+        let io = ObjectIo::open_small_local(
+            &SmallOwnerConfig {
+                directory: temp.path().join("control"),
+                stream_id: buffer.snapshot().stream_id,
+                backend_id: uuid::Uuid::new_v4(),
+            },
+            remote,
+            ObjectIoLimits::default(),
+            OperationContext::new(Duration::from_secs(5)),
+        )
+        .await?;
+        let publisher = Arc::new(ObjectPublisher::new(
+            io,
+            tokio::runtime::Handle::current(),
+            PublicationConfig {
+                storage,
+                ..Default::default()
+            },
+        )?);
+        let store = Arc::new(crate::storage::Backend::Object(publisher.clone()));
+        Ok((
+            Arc::new(PipelineSink {
+                buffer,
+                store,
+                query: None,
+                detection: None,
+                logging: None,
+                coverage: None,
+            }),
+            publisher,
+        ))
+    }
+    #[cfg(feature = "s3-query")]
+    #[tokio::test]
+    async fn object_admission_contention_recovers_without_checkpointing_early() -> Result {
+        let temp = TempDir::new()?;
+        let (pipeline, publisher) = object_pipeline(&temp, 64 * 1024 * 1024).await?;
+        let lease = publisher
+            .snapshot(OperationContext::new(Duration::from_secs(5)))
+            .await?;
+        pipeline.buffer.admit(event("bounded contention")?).await?;
+        let drain = CancellationToken::new();
+        drain.cancel();
+        let handle = tokio::spawn(consume(
+            pipeline.clone(),
+            consumer_config(),
+            drain,
+            CancellationToken::new(),
+            CancellationToken::new(),
+        ));
+        tokio::time::sleep(Duration::from_millis(30)).await;
+        assert_eq!(pipeline.buffer.snapshot().checkpoint, 0);
+        assert_eq!(pipeline.store.metrics().high_water, 0);
+        assert_eq!(publisher.metrics().depth, 1);
+        drop(lease);
+        tokio::time::timeout(Duration::from_secs(5), handle).await???;
+        assert_eq!(pipeline.buffer.snapshot().checkpoint, 1);
+        assert_eq!(pipeline.store.metrics().persisted, 1);
+        assert_eq!(pipeline.store.metrics().files, 2);
+        assert!(pipeline.store.metrics().disk_bytes > 0);
+        assert_eq!(pipeline.store.metrics().full, 0);
+        stop(&pipeline).await?;
+        Ok(())
+    }
+    #[cfg(feature = "s3-query")]
+    #[tokio::test]
+    async fn object_busy_deadline_and_durable_quota_never_checkpoint() -> Result {
+        for quota in [false, true] {
+            let temp = TempDir::new()?;
+            let (pipeline, publisher) =
+                object_pipeline(&temp, if quota { 36 } else { 64 * 1024 * 1024 }).await?;
+            let lease = if quota {
+                None
+            } else {
+                Some(
+                    publisher
+                        .snapshot(OperationContext::new(Duration::from_secs(5)))
+                        .await?,
+                )
+            };
+            pipeline.buffer.admit(event("unfinished")?).await?;
+            let mut config = consumer_config();
+            config.operation_timeout = if quota {
+                Duration::from_secs(5)
+            } else {
+                Duration::from_millis(50)
+            };
+            let drain = CancellationToken::new();
+            drain.cancel();
+            let failed = CancellationToken::new();
+            let start = Instant::now();
+            let result = consume(
+                pipeline.clone(),
+                config,
+                drain,
+                CancellationToken::new(),
+                failed.clone(),
+            )
+            .await;
+            if quota {
+                assert!(matches!(
+                    result,
+                    Err(PipelineError::Storage(StorageError::Full))
+                ));
+                assert_eq!(pipeline.store.metrics().full, 1);
+            } else {
+                assert!(matches!(result, Err(PipelineError::Deadline)));
+                assert!(start.elapsed() < Duration::from_millis(300));
+            }
+            assert!(failed.is_cancelled());
+            assert_eq!(pipeline.buffer.snapshot().checkpoint, 0);
+            assert_eq!(pipeline.store.metrics().high_water, 0);
+            drop(lease);
+            stop(&pipeline).await?;
+        }
         Ok(())
     }
 }

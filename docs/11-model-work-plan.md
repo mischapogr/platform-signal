@@ -33,12 +33,12 @@ campaign and reviewed-revision CI acceptance remain open. CI/candidate tooling
 preparation belongs to the existing release/external items, not new product scope;
 see [OSS CI and cloud qualification](40-oss-ci-and-cloud-qualification.md).
 
-The selected S3-QUERY adapter and generic committed query/cache now pass
-storage76/default and85/S3, default638/all-feature681 strict acceptance and focused
-review. Continue monolithic server integration and persistent process simulation;
-parent S3-QUERY stays in_progress. Query drain must precede source release, and
-Small query/append contention must preserve the original batch deadline and WAL.
-Retain actual TLS/AWS/native/remote qualification boundaries.
+S3-QUERY is passed_simulated: default641/all-feature686 strict acceptance,
+focused source review, six helper regressions and eleven persistent S3/real-server
+scenarios pass. Four canonical events/findings survive data-orphan and uncertain
+manifest process crashes. Continue RETENTION in the frozen ledger. CI wiring and
+explicit optional S3 packaging need fresh remote/image qualification; retain
+actual TLS/AWS/native/EKS/shared-runtime exceptions.
 
 ## MVP execution priority — 2026-10-07
 
