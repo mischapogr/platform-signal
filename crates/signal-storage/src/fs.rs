@@ -46,7 +46,7 @@ pub(crate) struct Engine {
 fn io(e: std::io::Error) -> StorageError {
     StorageError::Io(e)
 }
-fn create(path: &Path) -> Result<File, StorageError> {
+pub(crate) fn create(path: &Path) -> Result<File, StorageError> {
     let mut options = OpenOptions::new();
     options.read(true).write(true).create_new(true);
     #[cfg(unix)]
@@ -56,7 +56,7 @@ fn create(path: &Path) -> Result<File, StorageError> {
     }
     options.open(path).map_err(io)
 }
-fn directory(path: &Path) -> Result<(), StorageError> {
+pub(crate) fn directory(path: &Path) -> Result<(), StorageError> {
     let path = if path.as_os_str().is_empty() {
         Path::new(".")
     } else {
@@ -91,7 +91,7 @@ fn directory(path: &Path) -> Result<(), StorageError> {
     sync_dir(path)?;
     sync_dir(parent)
 }
-fn sync_dir(path: &Path) -> Result<(), StorageError> {
+pub(crate) fn sync_dir(path: &Path) -> Result<(), StorageError> {
     File::open(path).map_err(io)?.sync_all().map_err(io)
 }
 fn range_name(first: u64, last: u64, suffix: &str) -> String {

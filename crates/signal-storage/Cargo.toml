@@ -15,6 +15,9 @@ signal-event.workspace = true
 signal-protocol.workspace = true
 arrow.workspace = true
 bytes.workspace = true
+futures.workspace = true
+futures-util.workspace = true
+object_store = { workspace = true, features = ["fs"] }
 parquet.workspace = true
 chrono.workspace = true
 crc32fast.workspace = true

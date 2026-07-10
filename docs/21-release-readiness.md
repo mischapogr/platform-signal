@@ -23,6 +23,12 @@ and actual candidate execution still need evidence. See
 
 ## Object Parquet CPU seam — 2026-10-08
 
+The later object-I/O/Small-owner acceptance is storage55/default609/all-feature643
+with strict gates and focused review. Its exact evidence and remaining publication/
+query/adapter work are in [progress](07-progress.md) and
+`target/goal-execution-20261007/S3-QUERY/io-validation-late-final/validation.json`.
+It does not complete S3-QUERY or any external release gate.
+
 S3-QUERY remains in_progress. Six actual codec regressions and default599/
 all-feature633 strict workspace gates plus focused review qualify bounded input,
 output, decoded metadata and raw JSON handling; see [progress](07-progress.md) and
