@@ -446,23 +446,27 @@
         {
           "id": "bounded-native-cloudtrail-proof-and-continuity-validation",
           "status": "in_progress",
-          "notes": "Native immutable RSA digest/log/complete-reference/chain evidence and read-only SigV4 regional-key/exact-version S3 capture pass local source acceptance with default571/all-feature603/private37 gates and review. Independent durable proof checkpoint/coverage integration remains unfinished; no complete collection or real AWS qualification.",
+          "notes": "Native byte validation and read-only signed capture accepted previously. Separate private native bundle/immutable observation/history/CAS plus independently retained current-head supervisor and explicit ahead-one recovery now pass private70 strict gates, four actual commit SIGKILL cases, fixture reproducibility and focused review. Current native-log/receipt linkage and conservative SDK coverage remain unfinished; no complete collection or real AWS qualification.",
           "evidence": [
             "target/goal-execution-20261007/EVIDENCE/native-validation/validation.json",
-            "target/goal-execution-20261007/EVIDENCE/native-review.json"
+            "target/goal-execution-20261007/EVIDENCE/native-review.json",
+            "target/goal-execution-20261007/EVIDENCE/native-supervisor-validation/validation.json",
+            "target/goal-execution-20261007/EVIDENCE/native-supervisor-review.json"
           ]
         },
         {
           "id": "independent-route-custody-ack-and-outage-simulation",
           "status": "in_progress",
-          "notes": "Whole-receipt signed independent custody, fresh explicit stronger ACK and owner-ticket fence accepted locally with fourteen custody/two optional source-fence regressions, default585/all-feature619/private37 gates and review. Independently enforced archive/version/retention/access and native checkpoint/coverage/outage/crash route integration remain unfinished. Parent EVIDENCE stays open. Separate private bounded physical archive worker/immutable receipt readback/signing now accepted locally: sixteen private/three generic regressions, default588/all-feature622/private53 strict gates and independent source review. Exact schema and consumed-native-row reset guards enforced. Native history/current reconciliation, authenticated role HTTP and protected outage/archive-crash/redelivery composition remain unfinished.",
+          "notes": "Whole-receipt signed independent custody, fresh explicit stronger ACK and owner-ticket fence accepted locally with fourteen custody/two optional source-fence regressions, default585/all-feature619/private37 gates and review. Independently enforced archive/version/retention/access and native checkpoint/coverage/outage/crash route integration remain unfinished. Parent EVIDENCE stays open. Separate private bounded physical archive worker/immutable receipt readback/signing now accepted locally: sixteen private/three generic regressions, default588/all-feature622/private53 strict gates and independent source review. Exact schema and consumed-native-row reset guards enforced. Native history/current reconciliation, authenticated role HTTP and protected outage/archive-crash/redelivery composition remain unfinished. Native history/current-authority mechanism now accepted with private70 strict gates and four actual SIGKILL cases. Native-log/receipt linkage, role HTTP and source-ACK/M2 protected outage composition remain unfinished.",
           "evidence": [
             "target/goal-execution-20261007/EVIDENCE/custody-validation/validation.json",
             "target/goal-execution-20261007/EVIDENCE/custody-private-validation/validation.json",
             "target/goal-execution-20261007/EVIDENCE/custody-review.json",
             "target/goal-execution-20261007/EVIDENCE/archive-validation/validation.json",
             "target/goal-execution-20261007/EVIDENCE/archive-private-validation/validation.json",
-            "target/goal-execution-20261007/EVIDENCE/archive-review.json"
+            "target/goal-execution-20261007/EVIDENCE/archive-review.json",
+            "target/goal-execution-20261007/EVIDENCE/native-supervisor-validation/validation.json",
+            "target/goal-execution-20261007/EVIDENCE/native-supervisor-review.json"
           ]
         }
       ]

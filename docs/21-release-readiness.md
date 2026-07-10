@@ -7,6 +7,42 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Retained native proof history and independent current head — 2026-10-08
+
+The private EVIDENCE native mechanism now retains exact native bundles, immutable
+observations, predecessor hashes and an atomic compare-and-swap head. Optional
+trusted source/key policy is pinned to the complete collector binding. Reopen
+requires a fresh separately signed current-head grant and revalidates every
+retained bundle/signature/reference/classification. Later contiguous delivery or
+backfill cannot erase a known gap; backfill cannot advance the regular checkpoint.
+Configuration, API-category coverage and collection completeness stay unknown.
+
+A separately owned/keyed bounded supervisor retains exact archive-signed head
+transitions and advances its own head by CAS. Challenge replies read actual
+retained supervisor history. Explicit ahead-one recovery checks the exact prior
+head, revalidates the entire archive chain and physically closes before returning
+only a transition. Fresh supervisor confirmation precedes ordinary reconciled
+reopen; exact-current uses that ordinary path and other divergence is denied.
+Consistently restoring both owners remains an independent reconciliation boundary.
+
+Private acceptance passes 70 tests, zero failures, four parent-invoked helpers,
+fmt, strict Clippy, build and actual overlay/server SIGKILL/SIGTERM checks. Four
+actual SIGKILL cases cover both sides of archive and supervisor commits. Revoked
+grants retain physical ownership until disk work exits; changed retained bundle
+bytes prevent signing. Independent OpenSSL fixture regeneration is byte-identical.
+Public Rust inputs are unchanged from accepted default588/all-feature622 gates.
+Evidence: `target/goal-execution-20261007/EVIDENCE/native-supervisor-validation/validation.json`,
+`native-supervisor-review.json` and `native-supervisor-handoff.json` there. The two
+review findings, strict lint and shared startup-fixture corrections are resolved;
+failed acceptance attempts remain retained. Archive development schema2 pins
+native policy; older schema1 is refused without implicit migration or reset.
+UPGRADE remains a planned item.
+
+EVIDENCE stays in_progress. Continue native-log/receipt linkage and conservative
+SDK coverage, authenticated protected role HTTP, source-ACK/M2 replay and
+observability/archive outage composition. No actual AWS/Object Lock/IAM/KMS,
+ARM64/EKS, vendor, remote-CI, released-dependency or publication gate is closed.
+
 ## Bounded independent archive mechanism — 2026-10-08
 
 The EVIDENCE archive mechanism passes local acceptance. A separate private
