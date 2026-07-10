@@ -9,7 +9,7 @@ use signal_protocol::{AttributeFilter, EventQuery};
 use signal_query::{QueryConfig, QueryEngine, QueryError};
 use signal_storage::{
     OperationContext, StoredEvent,
-    object_cache::MaterializationConfig,
+    object_cache::{MaterializationConfig, prune_stopped_materialization},
     object_io::{ObjectIo, ObjectIoLimits, SmallOwnerConfig},
     object_publication::{ObjectPublisher, PublicationConfig},
 };
@@ -251,6 +251,8 @@ async fn object_queries_prune_before_data_get_and_rebuild_after_derived_root_del
     );
     engine.shutdown(context()).await?;
     writer.shutdown(context()).await?;
+    drop(engine);
+    drop(writer);
     std::fs::remove_dir_all(fixture.cache())?;
     let reopened = fixture.open(16, 8 * 1024 * 1024).await?;
     let query_engine = QueryEngine::with_source(QueryConfig::default(), reopened.clone())?;
@@ -340,7 +342,9 @@ async fn corrupted_derived_copy_is_preserved_and_stopped_rebuild_restores_query(
     assert_eq!(std::fs::read(&path)?, bytes);
     engine.shutdown(context()).await?;
     writer.shutdown(context()).await?;
-    std::fs::remove_file(path)?;
+    drop(engine);
+    drop(writer);
+    assert_eq!(prune_fixture(&fixture, 16)?.removed_files, 1);
     let reopened = fixture.open(16, 8 * 1024 * 1024).await?;
     let engine = QueryEngine::with_source(QueryConfig::default(), reopened.clone())?;
     assert_eq!(
@@ -469,6 +473,8 @@ async fn noncancellable_child_keeps_parent_admission_and_owner_after_front_timeo
     drop(release);
     writer.shutdown(context()).await?;
     fixture.backend.mode.store(0, Ordering::Release);
+    drop(engine);
+    drop(writer);
     let reopened = fixture.open(16, 8 * 1024 * 1024).await?;
     let engine = QueryEngine::with_source(QueryConfig::default(), reopened.clone())?;
     assert_eq!(
@@ -506,5 +512,88 @@ async fn shutdown_waits_for_remote_selection_under_original_deadline() -> Result
     engine.shutdown(context()).await?;
     writer.shutdown(context()).await?;
     assert_eq!(result.err(), Some(QueryError::Timeout));
+    Ok(())
+}
+
+// Maintenance uses one ordinary scoped worker, outside the query I/O pool.
+fn prune_fixture(
+    fixture: &Fixture,
+    files: usize,
+) -> Result<signal_storage::object_cache::MaterializationPrune> {
+    std::thread::scope(|scope| {
+        scope
+            .spawn(|| {
+                prune_stopped_materialization(
+                    &MaterializationConfig {
+                        directory: fixture.cache(),
+                        max_files: files,
+                        max_disk_bytes: 8 * 1024 * 1024,
+                    },
+                    fixture.owner.stream_id,
+                    fixture.owner.backend_id,
+                    &context(),
+                )
+            })
+            .join()
+            .map_err(|_| "maintenance worker panicked")?
+            .map_err(Into::into)
+    })
+}
+#[tokio::test]
+async fn stopped_cache_prune_recovers_quota_without_changing_committed_events() -> Result {
+    let fixture = Fixture::new()?;
+    let writer = fixture.open(1, 8 * 1024 * 1024).await?;
+    let rows = rows()?;
+    writer.append(&rows, context()).await?;
+    let engine = QueryEngine::with_source(QueryConfig::default(), writer.clone())?;
+    assert_eq!(
+        engine.execute(first_hour()?, context()).await?.events,
+        vec![rows[0].event.clone()]
+    );
+    let mut second_hour = first_hour()?;
+    second_hour.from = Some(time("2026-07-10T20:00:00Z")?);
+    second_hour.to = Some(time("2026-07-10T21:00:00Z")?);
+    assert_eq!(
+        engine.execute(second_hour.clone(), context()).await.err(),
+        Some(QueryError::Resource)
+    );
+    assert!(matches!(
+        prune_fixture(&fixture, 1)
+            .err()
+            .and_then(|e| e.downcast::<signal_storage::StorageError>().ok())
+            .as_deref(),
+        Some(signal_storage::StorageError::Locked)
+    ));
+    let binding = std::fs::read(fixture.cache().join("control/binding.json"))?;
+    engine.shutdown(context()).await?;
+    writer.shutdown(context()).await?;
+    // Explicit shutdown leaves the immutable source lifetime protected.
+    assert!(prune_fixture(&fixture, 1).is_err());
+    drop(engine);
+    drop(writer);
+    let pruned = prune_fixture(&fixture, 1)?;
+    assert_eq!(pruned.removed_files, 1);
+    assert!(pruned.removed_bytes > 0);
+    assert_eq!(
+        std::fs::read(fixture.cache().join("control/binding.json"))?,
+        binding
+    );
+    let reopened = fixture.open(1, 8 * 1024 * 1024).await?;
+    let engine = QueryEngine::with_source(QueryConfig::default(), reopened.clone())?;
+    assert_eq!(
+        engine.execute(second_hour, context()).await?.events,
+        vec![rows[1].event.clone()]
+    );
+    assert_eq!(reopened.metrics().high_water, 9);
+    assert_eq!(
+        reopened.append(&rows[..1], context()).await?.replay_count,
+        1
+    );
+    assert_eq!(
+        std::fs::read_dir(fixture.cache().join("objects"))?.count(),
+        1
+    );
+    engine.shutdown(context()).await?;
+    reopened.shutdown(context()).await?;
     Ok(())
 }

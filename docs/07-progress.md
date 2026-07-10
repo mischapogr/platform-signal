@@ -1,5 +1,41 @@
 # Implementation progress
 
+## RETENTION stopped derived-cache maintenance — 2026-10-08
+
+RETENTION stays in_progress. Stopped maintenance requires an existing exact
+stream/backend binding, existing lock and exclusive cache ownership. Full finite
+layout/control checks precede derived unlink; temporary/head/genesis/unknown
+controls are rejected unchanged. Each unlink and completion sync precede success.
+No remote query object, original or control is deleted. A partial failure leaves
+rebuildable derived copies and requires ownership/layout revalidation on retry.
+
+Source state retains the cache owner beyond explicit publisher shutdown, through
+actual physical query jobs. An actual red/green test reproduces pruning during a
+surviving read when that lease is disabled. Review also reproduced temporary
+binding deletion by general owner recovery; strict maintenance preflight fixes
+it, with preservation regressions. Actual child SIGKILL after the first synced
+unlink, non-root unlink denial, cancellation, foreign/symlink/hardlink rejection,
+corrupt-copy rebuild and quota recovery pass. Existing control and synthetic
+protected-original bytes remain unchanged. Hosts drop stopped source/query
+handles before maintenance or reopening a cache owner.
+
+Strict formatting, default/all-feature Clippy, all-feature build, workspace guard
+and default651/all-feature696 pass (storage84/default,93/S3; seven parent helpers
+ignored standalone). Focused storage/query127 and independent source review pass.
+The current immutable local server binary also passes all11 persistent S3/monolith
+scenarios, preserving four canonical events/findings through both crash stages.
+Evidence: `target/goal-execution-20261007/RETENTION/cache-validation/validation.json`,
+`cache-review.json`, `cache-broad-focused-2.log`, `cache-owner-red.log`,
+`cache-control-red.log` and `cache-server-simulation-final/report.json`.
+
+The initial simulator invocation raced the default Cargo test binary rebuild and
+correctly failed unsupported S3 configuration. Its failed report is retained;
+sequential all-feature build and immutable candidate copying resolved invocation
+identity, with no source/runtime failure inferred. Source and binary hashes are
+retained in `cache-candidate/binary.json`. No fresh image, cloud/native ARM64/EKS,
+remote CI, HA/custody or release qualification follows. Next: synced query
+retirement/reclamation and bounded query measurements inside RETENTION.
+
 ## RETENTION policy and advisory reachability — 2026-10-08
 
 RETENTION is in_progress. Explicit version1 raw/query/index policies validate
@@ -182,7 +218,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-default workspace gate has 644; the all-feature gate has 689 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+default workspace gate has 651; the all-feature gate has 696 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 106 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
