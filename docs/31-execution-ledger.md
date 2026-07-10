@@ -11,7 +11,15 @@ This reconciles [product scope](27-product-architecture.md),
 [current progress](07-progress.md) and [release gates](21-release-readiness.md).
 The newer progress/routing acceptance supersedes old “UI then pruning” next-step
 text: UI-01/UI-02, coverage pruning/scans and initial source receipts are done.
-OBJECT-READER is accepted locally; AWS-DELIVERY now has local signed-transport/delivery simulation acceptance; COVERAGE-OBSERVERS now has simulated independent checkpoint/gap/quiet/degraded-silence runtime acceptance. Native CloudTrail byte-proof/signed capture and whole-receipt independently verified custody/explicit ACK/owner-ticket fence mechanisms pass locally; the bounded private archive worker/immutable full-receipt readback and actual custody signing now pass locally (default588/all-feature622/private53). Retained native-proof history, independent supervisor CAS/current grants and explicit ahead-one recovery now pass private70 strict acceptance with four actual SIGKILL cases. Current-confirmed native-log/receipt/custody binding and immutable Unknown SDK coverage now pass private72 strict acceptance/review. The existing native validation/continuity substep is passed_local; Authenticated provider/producer/verifier/owner HTTP and verifier-owned fixed capture fetch now pass private77 strict acceptance/review and actual bounded stalled-reader/connection regressions. Protected observability outage/source-ACK/M2/crash composition remains unfinished within EVIDENCE. Real AWS stays unqualified. FINDINGS-CURSOR is accepted locally. Private OUTBOX transactional plans and bounded dispatch/notification simulations are accepted (passed_simulated); DISPOSITIONS is accepted locally; next is EVIDENCE.
+OBJECT-READER, FINDINGS-CURSOR and DISPOSITIONS pass locally. AWS-DELIVERY,
+COVERAGE-OBSERVERS and OUTBOX pass local simulation. EVIDENCE now passes simulation:
+independent protected native originals/complete receipt/current-owner custody,
+actual observability outage with M2 ACK gating, lost archive reply/exact replay,
+actual server and source crashes, uncertainty/reconciled reopen and fresh ACK.
+Private77 strict tests plus exact parent1 compound process gate and review pass;
+public588/622 remains unchanged. All source completeness, AWS/TLS/HA/shared-runtime
+and release exceptions stay visible. Next: S3-QUERY then dependency-ready items.
+
 
 ## Execution and evidence
 
@@ -61,7 +69,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | FINDINGS-CURSOR | passed_local | CORE | Durable public findings cursor runtime |
 | OUTBOX | passed_simulated | FINDINGS-CURSOR | Private transactional finding cursor/outbox and notification simulation |
 | DISPOSITIONS | passed_local | OUTBOX | Disposition/outcome backend seam |
-| EVIDENCE | in_progress | AWS-DELIVERY | Independent protected original route and validation simulation |
+| EVIDENCE | passed_simulated | AWS-DELIVERY | Independent protected original route and validation simulation |
 | S3-QUERY | pending | CORE | Object-backed Parquet and committed query manifests |
 | RETENTION | pending | S3-QUERY, EVIDENCE | Selective query acceleration, retention and cost controls |
 | SECURITY-ACCESS | pending | CORE | OIDC/trusted identity, scoped credentials and RBAC |

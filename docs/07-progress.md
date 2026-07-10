@@ -40,6 +40,44 @@ Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
 
+## Independent protected route composition — 2026-10-08
+
+EVIDENCE is now **passed_simulated** within the frozen local scope. Distinct
+provider/archive/verifier/current-owner endpoints retain exact originals, native
+proofs, versions, complete receipts and immutable retention while the actual
+observability server is unavailable. Its source ACK is refused before required
+server202 M2. Recovery publishes the exact prepared event, verifies the admission
+prefix and preserves it through an actual server SIGKILL/restart.
+
+The compound process gate also loses an archive HTTP reply after the actual
+physical201 commit, then checks exact manifest replay. A separately owned source
+queue commits deletion and is SIGKILLed before replying: the SDK records Uncertain,
+reconciled reopen preserves the frozen receipt, restart rejects the stale handle,
+fresh redelivery receives a new handle and each ACK phase obtains fresh native-
+required independently current custody. Both source handles stay outside the
+receipt spool. Source deletion confirms a lease operation, not original deletion
+or proof that no duplicate can be redelivered.
+
+Private acceptance:77 passed/zero failed/six parent-managed ignored helpers, fmt,
+strict Clippy/build, seven byte-identical native fixtures; the exact parent gate
+passes1 compound test. The actual overlay crash/SIGTERM gate and13-package public/
+private guard pass. Independent review has no remaining blocker/high. The parent
+pins source, fixtures, path dependencies and server bytes, caps output/deadlines,
+and kills its owned process group on failure. Evidence:
+`target/goal-execution-20261007/EVIDENCE/protected-composition-validation/validation.json`,
+`protected-composition-process-qualified/validation.json`, and
+`protected-composition-review.json` there.
+
+Public Rust remains at accepted588/default and622/all-feature. Earlier native
+archive/supervisor gates retain four actual SIGKILL boundaries; this composition
+adds actual server and source crashes, not a new archive-process crash claim.
+Local owner grants certify neither distributed/shared-runtime fencing nor
+consistent rollback of both authorities. Source configuration/category coverage
+and completeness stay Unknown; proof age is not renewed. AWS/IAM/Object Lock/KMS,
+TLS/account isolation, ARM64/EKS/live tenants/remote CI/released dependencies and
+publication remain unqualified. Continue S3-QUERY; no service split or release
+approval follows this local simulation.
+
 ## Authenticated protected role HTTP — 2026-10-08
 
 The private local stand-in now serves actual retained archive, provider, native
