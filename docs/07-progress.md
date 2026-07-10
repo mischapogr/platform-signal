@@ -40,6 +40,33 @@ Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
 
+## Authenticated protected role HTTP — 2026-10-08
+
+The private local stand-in now serves actual retained archive, provider, native
+verifier and independent current-owner routes under distinct credentials. Native
+requests select only a bounded capture ID; the verifier fetches host-selected
+provider bytes with exact version/owner checks. Keys, scope, profile definition
+and retention remain host configuration. Owner mutation needs its own credential;
+the verifier holds only read-current permission. Archive201 means protected
+retention, independently of server202 M2.
+
+Every endpoint permits eight finite-lifetime connections and one active body/result.
+Admission remains held through connection flush/exit, including stalled readers;
+timeout/shutdown drops cancel work without refunding physical archive leases.
+Five actual loopback regressions cover role/method/query/body denial, malformed
+selectors, wrong/duplicate object metadata, current-head custody, immutable replay,
+provider/owner outages, throttling, cancellation, slow responses and connection caps.
+
+Private acceptance passes77 tests/zero failures/four parent-invoked helpers,
+fmt, strict Clippy, build, seven byte-identical independently generated fixtures,
+actual overlay/server SIGKILL/SIGTERM and the workspace ownership guard. The
+focused review's response-memory lifetime finding is corrected and accepted.
+Evidence: `target/goal-execution-20261007/EVIDENCE/protected-http-validation/validation.json`
+and `protected-http-review.json` there. Public Rust remains unchanged at588/622.
+EVIDENCE stays in_progress for protected observability-outage/source-ACK/M2 and
+crash/replay composition. Loopback permissions certify no TLS/IAM/account isolation
+or live source completeness; no external release gate is closed.
+
 ## Native original/receipt linkage and conservative coverage — 2026-10-08
 
 The native-required private path now requires fresh supervisor confirmation,

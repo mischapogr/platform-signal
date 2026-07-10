@@ -342,3 +342,36 @@ Profiles/observer identity must be resolved by trusted host configuration and
 pinned at actual intake; names or these constructors alone grant no authority.
 Authenticated provider capture/version/owner/key origin and role HTTP/protected
 source-ACK/M2 outage composition remain separate unfinished route requirements.
+
+## Locally enforced protected role routes
+
+The separate private stand-in enforces exact role/method/path credentials before
+body decoding. Provider catalogs are host-owned, finite immutable captures with
+required exact version/owner headers. Native commit accepts only a strict bounded
+capture ID; the verifier itself fetches that configured authenticated provider
+capture. No request selects endpoints, captured metadata, proof keys, scope,
+profile definition or archive retention. Native validation uses the already pinned
+regional policy, then fresh independent current-head authority. Owner/current is
+read permission for the verifier credential; owner/advance requires the distinct
+owner mutation credential. Producer credentials cannot read source/native proofs,
+claim native integrity, advance current history or delete protected originals.
+
+Receipt publication returns201 for exact retained full receipt bytes. It grants
+neither source ACK nor server202 M2. Fresh native-required custody revalidates the
+retained native chain and exact receipt under independently current confirmation;
+provider outage cannot erase retained proof, while owner outage holds custody.
+Immutable replay preserves manifest/version/retention and original verification
+age. No delete/overwrite/retention-shortening route is provided.
+
+Per endpoint: eight connection tasks, three-second header and fifteen-second
+connection/operation deadlines, one admitted body/result, fixed route/body/response
+limits and static empty error replies. The admission lease stays with the
+non-keepalive connection through Hyper buffering and socket flush/exit. A stalled
+reader cannot release it by receiving the last body frame. Input collection copies
+are dropped before archive work; body/response/original budgets remain finite.
+Caller/network cancellation may leave a committed uncertain side effect; physical
+store ownership remains held until I/O exits. Lost native/owner replies use the
+existing explicit recovery/confirm/reconciled-open contract, never an implicit
+reset or adoption. These are loopback bearer-role controls only; production
+transport/TLS/account/IAM qualification and protected source-ACK/M2 outage/crash
+composition remain distinct unfinished gates.
