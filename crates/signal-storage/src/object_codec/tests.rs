@@ -19,6 +19,31 @@ fn codec() -> Result<ObjectCodec> {
         ManifestLimits::default(),
     )?)
 }
+#[tokio::test]
+async fn completed_preparation_reply_cannot_bypass_original_deadline() -> Result {
+    let codec = codec()?;
+    let original = rows()?;
+    let context = OperationContext::new(Duration::from_secs(2));
+    let deadline = context.deadline;
+    let mut request = Box::pin(codec.prepare(&original, context));
+    assert!(futures_util::poll!(request.as_mut()).is_pending());
+    while codec.metrics().processed == 0 || codec.metrics().running != 0 {
+        assert!(
+            Instant::now() < deadline,
+            "worker must complete before deadline"
+        );
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+    tokio::time::sleep_until(deadline + Duration::from_millis(2)).await;
+    assert!(matches!(request.await, Err(StorageError::Timeout)));
+    assert_eq!(codec.metrics().depth, 0);
+    assert_eq!(codec.metrics().rejected, 1);
+    let fresh = codec.prepare(&original, self::context()).await?;
+    assert_eq!(fresh.event_count(), original.len());
+    drop(fresh);
+    codec.shutdown(self::context()).await?;
+    Ok(())
+}
 fn file(value: &PreparedQueryFile) -> QueryFile {
     let stream = Uuid::new_v4();
     QueryFile {

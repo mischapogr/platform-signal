@@ -79,7 +79,7 @@ pub struct QueryObjectRef {
     pub sha256: [u8; 32],
 }
 impl QueryObjectRef {
-    fn validate(&self, max_bytes: u64) -> Result<(), ManifestError> {
+    pub(crate) fn validate(&self, max_bytes: u64) -> Result<(), ManifestError> {
         if !text(&self.key, 512)
             || self.key.contains(['\\', '%', '?', '#'])
             || self.key.starts_with('/')

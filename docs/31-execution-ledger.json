@@ -497,7 +497,8 @@
         "target/goal-execution-20261007/S3-QUERY/manifest-validation-final/validation.json",
         "target/goal-execution-20261007/S3-QUERY/manifest-review.json",
         "target/goal-execution-20261007/S3-QUERY/codec-validation-accepted/validation.json",
-        "target/goal-execution-20261007/S3-QUERY/codec-review.json"
+        "target/goal-execution-20261007/S3-QUERY/codec-review.json",
+        "target/goal-execution-20261007/S3-QUERY/io-validation-late-final/validation.json"
       ],
       "references": [
         "docs/12-phase3-storage.md",
@@ -527,7 +528,8 @@
           "id": "object-query-cache-and-server-simulation",
           "status": "pending"
         }
-      ]
+      ],
+      "notes": "Manifest, bounded codec and generic object-I/O/Small owner seams pass local strict acceptance. Actual conditional publication/recovery and selected S3 adapter/query/cache/server simulation remain unfinished. Parent stays in_progress."
     },
     {
       "id": "RETENTION",
