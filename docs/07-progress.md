@@ -11,7 +11,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-default workspace gate has 588; the all-feature gate has 622 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+default workspace gate has 592; the all-feature gate has 626 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 106 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
@@ -39,6 +39,25 @@ HTTP admission prefixes; its delivery is at least once.
 Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
+
+## S3-QUERY bounded manifest slice — 2026-10-08
+
+The frozen object-query task is in_progress. Its first contract slice now passes:
+strict versioned manifests, exact version/conditional ETag plus SHA256 references,
+separate query namespace, predecessor/range/row/object/decoded-byte caps and
+exclusive UTC-hour pruning. Four regressions and default592/all-feature626
+workspace tests pass with fmt, strict workspace Clippy, ownership guard and
+focused source review. No package version changed; ring adds only an existing
+workspace dependency edge. Evidence:
+`target/goal-execution-20261007/S3-QUERY/manifest-validation-final/validation.json`
+and `manifest-review.json` there. The initial sandbox-denied local socket/pipe run
+is retained separately; the scoped local-test run passes.
+
+This validates shape/content binding only. Conditional object publication,
+actual predecessor/Parquet validation, committed discovery/recovery, query/cache
+and monolithic server simulation remain unfinished in the existing S3-QUERY item.
+See [object-query contract](39-object-query-contract.md). Continue that item;
+no new frozen scope, service split, custody or AWS/HA qualification follows.
 
 ## Independent protected route composition — 2026-10-08
 
