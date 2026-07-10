@@ -375,3 +375,24 @@ existing explicit recovery/confirm/reconciled-open contract, never an implicit
 reset or adoption. These are loopback bearer-role controls only; production
 transport/TLS/account/IAM qualification and protected source-ACK/M2 outage/crash
 composition remain distinct unfinished gates.
+
+## Accepted local protected-route composition
+
+The local compound parent gate now exercises actual observability outage and
+M2/source ACK, archive post-commit lost reply with exact manifest replay, actual
+server SIGKILL/restart and source post-delete/pre-reply SIGKILL. The source's
+Uncertain outcome is persisted before reconciled reopen, old handle is rejected
+after restart and fresh redelivery/ACK requires fresh native-required custody at
+every phase. The opaque verified token carries the exact SDK-verification time.
+Original bytes, manifest/version/retention and source references remain immutable;
+source lease deletion never grants original deletion or absence of redelivery.
+The earlier four native archive/supervisor process-crash gates remain separate.
+
+The reproducible private `scripts/check-protected-route.py` takes a pinned actual
+server and new evidence directory, caps logs at2MiB and execution at180 seconds,
+pins all native fixtures/path-dependency/source inputs before/after, and kills
+only its owned process group, reaping the Cargo child. The test owns/awaits each
+server/source child in its normal path. Local current-owner progress grants in
+the receipt composition do not claim distributed ownership; SHARED-RUNTIME and
+OBJECT-CUSTODY remain separate. EVIDENCE is passed_simulated, not AWS/TLS/complete
+source or production qualification. Next is the frozen S3-QUERY item.
