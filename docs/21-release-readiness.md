@@ -7,6 +7,20 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Public repository and partial native CI — 2026-10-08
+
+Source publication is separate from publishing a qualified version/image/crate.
+GitHub run37809129533 on accepted revision66a9ce7 passed native ARM64 formatting,
+all-feature Clippy/build/tests/workspace boundaries, then failed a helper step;
+AMD64 failed build/tests. Container, kind, native load and supply-chain steps
+were skipped. Complete EXT-ARM64/EXT-CI stay open; exact test counts are unavailable.
+
+Revised CI separates source/native jobs and retains bounded per-command diagnostics.
+A read-only manual candidate workflow packages qualified native images without
+publication. Local syntax/helper checks qualify tooling only; changed remote CI
+and actual candidate execution still need evidence. See
+[OSS CI and cloud qualification](40-oss-ci-and-cloud-qualification.md).
+
 ## Object Parquet CPU seam — 2026-10-08
 
 S3-QUERY remains in_progress. Six actual codec regressions and default599/

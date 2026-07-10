@@ -27,6 +27,12 @@ coherent slice, record evidence and continue the next runnable item. Real
 ARM64/AWS/EKS/vendor/remote CI/publication gates remain separate; their absence
 does not block independent local implementation. No mandatory service split.
 
+The 2026-10-08 public OSS transition makes standard native ARM64 GitHub runners
+available. Observed remote Rust success is partial: full runtime/kind/native
+campaign and reviewed-revision CI acceptance remain open. CI/candidate tooling
+preparation belongs to the existing release/external items, not new product scope;
+see [OSS CI and cloud qualification](40-oss-ci-and-cloud-qualification.md).
+
 ## MVP execution priority — 2026-10-07
 
 The owner classifies minimal SecOps UI as MVP and advanced SOC UX as post-MVP,
