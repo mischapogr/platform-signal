@@ -2,7 +2,9 @@
 
 For parser and measured pipeline reports from each already-built native image,
 see [native qualification](22-native-qualification.md). CI runs this gate per
-architecture and retains reports; remote execution and ARM64 remain unverified.
+architecture and retains reports. Partial public native ARM64 Rust evidence
+now exists; complete remote runtime qualification remains open. See
+[OSS CI and cloud qualification](40-oss-ci-and-cloud-qualification.md).
 
 The production image contains the monolith and edge agent. The public Helm chart
 deploys one monolith with one writable data volume. Company values, rule content,

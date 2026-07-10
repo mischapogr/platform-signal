@@ -1149,12 +1149,15 @@
         "Actual native build/runtime/container/Kubernetes/load evidence."
       ],
       "evidence": [
-        "docs/21-release-readiness.md"
+        "docs/21-release-readiness.md",
+        "docs/40-oss-ci-and-cloud-qualification.md",
+        "target/goal-execution-20261007/GITHUB-OSS/public-audit.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md"
-      ]
+      ],
+      "notes": "2026-10-08 public run37809129533 on66a9ce7 provides partial native ARM64 Rust success; run failed and runtime/kind/supply-chain steps were skipped. Full reviewed-revision gate remains open. Revised bounded CI/candidate workflows are locally checked only."
     },
     {
       "id": "EXT-AWS",
@@ -1197,12 +1200,15 @@
         "Required remote native jobs and retained artifacts matching reviewed revision."
       ],
       "evidence": [
-        "docs/21-release-readiness.md"
+        "docs/21-release-readiness.md",
+        "docs/40-oss-ci-and-cloud-qualification.md",
+        "target/goal-execution-20261007/GITHUB-OSS/public-audit.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md"
-      ]
+      ],
+      "notes": "2026-10-08 public run37809129533 on66a9ce7 provides partial native ARM64 Rust success; run failed and runtime/kind/supply-chain steps were skipped. Full reviewed-revision gate remains open. Revised bounded CI/candidate workflows are locally checked only."
     },
     {
       "id": "EXT-DEPENDENCY",

@@ -1,5 +1,21 @@
 # Implementation progress
 
+## Public OSS CI preparation — 2026-10-08
+
+Public revision66a9ce7 has partial native GitHub ARM64 Rust evidence; the complete
+remote run failed, so container/kind/load/SBOM and EXT-CI/EXT-ARM64 stay open.
+CI now separates Rust/native jobs, retains finite failure diagnostics and prepares
+unsigned native candidates only after qualification. See
+[OSS CI and cloud qualification](40-oss-ci-and-cloud-qualification.md) and retained
+`target/goal-execution-20261007/GITHUB-OSS/` metadata/local tooling evidence.
+Three workflow files pass actionlint1.7.12; 18 native-helper, two CI-wrapper and
+five candidate-evidence regressions pass. Review's two medium findings are fixed
+and accepted: candidate success follows checksums, and failed packaging retains
+its small diagnostic files. This is tooling acceptance, not an executed native
+candidate or completion of remote qualification. No Rust acceptance is inferred
+for the separate unstaged object-I/O/owner work.
+The frozen inventory remains unchanged; S3-QUERY implementation continues.
+
 ## Current state — 2026-10-08
 
 Phases 0–7 are implemented and locally verified, including rules, durable

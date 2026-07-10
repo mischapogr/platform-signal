@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      prepare_candidate:
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -14,7 +19,7 @@ concurrency:
 
 jobs:
   rust:
-    name: Rust and container (${{ matrix.arch }})
+    name: Rust (${{ matrix.arch }})
     strategy:
       fail-fast: false
       matrix:
@@ -26,63 +31,116 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - name: Install pinned Rust toolchain
-        run: rustup show active-toolchain
+      - name: Pinned Rust toolchain
+        run: python3 scripts/run-ci-check.py --name toolchain --timeout 60 -- rustup show active-toolchain
       - name: Formatting
-        run: cargo fmt --check
+        run: python3 scripts/run-ci-check.py --name fmt --timeout 120 -- cargo fmt --check
       - name: Clippy
-        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+        run: python3 scripts/run-ci-check.py --name clippy --timeout 1800 -- cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - name: Build sibling executables
+        run: python3 scripts/run-ci-check.py --name build --timeout 1200 -- cargo build --workspace --all-features --locked
       - name: Tests
-        # The agent integration test also starts the sibling server executable.
-        # Build normal binaries explicitly rather than depending on test order.
-        run: |
-          cargo build --workspace --all-features --locked
-          cargo test --workspace --all-features --locked
+        run: python3 scripts/run-ci-check.py --name tests --timeout 1200 -- cargo test --workspace --all-features --locked
       - name: Workspace boundaries
-        run: python3 scripts/check-workspace.py
-      - name: Health probe and owned-process cleanup regressions
-        run: |
-          rustfmt --check --edition 2024 deploy/docker/healthcheck.rs
-          rustc --edition=2024 -D warnings --test deploy/docker/healthcheck.rs -o target/signal-healthcheck-tests
-          target/signal-healthcheck-tests
-          python3 scripts/test-kubernetes-gate.py
-          python3 scripts/test-hardening.py
-          python3 scripts/test-native-qualification.py
-          python3 scripts/test-soak.py
-          python3 scripts/test-local-candidate.py
-          python3 scripts/check-log-samples.py --self-test
-      - name: Benchmark harness smoke
-        run: cargo bench -p signal-server --bench harness --locked
+        run: python3 scripts/run-ci-check.py --name workspace --timeout 60 -- python3 scripts/check-workspace.py
+      - name: Healthcheck formatting
+        run: python3 scripts/run-ci-check.py --name health-fmt --timeout 60 -- rustfmt --check --edition 2024 deploy/docker/healthcheck.rs
+      - name: Compile healthcheck tests
+        run: python3 scripts/run-ci-check.py --name health-build --timeout 60 -- rustc --edition=2024 -D warnings --test deploy/docker/healthcheck.rs -o target/signal-healthcheck-tests
+      - name: Healthcheck tests
+        run: python3 scripts/run-ci-check.py --name health-tests --timeout 60 -- target/signal-healthcheck-tests
+      - name: test-kubernetes-gate.py
+        run: python3 scripts/run-ci-check.py --name helper-kubernetes-gate --timeout 120 -- python3 scripts/test-kubernetes-gate.py
+      - name: test-hardening.py
+        run: python3 scripts/run-ci-check.py --name helper-hardening --timeout 120 -- python3 scripts/test-hardening.py
+      - name: test-native-qualification.py
+        run: python3 scripts/run-ci-check.py --name helper-native-qualification --timeout 120 -- python3 scripts/test-native-qualification.py
+      - name: test-soak.py
+        run: python3 scripts/run-ci-check.py --name helper-soak --timeout 120 -- python3 scripts/test-soak.py
+      - name: test-local-candidate.py
+        run: python3 scripts/run-ci-check.py --name helper-local-candidate --timeout 120 -- python3 scripts/test-local-candidate.py
+      - name: test-ci-check.py
+        run: python3 scripts/run-ci-check.py --name helper-ci-check --timeout 120 -- python3 scripts/test-ci-check.py
+      - name: Candidate evidence regressions
+        run: python3 scripts/run-ci-check.py --name helper-ci-candidate --timeout 120 -- python3 scripts/test-ci-candidate.py
+      - name: Synthetic log contracts
+        run: python3 scripts/run-ci-check.py --name log-samples --timeout 120 -- python3 scripts/check-log-samples.py --self-test
+      - name: Benchmark smoke
+        run: python3 scripts/run-ci-check.py --name bench --timeout 1200 -- cargo bench -p signal-server --bench harness --locked
+      - name: Preserve checks and failure diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rust-${{ matrix.arch }}
+          path: |
+            target/ci/
+          retention-days: 7
+          if-no-files-found: error
+
+  native:
+    name: Native container and Kubernetes (${{ matrix.arch }})
+    needs: rust
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
       - name: Install pinned Kubernetes tools
-        run: python3 scripts/install-kubernetes-tools.py
-      - name: Helm lint and rendering
-        run: |
-          target/kubernetes-tools/helm lint --strict deploy/helm/signal
-          target/kubernetes-tools/helm lint --strict deploy/helm/signal --set pdb.enabled=true,serviceMonitor.enabled=true
-          target/kubernetes-tools/helm template proof deploy/helm/signal > target/signal-rendered.yaml
-          target/kubernetes-tools/helm template proof deploy/helm/signal --set pdb.enabled=true,serviceMonitor.enabled=true > target/signal-optional-rendered.yaml
-      - name: Build production container
-        run: docker build -f deploy/docker/Dockerfile -t platform-signal:phase8 .
+        run: python3 scripts/run-ci-check.py --name kube-tools --timeout 600 -- python3 scripts/install-kubernetes-tools.py
+      - name: Helm default lint
+        run: python3 scripts/run-ci-check.py --name helm-default --timeout 60 -- target/kubernetes-tools/helm lint --strict deploy/helm/signal
+      - name: Helm optional lint
+        run: python3 scripts/run-ci-check.py --name helm-optional --timeout 60 -- target/kubernetes-tools/helm lint --strict deploy/helm/signal --set pdb.enabled=true,serviceMonitor.enabled=true
+      - name: Render default chart
+        run: python3 scripts/run-ci-check.py --name helm-render --timeout 60 -- target/kubernetes-tools/helm template proof deploy/helm/signal
+      - name: Render optional chart
+        run: python3 scripts/run-ci-check.py --name helm-render-optional --timeout 60 -- target/kubernetes-tools/helm template proof deploy/helm/signal --set pdb.enabled=true,serviceMonitor.enabled=true
+      - name: Build production image
+        run: python3 scripts/run-ci-check.py --name image-build --timeout 3600 -- docker build -f deploy/docker/Dockerfile -t platform-signal:phase8 .
       - name: Native container runtime and persistence
-        run: python3 scripts/check-container.py --image platform-signal:phase8 --expect-architecture ${{ matrix.arch }}
-      - name: Native parser campaign and measured release pipeline
-        run: python3 scripts/check-native-qualification.py --image platform-signal:phase8 --expect-architecture ${{ matrix.arch }} --soak-seconds 120
+        run: python3 scripts/run-ci-check.py --name container --timeout 600 -- python3 scripts/check-container.py --image platform-signal:phase8 --expect-architecture ${{ matrix.arch }}
+      - name: Native parsers, pipeline and finite soak
+        run: python3 scripts/run-ci-check.py --name native --timeout 1800 -- python3 scripts/check-native-qualification.py --image platform-signal:phase8 --expect-architecture ${{ matrix.arch }} --soak-seconds 120
       - name: Kubernetes persistence and restart
-        run: python3 scripts/check-kubernetes.py --image platform-signal:phase8 --helm target/kubernetes-tools/helm --kind target/kubernetes-tools/kind --kubectl target/kubernetes-tools/kubectl
-      - name: Dependency audit, Cargo and image SBOMs, container vulnerability scan
-        run: python3 scripts/check-supply-chain.py --image platform-signal:phase8
-      - name: Preserve qualification reports and local artifact digests
+        run: python3 scripts/run-ci-check.py --name kind --timeout 900 -- python3 scripts/check-kubernetes.py --image platform-signal:phase8 --helm target/kubernetes-tools/helm --kind target/kubernetes-tools/kind --kubectl target/kubernetes-tools/kubectl
+      - name: Audit, SBOMs and image vulnerabilities
+        run: python3 scripts/run-ci-check.py --name supply-chain --timeout 1200 -- python3 scripts/check-supply-chain.py --image platform-signal:phase8
+      - name: Prepare unsigned native candidate from the tested image
+        if: inputs.prepare_candidate == true
+        run: python3 scripts/run-ci-check.py --name candidate --timeout 600 -- python3 scripts/prepare-ci-candidate.py --image platform-signal:phase8 --architecture ${{ matrix.arch }} --helm target/kubernetes-tools/helm
+      - name: Retain unpublished native candidate
+        if: inputs.prepare_candidate == true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: candidate-${{ github.sha }}-${{ matrix.arch }}
+          path: target/ci-candidate/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Preserve checks and failure diagnostics
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: qualification-${{ matrix.arch }}
           path: |
+            target/ci/
             target/supply-chain/reports/
             target/native-qualification/
-          retention-days: 14
+            target/ci-candidate/candidate.json
+            target/ci-candidate/packaging.log
+            target/ci-candidate/cleanup.log
+          retention-days: 7
           if-no-files-found: error
 
   tooling:
@@ -90,7 +148,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
       - name: Install locked MCP tooling
