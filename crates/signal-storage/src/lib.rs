@@ -1,6 +1,7 @@
 //! Bounded, replay-safe filesystem event persistence. See ADR-004 and ADR-010.
 pub mod codec;
 mod fs;
+pub mod object_cache;
 pub mod object_codec;
 mod object_head;
 pub mod object_io;
@@ -56,6 +57,19 @@ pub struct PublishedFile {
 pub struct FileSelection {
     pub files: Vec<PublishedFile>,
     pub partitions: usize,
+}
+/// Trusted bounded committed-file adapter. No DataFusion dependency belongs here.
+/// Implementations own immutable files for their lifetime and must authenticate
+/// selected bytes before returning; query shutdown precedes source shutdown.
+pub trait QueryFileSource: Send + Sync + 'static {
+    fn select_query_files(
+        &self,
+        from: Option<DateTime<Utc>>,
+        to: Option<DateTime<Utc>>,
+        max_files: usize,
+        max_decoded_bytes: u64,
+        context: OperationContext,
+    ) -> StoreFuture<'_, FileSelection>;
 }
 #[derive(Clone, Debug)]
 pub struct OperationContext {
@@ -597,6 +611,34 @@ impl ParquetStore {
             worker.join().map_err(|_| StorageError::Closed)?;
         }
         Ok(())
+    }
+}
+impl QueryFileSource for ParquetStore {
+    fn select_query_files(
+        &self,
+        from: Option<DateTime<Utc>>,
+        to: Option<DateTime<Utc>>,
+        max_files: usize,
+        max_decoded_bytes: u64,
+        context: OperationContext,
+    ) -> StoreFuture<'_, FileSelection> {
+        Box::pin(async move {
+            if max_decoded_bytes == 0 {
+                return Err(StorageError::InvalidBatch);
+            }
+            let selection = self
+                .select_files(from, to, max_files, context.clone())
+                .await?;
+            let bytes = selection.files.iter().try_fold(0u64, |sum, file| {
+                sum.checked_add(file.uncompressed_bytes)
+                    .ok_or(StorageError::Full)
+            })?;
+            if bytes > max_decoded_bytes {
+                return Err(StorageError::Full);
+            }
+            check_context(Some(&context))?;
+            Ok(selection)
+        })
     }
 }
 impl EventStore for ParquetStore {
