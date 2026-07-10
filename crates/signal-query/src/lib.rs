@@ -815,8 +815,20 @@ mod tests {
     #[tokio::test]
     async fn physical_reader_retains_object_owner_after_shutdown_timeout_and_engine_drop()
     -> Result<(), Box<dyn std::error::Error>> {
+        physical_reader_cache_owner(false).await
+    }
+
+    #[tokio::test]
+    async fn stopped_cache_prune_waits_for_physical_reader_after_explicit_source_shutdown()
+    -> Result<(), Box<dyn std::error::Error>> {
+        physical_reader_cache_owner(true).await
+    }
+
+    async fn physical_reader_cache_owner(
+        explicit_source_shutdown: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         use signal_storage::{
-            object_cache::MaterializationConfig,
+            object_cache::{MaterializationConfig, prune_stopped_materialization},
             object_io::{ObjectIo, ObjectIoError, ObjectIoLimits, SmallOwnerConfig},
             object_publication::{ObjectPublisher, PublicationConfig},
         };
@@ -836,15 +848,16 @@ mod tests {
             OperationContext::new(Duration::from_secs(2)),
         )
         .await?;
+        let cache_config = MaterializationConfig {
+            directory: temp.path().join("derived"),
+            max_files: 10,
+            max_disk_bytes: 1024 * 1024,
+        };
         let publisher = Arc::new(ObjectPublisher::new(
             io,
             tokio::runtime::Handle::current(),
             PublicationConfig {
-                materialization: Some(MaterializationConfig {
-                    directory: temp.path().join("derived"),
-                    max_files: 10,
-                    max_disk_bytes: 1024 * 1024,
-                }),
+                materialization: Some(cache_config.clone()),
                 ..Default::default()
             },
         )?);
@@ -886,10 +899,27 @@ mod tests {
                 .await,
             Err(QueryError::Timeout)
         );
+        if explicit_source_shutdown {
+            publisher
+                .shutdown(OperationContext::new(Duration::from_secs(2)))
+                .await?;
+        }
         let weak = Arc::downgrade(&publisher);
         drop(engine);
         drop(publisher);
         let retained = weak.upgrade().is_some();
+        let cache_locked = matches!(
+            std::thread::scope(|scope| scope
+                .spawn(|| prune_stopped_materialization(
+                    &cache_config,
+                    owner.stream_id,
+                    owner.backend_id,
+                    &OperationContext::new(Duration::from_secs(2))
+                ))
+                .join()),
+            Ok(Err(signal_storage::StorageError::Locked))
+        );
+
         let remote = object_store::local::LocalFileSystem::new_with_prefix(&objects)?;
         let second = ObjectIo::open_small_local(
             &owner,
@@ -941,7 +971,22 @@ mod tests {
             retained,
             "source owner dropped while physical query reader survived"
         );
-        assert!(locked, "successor admitted while physical reader survived");
+        assert_eq!(locked, !explicit_source_shutdown);
+        assert!(cache_locked, "cache pruned while physical reader survived");
+        let pruned = std::thread::scope(|scope| {
+            scope
+                .spawn(|| {
+                    prune_stopped_materialization(
+                        &cache_config,
+                        owner.stream_id,
+                        owner.backend_id,
+                        &OperationContext::new(Duration::from_secs(2)),
+                    )
+                })
+                .join()
+        })
+        .map_err(|_| "maintenance worker panicked")??;
+        assert_eq!(pruned.removed_files, 1);
         Ok(())
     }
 

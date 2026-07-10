@@ -48,3 +48,39 @@ checked before output/allocation, and temporary dedup state drops before owned
 output copies. Evidence is `target/goal-execution-20261007/RETENTION/policy-validation/validation.json`
 and `policy-review.json`. This is advisory local mechanism proof, with no
 reclamation, custody or real-environment qualification. Parent remains in_progress.
+
+## Stopped derived-cache maintenance
+
+The selected next slice exposes a synchronous maintenance primitive for an
+ordinary host worker or stopped operator process. It requires a pre-existing
+exact stream/backend binding and exclusive cache Small lock; it never creates a
+new cleanup root. Full finite directory validation precedes the first unlink.
+Maintenance requires only the existing `.lock` and `binding.json` controls;
+temporary/head/genesis/unknown controls are rejected and preserved before general
+owner opening could recover them. It never initializes a missing lock.
+Only validated SHA-named derived `.parquet`/`.tmp` files in `objects/` are removed.
+Each unlink and the final directory sync precede successful completion. Controls,
+remote query objects and protected originals remain outside this operation.
+
+Publisher state retains derived ownership for the source lifetime, including
+fixed physical query jobs holding that source. Explicit publisher shutdown or
+query cancellation cannot free the cache lock while those reads survive. Hosts
+must drop stopped query/source handles before pruning or reopening a derived
+owner. This is intentionally conservative, with no active eviction or new pool.
+
+Failure/cancellation can leave an uncertain partially pruned derived cache.
+Retry only after revalidating the existing binding, complete layout and exclusive
+ownership, then rebuild from authenticated source objects. No pruning result
+is source ACK, custody, query-retirement permission or distributed fencing.
+Actual crash/reopen, quota/rebuild, permission/cancellation, foreign/link rejection
+and retained physical-reader tests are required before accepting this slice.
+
+## Accepted stopped-cache slice
+
+Strict default651/all-feature696, focused127, source review, actual SIGKILL/reopen,
+non-root permission denial, controls-preservation and surviving physical-reader
+regressions pass. Eleven current-binary persistent S3/monolith scenarios also pass.
+Evidence: `target/goal-execution-20261007/RETENTION/cache-validation/validation.json`,
+`cache-review.json` and `cache-server-simulation-final/report.json`. This does not
+retire remote query objects or qualify real cloud/native/HA/custody/release gates.
+Parent remains in_progress for retirement/reclamation and measurements.

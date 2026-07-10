@@ -119,6 +119,9 @@ struct Shared {
     full: AtomicU64,
     timeouts: AtomicU64,
     failures: AtomicU64,
+    // Physical query jobs retain the source through BoundedLocalStore. Keep
+    // derived ownership for that source lifetime, even after explicit shutdown.
+    cache_owner: Mutex<Option<Arc<crate::object_owner::SmallOwner>>>,
 }
 struct WorkerExit(Arc<Shared>);
 impl Drop for WorkerExit {
@@ -199,6 +202,7 @@ impl ObjectPublisher {
             full: AtomicU64::new(0),
             timeouts: AtomicU64::new(0),
             failures: AtomicU64::new(0),
+            cache_owner: Mutex::new(None),
         });
         let state = shared.clone();
         let policy = config.clone();
@@ -602,6 +606,11 @@ impl Controller {
                 .as_ref()
                 .ok_or(StorageError::Config("query materialization required"))?;
             self.cache = Some(Cache::open(config, self.stream, self.backend, context)?);
+            *self
+                .state
+                .cache_owner
+                .lock()
+                .map_err(|_| StorageError::Closed)? = self.cache.as_ref().map(Cache::owner);
         }
         let mut files = Vec::with_capacity(selected.len());
         for (file, first, last) in selected {
