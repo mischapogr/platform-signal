@@ -18,7 +18,7 @@ actual observability outage with M2 ACK gating, lost archive reply/exact replay,
 actual server and source crashes, uncertainty/reconciled reopen and fresh ACK.
 Private77 strict tests plus exact parent1 compound process gate and review pass;
 public588/622 remains unchanged. All source completeness, AWS/TLS/HA/shared-runtime
-and release exceptions stay visible. Next: S3-QUERY then dependency-ready items.
+and release exceptions stay visible. S3-QUERY is in_progress with its bounded manifest contract accepted (four regressions, default592/all-feature626 strict gates and review); conditional publication/recovery/query/cache/server simulation is next, then dependency-ready items.
 
 
 ## Execution and evidence
@@ -70,7 +70,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | OUTBOX | passed_simulated | FINDINGS-CURSOR | Private transactional finding cursor/outbox and notification simulation |
 | DISPOSITIONS | passed_local | OUTBOX | Disposition/outcome backend seam |
 | EVIDENCE | passed_simulated | AWS-DELIVERY | Independent protected original route and validation simulation |
-| S3-QUERY | pending | CORE | Object-backed Parquet and committed query manifests |
+| S3-QUERY | in_progress | CORE | Object-backed Parquet and committed query manifests |
 | RETENTION | pending | S3-QUERY, EVIDENCE | Selective query acceleration, retention and cost controls |
 | SECURITY-ACCESS | pending | CORE | OIDC/trusted identity, scoped credentials and RBAC |
 | SECURITY-TRANSPORT | pending | SECURITY-ACCESS | mTLS and credential/certificate rotation |

@@ -3124,6 +3124,7 @@ dependencies = [
  "crc32fast",
  "futures-core",
  "parquet",
+ "ring",
  "serde",
  "serde_json",
  "signal-event",
