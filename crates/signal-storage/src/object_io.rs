@@ -708,6 +708,8 @@ async fn execute(
     owner: Option<&crate::object_owner::SmallOwner>,
 ) -> Result<ResultData, ObjectIoError> {
     check(ctx)?;
+    #[cfg(feature = "s3")]
+    let _request_scope = crate::object_s3::RequestScope::enter(ctx)?;
     match work {
         Work::ReadGenesis => {
             let owner = owner.ok_or(ObjectIoError::Config)?;

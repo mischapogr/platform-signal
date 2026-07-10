@@ -10,6 +10,9 @@ publish = false
 [lints]
 workspace = true
 
+[features]
+s3 = ["object_store/aws", "dep:hyper", "dep:hyper-util", "dep:http-body-util", "dep:tokio-rustls", "dep:rustls", "dep:webpki-roots", "dep:url"]
+
 [dependencies]
 signal-event.workspace = true
 signal-protocol.workspace = true
@@ -23,6 +26,14 @@ chrono.workspace = true
 crc32fast.workspace = true
 ring.workspace = true
 futures-core.workspace = true
+async-trait.workspace = true
+hyper = { workspace = true, features = ["client"], optional = true }
+hyper-util = { workspace = true, optional = true }
+http-body-util = { workspace = true, optional = true }
+tokio-rustls = { version = "=0.26.6", default-features = false, features = ["ring", "tls12"], optional = true }
+rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"], optional = true }
+webpki-roots = { version = "=1.0.9", optional = true }
+url = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
@@ -31,5 +42,4 @@ tokio-util.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
-async-trait.workspace = true
 tempfile.workspace = true

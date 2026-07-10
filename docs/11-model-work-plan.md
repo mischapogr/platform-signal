@@ -33,10 +33,11 @@ campaign and reviewed-revision CI acceptance remain open. CI/candidate tooling
 preparation belongs to the existing release/external items, not new product scope;
 see [OSS CI and cloud qualification](40-oss-ci-and-cloud-qualification.md).
 
-The current S3-QUERY Small generic publication/recovery slice has storage72,
-default626/all-feature660 strict local acceptance and focused review. Continue
-its selected bounded S3 adapter and actual query/cache/server simulation; parent
-S3-QUERY stays in_progress. Retain native/remote/cloud qualification boundaries.
+The selected S3-QUERY bounded S3 adapter now has storage73/default and82/S3,
+default627/all-feature670 strict local acceptance and focused review. Continue
+bounded committed query/materialization, monolithic server and persistent process
+simulation; parent S3-QUERY stays in_progress. Retain actual TLS/AWS/native/remote
+qualification boundaries.
 
 ## MVP execution priority — 2026-10-07
 

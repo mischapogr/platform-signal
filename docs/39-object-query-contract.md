@@ -40,8 +40,11 @@ mismatches, unknown commit metadata or exhausted inventory hold progress.
 
 The selected backend must keep bytes immutable under each pinned version/ETag and
 provide complete, strongly consistent owned-prefix inventory. Reconciliation checks
-every historical manifest/data reference's current version, ETag and byte length
-before advancing; drift or absence holds. Previously committed history is retained
+every historical manifest/data reference's current ETag and byte length, and any
+version the listing supplies, before advancing; drift or absence holds. S3
+ListObjectsV2 omits versions: matching nonempty ETag/length permits this drift
+check without changing the pinned version or proving that historical version is
+available. Actual authenticated reads retain and verify that exact pin. Previously committed history is retained
 through these immutable references and authenticated manifest predecessors, without
 rereading every cold Parquet object on each WAL batch. This is not continuous
 historical data scrubbing: selected query reads, actual replay and uncertain
@@ -183,3 +186,32 @@ are not process-crash or S3 durability proof. The head/genesis witness, exact
 submitted receipt range, identity-drift guard and byte-validated orphan reuse
 resolve review findings. Selected adapter, cache/query/server and actual local
 process simulation continue; S3-QUERY and every real-environment gate remain open.
+
+## Accepted selected S3 adapter slice — 2026-10-08
+
+Optional `s3` selects object_store0.13.2 AWS signing with a bounded custom HTTP/1
+connector. Explicit endpoint/region/bucket and static host credentials avoid
+ambient metadata/STS/refresh probes. Default HTTPS validates TLS server identity
+using WebPKI roots; explicit local HTTP opt-in accepts only literal loopback IPs.
+There is no insecure-TLS switch. This acceptance implies no actual TLS runtime
+qualification or independent signing certification.
+
+The bounded I/O port exposes GET/HEAD/conditional PUT; scope-less direct HTTP
+calls are rejected and counted. URI4KiB, headers64/32KiB, control/XML/error256KiB
+and configured data-object limits precede backend decoding. Connections retain
+the original deadline/cancellation and physical admission, with no driver task,
+pool, proxy, redirect or implicit retry. Native DNS runs on the retained ordinary
+worker; cancellation cannot release that lease before an OS resolver exits.
+Origin-form preserves signed Host/path/query. Host credential and provider/store
+Debug redact the access-key ID, secret and session token.
+
+Nine owned native-wire tests and one versionless-inventory guard pass; storage73/
+default and82/S3, default627/all-feature670 strict gates and focused review pass.
+Tests cover conditional Create/pinned reads, two commits/reopen/exact prefix replay,
+versionless listing/pagination, IPv6, malformed/oversized responses, denial/
+throttling/redirect, wrong returned version, missing scope and cancelled socket
+closure. These finite in-process fixtures do not qualify disk/process durability,
+AWS/IAM/KMS/Object Lock/TLS runtime, source custody or throughput. Query/cache,
+monolithic server and persistent process simulation continue; S3-QUERY stays open.
+Evidence: `target/goal-execution-20261007/S3-QUERY/s3-adapter-validation-accepted/validation.json`
+and `s3-adapter-review.json` in its task directory. Earlier failed logs are retained.

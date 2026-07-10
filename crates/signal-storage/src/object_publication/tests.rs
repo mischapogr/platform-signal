@@ -4,6 +4,50 @@ use object_store::{ObjectStore, ObjectStoreExt, memory::InMemory};
 use signal_event::IngestEvent;
 use tempfile::TempDir;
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+#[test]
+fn versionless_inventory_requires_matching_nonempty_etag_and_retains_pin() -> Result {
+    let pinned = QueryObjectRef {
+        key: "query/test/data/pin.parquet".into(),
+        version: Some("pinned-v1".into()),
+        etag: Some("nonempty-etag".into()),
+        bytes: 9,
+        sha256: [1; 32],
+    };
+    let mut listed = pinned.clone();
+    listed.version = None;
+    check_inventory_identity(&[listed.clone()], &pinned)?;
+    assert_eq!(pinned.version.as_deref(), Some("pinned-v1"));
+    for drift in [
+        QueryObjectRef {
+            etag: None,
+            ..listed.clone()
+        },
+        QueryObjectRef {
+            etag: Some("changed".into()),
+            ..listed.clone()
+        },
+        QueryObjectRef {
+            bytes: 10,
+            ..listed.clone()
+        },
+        QueryObjectRef {
+            version: Some("wrong-version".into()),
+            ..listed.clone()
+        },
+    ] {
+        assert!(check_inventory_identity(&[drift], &pinned).is_err());
+    }
+    let no_etag = QueryObjectRef {
+        etag: None,
+        ..pinned
+    };
+    let no_version_or_etag = QueryObjectRef {
+        version: None,
+        ..no_etag.clone()
+    };
+    assert!(check_inventory_identity(&[no_version_or_etag], &no_etag).is_err());
+    Ok(())
+}
 fn context() -> OperationContext {
     OperationContext::new(std::time::Duration::from_secs(5))
 }

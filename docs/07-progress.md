@@ -1,5 +1,33 @@
 # Implementation progress
 
+## Selected bounded S3 adapter — 2026-10-08
+
+The optional `signal-storage/s3` adapter passes nine native HTTP fixture tests
+and one versionless-inventory guard regression. Storage73/default and82/S3,
+default627/all-feature670 strict workspace gates and focused review pass. Six
+parent-invoked helpers remain ignored standalone. Evidence:
+`target/goal-execution-20261007/S3-QUERY/s3-adapter-validation-accepted/validation.json`
+and `s3-adapter-review.json` in the same task directory. Failed earlier logs,
+including socket-denied and fixture/protocol/expectation failures, are retained.
+Accepted tests had authorized loopback access.
+
+The original-context physical worker drives bounded HTTP/1 without a spawned
+driver, pool, proxy, redirects or implicit retries. Explicit host credentials have
+a redacted provider. Conditional PUT/pinned GET, pagination, actual IPv4/IPv6,
+malformed/oversized headers/XML/chunks, denial/throttling/redirect and cancellation/
+socket closure pass. Two native-wire commits, reopen and smaller-prefix exact
+replay pass with versionless S3 listings. Matching nonempty ETag/length detects
+current-object drift; any supplied version must match and exact reads retain
+and verify the pinned version. Review corrected credential Debug/IP handling/
+fixture ownership; the native fixture exposed absolute-form requests, corrected
+to origin-form with signed Host/path/query preserved.
+
+This is finite in-process wire simulation, not persistent process durability,
+AWS/TLS runtime/IAM/KMS/Object Lock, shared HA, custody or production throughput.
+S3-QUERY stays in_progress. Next: bounded committed query/materialization,
+monolithic server wiring and persistent simulator outage/crash/replay. No release,
+push, publication or external gate is closed.
+
 ## Small object publication and committed recovery — 2026-10-08
 
 S3-QUERY remains in_progress. Synced stream/backend-bound initialization and exact
@@ -66,7 +94,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-default workspace gate has 626; the all-feature gate has 660 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+default workspace gate has 627; the all-feature gate has 670 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 106 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
