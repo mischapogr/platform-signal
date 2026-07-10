@@ -1,0 +1,14 @@
+name: Release candidate preparation
+
+# Read-only preparation. Publication remains a separate owner-held operation.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-and-package:
+    uses: ./.github/workflows/ci.yml
+    with:
+      prepare_candidate: true

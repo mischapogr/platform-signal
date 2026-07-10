@@ -1,5 +1,10 @@
 # Native architecture qualification
 
+The public GitHub repository has actual native ARM64 Rust check evidence for
+revision `66a9ce7`, but that failed run skipped container/kind/native campaign
+checks. Complete qualification gates remain open. See
+[OSS CI and cloud qualification](40-oss-ci-and-cloud-qualification.md).
+
 The Phase 10 runner uses an existing image on **native Linux AMD64 or ARM64**.
 It verifies host, Docker daemon, image and extracted ELF64 architecture; resolves
 the immutable image configuration ID; and hashes the server binary. Cross-builds

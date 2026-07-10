@@ -317,8 +317,10 @@ runpy.run_path(sys.argv[0], run_name='__main__')
                     command = [sys.executable, '-c', wrapper, str(directory),
                                str(qualification.ROOT / 'scripts/check-hardening.py'), '--output-dir', str(directory / 'campaign')]
                 with (directory / 'log').open('wb') as stream:
-                    with self.assertRaisesRegex(RuntimeError, 'deadline'):
+                    with self.assertRaises(RuntimeError) as interrupted:
                         qualification.run_bounded(command, stream, timeout=0.5, grace=3)
+                self.assertRegex(str(interrupted.exception), 'deadline',
+                                 msg=(directory / 'log').read_text())
                 self.assertTrue(pids.exists(), 'nested process must start before cancellation')
                 child = int(pids.read_text())
                 self.assertFalse(Path(f'/proc/{child}').exists(), 'nested harness session survived outer timeout')
