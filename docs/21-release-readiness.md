@@ -7,6 +7,43 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Bounded independent archive mechanism — 2026-10-08
+
+The EVIDENCE archive mechanism passes local acceptance. A separate private
+single-owner SQLite worker now retains exact complete receipt bytes, canonical
+manifest, immutable version, original commit time and retention. Readback checks
+the full source binding and frame/manifest pins before actual Ed25519 custody
+signing. Replay cannot renew that record; wrong/expired challenges are denied.
+There is no original-delete or retention-shortening operation.
+
+One operation permit/command slot retains physical ownership through cancellation;
+uncertain mutations fail closed until worker exit and explicit reopen. Private
+root/file/descriptor/inode guards, exact table/index schema, owner/binding/key
+revision and actual public key pins, checked EXTRA/DELETE, finite VM/page/time and
+copy budgets are enforced. Unexpected allocating triggers/views/altered tables
+and retained native rows with reset zero metadata are refused. Native tables
+remain empty and consumed native checkpoint reconciliation is still unfinished.
+
+Three generic SDK frame/deadline regressions and sixteen private archive tests
+pass. Public default588/all-feature622 and private53 tests pass, zero failures;
+six public/three private subprocess helpers retain parent-invoked scope. Required
+fmt, strict default/all-feature Clippy, package guard, private build and the actual
+overlay one-event/one-finding SIGKILL/SIGTERM gate pass. Independent review has no
+remaining blocker/high after the history-reset and schema-memory corrections.
+Evidence: `target/goal-execution-20261007/EVIDENCE/archive-validation/validation.json`,
+`archive-private-validation/validation.json`, `archive-review.json` and
+`archive-handoff.json` there. Initial focused import/handoff/type corrections and
+strict-check attempts remain retained separately. Only already locked ring/chrono
+direct private edges were added; versions and publication authority are unchanged.
+
+EVIDENCE remains in_progress. Continue independently retained native-proof
+history/checkpoint/current-authority CAS/restore and conservative coverage, then
+authenticated role HTTP/protected outage/crash/redelivery composition. Custody
+asserts retained bytes, not source completeness. These tests do not establish
+IAM/KMS/Object Lock isolation, rollback absence from copied databases, AWS/AZ loss,
+actual EKS/native ARM64/vendor/remote-CI/released-dependency/publication readiness
+or final-candidate qualification.
+
 ## Independent receipt custody and fenced source ACK — 2026-10-08
 
 The bounded EVIDENCE custody mechanism now passes local acceptance. An independent

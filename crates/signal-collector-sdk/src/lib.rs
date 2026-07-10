@@ -71,6 +71,26 @@ impl ExtensionContext {
         })
     }
 
+    /// Preserve an existing host-selected monotonic deadline exactly when
+    /// bridging a worker/transport context. No elapsed budget is renewed.
+    /// Like relative construction, this checks bounds and grants no authority.
+    pub fn from_deadline(
+        cancellation: CancellationToken,
+        deadline: Instant,
+    ) -> Result<Self, ExtensionError> {
+        let now = Instant::now();
+        if deadline <= now {
+            return Err(ExtensionError::Timeout);
+        }
+        if deadline - now > Duration::from_secs(86_400) {
+            return Err(ExtensionError::InvalidConfiguration);
+        }
+        Ok(Self {
+            cancellation,
+            deadline,
+        })
+    }
+
     pub fn cancellation(&self) -> &CancellationToken {
         &self.cancellation
     }

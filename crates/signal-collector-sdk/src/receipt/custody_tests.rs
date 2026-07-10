@@ -866,6 +866,64 @@ fn sigkill_at_custody_and_independent_ack_publication_never_reconstructs_a_ticke
 }
 
 #[test]
+fn public_frame_inspection_preserves_exact_bytes_without_manufacturing_custody_or_native_proof()
+-> TestResult {
+    for id in ["prepared", "strong", "object-quarantine"] {
+        let (raw, _) = vector(id)?;
+        let receipt = StoredReceipt::from_framed_bytes(raw.clone(), &ctx())?;
+        assert_eq!(receipt.framed_bytes(), raw);
+        assert_eq!(receipt.info().bytes, raw.len());
+        let metadata: Value = serde_json::from_slice(receipt.metadata_bytes())?;
+        assert_eq!(metadata["receipt_id"], receipt.info().id.to_string());
+        // Inspection only returns immutable bytes/pins. Stronger/quarantine
+        // frames remain unacknowledgeable through the process-local path.
+        let p = progress::decode(format::initial(&receipt, owner(), 1)?, &receipt, owner(), 1)?;
+        let replay = ReceiptReplay {
+            receipt,
+            progress: p,
+        };
+        assert!(
+            ack::replacement(
+                &replay,
+                ReceiptAckUpdate::BeginProcessLocal {
+                    delivery: source_delivery(1)?,
+                    observed_at: OBSERVED.into()
+                },
+                owner(),
+                1,
+                CancellationToken::new()
+            )
+            .is_err()
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn public_frame_inspection_bounds_allocation_and_rejects_checksum_shape_and_cancelled_work()
+-> TestResult {
+    let (raw, _) = vector("prepared")?;
+    let mut spare = Vec::with_capacity(MAX_RECEIPT_BYTES + 1);
+    spare.extend_from_slice(&raw);
+    assert!(matches!(
+        StoredReceipt::from_framed_bytes(spare, &ctx()),
+        Err(ReceiptError::Invalid("receipt allocation"))
+    ));
+    let mut altered = raw.clone();
+    let tail = altered.len() - 1;
+    altered[tail] ^= 1;
+    assert!(StoredReceipt::from_framed_bytes(altered, &ctx()).is_err());
+    assert!(StoredReceipt::from_framed_bytes(raw[..raw.len() - 1].to_vec(), &ctx()).is_err());
+    let cancelled = ctx();
+    cancelled.cancellation().cancel();
+    assert!(matches!(
+        StoredReceipt::from_framed_bytes(raw, &cancelled),
+        Err(ReceiptError::Cancelled)
+    ));
+    Ok(())
+}
+
+#[test]
 fn independent_signature_binds_every_receipt_byte_and_preserves_original_manifest_time()
 -> TestResult {
     let receipt = receipt("strong", None)?;

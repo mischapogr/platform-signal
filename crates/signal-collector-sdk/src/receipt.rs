@@ -186,6 +186,22 @@ pub struct StoredReceipt {
     metadata_end: usize,
 }
 impl StoredReceipt {
+    /// Inspect a complete bounded frozen frame without publishing or changing
+    /// local progress. This verifies syntax/content pins and checksums, not the
+    /// producer's authority, native source proof, archive custody or collection
+    /// completeness. Authenticate scope independently before retaining/signing.
+    /// Run on a caller-owned bounded CPU worker and budget aggregate retained
+    /// results. Oversized spare allocation is rejected before decoding.
+    pub fn from_framed_bytes(
+        bytes: Vec<u8>,
+        context: &ExtensionContext,
+    ) -> Result<Self, ReceiptError> {
+        check(context)?;
+        if bytes.len() > MAX_RECEIPT_BYTES || bytes.capacity() > MAX_RECEIPT_BYTES {
+            return Err(ReceiptError::Invalid("receipt allocation"));
+        }
+        format::decode(bytes, context)
+    }
     /// Exact immutable full frame, including checksum trailer. A borrowed view
     /// adds no second payload allocation; retained copies need a caller budget.
     pub fn framed_bytes(&self) -> &[u8] {

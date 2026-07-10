@@ -455,11 +455,14 @@
         {
           "id": "independent-route-custody-ack-and-outage-simulation",
           "status": "in_progress",
-          "notes": "Whole-receipt signed independent custody, fresh explicit stronger ACK and owner-ticket fence accepted locally with fourteen custody/two optional source-fence regressions, default585/all-feature619/private37 gates and review. Independently enforced archive/version/retention/access and native checkpoint/coverage/outage/crash route integration remain unfinished. Parent EVIDENCE stays open.",
+          "notes": "Whole-receipt signed independent custody, fresh explicit stronger ACK and owner-ticket fence accepted locally with fourteen custody/two optional source-fence regressions, default585/all-feature619/private37 gates and review. Independently enforced archive/version/retention/access and native checkpoint/coverage/outage/crash route integration remain unfinished. Parent EVIDENCE stays open. Separate private bounded physical archive worker/immutable receipt readback/signing now accepted locally: sixteen private/three generic regressions, default588/all-feature622/private53 strict gates and independent source review. Exact schema and consumed-native-row reset guards enforced. Native history/current reconciliation, authenticated role HTTP and protected outage/archive-crash/redelivery composition remain unfinished.",
           "evidence": [
             "target/goal-execution-20261007/EVIDENCE/custody-validation/validation.json",
             "target/goal-execution-20261007/EVIDENCE/custody-private-validation/validation.json",
-            "target/goal-execution-20261007/EVIDENCE/custody-review.json"
+            "target/goal-execution-20261007/EVIDENCE/custody-review.json",
+            "target/goal-execution-20261007/EVIDENCE/archive-validation/validation.json",
+            "target/goal-execution-20261007/EVIDENCE/archive-private-validation/validation.json",
+            "target/goal-execution-20261007/EVIDENCE/archive-review.json"
           ]
         }
       ]
