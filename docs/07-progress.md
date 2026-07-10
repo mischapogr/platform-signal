@@ -40,6 +40,35 @@ Run `cargo run -p signal-server`; see [HTTP examples](09-phase1-ingest.md),
 [WAL configuration](10-phase2-wal.md), [storage configuration](12-phase3-storage.md),
 and [query configuration](13-phase4-query.md).
 
+## Native original/receipt linkage and conservative coverage — 2026-10-08
+
+The native-required private path now requires fresh supervisor confirmation,
+revalidates retained native history, and matches the receipt's exact source bucket,
+key, version, configured owner and compressed hash. Native proof retention must
+cover receipt retention. The source proof is ephemeral: authority revocation and
+its original operation deadline remain effective before/after custody signing.
+
+SDK-valid coverage is immutable and Unknown overall. It records verified native
+byte integrity while configuration/scope/continuity and gap completeness stay
+unknown. Replays/reopen preserve original verification time and exact bytes;
+expiry is bounded by profile age and proof retention. A signed nonempty digest and
+complete synthetic root-login object now exercise this path. Wrong versions/keys,
+altered compressed bytes, missing references, unconfirmed heads, short retention,
+revocation and deadline renewal attempts are denied.
+
+Full private acceptance passes72 tests/zero failures/four parent-invoked helpers,
+fmt, strict Clippy, build, independent byte-identical seven-file regeneration and
+the actual overlay/server SIGKILL/SIGTERM gate. Focused source review is accepted.
+Public Rust is unchanged from accepted588/622. Evidence lives in
+`target/goal-execution-20261007/EVIDENCE/native-link-validation/validation.json`,
+`native-link-review.json` and `native-link-handoff.json` there.
+
+The existing native validation/continuity substep is passed_local; parent EVIDENCE
+stays in_progress for authenticated provider/role HTTP and protected source-ACK/M2
+outage/replay composition. A signature/reference constructor or matching profile
+name alone authenticates no producer, provider capture or profile definition.
+No real-environment release gate is closed.
+
 ## Retained native proof history and independent current head — 2026-10-08
 
 The private EVIDENCE native mechanism now retains exact native bundles, immutable
