@@ -7,6 +7,19 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Protected authenticated role transport — 2026-10-08
+
+Protected provider/producer/verifier/owner loopback roles now pass private77 strict
+tests/build/lints, bounded stalled-reader/connection regressions, immutable
+native custody and current-head authority, independent focused review, actual
+overlay/server crash checks and the workspace guard. The verifier fetches only
+host-selected authenticated captures; it accepts no uploaded source metadata or
+trust policy. Archive201 remains distinct from server202 M2. Public Rust stays
+at588/622. Evidence is in the [progress](07-progress.md) and
+`target/goal-execution-20261007/EVIDENCE/protected-http-validation/validation.json`.
+EVIDENCE remains in_progress for protected observability-outage/source-ACK/M2 and
+crash/replay composition. Loopback role checks close no real AWS/TLS/account gate.
+
 ## Native original/receipt and conservative coverage — 2026-10-08
 
 The native validation/continuity substep now passes locally: current-confirmed
