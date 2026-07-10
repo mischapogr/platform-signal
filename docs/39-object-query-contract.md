@@ -18,6 +18,17 @@ ranges or bypass a predecessor. A bare PUT, listing entry or cache file grants n
 commit or source custody. Return storage completion only after required object and
 manifest bytes have been read back and validated under the original deadline.
 
+Small retains a synced stream/backend-bound initialization witness after a complete
+bounded inventory establishes an empty owned query namespace, before creating its
+first query object. An exact local head then selects the committed manifest chain.
+This allows a unique fully validated first-manifest write with a lost response to
+recover even if subsequent WAL replay uses smaller batches. Missing both controls
+with existing commits is unknown authority: queries hold; only complete exact
+initial WAL-content reconciliation can adopt that candidate. Unknown branches,
+foreign/partial controls and missing predecessors are preserved and hold progress.
+The trusted publisher alone initializes/advances these controls; their generic
+I/O methods are not authentication, endpoint identity or protected custody.
+
 Publication remains bounded and at least once. Exact already-created content is
 idempotent; conflicting content fails closed. Lost responses are uncertain until
 explicit bounded discovery/readback reconciles the same slot. Retried WAL batch
@@ -26,6 +37,25 @@ Never blindly overwrite or infer success from a matching length/ETag. Conditiona
 ETags are opaque equality guards, not content hashes. No latest-version fallback
 when an exact version is pinned. Missing objects, checksum/schema/sequence
 mismatches, unknown commit metadata or exhausted inventory hold progress.
+
+The selected backend must keep bytes immutable under each pinned version/ETag and
+provide complete, strongly consistent owned-prefix inventory. Reconciliation checks
+every historical manifest/data reference's current version, ETag and byte length
+before advancing; drift or absence holds. Previously committed history is retained
+through these immutable references and authenticated manifest predecessors, without
+rereading every cold Parquet object on each WAL batch. This is not continuous
+historical data scrubbing: selected query reads, actual replay and uncertain
+candidates authenticate bytes, schema and rows. A metadata snapshot exposes only
+finite references, never validated event results; same-identity byte corruption
+must fail an actual selected read. A backend that mutates pinned bytes is unqualified.
+
+Storage receipts retain exactly the submitted first/last sequence, independently
+of a recovered store high-water mark. Whole or partial replay compares actual
+sequence/event content, including gaps and changed batch boundaries. Counted
+unreferenced query objects can be reused only after exact content/identity
+reconciliation; quota reservation charges new objects and bytes once. No object
+is deleted by publication or recovery. Recovery catalogs and returned snapshots
+have finite metadata bounds and retained admission leases.
 
 The Small exclusive owner and immutable slots are not Standard distributed
 fencing. SHARED-CONTRACT/SHARED-RUNTIME later publish references/progress with
@@ -142,3 +172,14 @@ This acceptance is a generic audited backend port and Small local ownership,
 not S3 durability, committed publication, source ACK, query/cache/server integration
 or distributed fencing. Conditional publication/recovery and the selected bounded
 S3 adapter/local server simulation continue within the same parent item.
+
+## Accepted Small publication/recovery slice — 2026-10-08
+
+Thirteen publication and four new head/genesis regressions pass; storage72,
+default626/all-feature660 strict workspace checks and focused review pass. See
+`target/goal-execution-20261007/S3-QUERY/publication-validation-accepted/validation.json`. Retained failed initial logs record the local-socket sandbox boundary.
+In-process lost-response, cancellation and explicit owned-control reopen tests
+are not process-crash or S3 durability proof. The head/genesis witness, exact
+submitted receipt range, identity-drift guard and byte-validated orphan reuse
+resolve review findings. Selected adapter, cache/query/server and actual local
+process simulation continue; S3-QUERY and every real-environment gate remain open.

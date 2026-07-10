@@ -19,6 +19,255 @@ async fn ready_owner_reply_cannot_bypass_original_deadline() -> Result {
 fn context() -> OperationContext {
     OperationContext::new(Duration::from_secs(5))
 }
+fn head(stream: uuid::Uuid, first: u64, last: u64) -> crate::object_manifest::PreviousManifest {
+    crate::object_manifest::PreviousManifest {
+        first_sequence: first,
+        last_sequence: last,
+        object: QueryObjectRef {
+            key: crate::object_manifest::manifest_key(stream, first),
+            version: Some("synthetic-manifest-v1".into()),
+            etag: None,
+            bytes: 64,
+            sha256: sha256(&first.to_le_bytes()),
+        },
+    }
+}
+#[tokio::test]
+async fn refused_head_cannot_poison_a_bindingless_root() -> Result {
+    let control = TempDir::new()?;
+    let owner = SmallOwnerConfig {
+        directory: control.path().to_path_buf(),
+        stream_id: uuid::Uuid::new_v4(),
+        backend_id: uuid::Uuid::new_v4(),
+    };
+    let expected = head(owner.stream_id, 7, 9);
+    let bytes =
+        crate::object_head::HeadRecord::new(owner.stream_id, owner.backend_id, None, &expected)?
+            .encode(&context())?;
+    std::fs::write(control.path().join("head.tmp"), &bytes)?;
+    let other = SmallOwnerConfig {
+        directory: control.path().to_path_buf(),
+        stream_id: uuid::Uuid::new_v4(),
+        backend_id: uuid::Uuid::new_v4(),
+    };
+    assert!(matches!(
+        ObjectIo::open_small_remote(
+            &other,
+            Arc::new(InMemory::new()),
+            tokio::runtime::Handle::current(),
+            ObjectIoLimits::default(),
+            context()
+        )
+        .await,
+        Err(ObjectIoError::OwnerBinding)
+    ));
+    assert_eq!(std::fs::read(control.path().join("head.tmp"))?, bytes);
+    assert!(!control.path().join("binding.json").exists());
+    assert!(!control.path().join("binding.tmp").exists());
+    std::fs::write(control.path().join("head.tmp"), b"{partial")?;
+    assert!(
+        ObjectIo::open_small_remote(
+            &owner,
+            Arc::new(InMemory::new()),
+            tokio::runtime::Handle::current(),
+            ObjectIoLimits::default(),
+            context()
+        )
+        .await
+        .is_err()
+    );
+    assert!(!control.path().join("binding.json").exists());
+    std::fs::write(control.path().join("head.tmp"), &bytes)?;
+    let correct = ObjectIo::open_small_remote(
+        &owner,
+        Arc::new(InMemory::new()),
+        tokio::runtime::Handle::current(),
+        ObjectIoLimits::default(),
+        context(),
+    )
+    .await?;
+    assert_eq!(correct.read_small_head(context()).await?, Some(expected));
+    assert_eq!(std::fs::read(control.path().join("head.json"))?, bytes);
+    correct.shutdown(context()).await?;
+    Ok(())
+}
+#[tokio::test]
+async fn genesis_is_synced_recovered_and_foreign_partial_records_do_not_pin_binding() -> Result {
+    let control = TempDir::new()?;
+    let owner = SmallOwnerConfig {
+        directory: control.path().to_path_buf(),
+        stream_id: uuid::Uuid::new_v4(),
+        backend_id: uuid::Uuid::new_v4(),
+    };
+    let bytes = serde_json::to_vec(
+        &serde_json::json!({"schema_version":1,"stream_id":owner.stream_id,"backend_id":owner.backend_id}),
+    )?;
+    std::fs::write(control.path().join("genesis.tmp"), &bytes)?;
+    let wrong = SmallOwnerConfig {
+        directory: control.path().to_path_buf(),
+        stream_id: uuid::Uuid::new_v4(),
+        backend_id: uuid::Uuid::new_v4(),
+    };
+    assert!(matches!(
+        ObjectIo::open_small_remote(
+            &wrong,
+            Arc::new(InMemory::new()),
+            tokio::runtime::Handle::current(),
+            ObjectIoLimits::default(),
+            context()
+        )
+        .await,
+        Err(ObjectIoError::OwnerBinding)
+    ));
+    assert!(!control.path().join("binding.json").exists());
+    assert_eq!(std::fs::read(control.path().join("genesis.tmp"))?, bytes);
+    std::fs::write(control.path().join("genesis.tmp"), b"{partial")?;
+    assert!(
+        ObjectIo::open_small_remote(
+            &owner,
+            Arc::new(InMemory::new()),
+            tokio::runtime::Handle::current(),
+            ObjectIoLimits::default(),
+            context()
+        )
+        .await
+        .is_err()
+    );
+    assert!(!control.path().join("binding.json").exists());
+    std::fs::write(control.path().join("genesis.tmp"), &bytes)?;
+    let io = ObjectIo::open_small_remote(
+        &owner,
+        Arc::new(InMemory::new()),
+        tokio::runtime::Handle::current(),
+        ObjectIoLimits::default(),
+        context(),
+    )
+    .await?;
+    assert!(io.small_query_initialized(context()).await?);
+    io.initialize_small_query(context()).await?;
+    assert_eq!(std::fs::read(control.path().join("genesis.json"))?, bytes);
+    assert!(!control.path().join("genesis.tmp").exists());
+    io.shutdown(context()).await?;
+    Ok(())
+}
+#[tokio::test]
+async fn small_head_cas_replay_and_reopen_preserve_exact_witness() -> Result {
+    let control = TempDir::new()?;
+    let owner = SmallOwnerConfig {
+        directory: control.path().to_path_buf(),
+        stream_id: uuid::Uuid::new_v4(),
+        backend_id: uuid::Uuid::new_v4(),
+    };
+    let io = ObjectIo::open_small_remote(
+        &owner,
+        Arc::new(InMemory::new()),
+        tokio::runtime::Handle::current(),
+        ObjectIoLimits::default(),
+        context(),
+    )
+    .await?;
+    assert!(io.read_small_head(context()).await?.is_none());
+    let first = head(owner.stream_id, 7, 9);
+    io.advance_small_head(None, &first, context()).await?;
+    let saved = std::fs::read(control.path().join("head.json"))?;
+    io.advance_small_head(None, &first, context()).await?;
+    assert_eq!(std::fs::read(control.path().join("head.json"))?, saved);
+    let second = head(owner.stream_id, 10, 12);
+    assert!(matches!(
+        io.advance_small_head(None, &second, context()).await,
+        Err(ObjectIoError::Condition)
+    ));
+    io.advance_small_head(Some(&first), &second, context())
+        .await?;
+    assert_eq!(io.read_small_head(context()).await?, Some(second.clone()));
+    assert!(
+        io.advance_small_head(Some(&second), &first, context())
+            .await
+            .is_err()
+    );
+    io.shutdown(context()).await?;
+    let reopened = ObjectIo::open_small_remote(
+        &owner,
+        Arc::new(InMemory::new()),
+        tokio::runtime::Handle::current(),
+        ObjectIoLimits::default(),
+        context(),
+    )
+    .await?;
+    // Root control survives even though the new synthetic backend is empty.
+    // This proves it is a witness, not backend completeness or data custody.
+    assert_eq!(reopened.read_small_head(context()).await?, Some(second));
+    reopened.shutdown(context()).await?;
+    Ok(())
+}
+#[tokio::test]
+async fn small_head_complete_temp_recovers_but_branch_and_partial_hold() -> Result {
+    let control = TempDir::new()?;
+    let owner = SmallOwnerConfig {
+        directory: control.path().to_path_buf(),
+        stream_id: uuid::Uuid::new_v4(),
+        backend_id: uuid::Uuid::new_v4(),
+    };
+    let first = head(owner.stream_id, 7, 9);
+    let record =
+        crate::object_head::HeadRecord::new(owner.stream_id, owner.backend_id, None, &first)?;
+    let bytes = record.encode(&context())?;
+    std::fs::write(control.path().join("head.tmp"), &bytes)?;
+    let io = ObjectIo::open_small_remote(
+        &owner,
+        Arc::new(InMemory::new()),
+        tokio::runtime::Handle::current(),
+        ObjectIoLimits::default(),
+        context(),
+    )
+    .await?;
+    assert_eq!(io.read_small_head(context()).await?, Some(first.clone()));
+    assert!(!control.path().join("head.tmp").exists());
+    io.shutdown(context()).await?;
+    let second = head(owner.stream_id, 10, 12);
+    let wrong =
+        crate::object_head::HeadRecord::new(owner.stream_id, owner.backend_id, None, &second)?
+            .encode(&context())?;
+    std::fs::write(control.path().join("head.tmp"), &wrong)?;
+    assert!(matches!(
+        ObjectIo::open_small_remote(
+            &owner,
+            Arc::new(InMemory::new()),
+            tokio::runtime::Handle::current(),
+            ObjectIoLimits::default(),
+            context()
+        )
+        .await,
+        Err(ObjectIoError::Corrupt)
+    ));
+    assert_eq!(std::fs::read(control.path().join("head.tmp"))?, wrong);
+    std::fs::write(control.path().join("head.tmp"), b"{partial")?;
+    assert!(matches!(
+        ObjectIo::open_small_remote(
+            &owner,
+            Arc::new(InMemory::new()),
+            tokio::runtime::Handle::current(),
+            ObjectIoLimits::default(),
+            context()
+        )
+        .await,
+        Err(ObjectIoError::Corrupt)
+    ));
+    assert_eq!(std::fs::read(control.path().join("head.tmp"))?, b"{partial");
+    // Only explicit test cleanup removes the refused unknown control.
+    std::fs::remove_file(control.path().join("head.tmp"))?;
+    let io = ObjectIo::open_small_remote(
+        &owner,
+        Arc::new(InMemory::new()),
+        tokio::runtime::Handle::current(),
+        ObjectIoLimits::default(),
+        context(),
+    )
+    .await?;
+    assert_eq!(io.read_small_head(context()).await?, Some(first));
+    io.shutdown(context()).await?;
+    Ok(())
+}
 #[tokio::test]
 async fn completed_create_reply_cannot_arrive_as_success_after_deadline() -> Result {
     let io = remote(ObjectIoLimits::default())?;

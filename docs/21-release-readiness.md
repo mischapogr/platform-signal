@@ -7,6 +7,15 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Small query publication boundary — 2026-10-08
+
+Storage72/default626/all-feature660 strict local gates and focused review now
+qualify generic conditional publication, synced initialization/head controls and
+bounded committed content recovery. The selected S3 adapter, actual query/cache/
+server and process simulation remain unfinished within S3-QUERY. This provides no
+source custody, shared fencing, AWS/HA or release qualification. See [progress](07-progress.md)
+and `target/goal-execution-20261007/S3-QUERY/publication-validation-accepted/validation.json`.
+
 ## Public repository and partial native CI — 2026-10-08
 
 Source publication is separate from publishing a qualified version/image/crate.
