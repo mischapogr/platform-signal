@@ -502,7 +502,9 @@
         "target/goal-execution-20261007/S3-QUERY/publication-validation-accepted/validation.json",
         "target/goal-execution-20261007/S3-QUERY/publication-review.json",
         "target/goal-execution-20261007/S3-QUERY/s3-adapter-validation-accepted/validation.json",
-        "target/goal-execution-20261007/S3-QUERY/s3-adapter-review.json"
+        "target/goal-execution-20261007/S3-QUERY/s3-adapter-review.json",
+        "target/goal-execution-20261007/S3-QUERY/query-materialization-validation-resumed/validation.json",
+        "target/goal-execution-20261007/S3-QUERY/query-materialization-review.json"
       ],
       "references": [
         "docs/12-phase3-storage.md",
@@ -530,10 +532,15 @@
         },
         {
           "id": "object-query-cache-and-server-simulation",
-          "status": "pending"
+          "status": "in_progress",
+          "notes": "Generic committed-file query source and bounded Small materialization accepted: eight actual Parquet/DataFusion regressions, three cache tests, storage76/default and85/S3, default638/all-feature681 strict gates and source review. Retained physical child admission and whole-query shutdown correction have red/green evidence. Monolithic integration and persistent process simulation remain required; substep and parent stay in_progress.",
+          "evidence": [
+            "target/goal-execution-20261007/S3-QUERY/query-materialization-validation-resumed/validation.json",
+            "target/goal-execution-20261007/S3-QUERY/query-materialization-review.json"
+          ]
         }
       ],
-      "notes": "Manifest/codec/Small I/O/publication and selected optional bounded S3 adapter pass local strict acceptance and review: storage73/default and82/S3, default627/all-feature670. Nine finite native-wire tests include second commit/reopen/exact prefix replay with versionless lists. No persistent process/AWS/TLS runtime/HA/custody qualification. Actual query/materialization/cache/server/process simulation remains unfinished; parent in_progress."
+      "notes": "Manifest/codec/Small I/O/publication, selected bounded S3 adapter and generic committed query/cache pass local acceptance. Latest storage76/default and85/S3, default638/all-feature681 strict gates and focused review. No persistent process/AWS/TLS runtime/HA/custody qualification. Continue monolithic integration and persistent process simulation within this item."
     },
     {
       "id": "RETENTION",

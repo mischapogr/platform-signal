@@ -1,5 +1,32 @@
 # Implementation progress
 
+## Bounded committed object queries — 2026-10-08
+
+Eight actual Parquet/DataFusion object-query regressions and three cache tests pass;
+storage76/default and85/S3, default638/all-feature681 strict workspace gates and
+focused source review pass. The generic `QueryFileSource` retains the existing
+local constructor and URL filters. Committed UTC selection checks file/decoded
+budgets before data GET, authenticates pinned bytes/schema, and materializes
+immutable derived copies in a bounded, exclusively owned Small cache. Nested
+attributes, account/source filters, pruning, cache deletion/rebuild, quota,
+denial/corruption, cancellation and retained physical ownership are exercised.
+No eviction or source-original deletion is authorized by the query cache.
+
+A reproduced high review finding showed shutdown returning while remote selection
+remained admitted. Shutdown now drains all admitted query lifetimes before local
+I/O; the original deadline and cancellation remain binding. Cancelled publisher
+commands retain admission until physical child workers actually drain. Red/green
+logs and source hashes are retained. Final evidence:
+`target/goal-execution-20261007/S3-QUERY/query-materialization-validation-resumed/validation.json`
+and `query-materialization-review.json`. Completed unchanged-source formatting,
+Clippy and build checks were reused after a session interruption; only unfinished
+workspace tests and the workspace check were resumed, with interrupted logs kept.
+
+S3-QUERY remains in_progress. Next: monolithic server backend/configuration,
+query-before-source shutdown and bounded append/query contention, then persistent
+source/server outage, SIGKILL and replay simulation. This slice provides no server
+process, AWS/TLS/runtime/custody/HA/native ARM64 or release qualification.
+
 ## Selected bounded S3 adapter — 2026-10-08
 
 The optional `signal-storage/s3` adapter passes nine native HTTP fixture tests

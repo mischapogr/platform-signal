@@ -7,6 +7,15 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Committed object-query boundary — 2026-10-08
+
+Default638/all-feature681 strict gates and focused review qualify eight object-query
+and three cache regressions, including actual Parquet/DataFusion selection and
+shutdown/cancellation physical ownership. Storage76/default and85/S3 pass. S3-QUERY
+stays in_progress until monolithic wiring and persistent source/server process
+simulation pass. No AWS/TLS/custody/HA/native/remote/release gate closes. See
+[progress](07-progress.md) and `target/goal-execution-20261007/S3-QUERY/query-materialization-validation-resumed/validation.json`.
+
 ## Selected query S3 adapter boundary — 2026-10-08
 
 Optional bounded S3 transport passes nine native-wire tests plus versionless
