@@ -7,6 +7,21 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Protected route composition acceptance — 2026-10-08
+
+The frozen EVIDENCE item is passed_simulated: actual protected retention/native
+custody continues while observability is down; required source ACK waits for M2;
+archive lost HTTP reply/exact replay, actual server crash/recovery, actual source
+post-delete/pre-reply crash, stale handle denial and fresh ACK recovery pass.
+Private77 strict gates plus the exact parent1 process simulation, independent
+review, native fixture regeneration, overlay crash and workspace guard pass.
+See the [current progress](07-progress.md) and
+`target/goal-execution-20261007/EVIDENCE/protected-composition-validation/validation.json`.
+Public588/622 is unchanged. The local simulation does not close AWS/Object Lock/
+IAM/KMS/TLS/account isolation/shared-runtime/native ARM64/EKS/live vendor/remoteCI/
+released-dependency/publication gates. Source completeness remains Unknown.
+Next frozen item: S3-QUERY, then RETENTION and remaining dependency-ready work.
+
 ## Protected authenticated role transport — 2026-10-08
 
 Protected provider/producer/verifier/owner loopback roles now pass private77 strict

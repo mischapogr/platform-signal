@@ -423,7 +423,7 @@
     {
       "id": "EVIDENCE",
       "title": "Independent protected original route and validation simulation",
-      "status": "in_progress",
+      "status": "passed_simulated",
       "dependencies": [
         "AWS-DELIVERY"
       ],
@@ -432,7 +432,10 @@
         "Observability-plane outage, proof failure and recovery tests; local proof never certifies Object Lock/IAM."
       ],
       "evidence": [
-        "target/goal-execution-20261007/EVIDENCE/"
+        "target/goal-execution-20261007/EVIDENCE/",
+        "target/goal-execution-20261007/EVIDENCE/protected-composition-validation/validation.json",
+        "target/goal-execution-20261007/EVIDENCE/protected-composition-process-qualified/validation.json",
+        "target/goal-execution-20261007/EVIDENCE/protected-composition-review.json"
       ],
       "references": [
         "docs/logical-architecture.md",
@@ -458,8 +461,8 @@
         },
         {
           "id": "independent-route-custody-ack-and-outage-simulation",
-          "status": "in_progress",
-          "notes": "Whole-receipt signed independent custody, fresh explicit stronger ACK and owner-ticket fence accepted locally with fourteen custody/two optional source-fence regressions, default585/all-feature619/private37 gates and review. Independently enforced archive/version/retention/access and native checkpoint/coverage/outage/crash route integration remain unfinished. Parent EVIDENCE stays open. Separate private bounded physical archive worker/immutable receipt readback/signing now accepted locally: sixteen private/three generic regressions, default588/all-feature622/private53 strict gates and independent source review. Exact schema and consumed-native-row reset guards enforced. Native history/current reconciliation, authenticated role HTTP and protected outage/archive-crash/redelivery composition remain unfinished. Native history/current-authority mechanism now accepted with private70 strict gates and four actual SIGKILL cases. Native-log/receipt linkage, role HTTP and source-ACK/M2 protected outage composition remain unfinished. Current-confirmed native-log/receipt binding and conservative SDK coverage accepted with private72 strict gates/review; only authenticated provider/role HTTP and protected source-ACK/M2 outage/replay composition remain. Authenticated provider/producer/verifier/owner loopback routes and verifier-owned fixed capture fetch now pass private77 strict acceptance/review, actual stalled-reader memory and connection-cap tests, immutable native/current-owner custody and source/owner outages. Protected observability outage/source-ACK/M2/crash composition remains unfinished.",
+          "status": "passed_simulated",
+          "notes": "Qualified local independent protected route: full receipt/original/native proofs and fresh independently current custody remain separate from server202 M2. Authenticated role, retention/version and malformed/proof/current-head failure gates pass. Actual observability outage, archive post-commit lost HTTP reply/exact replay, server SIGKILL/restart, source post-delete/pre-reply SIGKILL/Uncertain/reconciled reopen/stale handle403/fresh stronger ACK pass. Private77 strict tests/6 parent-managed ignored helpers plus exact parent1; earlier native archive/supervisor four SIGKILL gates retained. Public unchanged588/622. Local owner authority only; no shared-runtime, real AWS/TLS/ObjectLock/IAM/KMS/complete source coverage.",
           "evidence": [
             "target/goal-execution-20261007/EVIDENCE/custody-validation/validation.json",
             "target/goal-execution-20261007/EVIDENCE/custody-private-validation/validation.json",
@@ -470,7 +473,10 @@
             "target/goal-execution-20261007/EVIDENCE/native-supervisor-validation/validation.json",
             "target/goal-execution-20261007/EVIDENCE/native-supervisor-review.json",
             "target/goal-execution-20261007/EVIDENCE/protected-http-validation/validation.json",
-            "target/goal-execution-20261007/EVIDENCE/protected-http-review.json"
+            "target/goal-execution-20261007/EVIDENCE/protected-http-review.json",
+            "target/goal-execution-20261007/EVIDENCE/protected-composition-validation/validation.json",
+            "target/goal-execution-20261007/EVIDENCE/protected-composition-process-qualified/validation.json",
+            "target/goal-execution-20261007/EVIDENCE/protected-composition-review.json"
           ]
         }
       ]
