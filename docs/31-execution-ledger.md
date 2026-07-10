@@ -18,7 +18,7 @@ actual observability outage with M2 ACK gating, lost archive reply/exact replay,
 actual server and source crashes, uncertainty/reconciled reopen and fresh ACK.
 Private77 strict tests plus exact parent1 compound process gate and review pass;
 public588/622 remains unchanged. All source completeness, AWS/TLS/HA/shared-runtime
-and release exceptions stay visible. S3-QUERY is in_progress with its bounded manifest contract accepted (four regressions, default592/all-feature626 strict gates and review); conditional publication/recovery/query/cache/server simulation is next, then dependency-ready items.
+and release exceptions stay visible. S3-QUERY is in_progress with its manifest and bounded Parquet CPU seams accepted (default599/all-feature633 strict gates and review); conditional publication/recovery/query/cache/server simulation is next, then dependency-ready items.
 
 
 ## Execution and evidence

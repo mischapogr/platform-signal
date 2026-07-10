@@ -1,6 +1,7 @@
 //! Bounded, replay-safe filesystem event persistence. See ADR-004 and ADR-010.
 pub mod codec;
 mod fs;
+pub mod object_codec;
 pub mod object_manifest;
 mod pages;
 

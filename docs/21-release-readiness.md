@@ -7,6 +7,16 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Object Parquet CPU seam — 2026-10-08
+
+S3-QUERY remains in_progress. Six actual codec regressions and default599/
+all-feature633 strict workspace gates plus focused review qualify bounded input,
+output, decoded metadata and raw JSON handling; see [progress](07-progress.md) and
+`target/goal-execution-20261007/S3-QUERY/codec-validation-accepted/validation.json`.
+This grants no object publication/query commitment, distributed custody or AWS/HA
+qualification. Conditional publication/recovery and object query/cache/server
+simulation continue inside the frozen item. All external release gates stay open.
+
 ## Object-query manifest contract — 2026-10-08
 
 S3-QUERY is in_progress. Strict bounded manifest/reference and time-partition

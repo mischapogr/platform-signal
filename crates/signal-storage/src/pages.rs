@@ -2,10 +2,7 @@
 //! Compact Thrift page headers use bounded read-ahead, never payload-sized allocation.
 use crate::{OperationContext, StorageConfig, StorageError, check_context};
 use parquet::file::metadata::ParquetMetaData;
-use std::{
-    fs::File,
-    io::{BufReader, Read, Seek, SeekFrom},
-};
+use std::io::{BufReader, Read, Seek, SeekFrom};
 // One fixed buffer per active footer/page header; logical parser budgets below
 // remain independent of read-ahead. Absolute seeks position each subsequent page.
 const HEADER_BUFFER_BYTES: usize = 1024;
@@ -13,8 +10,8 @@ const HEADER_BUFFER_BYTES: usize = 1024;
 fn corrupt() -> StorageError {
     StorageError::Corrupt("Parquet allocation bounds")
 }
-pub(crate) fn footer(
-    file: &mut File,
+pub(crate) fn footer<R: Read + Seek>(
+    file: &mut R,
     length: u64,
     config: &StorageConfig,
     context: Option<&OperationContext>,
@@ -49,8 +46,8 @@ pub(crate) fn footer(
     }
     Ok(start)
 }
-pub(crate) fn check(
-    file: &mut File,
+pub(crate) fn check<R: Read + Seek>(
+    file: &mut R,
     footer_start: u64,
     metadata: &ParquetMetaData,
     config: &StorageConfig,
@@ -146,14 +143,14 @@ pub(crate) fn check(
     }
     Ok(())
 }
-struct Header<'a> {
-    file: BufReader<&'a mut File>,
+struct Header<'a, R: Read + Seek> {
+    file: BufReader<&'a mut R>,
     bytes: usize,
     limit: usize,
     container_limit: usize,
     context: Option<&'a OperationContext>,
 }
-impl Header<'_> {
+impl<R: Read + Seek> Header<'_, R> {
     // The storage contract is a flat schema. Check num_children before the
     // Parquet parser uses that scalar to allocate a children Vec.
     fn schema_element(&mut self, root: bool, columns: usize) -> Result<(), StorageError> {
@@ -365,7 +362,7 @@ impl Header<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
+    use std::{fs::File, io::Write};
 
     fn input() -> Result<File, Box<dyn std::error::Error>> {
         let mut file = tempfile::tempfile()?;
