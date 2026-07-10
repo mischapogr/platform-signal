@@ -312,6 +312,7 @@ impl ObjectCodec {
                 Ok(Ok(reply)) => reply.result,
             }
         };
+        check_context(Some(&context))?;
         guard.armed = false;
         result
     }

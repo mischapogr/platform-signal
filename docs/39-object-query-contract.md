@@ -91,3 +91,54 @@ This produces sealed prepared/inspected data only. It performs no disk/network
 operations and cannot establish a manifest commit, source ACK or custody.
 Seven regressions, storage45/default599/all-feature633 strict acceptance and focused
 review pass; publication/recovery/query/server remain pending in the parent task.
+
+## Bounded object I/O extension contract
+
+The next publication slice uses conditional Create only, explicit current-state
+discovery for reconciliation, and pinned version/ETag reads. Reads verify returned
+metadata/identity/range and exact SHA/length; no latest fallback is allowed. A
+listing is finite discovery metadata with unknown content hash, never commitment
+or coverage. It must be followed by authenticated exact discovery/readback before
+becoming a selected reference. No delete/overwrite/multipart operation is exposed.
+
+One physical ordinary worker serializes admission, backend work and retained
+read/inventory replies. Local filesystem work executes outside Tokio's blocking
+pool. Audited remote backend futures execute through the selected runtime under
+the original cancellation/deadline; cancelled/lost writes remain uncertain. The
+backend extension is trusted to bound its own HTTP headers/metadata/body decoding
+and any internal tasks. Generic object_store injection alone does not qualify a
+remote adapter; the selected S3 HTTP connector and local server must enforce and
+exercise those backend bounds separately. File payloads from remote backends fail
+closed. LocalFileSystem is a filesystem simulation, not S3 durability or a
+synced-write guarantee; production storage completion still requires the selected
+backend's qualified durability and publication readback.
+
+Backend cancellation must either stop its work or retain independently bounded
+resources until any detached work exits; this generic trait port cannot enforce
+that property inside an injected implementation. The selected S3 adapter requires
+its own audit and acceptance.
+
+Small startup binds stream/backend UUIDs in a bounded synced control record and
+locks the same local/RWO control root on the physical I/O worker. That worker
+retains ownership through non-cancellable disk work after caller timeout/drop.
+Unknown, oversized, partial or mismatching controls fail closed and are preserved.
+All owners of the same stream must use that same control root; different roots
+or independent hosts are not fenced by this mechanism. The binding records
+configured identity, not proof of endpoint authority or evidence custody.
+
+## Accepted object I/O and Small owner slice — 2026-10-08
+
+Nine I/O/owner regressions and eight codec regressions pass. The complete storage
+suite has55 passing tests; strict default609/all-feature643 workspace gates and
+focused reviews pass (six parent-invoked subprocess helpers remain ignored).
+Evidence: `target/goal-execution-20261007/S3-QUERY/io-validation-late-final/validation.json`.
+Two actual failed async reproductions exposed completed replies bypassing their
+deadline; final context checks now reject those replies, release physical leases
+and count rejection exactly once. Original failed logs and the earlier607/641
+boundary are retained. Recovered control descriptors sync before readiness and
+explicit unlock covers cloned/inherited descriptions and every failure path.
+
+This acceptance is a generic audited backend port and Small local ownership,
+not S3 durability, committed publication, source ACK, query/cache/server integration
+or distributed fencing. Conditional publication/recovery and the selected bounded
+S3 adapter/local server simulation continue within the same parent item.

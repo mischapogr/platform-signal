@@ -1,5 +1,20 @@
 # Implementation progress
 
+## Bounded object I/O / Small ownership — 2026-10-08
+
+S3-QUERY remains in_progress. Conditional Create, pinned exact readback, finite
+discovery/listing, retained reply/physical work leases and a stream/backend-bound
+Small control owner now pass storage55/default609/all-feature643 strict gates and
+focused review. Six subprocess helpers keep parent-invoked scope. Nine I/O/owner
+and eight codec regressions include actual late-reply deadline failure/fix,
+non-cancellable ownership retention, inherited descriptor unlock, recovered synced
+controls and unknown/mismatching control refusal. See
+[object query contract](39-object-query-contract.md) and
+`target/goal-execution-20261007/S3-QUERY/io-validation-late-final/validation.json`.
+This qualifies no actual S3 durability/publication/query/custody/HA/AWS/ARM64 gate.
+Next: actual conditional publication and committed recovery, then selected adapter,
+query/cache and monolithic server simulation; continue the frozen parent.
+
 ## Public OSS CI preparation — 2026-10-08
 
 Public revision66a9ce7 has partial native GitHub ARM64 Rust evidence; the complete

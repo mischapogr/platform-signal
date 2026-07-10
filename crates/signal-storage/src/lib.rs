@@ -2,7 +2,9 @@
 pub mod codec;
 mod fs;
 pub mod object_codec;
+pub mod object_io;
 pub mod object_manifest;
+mod object_owner;
 mod pages;
 
 use chrono::{DateTime, Utc};
