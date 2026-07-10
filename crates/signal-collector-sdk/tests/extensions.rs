@@ -272,3 +272,26 @@ impl Enricher for Noop {
         Ok(())
     }
 }
+
+#[tokio::test]
+async fn absolute_worker_context_preserves_deadline_and_parent_cancellation_without_renewal()
+-> Result<(), Box<dyn std::error::Error>> {
+    let parent = CancellationToken::new();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    let context = ExtensionContext::from_deadline(parent.child_token(), deadline)?;
+    assert_eq!(context.deadline(), deadline);
+    parent.cancel();
+    assert!(matches!(context.check(), Err(ExtensionError::Cancelled)));
+    assert!(matches!(
+        ExtensionContext::from_deadline(CancellationToken::new(), tokio::time::Instant::now()),
+        Err(ExtensionError::Timeout)
+    ));
+    assert!(matches!(
+        ExtensionContext::from_deadline(
+            CancellationToken::new(),
+            tokio::time::Instant::now() + Duration::from_secs(86_401)
+        ),
+        Err(ExtensionError::InvalidConfiguration)
+    ));
+    Ok(())
+}

@@ -246,3 +246,10 @@ Already dispatched remote effects remain uncertain. Local retirement preserves
 custody controls and never deletes archive originals. The ordinary collector
 driver remains process-local. Independent enforced archive/checkpoint/coverage
 integration and actual AWS isolation require separate acceptance within EVIDENCE.
+
+Independent archive implementations can inspect exact received frames through
+`StoredReceipt::from_framed_bytes` on their bounded worker. It rejects oversized
+retained allocations and reuses the frozen content/checksum validator without
+disk writes or mutable progress. It supplies no source authentication or custody;
+archive permission, full trusted scope comparison and native proof validation
+remain separate before retention or signing.
