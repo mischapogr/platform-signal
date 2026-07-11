@@ -32,7 +32,8 @@ pub struct PublicationConfig {
     pub storage: StorageConfig,
     pub manifests: ManifestLimits,
     /// Includes committed references and unreferenced query objects, never raw
-    /// evidence. Exhaustion holds progress; this module does not delete objects.
+    /// evidence. Exhaustion holds progress; only explicit stopped reclamation
+    /// may remove authenticated retired versions.
     pub inventory_objects: usize,
     pub catalog_bytes: usize,
     pub normalizer_revision: String,
@@ -160,6 +161,7 @@ impl Drop for Cancel {
 enum Work {
     Append(Vec<u8>),
     Snapshot,
+    Reclaim(crate::object_retirement::RetirementCheckpoint),
     Select(Option<DateTime<Utc>>, Option<DateTime<Utc>>, usize, u64),
     Retire(
         crate::object_retention::RetentionPolicy,
@@ -172,6 +174,7 @@ enum Reply {
     Snapshot(CommittedSnapshot),
     Selection(FileSelection),
     Retirement(u64),
+    Reclamation(crate::object_reclamation::ReclamationReport),
 }
 struct Completion {
     result: Result<Reply, StorageError>,
@@ -270,6 +273,11 @@ impl ObjectPublisher {
                                     orphans: catalog.orphans,
                                     _slot: command.slot.clone(),
                                 }))
+                            }
+                            Work::Reclaim(checkpoint) => {
+                                let report =
+                                    controller.reclaim(checkpoint, &command.context).await?;
+                                Ok(Reply::Reclamation(report))
                             }
                             Work::Retire(policy, checkpoint, now) => {
                                 let floor = controller
@@ -506,6 +514,30 @@ impl ObjectPublisher {
         self.record_result(&result);
         result
     }
+    /// Explicit trusted stopped-host operation. Fresh checkpoint ownership is
+    /// required; only authenticated retired query versions are eligible.
+    /// Failure may leave uncertain partial effects; recompute on fresh retry.
+    pub async fn reclaim_retired_query_data(
+        &self,
+        checkpoint: crate::object_retirement::RetirementCheckpoint,
+        mut context: OperationContext,
+    ) -> Result<crate::object_reclamation::ReclamationReport, StorageError> {
+        let mut reject = Reject(self.shared.clone(), true);
+        let result = async {
+            let slot = self.admit(&mut context)?;
+            match self
+                .request(Work::Reclaim(checkpoint), context, slot)
+                .await?
+            {
+                Reply::Reclamation(report) => Ok(report),
+                _ => Err(StorageError::Closed),
+            }
+        }
+        .await;
+        reject.1 = result.is_err();
+        self.record_result(&result);
+        result
+    }
     pub fn close(&self) {
         self.shared.closed.store(true, Ordering::Release);
         self.shared.slots.close();
@@ -626,6 +658,102 @@ struct Controller {
     state: Arc<Shared>,
 }
 impl Controller {
+    async fn reclaim(
+        &self,
+        fresh: crate::object_retirement::RetirementCheckpoint,
+        context: &OperationContext,
+    ) -> Result<crate::object_reclamation::ReclamationReport, StorageError> {
+        if fresh.stream_id != self.stream {
+            return Err(StorageError::StreamMismatch);
+        }
+        if !self.io.supports_reclamation() {
+            return Err(StorageError::Config(
+                "exact version reclamation backend required",
+            ));
+        }
+        if self.cache.is_some() {
+            return Err(StorageError::Busy);
+        }
+        let _cache_guard = match &self.config.materialization {
+            Some(config) if config.directory.try_exists().map_err(StorageError::Io)? => {
+                Some(Cache::open(config, self.stream, self.backend, context)?)
+            }
+            _ => None,
+        };
+        let catalog = self.recover(None, context).await?;
+        let floor = catalog.retired_through();
+        if floor == 0 || fresh.checkpoint < floor {
+            return Err(StorageError::InvalidBatch);
+        }
+        // Complete finite preflight precedes the first irreversible operation.
+        // No caller-provided plan, orphan or manifest can enter this pass.
+        for committed in &catalog.manifests {
+            if committed.reference.last_sequence > floor {
+                break;
+            }
+            for file in &committed.manifest.files {
+                check_context(Some(context))?;
+                crate::object_reclamation::validate(
+                    &file.object,
+                    self.stream,
+                    self.config.manifests.object_bytes,
+                )
+                .map_err(io_error)?;
+            }
+        }
+        let mut report = crate::object_reclamation::ReclamationReport {
+            schema_version: 1,
+            stream_id: self.stream,
+            retired_through: floor,
+            acknowledged_versions: 0,
+            acknowledged_bytes: 0,
+            observed_absent_versions: 0,
+            observed_absent_bytes: 0,
+        };
+        for committed in &catalog.manifests {
+            if committed.reference.last_sequence > floor {
+                break;
+            }
+            for file in &committed.manifest.files {
+                check_context(Some(context))?;
+                // Current inventory can hide a still-readable pinned version
+                // behind a delete marker. Only an exact-version GET can prove
+                // absence; every other failure remains an uncertain/denied effect.
+                let read = match self.io.read_exact(&file.object, context.clone()).await {
+                    Ok(read) => read,
+                    Err(ObjectIoError::NotFound) => {
+                        report.observed_absent_versions += 1;
+                        report.observed_absent_bytes = report
+                            .observed_absent_bytes
+                            .checked_add(file.object.bytes)
+                            .ok_or(StorageError::Full)?;
+                        continue;
+                    }
+                    Err(error) => return Err(io_error(error)),
+                };
+                // Drop read admission before dispatching the conditional delete.
+                drop(read);
+                self.io
+                    .remove_retired_exact(&file.object, floor, context.clone())
+                    .await
+                    .map_err(io_error)?;
+                report.acknowledged_versions += 1;
+                report.acknowledged_bytes = report
+                    .acknowledged_bytes
+                    .checked_add(file.object.bytes)
+                    .ok_or(StorageError::Full)?;
+            }
+        }
+        // Reauthenticate remaining live history and update finite disk metrics.
+        // A failure returns no partial success report and never advances WAL ACK.
+        drop(catalog);
+        let recovered = self.recover(None, context).await?;
+        check_context(Some(context))?;
+        self.state
+            .high_water
+            .store(recovered.high_water(), Ordering::Release);
+        Ok(report)
+    }
     async fn retire(
         &self,
         policy: &crate::object_retention::RetentionPolicy,

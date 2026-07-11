@@ -133,3 +133,57 @@ Evidence: `target/goal-execution-20261007/RETENTION/retirement-validation-final/
 `retirement-review.json` and `retirement-server-simulation-final/report.json`.
 This grants no deletion/custody/fencing capability or external/release acceptance.
 The parent remains in_progress for conditional reclamation and measurements.
+
+## Selected conditional reclamation contract
+
+Reclamation is an explicit trusted stopped-host capability. It requires the
+actual Small source owner, no emitted query materialization/physical readers,
+a fresh stream-bound WAL checkpoint at/above the synced retirement floor, and
+fresh chain/inventory recovery under the original operation deadline. Candidate
+references are derived from that current committed retired prefix, never from
+caller-provided plans. Validate every candidate before the first removal.
+Manifest history, live query data, unknown-age orphans and protected originals
+stay outside the operation. Query policy never enables raw evidence deletion.
+
+Only explicit immutable version IDs and exact non-wildcard ETags may dispatch.
+Null/unversioned references fail closed; there is no path-only delete fallback.
+The selected S3 adapter signs an empty `DELETE` with both `versionId` and
+`If-Match`, under the existing fixed physical I/O worker and request scope.
+Deletion is separately enabled for that adapter; normal ingest/query transports
+continue refusing DELETE. The transport rejects namespace/condition/header
+substitution, redirects and retention-bypass requests. No automatic retry or
+additional connection task/pool is introduced.
+
+AWS documents explicit version removal and conditional ETag matching in
+[DeleteObject](https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html).
+Version permissions, Object Lock and retention denial are independent runtime
+facts; the adapter supplies no governance bypass or MFA-delete override. Actual
+AWS behavior remains an external qualification gate. Context7 was over quota;
+the pinned object_store0.13.2 source and current primary AWS contract were read.
+
+Every retired pin receives an exact version read, including keys absent from
+current inventory (a delete marker can hide older versions). Only exact-version
+NotFound counts absence; every other failure stays denied/uncertain. Present bytes
+are authenticated before their exact conditional removal.
+Timeout/cancellation/lost reply is an uncertain effect, with no successful partial
+report or checkpoint change. Retry recomputes authenticated current reachability;
+missing retired versions are recoverable, while missing live data remains corrupt.
+Success records finite acknowledged/observed-absent counts and byte totals, not
+source ACK, raw custody, coverage completeness or a distributed fencing epoch.
+Permission/hold denial and stale/replaced versions preserve controls and fail
+closed. Local simulation must exercise replacement, duplicates, denial,
+crash/replay and lost replies before accepting destructive query reclamation.
+
+## Accepted exact conditional reclamation slice
+
+Strict default659/all-feature710, source review, bounded native wire and actual
+child SIGKILL before/after deletion effect qualify the explicit Small mechanism.
+Conflicting duplicate integrity headers fail closed. Full-chain tests retain live
+files, manifest history, protected originals, unknown-age orphans and control bytes.
+Native wire objects are RAM-backed; Small control files are real. Fifteen current-
+binary persistent S3/monolith scenarios also pass. Evidence is retained under
+`target/goal-execution-20261007/RETENTION/reclamation-validation-final/`,
+`reclamation-review.json` and `reclamation-server-simulation/report.json`.
+This does not qualify actual AWS conditional/version/Object Lock behavior, raw
+custody, Standard fencing, remote CI/native/kind, a fresh image or release.
+RETENTION remains in_progress for representative query/cache measurements.

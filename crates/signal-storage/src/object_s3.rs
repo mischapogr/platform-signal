@@ -158,6 +158,7 @@ pub fn build(
         max_object_bytes: config.max_object_bytes,
         tls: Arc::new(tls),
         state: state.clone(),
+        delete_scope: None,
     };
     let provider = HostCredentials(Arc::new(AwsCredential {
         key_id: credentials.access_key.clone(),
@@ -238,6 +239,7 @@ struct Transport {
     max_object_bytes: usize,
     tls: Arc<rustls::ClientConfig>,
     state: Arc<State>,
+    delete_scope: Option<(String, uuid::Uuid)>,
 }
 impl std::fmt::Debug for Transport {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -304,8 +306,16 @@ impl HttpService for Transport {
                 || uri.port_or_known_default() != self.endpoint.port_or_known_default()
                 || !uri.username().is_empty()
                 || uri.password().is_some()
-                || !matches!(*request.method(), Method::GET | Method::HEAD | Method::PUT)
             {
+                return Err(error(HttpErrorKind::Decode));
+            }
+            if *request.method() == Method::DELETE {
+                let (bucket, stream) = self
+                    .delete_scope
+                    .as_ref()
+                    .ok_or_else(|| error(HttpErrorKind::Decode))?;
+                validate_delete(&request, &uri, bucket, *stream)?;
+            } else if !matches!(*request.method(), Method::GET | Method::HEAD | Method::PUT) {
                 return Err(error(HttpErrorKind::Decode));
             }
             let header_bytes = request.headers().iter().try_fold(0usize, |sum, (k, v)| {
@@ -491,3 +501,236 @@ impl Transport {
 }
 #[cfg(test)]
 mod tests;
+
+/// Separately enabled, version-pinned query reclamation transport. Normal
+/// `build` never enables DELETE. Call only through an explicitly owned ObjectIo.
+pub fn build_retired_version_reclaimer(
+    config: &S3Config,
+    credentials: &S3Credentials,
+    stream: uuid::Uuid,
+) -> Result<
+    (
+        Arc<dyn crate::object_reclamation::ExactVersionDelete>,
+        S3HttpObserver,
+    ),
+    S3Error,
+> {
+    let endpoint = validate(config, credentials)?;
+    if stream.is_nil() {
+        return Err(S3Error::Config);
+    }
+    let roots = rustls::RootCertStore {
+        roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
+    };
+    let tls = rustls::ClientConfig::builder_with_provider(Arc::new(
+        rustls::crypto::ring::default_provider(),
+    ))
+    .with_safe_default_protocol_versions()
+    .map_err(|_| S3Error::Initialize)?
+    .with_root_certificates(roots)
+    .with_no_client_auth();
+    let state = Arc::new(State::default());
+    let transport = Transport {
+        endpoint,
+        max_object_bytes: config.max_object_bytes,
+        tls: Arc::new(tls),
+        state: state.clone(),
+        delete_scope: Some((config.bucket.clone(), stream)),
+    };
+    let reclaimer = RetiredVersions {
+        transport,
+        credential: Arc::new(AwsCredential {
+            key_id: credentials.access_key.clone(),
+            secret_key: credentials.secret_key.clone(),
+            token: credentials.session_token.clone(),
+        }),
+        bucket: config.bucket.clone(),
+        region: config.region.clone(),
+        stream,
+    };
+    Ok((Arc::new(reclaimer), S3HttpObserver(state)))
+}
+
+struct RetiredVersions {
+    transport: Transport,
+    credential: Arc<AwsCredential>,
+    bucket: String,
+    region: String,
+    stream: uuid::Uuid,
+}
+#[async_trait::async_trait]
+impl crate::object_reclamation::ExactVersionDelete for RetiredVersions {
+    async fn remove_exact(
+        &self,
+        reference: &crate::object_manifest::QueryObjectRef,
+        ctx: &OperationContext,
+    ) -> Result<(), crate::object_io::ObjectIoError> {
+        use crate::object_io::ObjectIoError;
+        crate::object_reclamation::validate(
+            reference,
+            self.stream,
+            self.transport.max_object_bytes as u64,
+        )?;
+        // There is no direct caller fallback: physical ObjectIo establishes this
+        // scope, and its original deadline/cancellation controls the connection.
+        context().map_err(|_| ObjectIoError::Config)?;
+        crate::check_context(Some(ctx)).map_err(|e| match e {
+            crate::StorageError::Cancelled => ObjectIoError::Cancelled,
+            crate::StorageError::Timeout => ObjectIoError::Timeout,
+            _ => ObjectIoError::Backend,
+        })?;
+        let version = reference
+            .version
+            .as_deref()
+            .ok_or(ObjectIoError::Condition)?;
+        let guard = crate::object_reclamation::etag(
+            reference.etag.as_deref().ok_or(ObjectIoError::Condition)?,
+        )?;
+        let mut url = self.transport.endpoint.clone();
+        url.path_segments_mut()
+            .map_err(|_| ObjectIoError::Config)?
+            .pop_if_empty()
+            .push(&self.bucket)
+            .extend(reference.key.split('/'));
+        url.query_pairs_mut().append_pair("versionId", version);
+        let mut request = hyper::Request::builder()
+            .method(Method::DELETE)
+            .uri(url.as_str())
+            .header(header::IF_MATCH, guard)
+            .body(object_store::client::HttpRequestBody::empty())
+            .map_err(|_| ObjectIoError::Config)?;
+        object_store::aws::AwsAuthorizer::new(&self.credential, "s3", &self.region)
+            .authorize(&mut request, None);
+        let response = self
+            .transport
+            .call(request)
+            .await
+            .map_err(|_| ObjectIoError::Backend)?;
+        if response.status() == hyper::StatusCode::PRECONDITION_FAILED {
+            return Err(ObjectIoError::Condition);
+        }
+        if response.status() != hyper::StatusCode::NO_CONTENT {
+            return Err(ObjectIoError::Backend);
+        }
+        // Integrity metadata are optional singletons. Contradictory duplicate
+        // values are an uncertain effect, even when the first value matches.
+        if response
+            .headers()
+            .get_all("x-amz-version-id")
+            .iter()
+            .count()
+            > 1
+            || response
+                .headers()
+                .get_all("x-amz-delete-marker")
+                .iter()
+                .count()
+                > 1
+        {
+            return Err(ObjectIoError::Corrupt);
+        }
+        if response
+            .headers()
+            .get(header::CONTENT_LENGTH)
+            .is_some_and(|v| v != "0")
+            || response.headers().contains_key(header::TRANSFER_ENCODING)
+            || response
+                .headers()
+                .get("x-amz-delete-marker")
+                .is_some_and(|v| v != "false")
+            || response
+                .headers()
+                .get("x-amz-version-id")
+                .is_some_and(|v| v.as_bytes() != version.as_bytes())
+            || !response
+                .into_body()
+                .bytes()
+                .await
+                .map_err(|_| ObjectIoError::Backend)?
+                .is_empty()
+        {
+            return Err(ObjectIoError::Corrupt);
+        }
+        Ok(())
+    }
+}
+
+fn validate_delete(
+    request: &HttpRequest,
+    url: &Url,
+    bucket: &str,
+    stream: uuid::Uuid,
+) -> Result<(), HttpError> {
+    let mut query = url.query_pairs();
+    let Some((key, version)) = query.next() else {
+        return Err(error(HttpErrorKind::Decode));
+    };
+    if key != "versionId"
+        || version.is_empty()
+        || version.len() > 256
+        || version == "null"
+        || version == "*"
+        || !version.bytes().all(|b| b.is_ascii_graphic())
+        || query.next().is_some()
+        || request.body().content_length() != 0
+        || request
+            .headers()
+            .contains_key("x-amz-bypass-governance-retention")
+        || request.headers().contains_key("x-amz-mfa")
+        || request
+            .headers()
+            .contains_key("x-amz-if-match-last-modified-time")
+        || request.headers().contains_key("x-amz-if-match-size")
+    {
+        return Err(error(HttpErrorKind::Decode));
+    }
+    let guard = request
+        .headers()
+        .get(header::IF_MATCH)
+        .and_then(|v| v.to_str().ok())
+        .ok_or_else(|| error(HttpErrorKind::Decode))?;
+    if crate::object_reclamation::etag(guard).map_err(|_| error(HttpErrorKind::Decode))? != guard {
+        return Err(error(HttpErrorKind::Decode));
+    }
+    // Generated canonical keys use only '=' escaping. Reconstruct and compare
+    // encoded URL paths; alternate encodings/namespace substitutions fail closed.
+    let prefix = format!("/{bucket}/query/{stream}/data/");
+    let path = url.path().replace("%3D", "=");
+    let relative = path
+        .strip_prefix(&prefix)
+        .ok_or_else(|| error(HttpErrorKind::Decode))?;
+    let mut pieces = relative.split('/');
+    let date = pieces
+        .next()
+        .and_then(|v| v.strip_prefix("date="))
+        .ok_or_else(|| error(HttpErrorKind::Decode))?;
+    let hour = pieces
+        .next()
+        .and_then(|v| v.strip_prefix("hour="))
+        .and_then(|v| v.parse::<u8>().ok())
+        .ok_or_else(|| error(HttpErrorKind::Decode))?;
+    let hash = pieces
+        .next()
+        .and_then(|v| v.strip_suffix(".parquet"))
+        .ok_or_else(|| error(HttpErrorKind::Decode))?;
+    let parsed_date = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+        .map_err(|_| error(HttpErrorKind::Decode))?;
+    if parsed_date.format("%Y-%m-%d").to_string() != date
+        || pieces.next().is_some()
+        || hour > 23
+        || hash.len() != 64
+        || !hash
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err(error(HttpErrorKind::Decode));
+    }
+    let mut expected = url.clone();
+    expected.set_path(&format!(
+        "/{bucket}/query/{stream}/data/date={date}/hour={hour:02}/{hash}.parquet"
+    ));
+    if expected.path() != url.path() {
+        return Err(error(HttpErrorKind::Decode));
+    }
+    Ok(())
+}

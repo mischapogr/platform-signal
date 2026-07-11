@@ -1,5 +1,48 @@
 # Implementation progress
 
+## RETENTION exact retired query-version reclamation — 2026-10-09
+
+RETENTION remains in_progress. Exact removal is an explicit trusted stopped-host
+capability under the actual Small source owner and fresh stream-bound checkpoint.
+The controller authenticates the synced retirement/whole committed prefix and
+preflights all candidate pins before any removal. Only canonical retired query
+Parquet with immutable non-null versions and exact non-wildcard ETags qualifies.
+No producer/API deletion, automatic policy expiry, path-only fallback, raw evidence
+removal, manifest removal or unknown-age orphan removal is introduced.
+
+The explicit S3 adapter signs versionId plus If-Match through the existing fixed
+physical I/O worker/original operation context. Ordinary query/ingest transport
+continues rejecting DELETE. Permission/hold denial, replacement, redirects,
+contradictory duplicate integrity headers and uncertain replies fail closed.
+Absence in ListObjectsV2 never proves a pinned version absent: every retired pin
+gets an exact authenticated read, with only NotFound counted absent. Retry derives
+reachability again and distinguishes deletion acknowledgements from observed
+absence. No partial successful report or WAL/control advancement follows failure.
+
+Strict default659/all-feature710, formatting, default/all-feature Clippy,
+all-feature build, workspace13 and focused read-only source review pass. Storage
+has92 default/107 S3 tests; the ninth helper is ignored standalone but invoked by
+an actual parent process-loss test. Finite native wire tests cover hidden old
+versions, repeated removal, protected originals/orphans/live history, denied GET
+and DELETE, replacement before deletion, lost reply after effect and actual child
+SIGKILL before/after effect with exact retry/reopen. Physical object storage in this
+native wire fixture is bounded RAM; the Small controls are real local files.
+That proves owned process recovery, not remote disk/AWS durability. Fifteen current-
+immutable-binary persistent S3/monolith scenarios also pass, with exact four-event/
+finding identities, eight unchanged remote objects and all12 children reaped.
+Evidence: `target/goal-execution-20261007/RETENTION/reclamation-validation-final/validation.json`,
+`reclamation-review.json`, `reclamation-focused-5.log`,
+`reclamation-native-headers-6.log`, `reclamation-server-simulation/report.json`
+and `reclamation-candidate/binary.json`.
+
+Retained failed attempts include compile corrections, a fresh-owner high-water
+metric assertion and fixture Clippy collapse. Two review mediums were fixed:
+listing absence was replaced with exact-version NotFound, and duplicate integrity
+metadata is rejected. No failed attempt is promoted. Actual S3 version/conditional
+semantics, IAM/KMS/Object Lock/TLS, remote native CI/kind, shared fencing/custody,
+current image and release qualification stay open. Next: representative bounded
+partition/cache/query measurements inside the same frozen RETENTION item.
+
 ## RETENTION logical query-retirement horizon — 2026-10-08
 
 RETENTION remains in_progress. A trusted stopped host supplies a fresh exclusive,
@@ -263,7 +306,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-default workspace gate has 658; the all-feature gate has 703 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+default workspace gate has 659; the all-feature gate has 710 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 106 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy

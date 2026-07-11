@@ -9,6 +9,11 @@ and remaining required gates are recorded in the
 
 ### Implemented
 
+- Add explicit stopped Small reclamation for authenticated retired query versions:
+  versionId plus exact If-Match, complete candidate preflight, conservative
+  exact-version absence/uncertain retry and immutable manifest/live/original/orphan
+  protection. Ordinary ingest/query transport cannot delete. Local wire/process
+  acceptance does not qualify actual AWS retention, custody or shared fencing.
 - Admit immutable SourceCoverage correction links on the existing worker: available
   earlier evidence, exact binding/observer, overlapping half-open interval and
   strictly later verification. Original evidence/receipts remain unchanged; the

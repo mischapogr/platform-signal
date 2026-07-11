@@ -573,14 +573,17 @@
         "target/goal-execution-20261007/RETENTION/cache-server-simulation-final/report.json",
         "target/goal-execution-20261007/RETENTION/retirement-validation-final/validation.json",
         "target/goal-execution-20261007/RETENTION/retirement-review.json",
-        "target/goal-execution-20261007/RETENTION/retirement-server-simulation-final/report.json"
+        "target/goal-execution-20261007/RETENTION/retirement-server-simulation-final/report.json",
+        "target/goal-execution-20261007/RETENTION/reclamation-validation-final/validation.json",
+        "target/goal-execution-20261007/RETENTION/reclamation-review.json",
+        "target/goal-execution-20261007/RETENTION/reclamation-server-simulation/report.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md",
         "docs/41-retention-contract.md"
       ],
-      "notes": "Policy/report, stopped derived-cache maintenance and logical Small query-retirement accepted: default658/all-feature703, source review, actual three-stage control SIGKILL/recovery, independent physical-reader ownership and15 current-binary S3/monolith scenarios. Both native CI runners invoke extended simulation; execution is unqualified. Remote query objects/originals stay physically held; exact conditional reclamation and representative measurements remain required. No parent/external/release closure."
+      "notes": "Policy/report, stopped-cache, logical retirement and explicit stopped exact-version query reclamation accepted. Strict default659/all-feature710; focused source review, bounded native hidden-version/denial/replacement/lost reply and actual before/after-effect SIGKILL/reopen. Native wire objects RAM-backed;15 persistent current-binary monolith non-regressions pass. Protected originals/orphans/live/history/control held; no raw deletion or source ACK. Parent in_progress for representative bounded query/cache/scan measurements. Real AWS conditional/version/Object Lock, native/CI/kind/shared/custody/image/release gates stay open."
     },
     {
       "id": "SECURITY-ACCESS",

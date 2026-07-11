@@ -390,3 +390,260 @@ async fn cancellation_closes_owned_connection_before_releasing_physical_slot() -
     io.shutdown(self::context()).await?;
     Ok(())
 }
+
+fn retired_reference(stream: uuid::Uuid) -> crate::object_manifest::QueryObjectRef {
+    let hash = crate::object_manifest::sha256(b"copy");
+    crate::object_manifest::QueryObjectRef {
+        key: crate::object_manifest::data_key(stream, "2026-07-10", 19, hash),
+        version: Some("exact+version".into()),
+        etag: Some("opaque-one".into()),
+        bytes: 4,
+        sha256: hash,
+    }
+}
+async fn reclamation_io(
+    endpoint: &str,
+) -> Result<(ObjectIo, uuid::Uuid, S3HttpObserver, tempfile::TempDir)> {
+    use crate::{
+        object_io::SmallOwnerConfig,
+        object_manifest::{PreviousManifest, QueryObjectRef, manifest_key},
+        object_retention::RetentionPolicy,
+        object_retirement::RetirementRecord,
+    };
+    let root = tempfile::TempDir::new()?;
+    let stream = uuid::Uuid::new_v4();
+    let owner = SmallOwnerConfig {
+        directory: root.path().join("control"),
+        stream_id: stream,
+        backend_id: uuid::Uuid::new_v4(),
+    };
+    let (store, _) = build(&config(endpoint), &credentials())?;
+    let (reclaimer, observer) =
+        build_retired_version_reclaimer(&config(endpoint), &credentials(), stream)?;
+    let io = ObjectIo::open_small_reclaiming(
+        &owner,
+        Arc::new(store),
+        reclaimer,
+        tokio::runtime::Handle::current(),
+        ObjectIoLimits::default(),
+        context(),
+    )
+    .await?;
+    let anchor = PreviousManifest {
+        first_sequence: 1,
+        last_sequence: 1,
+        object: QueryObjectRef {
+            key: manifest_key(stream, 1),
+            version: Some("manifest-v1".into()),
+            etag: Some("manifest-etag".into()),
+            bytes: 300,
+            sha256: [1; 32],
+        },
+    };
+    io.advance_small_head(None, &anchor, context()).await?;
+    let policy = RetentionPolicy {
+        schema_version: 1,
+        raw_seconds: None,
+        query_seconds: 3600,
+        index_seconds: None,
+        replay_seconds: 1800,
+        evidence_reference_seconds: 7200,
+        reader_seconds: 600,
+        orphan_grace_seconds: 1800,
+    };
+    let now =
+        chrono::DateTime::parse_from_rfc3339("2026-07-10T21:00:00Z")?.with_timezone(&chrono::Utc);
+    io.advance_small_retirement(
+        &RetirementRecord::new(stream, owner.backend_id, None, &anchor, 1, now, &policy)?,
+        context(),
+    )
+    .await?;
+    // Synthetic control qualifies wire conditions only. Full authenticated-chain
+    // deletion acceptance is covered separately by the publisher tests.
+    Ok((io, stream, observer, root))
+}
+
+#[tokio::test]
+async fn retired_version_delete_is_signed_exact_and_normal_transport_cannot_delete() -> Result {
+    use object_store::ObjectStoreExt;
+    let mut endpoint = Endpoint::start(vec![reply(
+        204,
+        "x-amz-version-id: exact+version\r\nx-amz-delete-marker: false\r\n",
+        b"",
+    )])
+    .await?;
+    let (store, normal) = build(&config(&endpoint.url), &credentials())?;
+    let ctx = context();
+    let scope = RequestScope::enter(&ctx)?;
+    assert!(
+        store
+            .delete(&object_store::path::Path::from(
+                "query/not-authorized.parquet"
+            ))
+            .await
+            .is_err()
+    );
+    drop(scope);
+    assert_eq!(normal.metrics().rejected, 1);
+    let (io, stream, observer, _root) = reclamation_io(&endpoint.url).await?;
+    let reference = retired_reference(stream);
+    io.remove_retired_exact(&reference, 1, context()).await?;
+    assert_eq!(observer.metrics().requests, 1);
+    assert_eq!(io.metrics().depth, 0);
+    io.shutdown(context()).await?;
+    let wire = endpoint.finish().await?;
+    assert_eq!(wire.len(), 1);
+    let wire = &wire[0];
+    assert_eq!(wire.method, "DELETE");
+    assert!(wire.body.is_empty());
+    let url = Url::parse(&format!("http://127.0.0.1{}", wire.target))?;
+    assert_eq!(
+        url.query_pairs().collect::<Vec<_>>(),
+        vec![("versionId".into(), "exact+version".into())]
+    );
+    assert!(url.path().contains(&format!("/query/{stream}/data/")));
+    assert_eq!(
+        wire.headers.get("if-match").map(String::as_str),
+        Some("\"opaque-one\"")
+    );
+    assert!(
+        wire.headers
+            .get("authorization")
+            .is_some_and(|s| s.starts_with("AWS4-HMAC-SHA256 ") && s.contains("if-match"))
+    );
+    assert!(wire.headers.contains_key("x-amz-security-token"));
+    assert!(
+        !wire
+            .headers
+            .contains_key("x-amz-bypass-governance-retention")
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn retired_version_delete_denials_redirects_and_uncertain_headers_never_ack() -> Result {
+    for (status, headers, body, expected) in [
+        (
+            412,
+            "",
+            &b"<Error><Code>PreconditionFailed</Code></Error>"[..],
+            ObjectIoError::Condition,
+        ),
+        (
+            403,
+            "",
+            &b"<Error><Code>AccessDenied</Code></Error>"[..],
+            ObjectIoError::Backend,
+        ),
+        (
+            307,
+            "Location: https://example.invalid/credential-target\r\n",
+            &b""[..],
+            ObjectIoError::Backend,
+        ),
+        (
+            204,
+            "x-amz-version-id: different-version\r\n",
+            &b""[..],
+            ObjectIoError::Corrupt,
+        ),
+        (
+            204,
+            "x-amz-delete-marker: true\r\n",
+            &b""[..],
+            ObjectIoError::Corrupt,
+        ),
+        (
+            204,
+            "x-amz-version-id: exact+version\r\nx-amz-version-id: different-version\r\n",
+            &b""[..],
+            ObjectIoError::Corrupt,
+        ),
+        (
+            204,
+            "x-amz-delete-marker: false\r\nx-amz-delete-marker: true\r\n",
+            &b""[..],
+            ObjectIoError::Corrupt,
+        ),
+        (
+            204,
+            "",
+            &b"invalid nonempty 204 body"[..],
+            ObjectIoError::Corrupt,
+        ),
+    ] {
+        let mut endpoint = Endpoint::start(vec![reply(status, headers, body)]).await?;
+        let (io, stream, observer, root) = reclamation_io(&endpoint.url).await?;
+        let witness = std::fs::read(root.path().join("control/retirement.json"))?;
+        assert_eq!(
+            io.remove_retired_exact(&retired_reference(stream), 1, context())
+                .await,
+            Err(expected)
+        );
+        assert_eq!(observer.metrics().requests, 1);
+        assert_eq!(
+            std::fs::read(root.path().join("control/retirement.json"))?,
+            witness
+        );
+        io.shutdown(context()).await?;
+        assert_eq!(endpoint.finish().await?.len(), 1);
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn retired_version_delete_rejects_unversioned_wildcard_foreign_stale_and_cancelled_before_network()
+-> Result {
+    let (io, stream, observer, root) = reclamation_io("http://127.0.0.1:1").await?;
+    let witness = std::fs::read(root.path().join("control/retirement.json"))?;
+    let valid = retired_reference(stream);
+    for mode in 0..8 {
+        let mut reference = valid.clone();
+        match mode {
+            0 => reference.version = None,
+            1 => reference.version = Some("null".into()),
+            2 => reference.etag = Some("*".into()),
+            3 => reference.etag = Some("\"one\",\"two\"".into()),
+            4 => {
+                reference.key = crate::object_manifest::data_key(
+                    uuid::Uuid::new_v4(),
+                    "2026-07-10",
+                    19,
+                    reference.sha256,
+                )
+            }
+            5 => reference.key = format!("query/{stream}/commits/00000000000000000001.json"),
+            6 => reference.key = "protected/native/original.parquet".into(),
+            _ => reference.key = reference.key.replace("hour=19", "hour=019"),
+        }
+        assert!(
+            io.remove_retired_exact(&reference, 1, context())
+                .await
+                .is_err()
+        );
+    }
+    assert_eq!(
+        io.remove_retired_exact(&valid, 2, context()).await,
+        Err(ObjectIoError::Condition)
+    );
+    let cancelled = context();
+    cancelled.cancellation.cancel();
+    assert_eq!(
+        io.remove_retired_exact(&valid, 1, cancelled).await,
+        Err(ObjectIoError::Cancelled)
+    );
+    assert_eq!(observer.metrics().requests, 0);
+    assert_eq!(
+        std::fs::read(root.path().join("control/retirement.json"))?,
+        witness
+    );
+    let (reclaimer, standalone) =
+        build_retired_version_reclaimer(&config("http://127.0.0.1:1"), &credentials(), stream)?;
+    assert_eq!(
+        reclaimer.remove_exact(&valid, &context()).await,
+        Err(ObjectIoError::Config)
+    );
+    assert_eq!(standalone.metrics().requests, 0);
+    io.shutdown(context()).await?;
+    Ok(())
+}
