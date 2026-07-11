@@ -74,6 +74,9 @@ impl BatchSender {
         request_timeout: Duration,
         tls: Option<rustls::ClientConfig>,
     ) -> Result<Self, SendError> {
+        if endpoint.len() > 2048 || token.is_some_and(|t| t.is_empty() || t.len() > 4096) {
+            return Err(SendError::Configuration);
+        }
         let mut endpoint = url::Url::parse(endpoint).map_err(|_| SendError::Configuration)?;
         if !matches!(endpoint.scheme(), "http" | "https")
             || (tls.is_some() && endpoint.scheme() != "https")
@@ -108,20 +111,9 @@ impl BatchSender {
                 Ok(value)
             })
             .transpose()?;
-        let mut builder = Client::builder()
-            .no_proxy()
-            .http1_only()
-            .dns_resolver(std::sync::Arc::new(crate::dns::Resolver {
-                timeout: connect_timeout,
-            }))
-            .redirect(reqwest::redirect::Policy::none())
-            .connect_timeout(connect_timeout)
-            .timeout(request_timeout)
-            .pool_max_idle_per_host(1);
-        if let Some(tls) = tls {
-            builder = builder.use_preconfigured_tls(tls);
-        }
-        let client = builder.build().map_err(|_| SendError::Configuration)?;
+        let client =
+            signal_collector_sdk::transport::client(connect_timeout, Some(request_timeout), tls)
+                .map_err(|_| SendError::Configuration)?;
         Ok(Self {
             client,
             endpoint,
@@ -390,6 +382,32 @@ mod tests {
 
     fn sender(endpoint: &str, token: Option<&str>, deadline: Duration) -> BatchSender {
         BatchSender::new(endpoint, token, 10, 16 * 1024, deadline, deadline).unwrap()
+    }
+
+    #[test]
+    fn endpoint_and_token_bounds_are_checked_before_client_allocation() {
+        assert!(matches!(
+            BatchSender::new(
+                &"x".repeat(2049),
+                None,
+                1,
+                1024,
+                Duration::from_secs(1),
+                Duration::from_secs(1)
+            ),
+            Err(SendError::Configuration)
+        ));
+        assert!(matches!(
+            BatchSender::new(
+                "http://127.0.0.1",
+                Some(&"x".repeat(4097)),
+                1,
+                1024,
+                Duration::from_secs(1),
+                Duration::from_secs(1)
+            ),
+            Err(SendError::Configuration)
+        ));
     }
 
     async fn request(stream: &mut TcpStream) -> (String, serde_json::Value) {

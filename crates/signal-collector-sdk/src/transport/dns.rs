@@ -1,11 +1,19 @@
 //! Fixed one-worker DNS capacity survives caller timeout/cancellation.
-use crate::worker::{Worker, WorkerError};
+use super::worker::{Worker, WorkerError};
 use std::{io, net::ToSocketAddrs, time::Duration};
 use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 static WORKER: Worker = Worker::new();
-pub(crate) struct Resolver {
-    pub timeout: Duration,
+pub struct Resolver {
+    timeout: Duration,
+}
+impl Resolver {
+    pub fn new(timeout: Duration) -> Result<Self, WorkerError> {
+        if timeout.is_zero() || timeout > Duration::from_secs(86400) {
+            return Err(WorkerError::Configuration);
+        }
+        Ok(Self { timeout })
+    }
 }
 struct CancelOnDrop(CancellationToken);
 impl Drop for CancelOnDrop {
@@ -15,6 +23,9 @@ impl Drop for CancelOnDrop {
 }
 impl reqwest::dns::Resolve for Resolver {
     fn resolve(&self, name: reqwest::dns::Name) -> reqwest::dns::Resolving {
+        if name.as_str().is_empty() || name.as_str().len() > 253 {
+            return Box::pin(async { Err(io::Error::other("transport DNS name invalid").into()) });
+        }
         let name = name.as_str().to_owned();
         let duration = self.timeout;
         Box::pin(async move {
@@ -22,14 +33,11 @@ impl reqwest::dns::Resolve for Resolver {
             let _guard = CancelOnDrop(cancel.clone());
             let deadline = Instant::now()
                 .checked_add(duration)
-                .ok_or_else(|| io::Error::other("agent DNS deadline invalid"))?;
+                .ok_or_else(|| io::Error::other("transport DNS deadline invalid"))?;
             let physical_cancel = cancel.clone();
             let addresses = WORKER
-                .run("signal-agent-dns", deadline, cancel, move || {
-                    crate::worker::check(deadline, &physical_cancel)?;
-                    if name.is_empty() || name.len() > 253 {
-                        return Err(WorkerError::Configuration);
-                    }
+                .run("signal-transport-dns", deadline, cancel, move || {
+                    super::worker::check(deadline, &physical_cancel)?;
                     let addresses: Vec<_> = (name.as_str(), 0)
                         .to_socket_addrs()
                         .map_err(|_| WorkerError::Io)?
@@ -38,11 +46,11 @@ impl reqwest::dns::Resolve for Resolver {
                     if addresses.is_empty() {
                         return Err(WorkerError::Io);
                     }
-                    crate::worker::check(deadline, &physical_cancel)?;
+                    super::worker::check(deadline, &physical_cancel)?;
                     Ok(addresses)
                 })
                 .await
-                .map_err(|_| io::Error::other("agent DNS unavailable"))?;
+                .map_err(|_| io::Error::other("transport DNS unavailable"))?;
             Ok(Box::new(addresses.into_iter()) as reqwest::dns::Addrs)
         })
     }

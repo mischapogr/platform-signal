@@ -146,3 +146,24 @@ deployment qualification. The root workspace gate also corrected a
 deterministic WAL `BlockWithTimeout` near-deadline failure; full gate details
 are in [implementation progress](07-progress.md). See the
 [model work plan](11-model-work-plan.md), and [ADR-013](adr/013-extension-sdk.md).
+
+## Shared native client transport
+
+`signal_collector_sdk::transport` supplies explicit private version1 client TLS
+material parsing/loading and one retained physical DNS/file worker per process.
+The agent reexports these mechanisms. `HttpReceiptPublisher::with_tls` selects a
+caller-provided stock native client identity/trust configuration and requires
+HTTPS. `new` keeps the existing development transport. No additional process,
+proxy, credential service or private policy is required.
+
+Shared clients use HTTP/1, no ambient proxy/redirect/decompression, one idle
+connection per host and the bounded retained DNS resolver. The caller continues
+to own active-request capacity, its exact ExtensionContext deadline, endpoint,
+trust/identity and private API credential. Polling and reply handoff recheck that
+original context; TLS failure or an expired reply is uncertain and never advances
+verified receipt prefix or source acknowledgements. DNS depth and capacity
+rejections are exposed; crypto/private-file details never enter diagnostics.
+
+See [transport contract](44-transport-security.md). Actual local TLS/receipt-store
+and monolith/agent gates pass; protected deployment probes and real-environment
+qualification remain open.

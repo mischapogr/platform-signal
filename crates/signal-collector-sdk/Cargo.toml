@@ -35,6 +35,8 @@ tokio-util.workspace = true
 libc.workspace = true
 flate2.workspace = true
 reqwest.workspace = true
+rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
 
 [dev-dependencies]
 tempfile.workspace = true
+tokio-rustls = { version = "=0.26.6", default-features = false, features = ["ring", "tls12"] }
