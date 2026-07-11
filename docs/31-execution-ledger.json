@@ -607,7 +607,7 @@
         "docs/04-implementation-plan.md",
         "docs/42-access-control-contract.md"
       ],
-      "notes": "Accepted first pure bounded operation/scope grants and host-trusted identity: nine adversarial/resource regressions, strict default668/all-feature719, both Clippy configurations, build/fmt/workspace13 and independent review. Resolved retained spare-capacity and serialization-before-identifier-bound findings. No HTTP authentication/role enforcement claim; continue bounded OAuth2 introspection response profile, native authenticated backend, route enforcement and local IdP/expiry/revocation/cross-scope simulation before parent acceptance."
+      "notes": "Accepted bounded pure grants and selected OAuth2 introspection response profile: nine grant/six profile regressions, strict default674/all-feature725, both Clippy configurations, build/fmt/workspace13 and independent review. Object-only top-level response/policy guard, active/issuer/audience/subject/expiry/Bearer type, finite lease, ignored role/scope extensions and static errors. No provider authentication, HTTP role enforcement or revocation claim; continue native fixed-provider HTTPS and route/local IdP cross-scope runtime acceptance before parent completion."
     },
     {
       "id": "SECURITY-TRANSPORT",

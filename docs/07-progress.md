@@ -1,5 +1,35 @@
 # Implementation progress
 
+## SECURITY-ACCESS introspection response profile — 2026-10-09
+
+SECURITY-ACCESS remains in_progress. A selected bounded OAuth2 response profile
+requires an authenticated fixed-provider successful response before parsing.
+Within that trust boundary it requires a JSON object, active token, exact issuer
+and audience, bounded subject, valid expiry and Bearer token type. Optional nbf/iat
+cannot be in the future or at/after expiry. Audiences use exact equality, permit
+at most16 unique entries, and never supply role authority. Provider groups, roles,
+username, scope strings and extensions do not assign SIGNAL capabilities.
+
+Six adversarial fixture tests plus the earlier nine grant regressions pass.
+Strict default674/all-feature725, formatting, default/all-feature Clippy,
+all-feature build, workspace13 and independent review pass. Response body is
+capped16KiB and the explicit1–300-second request lease ends at the earlier of
+lease expiry or token expiry. There is no parser revocation cache or clock-skew
+leeway. A review found Serde's positional sequence form could bypass the selected
+object shape; complete otherwise-valid array regression and object guards now
+cover both response parsing and private policy loading. The initial fixture's
+integer-width compile error is retained as failed evidence.
+Evidence: `target/goal-execution-20261007/SECURITY-ACCESS/introspection-tests-3.log`,
+`introspection-validation-final/validation.json`, `introspection-review.json`
+and `introspection-acceptance.json`. See [access contract](42-access-control-contract.md).
+
+This parser cannot authenticate transport or prove an opaque credential is an
+access token; the fixed authenticated provider must do that. It does not accept
+client claims or implement OIDC sign-in, native HTTP/TLS, revocation or any server
+route. Live/cloud/native/remote/HA/custody/image/release gates remain open.
+Next: bounded fixed-provider native HTTPS introspection with local provider/TLS,
+malformed/denial/timeout/cancellation/recovery tests, then server authorization.
+
 ## SECURITY-ACCESS bounded grant contract — 2026-10-09
 
 SECURITY-ACCESS remains in_progress. The pure version1 grant model pairs each
