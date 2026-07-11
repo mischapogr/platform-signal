@@ -18,6 +18,15 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current SECURITY-ACCESS slice — 2026-10-09
+
+Bounded pure paired grants are accepted: nine adversarial regressions and strict
+default668/all-feature719, both Clippy configurations, all-feature build, formatting,
+workspace13 and independent review. SECURITY-ACCESS stays in_progress. Continue
+bounded selected OAuth2 introspection response validation, native trusted backend,
+then actual route/local IdP expiry/revocation/cross-scope gates. Preserve monolith,
+private policy, source evidence and native/cloud/remote/image/release exceptions.
+
 ## Persistent execution Goal — 2026-10-07
 
 The owner authorized continuous item-by-item MVP/post-MVP/local release work and
