@@ -1,10 +1,8 @@
 //! Private, bounded identity configuration and fail-closed monolith route seams.
 use crate::config::{self, ConfigError, Settings};
 use axum::{
-    Json, Router,
-    extract::{Request, State},
+    Json,
     http::{HeaderMap, StatusCode},
-    middleware::{self, Next},
     response::{IntoResponse, Response},
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD};
@@ -186,68 +184,11 @@ fn identity_error(error_value: IdentityError) -> Response {
 pub fn error(status: StatusCode, code: &'static str, message: &'static str) -> Response {
     (
         status,
+        [("cache-control", "no-store")],
         Json(serde_json::json!({"schema_version": API_SCHEMA_VERSION,
         "error": {"code": code, "message": message}})),
     )
         .into_response()
-}
-pub struct CancelOnDrop(pub CancellationToken);
-impl Drop for CancelOnDrop {
-    fn drop(&mut self) {
-        self.0.cancel();
-    }
-}
-
-#[derive(Clone)]
-struct Protected {
-    identity: IdentityBackend,
-    timeout: Duration,
-    stopping: CancellationToken,
-}
-/// Coverage identity binding is not qualified yet. Authenticate freshly, then
-/// deny forwarding into the legacy route rather than inferring another capability.
-pub fn protect_unbound_routes(
-    router: Router,
-    identity: IdentityBackend,
-    timeout: Duration,
-    stopping: CancellationToken,
-) -> Router {
-    router.route_layer(middleware::from_fn_with_state(
-        Protected {
-            identity,
-            timeout,
-            stopping,
-        },
-        unbound,
-    ))
-}
-async fn unbound(State(state): State<Protected>, request: Request, _next: Next) -> Response {
-    let deadline = Instant::now() + state.timeout;
-    let cancellation = state.stopping.child_token();
-    let _guard = CancelOnDrop(cancellation.clone());
-    let result = state
-        .identity
-        .authenticate_headers(
-            request.headers(),
-            IdentityContext {
-                deadline,
-                cancellation,
-            },
-        )
-        .await;
-    let mut response = match result {
-        Ok(_) => error(
-            StatusCode::FORBIDDEN,
-            "forbidden",
-            "scoped route contract unavailable",
-        ),
-        Err(error) => identity_error(error),
-    };
-    response.headers_mut().insert(
-        "cache-control",
-        axum::http::HeaderValue::from_static("no-store"),
-    );
-    response
 }
 
 #[cfg(test)]

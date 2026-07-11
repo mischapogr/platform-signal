@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Finite real TLS provider -> monolith -> scoped WAL/Parquet/query restart gate."""
 import base64
+import copy
+import datetime
 import http.client
 import http.server
 import importlib.util
@@ -161,7 +163,7 @@ def main():
                 counters["calls"] += 1
                 size = int(self.headers.get("Content-Length", "0"))
                 expected = "Basic " + base64.b64encode(("synthetic-client:" + secret).encode()).decode()
-                if (counters["calls"] > 128 or self.path != "/token" or not 0 < size <= 16_384
+                if (counters["calls"] > 192 or self.path != "/token" or not 0 < size <= 16_384
                         or self.headers.get("Authorization") != expected):
                     counters["invalid"] += 1
                     self.send_error(400)
@@ -172,7 +174,7 @@ def main():
                 token = fields.get("token", [""])[0]
                 if counters["stall"]:
                     time.sleep(0.7)
-                payload = {"active": token in {"write-a", "write-b", "read-a", "read-b", "global", "expired", "wrong-audience"}
+                payload = {"active": token in {"write-a", "write-b", "read-a", "read-b", "global", "expired", "wrong-audience", "coverage-write", "coverage-impostor", "coverage-read-a", "coverage-read-b", "coverage-global"}
                            and not counters["revoked"], "iss": issuer, "sub": token,
                            "aud": "signal" if token != "wrong-audience" else "other",
                            "exp": int(time.time()) + (60 if token != "expired" else -1), "token_type": "Bearer",
@@ -211,6 +213,43 @@ def main():
         # A restricted finding capability authorizes only canonical, newly derived rows.
         roles.append({"id": "scoped-findings", "permissions": [{"operation": "read_findings", "scope": scoped("a")}]})
         bindings[2]["roles"].append("scoped-findings")
+        vectors = json.loads((REPO / "tests/fixtures/source-coverage/backend-vectors.json").read_text())
+        coverage_bindings = []
+        coverage_scopes = []
+        for account in ("a", "b"):
+            binding = copy.deepcopy(vectors["bindings"][0]["input"])
+            binding["source_id"] = "coverage-source-" + account
+            binding["resource_scope"]["id"] = "coverage-resource-" + account
+            binding["observer_id"] = "coverage-observer-" + account
+            coverage_bindings.append(binding)
+            coverage_scopes.append({"binding_json": json.dumps(binding),
+                "profile_json": json.dumps(vectors["profiles"][0]["input"]),
+                "authority_revision": "synthetic-private-v1",
+                "identity": {"scope_id": "coverage-" + account, "account_id": account,
+                             "writer_issuer": issuer, "writer_subject": "coverage-write"},
+                "max_report_age_seconds": 60, "max_clock_skew_seconds": 2,
+                "payload_retention_seconds": 300, "identity_retention_seconds": 600})
+
+        def coverage_scope(account):
+            return {"sources": {"mode": "only", "values": ["coverage-source-" + account]},
+                    "accounts": {"mode": "only", "values": [account]},
+                    "resources": {"mode": "only", "values": ["coverage-resource-" + account]}}
+
+        for token, op, accounts in (("coverage-write", "write_coverage", ("a", "b")),
+                                    ("coverage-impostor", "write_coverage", ("a",)),
+                                    ("coverage-read-a", "read_coverage", ("a",)),
+                                    ("coverage-read-b", "read_coverage", ("b",))):
+            assigned = []
+            for account in accounts:
+                role_id = token + "-" + account
+                assigned.append(role_id)
+                roles.append({"id": role_id, "permissions": [{"operation": op, "scope": coverage_scope(account)}]})
+            bindings.append({"issuer": issuer, "subject": token, "roles": assigned})
+        roles.append({"id": "coverage-global", "permissions": [{"operation": "read_coverage", "scope": all_scope}]})
+        bindings.append({"issuer": issuer, "subject": "coverage-global", "roles": ["coverage-global"]})
+        coverage_config = root / "coverage.json"
+        coverage_config.write_text(json.dumps({"schema_version": 1, "directory": str(root / "coverage"),
+            "limits": json.loads((root / "coverage-limits.json").read_text()), "scopes": coverage_scopes}))
         config = {"schema_version": 1, "endpoint": f"https://127.0.0.1:{provider.server_port}/token",
                   "client_id": "synthetic-client", "issuer": issuer, "audience": "signal", "workers": 2,
                   "lease_seconds": 30, "request_timeout_ms": 1000,
@@ -225,7 +264,7 @@ def main():
         server_config.write_text("schema_version: 1\nrules:\n  directories:\n    - " + json.dumps(str(rules)) + "\n")
         env = {key: value for key, value in os.environ.items() if not key.startswith("SIGNAL_")}
         env.update(SIGNAL_CONFIG=str(server_config), SIGNAL_LISTEN="127.0.0.1:0", SIGNAL_ACCESS_CONFIG=str(config_path),
-                   SIGNAL_IDENTITY_CLIENT_SECRET=secret, SIGNAL_WAL_DIR=str(root / "wal"),
+                   SIGNAL_IDENTITY_CLIENT_SECRET=secret, SIGNAL_COVERAGE_CONFIG=str(coverage_config), SIGNAL_WAL_DIR=str(root / "wal"),
                    SIGNAL_STORAGE_DIR=str(root / "events"), SIGNAL_FINDINGS_DIR=str(root / "findings"),
                    SIGNAL_STORAGE_FLUSH_MS="10", SIGNAL_QUERY_TIMEOUT_MS="500", SIGNAL_REQUEST_TIMEOUT_MS="500")
 
@@ -282,6 +321,10 @@ def main():
         if (root / "retained-event.json").exists():
             retained_event = json.loads((root / "retained-event.json").read_text())
             (root / "retained-wal").rename(root / "wal")
+        bootstrap = spawn_owned(owner, [binary, "--initialize-coverage"], env, "coverage-bootstrap")
+        assert bootstrap.wait(timeout=7) == 0, "explicit native coverage bootstrap failed"
+        owner.reap_log(bootstrap)
+        owner.reaped(bootstrap)
         start()
         endpoint = "/v1/events"
         assert request("GET", endpoint + "?limit=bad", headers={"x-forwarded-user": "global"})[0] == 401
@@ -291,6 +334,69 @@ def main():
         assert request("GET", endpoint, token="write-a")[0] == 403
         assert request("GET", endpoint + "?limit=bad", token="read-a")[0] == 400
 
+        def coverage_request(method, path, body=None, token="coverage-read-a", scope="coverage-a"):
+            headers = {} if scope is None else {"x-signal-coverage-scope": scope}
+            code, value, response_headers = request(method, path, body, token, headers)
+            assert response_headers.get("cache-control") == "no-store"
+            return code, value
+
+        coverage_reports = []
+        at = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=2)
+        def stamp(delta):
+            return (at + datetime.timedelta(seconds=delta)).isoformat().replace("+00:00", "Z")
+        for account in ("a", "b", "a"):
+            report = json.loads(vectors["chains"][0]["commits"][0]["input"]["raw_utf8"])
+            report.update(copy.deepcopy(coverage_bindings[0 if account == "a" else 1]))
+            observer = report.pop("observer_id")
+            report["provenance"]["observer_id"] = observer
+            report.update(record_id=str(uuid.uuid4()), coverage_start=stamp(-300),
+                coverage_end=stamp(0), last_verified_at=stamp(0), valid_until=stamp(60))
+            report["provenance"]["observed_at"] = stamp(0)
+            coverage_reports.append(report)
+        coverage_path = "/v1/coverage/records/" + coverage_reports[0]["record_id"]
+        assert coverage_request("POST", coverage_path, coverage_reports[0], token="coverage-read-a")[0] == 403
+        assert coverage_request("POST", coverage_path, coverage_reports[0], token="coverage-impostor")[0] == 403
+        assert coverage_request("POST", coverage_path, coverage_reports[0], token="write-a")[0] == 403
+        assert coverage_request("POST", coverage_path, coverage_reports[0], token="fixture-observer-token-unique")[0] == 403
+        for selector in (None, "unknown", "coverage-a,coverage-b"):
+            assert coverage_request("GET", coverage_path, scope=selector)[0] == 403
+        duplicate = http.client.HTTPConnection(host, port, timeout=3)
+        try:
+            duplicate.putrequest("GET", coverage_path)
+            duplicate.putheader("Authorization", "Bearer coverage-read-a")
+            duplicate.putheader("x-signal-coverage-scope", "coverage-a")
+            duplicate.putheader("x-signal-coverage-scope", "coverage-b")
+            duplicate.endheaders()
+            denied = duplicate.getresponse()
+            assert denied.status == 403 and denied.getheader("cache-control") == "no-store"
+            assert len(denied.read(1024 * 1024 + 1)) <= 1024 * 1024
+        finally:
+            duplicate.close()
+        status, first_coverage = coverage_request("POST", coverage_path, coverage_reports[0], token="coverage-write")
+        assert status == 201 and first_coverage["current_health"] == "unknown"
+        assert coverage_request("GET", coverage_path, token="coverage-write")[0] == 403
+        assert coverage_request("GET", coverage_path, token="coverage-read-b", scope="coverage-a")[0] == 403
+        assert coverage_request("GET", coverage_path, token="coverage-read-b", scope="coverage-b")[0] == 403
+        assert coverage_request("GET", "/v1/coverage/metrics")[0] == 403
+        assert coverage_request("GET", "/v1/coverage/metrics", token="coverage-global")[0] == 200
+        for report, selector in zip(coverage_reports[1:], ("coverage-b", "coverage-a")):
+            assert coverage_request("POST", "/v1/coverage/records/" + report["record_id"], report,
+                token="coverage-write", scope=selector)[0] == 201
+        status, coverage_history = coverage_request("GET", "/v1/coverage/history")
+        assert status == 200 and len(coverage_history["records"]) == 1
+        assert coverage_history["records"][0]["receipt"] == first_coverage["receipt"]
+        cursor = coverage_history["continuation"]
+        assert cursor is not None
+        query = "/v1/coverage/history?cursor=" + urllib.parse.quote(cursor, safe="")
+        assert coverage_request("GET", query, token="coverage-read-b", scope="coverage-b")[0] == 403
+        status, second_page = coverage_request("GET", query)
+        assert status == 200 and len(second_page["records"]) == 1
+        assert second_page["records"][0]["receipt"]["record_id"] == coverage_reports[2]["record_id"]
+        status, original_coverage = coverage_request("GET", coverage_path)
+        assert status == 200 and original_coverage["current_health"] == "unknown"
+        assert json.loads(original_coverage["raw"]) == coverage_reports[0]
+        status, replay = coverage_request("POST", coverage_path, coverage_reports[0], token="coverage-write")
+        assert status == 200 and replay["receipt"] == first_coverage["receipt"]
         events = []
         for index, account in enumerate(("b", "a")):
             events.append({"schema_version": 1, "id": str(uuid.uuid4()),
@@ -321,6 +427,8 @@ def main():
 
         exact_rows()
         counters["revoked"] = True
+        assert coverage_request("GET", coverage_path)[0] == 403
+        assert coverage_request("POST", coverage_path, coverage_reports[0], token="coverage-write")[0] == 403
         assert request("GET", endpoint, token="read-a")[0] == 403
         assert request("POST", endpoint + "/batch", {"events": [events[1]]}, "write-a")[0] == 403
         counters["revoked"] = False
@@ -376,6 +484,9 @@ def main():
         start()
         exact_rows()
         assert exact_findings() == original_findings
+        assert coverage_request("GET", coverage_path)[1] == original_coverage
+        assert coverage_request("GET", query)[1] == second_page
+        assert coverage_request("POST", coverage_path, coverage_reports[0], token="coverage-write")[1]["receipt"] == first_coverage["receipt"]
         assert request("GET", "/v1/findings/feed?after=begin", token="global")[1] == original_feed
         stop()
         # Replacing policy changes subsequent requests only through validated restart.
@@ -385,13 +496,13 @@ def main():
         assert request("GET", endpoint, token="read-a")[0] == 403
         assert request("GET", endpoint, token="read-b")[1]["events"] == [events[0]]
         stop()
-        assert counters["invalid"] == 0 and 0 < counters["calls"] <= 128
+        assert counters["invalid"] == 0 and 0 < counters["calls"] <= 192
         owner.check_logs()
         for log in process_logs:
             text = log_text(log)
             assert secret not in text and "legacy-synthetic-token" not in text
             assert "private-event-" not in text
-        print("Identity server gate passed: scoped synced admission, exact Parquet and scoped finding queries, unknown backlog, revocation, crash/restart and immutable-policy reload")
+        print("Identity server gate passed: scoped synced admission, exact Parquet and scoped finding queries, unknown backlog, revocation, crash/restart and immutable-policy reload; exact scoped coverage, independent read/write actor checks, cursor isolation and original receipt replay")
     finally:
         # Every owner gets cleanup even if another cleanup reports failure.
         signal.alarm(0)

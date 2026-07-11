@@ -352,6 +352,14 @@ impl HistoryBinding {
     pub fn encoded(&self) -> &[u8] {
         &self.bytes
     }
+    /// Canonical logical coverage source, never inferred from scope attributes.
+    pub fn source_id(&self) -> &str {
+        &self.wire.source_id
+    }
+    /// Exact resource identity in this complete historical binding.
+    pub fn resource_id(&self) -> &str {
+        &self.wire.resource_scope.id
+    }
     pub fn observer_id(&self) -> &str {
         &self.wire.observer_id
     }

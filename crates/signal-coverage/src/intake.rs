@@ -12,6 +12,7 @@ use uuid::Uuid;
 pub struct AuthorizedBinding {
     pub(crate) binding: HistoryBinding,
     pub(crate) revision: String,
+    pub(crate) lease: Option<AuthorizationLease>,
 }
 impl AuthorizedBinding {
     pub fn new(
@@ -30,8 +31,74 @@ impl AuthorizedBinding {
         }
         Ok(Self {
             binding,
-            revision: authority_revision,
+            revision: authority_revision.into_boxed_str().into_string(),
+            lease: None,
         })
+    }
+}
+
+/// Finite, request-local authorization validity supplied by an authenticated host.
+/// Not serialized or persisted. Wall-clock and monotonic bounds both apply.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct AuthorizationLease {
+    issued_at: u64,
+    expires_at: u64,
+    deadline: tokio::time::Instant,
+}
+impl AuthorizationLease {
+    fn new(issued_at: u64, expires_at: u64) -> Result<Self, Error> {
+        let origin = tokio::time::Instant::now();
+        let now = chrono::Utc::now();
+        let at = u64::try_from(now.timestamp()).map_err(|_| Error::NotAuthorized)?;
+        if issued_at > at
+            || issued_at >= expires_at
+            || at >= expires_at
+            || expires_at > 253_402_300_799
+        {
+            return Err(Error::NotAuthorized);
+        }
+        let remaining = std::time::Duration::from_secs(expires_at - at)
+            .checked_sub(std::time::Duration::from_nanos(u64::from(
+                now.timestamp_subsec_nanos(),
+            )))
+            .ok_or(Error::NotAuthorized)?;
+        let deadline = origin.checked_add(remaining).ok_or(Error::NotAuthorized)?;
+        Ok(Self {
+            issued_at,
+            expires_at,
+            deadline,
+        })
+    }
+    pub(crate) fn check(self) -> Result<(), Error> {
+        let at = u64::try_from(chrono::Utc::now().timestamp()).map_err(|_| Error::NotAuthorized)?;
+        if at < self.issued_at
+            || at >= self.expires_at
+            || tokio::time::Instant::now() >= self.deadline
+        {
+            Err(Error::NotAuthorized)
+        } else {
+            Ok(())
+        }
+    }
+    #[cfg(test)]
+    pub(crate) fn expire_for_test(&mut self) {
+        self.deadline = tokio::time::Instant::now();
+    }
+    pub(crate) fn deadline(self) -> tokio::time::Instant {
+        self.deadline
+    }
+}
+impl AuthorizedBinding {
+    /// Attach exactly the backend grant's issue/expiry bounds after authorizing
+    /// this whole binding. Timestamps alone do not authenticate any caller.
+    pub fn with_lease(mut self, issued_at: u64, expires_at: u64) -> Result<Self, Error> {
+        self.lease = Some(AuthorizationLease::new(issued_at, expires_at)?);
+        Ok(self)
+    }
+    /// The ingress can bound body acquisition/response work without changing the
+    /// retained physical worker's separate original operation watchdog budget.
+    pub fn lease_deadline(&self) -> Option<tokio::time::Instant> {
+        self.lease.map(AuthorizationLease::deadline)
     }
 }
 

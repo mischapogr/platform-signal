@@ -5,6 +5,175 @@ use tower::ServiceExt;
 type TestResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 const TOKEN: &str = "fixture-observer-token-unique";
 const OTHER: &str = "fixture-other-observer-token";
+const ISSUER: &str = "https://identity.example.test";
+
+fn native_wire(path: &std::path::Path) -> TestResult<Value> {
+    let mut v = wire(path)?;
+    let scope = v["scopes"][0].as_object_mut().ok_or("scope")?;
+    scope.remove("token_env");
+    scope.insert(
+        "identity".into(),
+        json!({"scope_id":"fixture-a", "account_id":"a",
+        "writer_issuer":ISSUER,"writer_subject":"writer"}),
+    );
+    Ok(v)
+}
+fn native_configuration(v: &Value) -> TestResult<Configuration> {
+    Ok(Configuration::validate_mode(
+        serde_json::from_value(v.clone())?,
+        |_| {
+            Err(ConfigError::Invalid(
+                "native mode must never read legacy secrets",
+            ))
+        },
+        true,
+    )?)
+}
+fn native_grant(subject: &str, permissions: Value) -> TestResult<RequestGrant> {
+    use signal_protocol::access::{AccessPolicy, AuthenticatedIdentity};
+    let policy = AccessPolicy::from_json(&serde_json::to_vec(&json!({"schema_version":1,
+        "roles":[{"id":"fixture-role","permissions":permissions}],
+        "bindings":[{"issuer":ISSUER,"subject":subject,"roles":["fixture-role"]}]}))?)?
+    .compile()?;
+    let at = crate::access::now().ok_or("clock")?;
+    Ok(policy.grant(
+        AuthenticatedIdentity::from_verified_backend(ISSUER.into(), subject.into(), at, at + 60)?,
+        at,
+    )?)
+}
+fn native_permission(operation: &str, account: &str) -> Value {
+    json!({"operation":operation,"scope":{
+        "sources":{"mode":"only","values":["fixture-source"]},
+        "accounts":{"mode":"only","values":[account]},
+        "resources":{"mode":"only","values":["fixture-resource"]}}})
+}
+
+#[test]
+fn native_coverage_configuration_has_no_legacy_fallback_or_ambiguous_binding() -> TestResult {
+    let base = native_wire(std::path::Path::new("data/coverage"))?;
+    assert!(native_configuration(&base).is_ok());
+    assert!(configuration(&base).is_err());
+    assert!(native_configuration(&wire(std::path::Path::new("data/coverage"))?).is_err());
+    for (field, value) in [
+        ("scope_id", json!("bad space")),
+        ("scope_id", json!("x".repeat(129))),
+        ("writer_issuer", json!("")),
+        ("writer_subject", json!("x".repeat(257))),
+        ("account_id", json!("x".repeat(257))),
+        ("unexpected", json!("private-value")),
+    ] {
+        let mut v = base.clone();
+        v["scopes"][0]["identity"][field] = value;
+        assert!(native_configuration(&v).is_err());
+    }
+    let mut v = base.clone();
+    v["scopes"][0]["token_env"] = json!("FIXTURE_TOKEN");
+    assert!(native_configuration(&v).is_err());
+    let mut v = base.clone();
+    v["scopes"][0]["identity"]
+        .as_object_mut()
+        .ok_or("identity")?
+        .remove("account_id");
+    assert!(native_configuration(&v).is_err());
+    let mut v = base.clone();
+    v["scopes"][0]["identity"]["account_id"] = Value::Null;
+    assert!(native_configuration(&v).is_ok());
+    let mut v = base.clone();
+    let mut second = base["scopes"][0].clone();
+    let mut b: Value = serde_json::from_str(second["binding_json"].as_str().ok_or("binding")?)?;
+    b["observer_id"] = json!("another-observer");
+    second["binding_json"] = serde_json::to_string(&b)?.into();
+    v["scopes"].as_array_mut().ok_or("scopes")?.push(second);
+    assert!(native_configuration(&v).is_err()); // Duplicate alias, even with distinct binding.
+    v["scopes"][1]["identity"]["scope_id"] = json!("fixture-b");
+    assert!(native_configuration(&v).is_ok());
+    v["scopes"][1]["binding_json"] = base["scopes"][0]["binding_json"].clone();
+    assert!(native_configuration(&v).is_err()); // Distinct aliases cannot duplicate a full binding.
+    Ok(())
+}
+
+#[test]
+fn native_coverage_operations_preserve_complete_pairs_verified_actor_and_unknown_account()
+-> TestResult {
+    let v = native_wire(std::path::Path::new("data/coverage"))?;
+    let config = native_configuration(&v)?;
+    let scope = &config.scopes[0];
+    let writer = native_grant("writer", json!([native_permission("write_coverage", "a")]))?;
+    assert!(native_allowed(
+        scope,
+        &writer,
+        AccessOperation::WriteCoverage,
+        false
+    ));
+    assert!(!native_allowed(
+        scope,
+        &writer,
+        AccessOperation::ReadCoverage,
+        false
+    ));
+    let impostor = native_grant(
+        "impostor",
+        json!([native_permission("write_coverage", "a")]),
+    )?;
+    assert!(!native_allowed(
+        scope,
+        &impostor,
+        AccessOperation::WriteCoverage,
+        false
+    ));
+    let reader = native_grant(
+        "reader",
+        json!([
+            native_permission("read_coverage", "a"),
+            native_permission("write_coverage", "b")
+        ]),
+    )?;
+    assert!(native_allowed(
+        scope,
+        &reader,
+        AccessOperation::ReadCoverage,
+        false
+    ));
+    assert!(!native_allowed(
+        scope,
+        &reader,
+        AccessOperation::WriteCoverage,
+        false
+    ));
+    assert!(!native_allowed(
+        scope,
+        &reader,
+        AccessOperation::ReadCoverage,
+        true
+    ));
+    let global = native_grant(
+        "reader",
+        json!([{"operation":"read_coverage","scope":{
+        "sources":{"mode":"all"},"accounts":{"mode":"all"},"resources":{"mode":"all"}}}]),
+    )?;
+    assert!(native_allowed(
+        scope,
+        &global,
+        AccessOperation::ReadCoverage,
+        true
+    ));
+    let mut unknown = v;
+    unknown["scopes"][0]["identity"]["account_id"] = Value::Null;
+    let unknown = native_configuration(&unknown)?;
+    assert!(!native_allowed(
+        &unknown.scopes[0],
+        &reader,
+        AccessOperation::ReadCoverage,
+        false
+    ));
+    assert!(native_allowed(
+        &unknown.scopes[0],
+        &global,
+        AccessOperation::ReadCoverage,
+        false
+    ));
+    Ok(())
+}
 fn fixture() -> TestResult<Value> {
     Ok(serde_json::from_slice(include_bytes!(
         "../../../../tests/fixtures/source-coverage/backend-vectors.json"
