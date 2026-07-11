@@ -362,7 +362,11 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
     let coverage = match coverage_configuration {
         Some(configuration) => Some(
             configuration
-                .open(query_auth.request_timeout, coverage_stopping.clone())
+                .open_with_identity(
+                    query_auth.request_timeout,
+                    coverage_stopping.clone(),
+                    identity.clone(),
+                )
                 .await?,
         ),
         None => None,
@@ -375,7 +379,6 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
         logging: Some(logger.writer()),
         coverage: coverage.as_ref().map(|state| state.store.clone()),
     });
-    let access_timeout = config.request_timeout;
     let service = match &identity {
         Some(identity) => {
             IngestService::new_with_identity(config, pipeline.clone(), identity.clone())?
@@ -405,15 +408,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
         .merge(ui::router());
     if let Some(coverage) = &coverage {
         let routes = coverage.router();
-        router = router.merge(match &identity {
-            Some(identity) => access::protect_unbound_routes(
-                routes,
-                identity.clone(),
-                access_timeout,
-                query_cancel.clone(),
-            ),
-            None => routes,
-        });
+        router = router.merge(routes);
     }
     let listener = timeout(Duration::from_secs(5), TcpListener::bind(listen))
         .await

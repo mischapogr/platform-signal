@@ -514,3 +514,30 @@ fn structural_preflight_rejects_oversized_strings_before_encoded_size_work() {
         ));
     }
 }
+
+#[test]
+fn exact_subject_matching_and_lease_bounds_do_not_confer_capabilities() {
+    let grant = grant(policy(vec![Role {
+        id: "read".into(),
+        permissions: vec![permission(Operation::ReadCoverage, scope("a"))],
+    }]));
+    assert_eq!(grant.lease_bounds(), (110, 200));
+    assert!(grant.subject_matches(ISSUER, "reader", 110));
+    for (issuer, subject, at) in [
+        (ISSUER, "Reader", 110),
+        ("https://other.example.test", "reader", 110),
+        (ISSUER, "reader", 109),
+        (ISSUER, "reader", 200),
+    ] {
+        assert!(!grant.subject_matches(issuer, subject, at));
+    }
+    assert!(!grant.allows(
+        Operation::WriteCoverage,
+        ScopeFacts {
+            source: None,
+            account: Some("a"),
+            resource: None
+        },
+        120
+    ));
+}

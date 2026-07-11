@@ -602,14 +602,15 @@
       "evidence": [
         "target/goal-execution-20261007/SECURITY-ACCESS/",
         "target/goal-execution-20261007/SECURITY-ACCESS/server-acceptance.json",
-        "target/goal-execution-20261007/SECURITY-ACCESS/finding-acceptance.json"
+        "target/goal-execution-20261007/SECURITY-ACCESS/finding-acceptance.json",
+        "target/goal-execution-20261007/SECURITY-ACCESS/coverage-acceptance.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md",
         "docs/42-access-control-contract.md"
       ],
-      "notes": "Accepted bounded grants/profile/native HTTPS/query/admission/composed server and trusted finding scope/history. Strict710/761, both Clippy/fmt/build/workspace13 and independent review pass. Real pending WAL startup keeps historical findings unknown, fresh native rows scoped; exact finding bytes/feed survive restart. Prefix-bound activation, reserved raw metadata denial, CRC/cursor-verified reads, bounded allocations and paired filtering before limit qualify locally. Coverage identity/binding, remaining capabilities and established local IdP/OIDC sign-in remain next. Parent in_progress; legacy event provenance is not upgraded, and native/cloud/remote/current-image/release gates remain."
+      "notes": "Accepted grants/profile/native HTTPS/query/admission/composed server, trusted finding history and native coverage binding. Strict718/769, both Clippy/fmt/build/workspace13 and independent review pass. Actual TLS native actor/read-write/cross-scope/cursor/revocation/restart preserves originals; request-local expiry/physical ownership and actual SQLite interruption qualify locally with red-green safeguards. Established local IdP/OIDC sign-in and remaining capabilities remain next; parent in_progress. No source-completeness, historical authentication, native/full-CI/cloud/image/release qualification."
     },
     {
       "id": "SECURITY-TRANSPORT",

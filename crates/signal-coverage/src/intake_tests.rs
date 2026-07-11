@@ -838,3 +838,30 @@ async fn valid_nongreen_assertions_are_retained_without_health_inference() -> Te
     store.shutdown(ctx()).await?;
     Ok(())
 }
+
+#[test]
+fn optional_authorization_lease_is_exact_bounded_and_never_a_retention_update() -> TestResult {
+    let p = sample()?;
+    let now = u64::try_from(chrono::Utc::now().timestamp())?;
+    let authority = authority(&p)?.with_lease(now, now + 60)?;
+    assert!(authority.lease_deadline().is_some());
+    authority.lease.ok_or("lease")?.check()?;
+    assert_eq!(authority.binding.encoded(), p.binding.encoded());
+    for (start, end) in [
+        (now + 1, now + 60),
+        (now, now),
+        (now - 2, now - 1),
+        (now, 253_402_300_800),
+    ] {
+        assert!(matches!(
+            self::authority(&p)?.with_lease(start, end),
+            Err(CoverageError::NotAuthorized)
+        ));
+    }
+    // Logical expiry and monotonic expiry independently deny, with no mutation
+    // of original receiver-time/retention metadata or an inferred source proof.
+    let mut lease = authority.lease.ok_or("lease")?;
+    lease.expire_for_test();
+    assert!(matches!(lease.check(), Err(CoverageError::NotAuthorized)));
+    Ok(())
+}

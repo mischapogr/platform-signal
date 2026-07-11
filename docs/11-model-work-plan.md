@@ -20,14 +20,15 @@ full MVP release is complete.
 
 ## Current SECURITY-ACCESS slice — 2026-10-09
 
-Paired grants/profile/native HTTPS, query/admission and composed-server integration
-now include compatible trusted finding scopes and mandatory restricted reads.
-Strict 710 default / 761 all-feature, both Clippy/fmt/build/workspace13 and source review
-pass. Actual TLS/monolith startup with pending WAL preserves unknown historical
-findings; exact scoped replay/feed survives restart. SECURITY-ACCESS stays
-in_progress. Continue coverage identity/binding, remaining capabilities and
-established local IdP/OIDC sign-in; preserve native/cloud/remote/image/release
-exceptions. See `target/goal-execution-20261007/SECURITY-ACCESS/finding-acceptance.json`.
+Paired grants/profile/native HTTPS, query/admission, composed server, trusted
+finding history and native coverage binding are accepted. Strict718default/
+769all-feature, both Clippy/fmt/build/workspace13 and source review pass. Actual
+TLS/monolith gates preserve exact scoped coverage bytes/cursors/receipts and
+finding feed across restart. Queued, ready-reply and actual SQLite lease-expiry
+checks preserve physical ownership and distinguish uncertain writes.
+SECURITY-ACCESS stays in_progress. Continue established local IdP/OIDC sign-in
+and remaining capabilities; preserve native/cloud/remote/image/release exceptions.
+See `target/goal-execution-20261007/SECURITY-ACCESS/coverage-acceptance.json`.
 
 ## Persistent execution Goal — 2026-10-07
 

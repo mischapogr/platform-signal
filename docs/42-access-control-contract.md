@@ -8,8 +8,8 @@ and fixed-provider native HTTPS token authentication. Mandatory trusted-host que
 The composed server supports explicit native identity for durable admission and
 persisted event queries. Bootstrap token mode remains available only when identity
 is absent. Trusted compatible finding scopes and restricted reads are implemented below.
-SECURITY-ACCESS stays in progress until coverage binding, remaining capability
-handling and established local IdP gates pass.
+Native coverage binding is implemented below. SECURITY-ACCESS stays in progress
+until remaining capability handling and established local IdP gates pass.
 
 ## Policy and trust boundary
 
@@ -397,8 +397,8 @@ work; cancellation closes the response and all responses use no-store.
 
 `GET /v1/findings/feed` remains a global immutable cursor feed, requiring the
 separate ReadFindingsFeed capability with explicit all dimensions. It is never
-post-filtered into a scoped feed. Native coverage stays closed pending its binding
-bridge; unavailable evidence/admin/rules/audit routes remain absent. Scoped list
+post-filtered into a scoped feed. Native coverage now uses its exact binding
+bridge below; unavailable evidence/admin/rules/audit routes remain absent. Scoped list
 permission does not imply feed, event-query or producer permission.
 
 Thirteen added regressions and strict 710/761 workspace acceptance pass with
@@ -407,6 +407,94 @@ before native startup, verifies its newly generated finding stays unknown while
 fresh authenticated findings filter before limit, and checks the complete global
 feed remains exact across crash/restart. See
 `target/goal-execution-20261007/SECURITY-ACCESS/finding-acceptance.json`.
-Coverage identity/binding and established local IdP/OIDC acceptance remain next;
+Established local IdP/OIDC and remaining capability acceptance remain next;
 this closes no native ARM64, full remote CI, actual cloud/live tenant, image or
 release gate.
+
+
+## Native coverage identity and live evidence authorization
+
+Trusted configuration selects authentication mode. Without `SIGNAL_ACCESS_CONFIG`,
+each scope retains its unique environment-resolved `token_env` contract. With native
+identity enabled, every scope must use `identity` and no non-null `token_env`.
+Mixed or ambiguous modes fail before readiness; native mode never falls back to a
+legacy token. Existing coverage history opens explicitly; initialization remains a
+separate operator command. Selecting native mode does not rewrite old evidence.
+
+A native private scope contains the same exact `binding_json`, explicit nullable
+`profile_json`, authority revision and finite retention/intake policy, plus:
+
+```json
+{
+  "identity": {
+    "scope_id": "synthetic-a",
+    "account_id": "synthetic-account",
+    "writer_issuer": "https://identity.example.test",
+    "writer_subject": "synthetic-observer"
+  }
+}
+```
+
+`account_id` must be present; null means unknown and never satisfies a restricted
+account selector. It is private trusted binding policy, not a report attribute.
+Permission source and resource facts are exactly `HistoryBinding.source_id` and
+`resource_scope.id`; they describe this logical coverage binding, whereas event
+permissions use canonical `source.type` and event resource fields. Neither
+resource attributes nor report fields supply account authority. Native source/
+resource/account/subject facts cap at256bytes, issuer at2,048bytes. The unique
+scope alias caps at128ASCII alphanumeric or `._:-` bytes. Configuration retains
+at most32 scopes and65,536 input bytes; duplicate aliases/full bindings fail.
+
+Exactly one `x-signal-coverage-scope` selects that configured binding. Missing,
+duplicate, comma-combined or unknown aliases deny; there is no default scope.
+This selector grants no identity. Every native request freshly authenticates its
+Bearer access token before parsing input or accepting the body. ReadCoverage and
+WriteCoverage retain their complete operation/scope pairs; roles never combine
+an operation from one grant with facts from another. A write additionally requires
+the exact configured verified issuer/subject. The host then maps that actor to
+the binding's existing observer label. A writer has no implicit read permission.
+An all-scope writer still cannot impersonate a different configured observer.
+
+Record reads and scans require independent ReadCoverage, with the full immutable
+binding checked by the store before receipt/payload/pin disclosure. A foreign
+cursor denies even if the caller may read both sources. Global coverage metrics
+also require an explicit all-dimensional ReadCoverage permission; a scoped read
+cannot disclose aggregate activity from other bindings. Native authentication
+errors and all handled coverage responses carry `Cache-Control: no-store`.
+
+`AuthorizedBinding::with_lease` is a generic authenticated-host boundary, not a
+credential verifier or serialized proof. It stores issue/expiry plus a monotonic
+deadline, after validating the current UTC interval and representable timestamps.
+Native callers derive this request-local lease from the freshly verified grant.
+Legacy SDK callers keep the existing optional-lease contract. A lease is never
+stored in a receipt, never renews retention and never upgrades historical health.
+UTC backwards/expiry and monotonic expiry each deny its use.
+
+The worker checks lease/context before admission, before physical work and during
+existing per-row/SQLite progress checks, immediately before intake commit, after
+worker reply and before HTTP disclosure after bounded serialization. The original
+physical operation watchdog stays separate from the shorter authorization wait;
+capacity and the root lock remain held until the physical worker retires. A read
+interrupted by expired authority normalizes only actual SQLite `OperationInterrupted`
+to denial; other SQL errors retain fail-closed poison behavior. Expiry after the
+mutation gate keeps the existing outcome_unknown/failed-owner recovery contract.
+An already successful POST whose final response is denied likewise returns
+outcome_unknown, so the client retries exact bytes under fresh authority. This
+HTTP delivery ambiguity alone does not assert an unresolved physical transaction.
+
+Original raw bytes, complete bindings, profile definitions, receipt/retention pins,
+history IDs/frontiers, correction contracts and replay outcomes remain unchanged.
+An exact replay under new authority returns the original receipt; it does not
+prove old authentication or collection completeness. API responses keep current
+health unknown. There is no automatic repair or cross-scope history rewrite.
+
+Eight added Rust regressions and strict718/769 workspace gates pass with source
+review. Actual TLS/monolith checks cover separate read/write actor permissions,
+legacy/header/cross-scope denial, original-byte reads, cursor isolation, provider
+revocation, exact replay and crash/restart. The ready-reply test proves physical
+success before delaying consumption; the real SQLite VM test proves healthy
+ownership after expiry interruption. Disabling either safeguard fails its
+regression, and temporary faults are restored exactly. See
+`target/goal-execution-20261007/SECURITY-ACCESS/coverage-acceptance.json`.
+Established local IdP/OIDC sign-in and remaining capabilities remain required;
+real tenants/clouds/native/full CI, current images and releases stay separate.

@@ -45,6 +45,17 @@ async fn authenticated_server_scopes_persisted_rows_and_recovers_after_restart()
         temp.path().join("retained-event.json"),
         serde_json::to_vec(&event)?,
     )?;
+    let coverage = signal_coverage::CoverageConfig::default();
+    std::fs::write(
+        temp.path().join("coverage-limits.json"),
+        serde_json::to_vec(&serde_json::json!({
+        "max_payloads":coverage.max_payloads,"max_identities":coverage.max_identities,
+        "max_bindings":coverage.max_bindings,"max_ledger_bytes":coverage.max_ledger_bytes,
+        "max_database_pages":coverage.max_database_pages,"max_journal_bytes":coverage.max_journal_bytes,
+        "operation_capacity":coverage.operation_capacity,"transient_memory_bytes":coverage.transient_memory_bytes,
+        "worker_memory_bytes":coverage.worker_memory_bytes,"max_vm_steps":coverage.max_vm_steps,
+        "operation_timeout_ms":1000}))?,
+    )?;
     let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/integration/access-server-process.py");
     let runner =

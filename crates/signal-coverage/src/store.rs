@@ -728,6 +728,14 @@ impl Engine {
     pub fn begin(&self, ctx: &WorkContext) -> Result<(), CoverageError> {
         set_progress(&self.connection, ctx, &self.config)
     }
+    #[cfg(test)]
+    pub(crate) fn test_recursive_read(&self) -> Result<(), CoverageError> {
+        // Real VM progress, through the same handler installed by begin().
+        let _: i64 = self.connection.query_row(
+            "WITH RECURSIVE n(x) AS (VALUES(0) UNION ALL SELECT x+1 FROM n WHERE x<100000) SELECT sum(x) FROM n",
+            [], |row| row.get(0))?;
+        Ok(())
+    }
     pub fn scan(
         &self,
         authority: AuthorizedBinding,
@@ -1556,6 +1564,8 @@ impl Engine {
         }
         #[cfg(test)]
         test_checkpoint("before_commit", sequence)?;
+        // Permission/operation expiry cannot cross an unchecked commit boundary.
+        ctx.check()?;
         tx.commit()?;
         #[cfg(test)]
         test_checkpoint("after_commit", sequence)?;

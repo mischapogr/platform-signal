@@ -14,7 +14,8 @@ use signal_coverage::{
     IntakeContext, IntakeOutcome, IntakePolicy, OperationContext, Receipt, ScanBudget, ScanCursor,
     format::{HistoryBinding, MAX_RAW_BYTES, ProfileDefinition, Timestamp},
 };
-use signal_ingest::{IngestConfig, authorized};
+use signal_ingest::{IngestConfig, authorized, identity::IdentityBackend};
+use signal_protocol::access::{Operation as AccessOperation, RequestGrant, ScopeFacts};
 use std::{
     io::Write,
     sync::{
@@ -65,11 +66,46 @@ struct ScopeWire {
     #[serde(deserialize_with = "required_profile")]
     profile_json: Option<String>,
     authority_revision: String,
-    token_env: String,
+    #[serde(default)]
+    token_env: Option<String>,
+    #[serde(default)]
+    identity: Option<IdentityScopeWire>,
     max_report_age_seconds: u32,
     max_clock_skew_seconds: u32,
     payload_retention_seconds: u32,
     identity_retention_seconds: u32,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct IdentityScopeWire {
+    scope_id: String,
+    #[serde(deserialize_with = "required_account")]
+    account_id: Option<String>,
+    writer_issuer: String,
+    writer_subject: String,
+}
+fn required_account<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error> {
+    Option::<String>::deserialize(deserializer)
+}
+enum ScopeAuth {
+    Legacy(IngestConfig),
+    Native(IdentityScopeWire),
+}
+impl ScopeAuth {
+    fn legacy_token(&self) -> Option<&str> {
+        match self {
+            Self::Legacy(config) => config.api_token.as_deref(),
+            Self::Native(_) => None,
+        }
+    }
+}
+fn private_identifier(value: &str, max: usize) -> bool {
+    !value.is_empty()
+        && value.len() <= max
+        && value.trim() == value
+        && !value.chars().any(char::is_control)
 }
 fn required_profile<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
@@ -81,7 +117,7 @@ struct Scope {
     profile: Option<ProfileDefinition>,
     revision: String,
     policy: IntakePolicy,
-    auth: IngestConfig,
+    auth: ScopeAuth,
 }
 pub struct Configuration {
     store: CoverageConfig,
@@ -105,12 +141,16 @@ impl Configuration {
             },
         )
         .await?;
-        let configuration = Self::validate(wire, |name| settings.secret_environment(name))?;
+        let configuration = Self::validate_mode(
+            wire,
+            |name| settings.secret_environment(name),
+            settings.optional("SIGNAL_ACCESS_CONFIG")?.is_some(),
+        )?;
         if let Some(token) = settings.optional("SIGNAL_API_TOKEN")?
             && configuration
                 .scopes
                 .iter()
-                .any(|scope| scope.auth.api_token.as_deref() == Some(&token))
+                .any(|scope| scope.auth.legacy_token() == Some(token.as_str()))
         {
             return Err(ConfigError::Invalid(
                 "coverage credential must differ from API token",
@@ -118,9 +158,17 @@ impl Configuration {
         }
         Ok(Some(configuration))
     }
+    #[cfg(test)]
     fn validate(
         wire: Wire,
         secret: impl Fn(&str) -> Result<String, ConfigError>,
+    ) -> Result<Self, ConfigError> {
+        Self::validate_mode(wire, secret, false)
+    }
+    fn validate_mode(
+        wire: Wire,
+        secret: impl Fn(&str) -> Result<String, ConfigError>,
+        native: bool,
     ) -> Result<Self, ConfigError> {
         if wire.schema_version != 1 || wire.scopes.is_empty() || wire.scopes.len() > MAX_SCOPES {
             return Err(ConfigError::Invalid(
@@ -177,15 +225,52 @@ impl Configuration {
                 wire.identity_retention_seconds,
             )
             .map_err(|_| ConfigError::Invalid("coverage intake policy"))?;
-            let token = secret(&wire.token_env)?;
-            // A bounded, unique token authenticates precisely one whole binding.
-            if token.len() < 16
-                || token.len() > 4096
-                || !token.bytes().all(|b| b.is_ascii_graphic())
-                || scopes.iter().any(|s| {
-                    s.auth.api_token.as_deref() == Some(&token)
-                        || s.binding.encoded() == binding.encoded()
-                })
+            let auth = match (native, wire.token_env, wire.identity) {
+                (false, Some(name), None) => {
+                    let token = secret(&name)?;
+                    if token.len() < 16
+                        || token.len() > 4096
+                        || !token.bytes().all(|b| b.is_ascii_graphic())
+                        || scopes
+                            .iter()
+                            .any(|scope| scope.auth.legacy_token() == Some(token.as_str()))
+                    {
+                        return Err(ConfigError::Invalid("coverage unique credential/binding"));
+                    }
+                    ScopeAuth::Legacy(IngestConfig {
+                        api_token: Some(token),
+                        ..Default::default()
+                    })
+                }
+                (true, None, Some(mut identity)) => {
+                    if identity.scope_id.is_empty() || identity.scope_id.len()>128
+                        || !identity.scope_id.bytes().all(|b|b.is_ascii_alphanumeric() || b"._:-".contains(&b))
+                        || !private_identifier(&identity.writer_issuer,2048)
+                        || !private_identifier(&identity.writer_subject,256)
+                        || identity.account_id.as_ref().is_some_and(|account| !private_identifier(account,256))
+                        || !private_identifier(binding.source_id(),256)
+                        || !private_identifier(binding.resource_id(),256)
+                        || scopes.iter().any(|scope|matches!(&scope.auth,ScopeAuth::Native(other) if other.scope_id==identity.scope_id)) {
+                        return Err(ConfigError::Invalid("coverage native identity/binding bounds"));
+                    }
+                    identity.scope_id = identity.scope_id.into_boxed_str().into_string();
+                    identity.writer_issuer = identity.writer_issuer.into_boxed_str().into_string();
+                    identity.writer_subject =
+                        identity.writer_subject.into_boxed_str().into_string();
+                    identity.account_id = identity
+                        .account_id
+                        .map(|value| value.into_boxed_str().into_string());
+                    ScopeAuth::Native(identity)
+                }
+                _ => {
+                    return Err(ConfigError::Invalid(
+                        "coverage authentication mode conflict",
+                    ));
+                }
+            };
+            if scopes
+                .iter()
+                .any(|scope| scope.binding.encoded() == binding.encoded())
             {
                 return Err(ConfigError::Invalid("coverage unique credential/binding"));
             }
@@ -194,10 +279,7 @@ impl Configuration {
                 profile,
                 revision,
                 policy,
-                auth: IngestConfig {
-                    api_token: Some(token),
-                    ..Default::default()
-                },
+                auth,
             });
         }
         // Fingerprint conflicts under one profile ID/revision fail before store opening.
@@ -220,11 +302,30 @@ impl Configuration {
             .shutdown(OperationContext::new(Duration::from_secs(5)))
             .await
     }
+    #[cfg(test)]
     pub async fn open(
         self,
         timeout: Duration,
         stopping: CancellationToken,
     ) -> Result<Arc<CoverageState>, CoverageError> {
+        self.open_with_identity(timeout, stopping, None).await
+    }
+    pub async fn open_with_identity(
+        self,
+        timeout: Duration,
+        stopping: CancellationToken,
+        identity: Option<IdentityBackend>,
+    ) -> Result<Arc<CoverageState>, CoverageError> {
+        if self
+            .scopes
+            .iter()
+            .any(|scope| matches!(scope.auth, ScopeAuth::Native(_)))
+            != identity.is_some()
+        {
+            return Err(CoverageError::Config(
+                "coverage authentication mode conflict",
+            ));
+        }
         let store = Arc::new(CoverageStore::open(self.store).await?);
         Ok(Arc::new(CoverageState {
             store,
@@ -233,6 +334,7 @@ impl Configuration {
             stopping,
             requests: Semaphore::new(REQUEST_CAPACITY),
             rejected: AtomicU64::new(0),
+            identity,
         }))
     }
 }
@@ -243,6 +345,7 @@ pub struct CoverageState {
     stopping: CancellationToken,
     requests: Semaphore,
     rejected: AtomicU64,
+    identity: Option<IdentityBackend>,
 }
 impl CoverageState {
     fn scope(&self, headers: &HeaderMap) -> Option<&Scope> {
@@ -250,9 +353,65 @@ impl CoverageState {
         if headers.get_all("authorization").iter().count() != 1 {
             return None;
         }
-        self.scopes
-            .iter()
-            .find(|scope| authorized(&scope.auth, headers))
+        self.scopes.iter().find(
+            |scope| matches!(&scope.auth,ScopeAuth::Legacy(config) if authorized(config,headers)),
+        )
+    }
+    async fn authorize<'a>(
+        &'a self,
+        headers: &HeaderMap,
+        operation: AccessOperation,
+        aggregate: bool,
+        context: &OperationContext,
+    ) -> Result<ScopeAccess<'a>, Response> {
+        if let Some(identity) = &self.identity {
+            let grant = crate::access::authenticate(
+                &IngestConfig::default(),
+                Some(identity),
+                headers,
+                context.deadline,
+                context.cancellation.clone(),
+            )
+            .await?
+            .ok_or_else(|| error(StatusCode::FORBIDDEN, "forbidden"))?;
+            if !crate::access::capable(&grant, operation) {
+                return Err(error(StatusCode::FORBIDDEN, "forbidden"));
+            }
+            let mut values = headers.get_all("x-signal-coverage-scope").iter();
+            let selector = values.next().and_then(|value| value.to_str().ok());
+            if values.next().is_some() || selector.is_none_or(|id| id.is_empty() || id.len() > 128)
+            {
+                return Err(error(StatusCode::FORBIDDEN, "forbidden"));
+            }
+            let scope=self.scopes.iter().find(|scope|matches!(&scope.auth,ScopeAuth::Native(identity) if Some(identity.scope_id.as_str())==selector))
+                .ok_or_else(||error(StatusCode::FORBIDDEN,"forbidden"))?;
+            if !native_allowed(scope, &grant, operation, aggregate) {
+                return Err(error(StatusCode::FORBIDDEN, "forbidden"));
+            }
+            let (start, end) = grant.lease_bounds();
+            let authority = grant_binding(scope)
+                .and_then(|binding| binding.with_lease(start, end))
+                .map_err(failure)?;
+            Ok(ScopeAccess {
+                scope,
+                request_grant: Some(grant),
+                authority,
+                operation,
+                aggregate,
+            })
+        } else {
+            let scope = self
+                .scope(headers)
+                .ok_or_else(|| error(StatusCode::UNAUTHORIZED, "unauthorized"))?;
+            let authority = grant_binding(scope).map_err(failure)?;
+            Ok(ScopeAccess {
+                scope,
+                request_grant: None,
+                authority,
+                operation,
+                aggregate,
+            })
+        }
     }
     pub fn router(self: &Arc<Self>) -> Router {
         Router::new()
@@ -271,12 +430,110 @@ impl Drop for CancelOnDrop {
 fn now() -> Result<Timestamp, CoverageError> {
     Timestamp::parse(&chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Nanos, true))
 }
-fn grant(scope: &Scope) -> Result<AuthorizedBinding, CoverageError> {
+fn grant_binding(scope: &Scope) -> Result<AuthorizedBinding, CoverageError> {
     AuthorizedBinding::new(
         scope.binding.observer_id(),
         scope.binding.clone(),
         scope.revision.clone(),
     )
+}
+struct ScopeAccess<'a> {
+    scope: &'a Scope,
+    request_grant: Option<RequestGrant>,
+    authority: AuthorizedBinding,
+    operation: AccessOperation,
+    aggregate: bool,
+}
+fn native_allowed(
+    scope: &Scope,
+    grant: &RequestGrant,
+    operation: AccessOperation,
+    aggregate: bool,
+) -> bool {
+    let ScopeAuth::Native(identity) = &scope.auth else {
+        return false;
+    };
+    let Some(at) = crate::access::now() else {
+        return false;
+    };
+    if !grant.allows(
+        operation,
+        ScopeFacts {
+            source: Some(scope.binding.source_id()),
+            account: identity.account_id.as_deref(),
+            resource: Some(scope.binding.resource_id()),
+        },
+        at,
+    ) {
+        return false;
+    }
+    if operation == AccessOperation::WriteCoverage
+        && !grant.subject_matches(&identity.writer_issuer, &identity.writer_subject, at)
+    {
+        return false;
+    }
+    !aggregate || grant.scopes(operation, at).any(|scope| scope.is_all())
+}
+impl ScopeAccess<'_> {
+    fn deadline(&self, original: Instant) -> Instant {
+        self.authority
+            .lease_deadline()
+            .map_or(original, |lease| original.min(lease))
+    }
+    fn finish(&self, context: &OperationContext) -> Option<Response> {
+        if context.cancellation.is_cancelled() {
+            return Some(error(StatusCode::SERVICE_UNAVAILABLE, "stopping"));
+        }
+        if Instant::now() >= context.deadline {
+            return Some(error(StatusCode::REQUEST_TIMEOUT, "timeout"));
+        }
+        if self
+            .request_grant
+            .as_ref()
+            .is_some_and(|grant| !native_allowed(self.scope, grant, self.operation, self.aggregate))
+            || self
+                .authority
+                .lease_deadline()
+                .is_some_and(|deadline| Instant::now() >= deadline)
+        {
+            return Some(error(StatusCode::FORBIDDEN, "forbidden"));
+        }
+        None
+    }
+}
+fn request_context(state: &CoverageState) -> OperationContext {
+    OperationContext {
+        deadline: Instant::now() + state.timeout,
+        cancellation: state.stopping.child_token(),
+    }
+}
+fn completed_response(
+    access: &ScopeAccess<'_>,
+    context: &OperationContext,
+    result: Result<Response, CoverageError>,
+    state: &CoverageState,
+) -> Response {
+    match result {
+        Ok(response) => match access.finish(context) {
+            None => response,
+            Some(denial) => {
+                state.rejected.fetch_add(1, Ordering::Relaxed);
+                // A late denied POST response must not imply a definitely absent
+                // write. Exact retry under fresh authority is the recovery path.
+                if access.operation == AccessOperation::WriteCoverage
+                    && response.status().is_success()
+                {
+                    failure(CoverageError::OutcomeUnknown)
+                } else {
+                    denial
+                }
+            }
+        },
+        Err(error) => {
+            state.rejected.fetch_add(1, Ordering::Relaxed);
+            failure(error)
+        }
+    }
 }
 fn response(status: StatusCode, value: impl Serialize) -> Response {
     let mut output = LimitedBytes {
@@ -395,38 +652,44 @@ struct RecordResponse<'a> {
     current_health: &'static str,
 }
 async fn record(State(state): State<Arc<CoverageState>>, request: Request) -> Response {
+    let context = request_context(&state);
+    let _guard = CancelOnDrop(context.cancellation.clone());
     if state.stopping.is_cancelled() {
         return error(StatusCode::SERVICE_UNAVAILABLE, "stopping");
     }
-    let Some(scope) = state.scope(request.headers()) else {
-        state.rejected.fetch_add(1, Ordering::Relaxed);
-        return error(StatusCode::UNAUTHORIZED, "unauthorized");
+    let operation = if request.method() == Method::POST {
+        AccessOperation::WriteCoverage
+    } else {
+        AccessOperation::ReadCoverage
+    };
+    let access = match state
+        .authorize(request.headers(), operation, false, &context)
+        .await
+    {
+        Ok(access) => access,
+        Err(response) => {
+            state.rejected.fetch_add(1, Ordering::Relaxed);
+            return response;
+        }
     };
     let Ok(_permit) = state.requests.try_acquire() else {
         state.rejected.fetch_add(1, Ordering::Relaxed);
         return error(StatusCode::TOO_MANY_REQUESTS, "capacity");
     };
-    let cancellation = state.stopping.child_token();
-    let _guard = CancelOnDrop(cancellation.clone());
-    let context = OperationContext {
-        deadline: Instant::now() + state.timeout,
-        cancellation,
-    };
-    let result = handle_record(&state, scope, request, context).await;
-    match result {
-        Ok(response) => response,
-        Err(e) => {
-            state.rejected.fetch_add(1, Ordering::Relaxed);
-            failure(e)
-        }
+    if let Some(response) = access.finish(&context) {
+        state.rejected.fetch_add(1, Ordering::Relaxed);
+        return response;
     }
+    let result = handle_record(&state, &access, request, context.clone()).await;
+    completed_response(&access, &context, result, &state)
 }
 async fn handle_record(
     state: &CoverageState,
-    scope: &Scope,
+    access: &ScopeAccess<'_>,
     request: Request,
     context: OperationContext,
 ) -> Result<Response, CoverageError> {
+    let scope = access.scope;
     let id = uuid(
         request
             .uri()
@@ -435,7 +698,7 @@ async fn handle_record(
             .next()
             .ok_or(CoverageError::Invalid("record ID"))?,
     )?;
-    let authority = grant(scope)?;
+    let authority = access.authority.clone();
     if request.method() == Method::POST {
         let correction = query(request.uri().query(), "correction_of")?
             .map(|v| uuid(&v))
@@ -453,7 +716,7 @@ async fn handle_record(
         let raw = tokio::select! {
             biased;
             _ = context.cancellation.cancelled() => return Err(CoverageError::Cancelled),
-            _ = tokio::time::sleep_until(context.deadline) => return Err(CoverageError::Timeout),
+            _ = tokio::time::sleep_until(access.deadline(context.deadline)) => return Err(if Instant::now()>=context.deadline {CoverageError::Timeout} else {CoverageError::NotAuthorized}),
             raw = to_bytes(request.into_body(), MAX_RAW_BYTES) => raw.map_err(|_| CoverageError::Invalid("original body bound"))?,
         };
         let submission = CoverageSubmission::new(id, &raw, correction)?;
@@ -518,35 +781,40 @@ struct HistoryResponse<'a> {
     current_health: &'static str,
 }
 async fn history(State(state): State<Arc<CoverageState>>, request: Request) -> Response {
+    let context = request_context(&state);
+    let _guard = CancelOnDrop(context.cancellation.clone());
     if state.stopping.is_cancelled() {
         return error(StatusCode::SERVICE_UNAVAILABLE, "stopping");
     }
-    let Some(scope) = state.scope(request.headers()) else {
-        state.rejected.fetch_add(1, Ordering::Relaxed);
-        return error(StatusCode::UNAUTHORIZED, "unauthorized");
+    let access = match state
+        .authorize(
+            request.headers(),
+            AccessOperation::ReadCoverage,
+            false,
+            &context,
+        )
+        .await
+    {
+        Ok(access) => access,
+        Err(response) => {
+            state.rejected.fetch_add(1, Ordering::Relaxed);
+            return response;
+        }
     };
     let Ok(_permit) = state.requests.try_acquire() else {
         state.rejected.fetch_add(1, Ordering::Relaxed);
         return error(StatusCode::TOO_MANY_REQUESTS, "capacity");
     };
-    let cancellation = state.stopping.child_token();
-    let _guard = CancelOnDrop(cancellation.clone());
-    let context = OperationContext {
-        deadline: Instant::now() + state.timeout,
-        cancellation,
-    };
-    let result = handle_history(&state, scope, request, context).await;
-    match result {
-        Ok(response) => response,
-        Err(e) => {
-            state.rejected.fetch_add(1, Ordering::Relaxed);
-            failure(e)
-        }
+    if let Some(response) = access.finish(&context) {
+        state.rejected.fetch_add(1, Ordering::Relaxed);
+        return response;
     }
+    let result = handle_history(&state, &access, request, context.clone()).await;
+    completed_response(&access, &context, result, &state)
 }
 async fn handle_history(
     state: &CoverageState,
-    scope: &Scope,
+    access: &ScopeAccess<'_>,
     request: Request,
     context: OperationContext,
 ) -> Result<Response, CoverageError> {
@@ -557,7 +825,7 @@ async fn handle_history(
     let page = state
         .store
         .scan(
-            grant(scope)?,
+            access.authority.clone(),
             cursor,
             ScanBudget {
                 max_records: 1,
@@ -597,26 +865,44 @@ async fn handle_history(
     ))
 }
 async fn metrics(State(state): State<Arc<CoverageState>>, request: Request) -> Response {
+    let context = request_context(&state);
+    let _guard = CancelOnDrop(context.cancellation.clone());
     if state.stopping.is_cancelled() {
         return error(StatusCode::SERVICE_UNAVAILABLE, "stopping");
     }
-    if state.scope(request.headers()).is_none() {
+    let access = match state
+        .authorize(
+            request.headers(),
+            AccessOperation::ReadCoverage,
+            true,
+            &context,
+        )
+        .await
+    {
+        Ok(access) => access,
+        Err(response) => {
+            state.rejected.fetch_add(1, Ordering::Relaxed);
+            return response;
+        }
+    };
+    let Ok(_permit) = state.requests.try_acquire() else {
         state.rejected.fetch_add(1, Ordering::Relaxed);
-        return error(StatusCode::UNAUTHORIZED, "unauthorized");
-    }
+        return error(StatusCode::TOO_MANY_REQUESTS, "capacity");
+    };
     if request.uri().query().is_some() {
         return error(StatusCode::BAD_REQUEST, "invalid_query");
     }
     let m = state.store.metrics();
     // Aggregate bounds only, no record identity, binding, profile, token or source payload.
-    response(
+    let response = response(
         StatusCode::OK,
         serde_json::json!({"schema_version":1,"current_health":"unknown",
         "available":m.available,"http_in_flight":REQUEST_CAPACITY-state.requests.available_permits(),"http_capacity":REQUEST_CAPACITY,"operations_in_flight":m.operations_in_flight,"operation_capacity":m.operation_capacity,
         "command_depth":m.command_depth,"command_capacity":m.command_capacity,"payloads":m.payloads,"payload_capacity":m.payload_capacity,
         "identities":m.identities,"identity_capacity":m.identity_capacity,"ledger_bytes":m.ledger_bytes,"ledger_capacity":m.ledger_capacity,
         "accepted":m.accepted,"replayed":m.replayed,"store_rejected":m.rejected,"http_rejected":state.rejected.load(Ordering::Relaxed),"timeouts":m.timeouts,"failures":m.failures}),
-    )
+    );
+    completed_response(&access, &context, Ok(response), &state)
 }
 struct LimitedBytes {
     bytes: Vec<u8>,

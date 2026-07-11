@@ -418,6 +418,20 @@ impl CompiledPolicy {
     }
 }
 impl RequestGrant {
+    /// Exact backend-verified actor match for a private full-binding mapper.
+    /// This is not a forwarded identity or permission; capability remains separate.
+    pub fn subject_matches(&self, issuer: &str, subject: &str, now: u64) -> bool {
+        now >= self.issued_at
+            && self.identity.valid_at(now)
+            && self.identity.issuer == issuer
+            && self.identity.subject == subject
+    }
+    /// Immutable request-local lease bounds for a trusted downstream adapter.
+    /// Never persist these timestamps as proof or extend them across requests.
+    pub fn lease_bounds(&self) -> (u64, u64) {
+        (self.issued_at, self.identity.expires_at)
+    }
+
     /// Operation and scope stay paired. Never union operations and selectors
     /// independently across roles, which would cross-combine privileges.
     pub fn allows(&self, operation: Operation, facts: ScopeFacts<'_>, now: u64) -> bool {

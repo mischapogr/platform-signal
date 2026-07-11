@@ -21,13 +21,14 @@ public588/622 remains unchanged. All source completeness, AWS/TLS/HA/shared-runt
 and release exceptions stay visible. S3-QUERY is passed_simulated: default641/all-feature686 strict gates, source review, six helper regressions and eleven persistent S3/monolith scenarios pass. Four exact events/findings survive data-orphan and manifest-before-reply process crashes. RETENTION is passed_simulated: policy/report, stopped-cache, logical retirement, explicit exact-version query reclamation and bounded query measurements pass. Strict default659/all-feature710 remain unchanged;33 source-bound query samples over2,048 events/8hours and four failure helpers pass. Time pruning16→2 data GETs; cache remains rebuildable with mandatory remote reauthentication. Optional indexes deferred on measured evidence. Continue SECURITY-ACCESS; actual cloud/native/CI/kind/shared/custody/image/release gates stay open.
 
 
-SECURITY-ACCESS stays in_progress. Trusted finding scopes/history and pre-limit
-restricted reads join the composed native identity/WAL/Parquet mechanisms.
-Strict 710/761 and actual startup-backlog/restart simulations pass with review;
-see `target/goal-execution-20261007/SECURITY-ACCESS/finding-acceptance.json`.
-Coverage identity/binding, remaining capabilities and established local IdP/OIDC
-acceptance remain next. Historical event provenance is not upgraded; external
-exceptions remain separate in the [access contract](42-access-control-contract.md).
+SECURITY-ACCESS stays in_progress. Native coverage binding and request-local
+expiry join trusted finding scopes/history and composed native admission/query.
+Strict718/769, source review and actual TLS/monolith scope/cursor/revocation/restart
+pass; see `target/goal-execution-20261007/SECURITY-ACCESS/coverage-acceptance.json`.
+Physical expiry safeguards pass red/green checks. Established local IdP/OIDC and
+remaining capabilities remain next. Source completeness/historical authentication,
+native/full CI/cloud/image/release exceptions remain separate in the
+[access contract](42-access-control-contract.md).
 
 ## Execution and evidence
 
