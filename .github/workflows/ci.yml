@@ -48,6 +48,10 @@ jobs:
         run: python3 scripts/run-ci-check.py --name object-query-helpers --timeout 60 -- python3 scripts/test-object-query.py
       - name: Persistent object query, crash replay and retirement simulation
         run: python3 scripts/run-ci-check.py --name object-query --timeout 120 -- python3 scripts/check-query-retirement.py --output target/ci/object-query-simulation --binary target/debug/signal-server
+      - name: Query measurement failure evidence
+        run: python3 scripts/run-ci-check.py --name query-cost-helpers --timeout 60 -- python3 scripts/test-query-costs.py
+      - name: Bounded query partition, cache and scan costs
+        run: python3 scripts/run-ci-check.py --name query-costs --timeout 240 -- python3 scripts/check-query-costs.py --output target/ci/query-cost-measurements --binary target/debug/signal-server
       - name: Workspace boundaries
         run: python3 scripts/run-ci-check.py --name workspace --timeout 60 -- python3 scripts/check-workspace.py
       - name: Healthcheck formatting

@@ -1,5 +1,55 @@
 # Implementation progress
 
+## RETENTION bounded query/cache measurements and parent acceptance — 2026-10-09
+
+RETENTION is passed_simulated. The finite current-binary workload admits2,048
+synthetic events in16 batches across8 UTC hours, with4KiB deterministic message
+payloads and exact IDs/messages/nested attributes checked against an independent
+oracle. All33 query samples pass; five serial repetitions are retained for warm
+hourly/broad and source/severity/JSON predicates. This is an AMD64 debug/local
+structural diagnostic, not production capacity, physical-device throughput,
+AWS price/TCO or long-term memory evidence.
+
+| Observation | Current finite result |
+| --- | --- |
+| Warm hourly / broad median wall time | 501.187ms / 2,937.896ms |
+| Selected hourly / broad data objects and remote GETs per query | 2 / 16 |
+| Warm source / severity / JSON predicate median wall time | 3,223.093ms / 3,372.393ms / 3,190.693ms |
+| Empty-cache selected rebuild wall time / remote GETs | 585.714ms / 2 |
+| Selected-file / decoded-byte denial | HTTP413; zero data GETs/scanned counter increase; no partial events |
+| Query data / manifest objects | 16 / 16 |
+| Parquet data / complete fixture bytes | 17,390,662 / 17,409,030 |
+| Derived cache bytes | 17,390,662; warm identity/mtime/hash preserved |
+
+The cache is rebuildable, but every selected query still authenticates remote
+version/ETag/SHA bytes. Warm cache does not save S3 GETs. Whole canonical v1 event
+responses and existing Parquet projections/predicates remain unchanged; no partial
+field-response API or mandatory field index is added. Time pruning reduces chosen
+objects8-fold in this workload. Defer optional indexes: these observations do not
+establish an index benefit. History remains bounded; reaching finite manifest/
+inventory/catalog limits holds progress rather than pruning authentication history.
+A retired data policy never authorizes original/raw evidence removal.
+
+Four failure-evidence helper regressions pass, including actual owned child reap
+following a deterministically injected creation signal. Early spawn/missing logs,
+late drain errors and late materialization cannot be called successful. Source
+review, Python compilation, workspace13, workflow actionlint and exact current
+Rust source bindings pass; the accepted default659/all-feature710 Rust campaign
+is reused unchanged. Both native CI runners are wired to run the new helper and
+measurement gate, without claiming remote execution. All5 owned workload children
+are reaped; the stopped cache witness is preserved and rebuilding checks exact
+bytes. Evidence: `target/goal-execution-20261007/RETENTION/query-measurements-final/report.json`,
+`measurement-helper-tests-final.log`, `measurement-review.json`,
+`measurement-actionlint.log` and `measurements-acceptance.json`.
+
+Earlier attempts are retained as failed: the initial fixture used the wrong
+single/batch envelope, assumed warm cache bypassed remote authentication, then
+used a short1.8-second debug-workload deadline. The complete workload uses the
+normal5-second server deadline and a bounded6-second HTTP client. No failed
+attempt or earlier-source diagnostic is promoted. Actual cloud/version/IAM/KMS/
+Object Lock/TLS, native ARM64/remote CI/kind/EKS/shared HA/custody, fresh image and
+release gates remain open. Next frozen item: SECURITY-ACCESS.
+
 ## RETENTION exact retired query-version reclamation — 2026-10-09
 
 RETENTION remains in_progress. Exact removal is an explicit trusted stopped-host
