@@ -1,4 +1,5 @@
-//! Bounded query-object I/O. No delete/overwrite/multipart, source ACK or custody.
+//! Bounded query-object I/O. Conditional reclamation is explicitly host-enabled;
+//! no path-only delete/overwrite/multipart, source ACK or custody.
 use crate::object_manifest::{QueryObjectRef, sha256};
 pub use crate::object_owner::SmallOwnerConfig;
 use crate::{OperationContext, check_context};
@@ -128,6 +129,7 @@ enum Work {
     AdvanceHead(crate::object_head::HeadRecord),
     ReadRetirement,
     AdvanceRetirement(crate::object_retirement::RetirementRecord),
+    RemoveRetired(QueryObjectRef, u64),
     #[cfg(test)]
     Pause(oneshot::Sender<()>, std::sync::mpsc::Receiver<()>),
 }
@@ -138,6 +140,7 @@ enum ResultData {
     Head(Option<crate::object_manifest::PreviousManifest>),
     Genesis(bool),
     Retirement(Box<crate::object_retirement::RetirementControls>),
+    Removed,
     #[cfg(test)]
     Done,
 }
@@ -184,12 +187,17 @@ impl Drop for WorkerExit {
 /// runtime. Local filesystem backends execute outside Tokio on the same fixed
 /// ordinary thread. Backends must bound their internal metadata/body parsing;
 /// this wrapper bounds admission, copies, listing and retained returned data.
+struct IoBackend {
+    store: Arc<dyn ObjectStore>,
+    reclaimer: Option<Arc<dyn crate::object_reclamation::ExactVersionDelete>>,
+}
 pub struct ObjectIo {
     sender: Mutex<Option<mpsc::Sender<Command>>>,
     worker: Mutex<Option<thread::JoinHandle<()>>>,
     state: Arc<State>,
     limits: ObjectIoLimits,
     owner_binding: Option<(uuid::Uuid, uuid::Uuid)>,
+    reclamation_enabled: bool,
 }
 impl ObjectIo {
     pub fn remote(
@@ -197,13 +205,13 @@ impl ObjectIo {
         runtime: tokio::runtime::Handle,
         limits: ObjectIoLimits,
     ) -> Result<Self, ObjectIoError> {
-        Self::start(store, Some(runtime), limits, None)
+        Self::start(store, Some(runtime), limits, None, None)
     }
     pub fn local(
         store: object_store::local::LocalFileSystem,
         limits: ObjectIoLimits,
     ) -> Result<Self, ObjectIoError> {
-        Self::start(Arc::new(store), None, limits, None)
+        Self::start(Arc::new(store), None, limits, None, None)
     }
     pub async fn open_small_remote(
         owner: &SmallOwnerConfig,
@@ -212,7 +220,7 @@ impl ObjectIo {
         limits: ObjectIoLimits,
         context: OperationContext,
     ) -> Result<Self, ObjectIoError> {
-        Self::open_owned(owner, store, Some(runtime), limits, context).await
+        Self::open_owned(owner, store, Some(runtime), limits, context, None).await
     }
     pub async fn open_small_local(
         owner: &SmallOwnerConfig,
@@ -220,7 +228,28 @@ impl ObjectIo {
         limits: ObjectIoLimits,
         context: OperationContext,
     ) -> Result<Self, ObjectIoError> {
-        Self::open_owned(owner, Arc::new(store), None, limits, context).await
+        Self::open_owned(owner, Arc::new(store), None, limits, context, None).await
+    }
+    /// Explicit trusted stopped-host reclamation capability. Normal source
+    /// constructors never install a deletion backend. The publisher must first
+    /// authenticate current retirement and derive each retired query reference.
+    pub async fn open_small_reclaiming(
+        owner: &SmallOwnerConfig,
+        store: Arc<dyn ObjectStore>,
+        reclaimer: Arc<dyn crate::object_reclamation::ExactVersionDelete>,
+        runtime: tokio::runtime::Handle,
+        limits: ObjectIoLimits,
+        context: OperationContext,
+    ) -> Result<Self, ObjectIoError> {
+        Self::open_owned(
+            owner,
+            store,
+            Some(runtime),
+            limits,
+            context,
+            Some(reclaimer),
+        )
+        .await
     }
     async fn open_owned(
         owner: &SmallOwnerConfig,
@@ -228,6 +257,7 @@ impl ObjectIo {
         runtime: Option<tokio::runtime::Handle>,
         limits: ObjectIoLimits,
         mut context: OperationContext,
+        reclaimer: Option<Arc<dyn crate::object_reclamation::ExactVersionDelete>>,
     ) -> Result<Self, ObjectIoError> {
         limits.validate()?;
         context.deadline = context.deadline.min(Instant::now() + limits.timeout);
@@ -239,6 +269,7 @@ impl ObjectIo {
             runtime,
             limits,
             Some((owner, context.clone(), reply)),
+            reclaimer,
         )?;
         let mut guard = CancelGuard(context.clone(), true);
         receive_owner_ready(receive, &context).await?;
@@ -250,6 +281,7 @@ impl ObjectIo {
         runtime: Option<tokio::runtime::Handle>,
         limits: ObjectIoLimits,
         owner: Option<OwnerStartup>,
+        reclaimer: Option<Arc<dyn crate::object_reclamation::ExactVersionDelete>>,
     ) -> Result<Self, ObjectIoError> {
         limits.validate()?;
         let owner_binding = owner
@@ -265,6 +297,8 @@ impl ObjectIo {
         });
         let (sender, mut receiver) = mpsc::channel::<Command>(1);
         let shared = state.clone();
+        let reclamation_enabled = reclaimer.is_some();
+        let backend = IoBackend { store, reclaimer };
         let worker = thread::Builder::new()
             .name("signal-object-io".into())
             .spawn(move || {
@@ -291,7 +325,7 @@ impl ObjectIo {
                     shared.processed.fetch_add(1, Ordering::Relaxed);
                     shared.running.store(1, Ordering::Release);
                     let future = execute(
-                        &*store, command.work, limits, &command.context,
+                        &backend, command.work, limits, &command.context,
                         command.slot.clone(), runtime.is_some(), owner.as_deref(),
                     );
                     let result = match &runtime {
@@ -320,7 +354,11 @@ impl ObjectIo {
             state,
             limits,
             owner_binding,
+            reclamation_enabled,
         })
+    }
+    pub(crate) fn supports_reclamation(&self) -> bool {
+        self.reclamation_enabled
     }
     pub(crate) fn small_owner_lease(
         &self,
@@ -454,6 +492,36 @@ impl ObjectIo {
                 .await?
             {
                 ResultData::Retirement(_) => Ok(()),
+                _ => Err(ObjectIoError::Closed),
+            }
+        }
+        .await;
+        rejected.1 = result.is_err();
+        result
+    }
+    pub(crate) async fn remove_retired_exact(
+        &self,
+        reference: &QueryObjectRef,
+        retired_floor: u64,
+        mut context: OperationContext,
+    ) -> Result<(), ObjectIoError> {
+        let mut rejected = RejectGuard(self.state.clone(), true);
+        let result = async {
+            let slot = self.admit(&mut context)?;
+            let (stream, _) = self.owner_binding.ok_or(ObjectIoError::Config)?;
+            crate::object_reclamation::validate(reference, stream, self.limits.bytes as u64)?;
+            if retired_floor == 0 {
+                return Err(ObjectIoError::Condition);
+            }
+            match self
+                .submit(
+                    Work::RemoveRetired(reference.clone(), retired_floor),
+                    context,
+                    slot,
+                )
+                .await?
+            {
+                ResultData::Removed => Ok(()),
                 _ => Err(ObjectIoError::Closed),
             }
         }
@@ -760,7 +828,7 @@ fn reference(
     Ok(result)
 }
 async fn execute(
-    store: &dyn ObjectStore,
+    io_backend: &IoBackend,
     work: Work,
     limits: ObjectIoLimits,
     ctx: &OperationContext,
@@ -771,7 +839,29 @@ async fn execute(
     check(ctx)?;
     #[cfg(feature = "s3")]
     let _request_scope = crate::object_s3::RequestScope::enter(ctx)?;
+    let store = &*io_backend.store;
     match work {
+        Work::RemoveRetired(reference, floor) => {
+            let owner = owner.ok_or(ObjectIoError::Config)?;
+            let (current, pending) = owner.read_retirement(ctx).map_err(owner_error)?;
+            let current = current.ok_or(ObjectIoError::Condition)?;
+            if pending.is_some() || current.anchor.last_sequence != floor {
+                return Err(ObjectIoError::Condition);
+            }
+            crate::object_reclamation::validate(
+                &reference,
+                current.stream_id,
+                limits.bytes as u64,
+            )?;
+            io_backend
+                .reclaimer
+                .as_ref()
+                .ok_or(ObjectIoError::Config)?
+                .remove_exact(&reference, ctx)
+                .await?;
+            check(ctx)?;
+            Ok(ResultData::Removed)
+        }
         Work::ReadGenesis => {
             let owner = owner.ok_or(ObjectIoError::Config)?;
             Ok(ResultData::Genesis(

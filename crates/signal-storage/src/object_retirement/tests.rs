@@ -770,3 +770,89 @@ async fn actual_process_loss_at_retirement_control_milestones_recovers_exact_pre
     }
     Ok(())
 }
+
+#[tokio::test]
+async fn reclamation_requires_explicit_capability_and_all_candidates_versioned() -> Result {
+    struct ForbiddenDelete(std::sync::atomic::AtomicUsize);
+    #[async_trait::async_trait]
+    impl crate::object_reclamation::ExactVersionDelete for ForbiddenDelete {
+        async fn remove_exact(
+            &self,
+            _: &QueryObjectRef,
+            _: &OperationContext,
+        ) -> std::result::Result<(), crate::object_io::ObjectIoError> {
+            self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            Err(crate::object_io::ObjectIoError::Backend)
+        }
+    }
+    let fixture = Fixture::new()?;
+    let publisher = fixture.open().await?;
+    publisher
+        .append(&[row(1, "2026-07-10T19:15:00Z")?], context())
+        .await?;
+    let checkpoint = RetirementCheckpoint {
+        stream_id: fixture.owner.stream_id,
+        checkpoint: 1,
+    };
+    publisher
+        .retire_query_prefix(
+            &policy(),
+            checkpoint,
+            time("2026-07-10T21:00:00Z")?,
+            context(),
+        )
+        .await?;
+    let retirement = std::fs::read(fixture.owner.directory.join("retirement.json"))?;
+    let snapshot = publisher.snapshot(context()).await?;
+    let reference = snapshot.manifests()[0].manifest.files[0].object.clone();
+    assert!(reference.version.is_none());
+    drop(snapshot);
+    assert!(matches!(
+        publisher
+            .reclaim_retired_query_data(checkpoint, context())
+            .await,
+        Err(StorageError::Config(
+            "exact version reclamation backend required"
+        ))
+    ));
+    publisher.shutdown(context()).await?;
+    drop(publisher);
+    let capability = Arc::new(ForbiddenDelete(std::sync::atomic::AtomicUsize::new(0)));
+    let io = ObjectIo::open_small_reclaiming(
+        &fixture.owner,
+        fixture.remote.clone(),
+        capability.clone(),
+        tokio::runtime::Handle::current(),
+        ObjectIoLimits::default(),
+        context(),
+    )
+    .await?;
+    let writer = ObjectPublisher::new(
+        io,
+        tokio::runtime::Handle::current(),
+        PublicationConfig::default(),
+    )?;
+    assert!(
+        writer
+            .reclaim_retired_query_data(checkpoint, context())
+            .await
+            .is_err()
+    );
+    assert_eq!(capability.0.load(std::sync::atomic::Ordering::Relaxed), 0);
+    assert_eq!(
+        std::fs::read(fixture.owner.directory.join("retirement.json"))?,
+        retirement
+    );
+    assert_eq!(
+        fixture
+            .remote
+            .get(&object_store::path::Path::from(reference.key))
+            .await?
+            .bytes()
+            .await?
+            .len() as u64,
+        reference.bytes
+    );
+    writer.shutdown(context()).await?;
+    Ok(())
+}

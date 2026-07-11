@@ -7,6 +7,20 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Exact query-version reclamation boundary — 2026-10-09
+
+RETENTION stays in_progress. Strict default659/all-feature710, source review,
+finite native wire and actual before/after-effect SIGKILL/reopen qualify the
+explicit stopped Small versionId/If-Match query reclamation mechanism. Exact
+NotFound, denial, replacement, lost replies and duplicate integrity headers
+are conservative; originals/orphans/live data/manifests/WAL controls stay protected.
+The native wire objects use RAM and do not prove AWS/disk durability. Fifteen
+current-binary persistent S3/monolith non-regressions pass with exact findings and
+all owned children reaped. Remaining bounded measurements, actual cloud/native/
+shared/runtime and fresh image/release gates stay open. See [progress](07-progress.md),
+`target/goal-execution-20261007/RETENTION/reclamation-validation-final/validation.json`,
+`reclamation-review.json` and `reclamation-server-simulation/report.json`.
+
 ## Logical query-retirement boundary — 2026-10-08
 
 RETENTION remains in_progress. Strict default658/all-feature703, source review,

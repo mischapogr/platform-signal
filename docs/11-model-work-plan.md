@@ -33,11 +33,12 @@ campaign and reviewed-revision CI acceptance remain open. CI/candidate tooling
 preparation belongs to the existing release/external items, not new product scope;
 see [OSS CI and cloud qualification](40-oss-ci-and-cloud-qualification.md).
 
-RETENTION logical-retirement acceptance is default658/all-feature703, with
-source review, actual control crash/recovery, surviving physical-reader ownership
-and fifteen current-binary persistent S3/monolith scenarios. Both native CI runners
-are wired for the extended simulation. The parent remains in_progress for exact
-conditional query reclamation and measurements; preserve external/release gates.
+RETENTION exact conditional reclamation acceptance is default659/all-feature710,
+with source review, bounded native denial/replacement/hidden-version/lost-reply
+and before/after-effect SIGKILL/reopen, plus15 current-binary persistent S3/monolith
+non-regressions. Logical retirement/stopped-cache evidence remains retained.
+The parent stays in_progress for bounded query/cache measurements. Preserve actual
+cloud/native CI/kind/HA/custody/image/release gates; no mandatory store/service split.
 
 S3-QUERY is passed_simulated: default641/all-feature686 strict acceptance,
 focused source review, six helper regressions and eleven persistent S3/real-server
