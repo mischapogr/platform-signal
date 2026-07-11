@@ -8,6 +8,34 @@ its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
 
+
+## SECURITY-TRANSPORT shared collector TLS — 2026-10-09
+
+The collector SDK now owns the single native client TLS builder and retained
+physical configuration/DNS workers. The agent keeps its public TLS API through
+reexports and uses the same HTTP client policy; no duplicated client crypto or
+worker implementation remains. Optional `HttpReceiptPublisher::with_tls` requires
+HTTPS and preserves exact prepared batches. Original ExtensionContext deadlines
+are checked before network polls and ready reply handoff. Proxy, redirect,
+decompression and detached DNS behavior remain disabled; bounded endpoint/token
+intake precedes client allocation.
+
+Actual local TLS peers prove wrong server roots, foreign/missing client identity
+produce zero HTTP requests and leave the exact receipt IDs/prefix unchanged after
+reopening; valid mTLS commits the verified prefix. This tiny admission peer is a
+simulation, not durable WAL proof. The actual monolith/agent gate independently
+passes all16 compound checks using the shared client implementation. Strict730
++781 default/all-feature workspace tests, both strict Clippy, fmt/workspace13 and
+independent review pass. Earlier native deadline red/green evidence remains
+historical source-bound proof; the moved physical worker's regressions pass here.
+
+SECURITY-TRANSPORT stays in_progress. Next: protected packaging/deployment
+readiness/liveness probes. No real PKI/native/fullCI/cloud/live vendor/current-image/
+release gate closes. Evidence: `target/goal-execution-20261007/SECURITY-TRANSPORT/shared-acceptance.json`,
+`shared-validation-final/validation.json`, `shared-process-final/qualification.json`
+and `shared-review.json`.
+
+
 ## SECURITY-TRANSPORT native mTLS slice — 2026-10-09
 
 Optional bounded native mTLS now protects the monolith API and metrics listeners

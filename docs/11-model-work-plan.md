@@ -20,14 +20,14 @@ full MVP release is complete.
 
 ## Current SECURITY-TRANSPORT slice — 2026-10-09
 
-Native monolith/agent mTLS and stopped/restart identity/root/CRL/token rotation have
-passed_simulated evidence:16 actual compound checks,4 harness regressions and
-independent review. Strict727default/778all-feature tests, both Clippy/fmt and
-workspace13 pass;5 regressions reject disabled deadline safeguards and pass after
-exact source restoration. Parent SECURITY-TRANSPORT stays in_progress. Continue
-shared collector publishing TLS and protected deployment/health probes; no mandatory
-new service. Real PKI/native/fullCI/cloud/vendor/image/release remain separate.
-See `target/goal-execution-20261007/SECURITY-TRANSPORT/native-acceptance.json`.
+Native monolith/agent mTLS and shared collector publishing are passed_simulated.
+One SDK client TLS/file/DNS implementation serves both agent and receipt publisher.
+Actual TLS denial preserves exact receipt IDs/prefix across reopen; valid replies
+commit the prefix. Actual monolith/agent16 checks, strict730/781 tests, both
+Clippy/fmt/workspace13 and independent review pass. Parent stays in_progress.
+Continue protected deployment/health probes without a plaintext/insecure bypass.
+Real PKI/native/fullCI/cloud/vendor/current-image/release remain separate. See
+`target/goal-execution-20261007/SECURITY-TRANSPORT/shared-acceptance.json`.
 
 ## Current SECURITY-ACCESS slice — 2026-10-09
 

@@ -437,7 +437,7 @@ fn metrics_text(inputs: &[InputReader], spool: &Spool, stats: &Counters) -> Stri
     );
     text.push_str(&format!(
         "signal_agent_dns_operations {}\nsignal_agent_dns_operation_capacity 1\nsignal_agent_dns_rejections_total {}\n",
-        crate::dns::depth(), crate::dns::rejections()
+        signal_collector_sdk::transport::dns_depth(), signal_collector_sdk::transport::dns_rejections()
     ));
     for (index, input) in inputs.iter().enumerate() {
         let i = input.metrics();

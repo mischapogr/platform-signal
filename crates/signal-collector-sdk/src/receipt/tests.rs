@@ -18,6 +18,8 @@ mod discovery_tests;
 mod driver_tests;
 #[path = "http_publisher_tests.rs"]
 mod http_publisher_tests;
+#[path = "http_tls_tests.rs"]
+mod http_tls_tests;
 #[path = "publisher_tests.rs"]
 mod publisher_tests;
 fn ctx() -> ExtensionContext {

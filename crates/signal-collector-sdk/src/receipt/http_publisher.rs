@@ -16,6 +16,17 @@ impl HttpReceiptPublisher {
         token: Option<&str>,
         connect_timeout: Duration,
     ) -> Result<Self, ReceiptError> {
+        Self::with_tls(endpoint, token, connect_timeout, None)
+    }
+
+    /// Select an explicit private client identity/trust configuration from the
+    /// shared native builder. TLS requires HTTPS and never falls back to HTTP.
+    pub fn with_tls(
+        endpoint: &str,
+        token: Option<&str>,
+        connect_timeout: Duration,
+        tls: Option<rustls::ClientConfig>,
+    ) -> Result<Self, ReceiptError> {
         if endpoint.is_empty()
             || endpoint.len() > 2048
             || connect_timeout.is_zero()
@@ -26,6 +37,7 @@ impl HttpReceiptPublisher {
         }
         let mut endpoint = Url::parse(endpoint).map_err(|_| ReceiptError::Configuration)?;
         if !matches!(endpoint.scheme(), "http" | "https")
+            || (tls.is_some() && endpoint.scheme() != "https")
             || endpoint.host_str().is_none()
             || !endpoint.username().is_empty()
             || endpoint.password().is_some()
@@ -46,16 +58,7 @@ impl HttpReceiptPublisher {
                 Ok(value)
             })
             .transpose()?;
-        let client = Client::builder()
-            .no_proxy()
-            .redirect(reqwest::redirect::Policy::none())
-            .no_gzip()
-            .no_brotli()
-            .no_zstd()
-            .no_deflate()
-            .connect_timeout(connect_timeout)
-            .pool_max_idle_per_host(1)
-            .build()
+        let client = crate::transport::client(connect_timeout, None, tls)
             .map_err(|_| ReceiptError::Configuration)?;
         Ok(Self {
             client,
@@ -119,11 +122,29 @@ impl ReceiptPublisher for HttpReceiptPublisher {
             }
             Ok(AdmissionReply { status, body })
         };
-        tokio::select! {
+        reply_before_deadline(ctx, work).await
+    }
+}
+
+pub(super) async fn reply_before_deadline(
+    ctx: &ExtensionContext,
+    work: impl std::future::Future<Output = Result<AdmissionReply, PublishFailure>>,
+) -> Result<AdmissionReply, PublishFailure> {
+    tokio::pin!(work);
+    let guarded = std::future::poll_fn(|cx| {
+        if ctx.check().is_err() {
+            std::task::Poll::Ready(Err(PublishFailure::Uncertain))
+        } else {
+            work.as_mut().poll(cx).map(|result| {
+                ctx.check().map_err(|_| PublishFailure::Uncertain)?;
+                result
+            })
+        }
+    });
+    tokio::select! {
             biased;
             _=ctx.cancellation().cancelled()=>Err(PublishFailure::Uncertain),
             _=tokio::time::sleep_until(ctx.deadline())=>Err(PublishFailure::Uncertain),
-            result=work=>result,
-        }
+            result=guarded=>result,
     }
 }

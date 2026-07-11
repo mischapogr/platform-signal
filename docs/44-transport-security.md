@@ -2,7 +2,8 @@
 
 This is the implementation contract for the frozen SECURITY-TRANSPORT item.
 Status: in_progress. Native agent/server transport has passed_simulated acceptance
-below; protected deployment probes and shared collector publishing remain pending.
+below; shared collector publishing is also qualified, while protected deployment
+probes remain pending.
 Real cloud/native/CI/release qualification remains separate.
 
 Keep the existing monolith and outbound agent. Optional native mTLS uses the
@@ -103,8 +104,16 @@ Evidence: `target/goal-execution-20261007/SECURITY-TRANSPORT/native-acceptance.j
 and `process-final/qualification.json`. This is local Linux AMD64 simulation,
 not production PKI, physical power loss, remote CI or native ARM64 qualification.
 
-The collector SDK publishing path still needs the same explicit TLS trust/identity
-seam. Existing HTTP health probes cannot probe an mTLS-only listener without
+The SDK now owns the single client TLS builder and retained physical DNS/file
+workers used by the agent and receipt publisher. `HttpReceiptPublisher::with_tls`
+requires HTTPS. Four actual TLS peer cases prove valid exact-prefix admission
+and unchanged original receipt IDs/prefix across reopen on wrong-root, foreign
+or missing client identity. The peer simulates HTTP admission; separate actual
+monolith/agent16 checks pass. Original ExtensionContext guards both polling and
+ready handoff. Strict730/781 tests, both Clippy/fmt/workspace13 and review pass.
+Evidence: `target/goal-execution-20261007/SECURITY-TRANSPORT/shared-acceptance.json`.
+
+Existing HTTP health probes cannot probe an mTLS-only listener without
 appropriate credentials; packaging/deployment must configure a qualified protected
 probe instead of silently weakening trust. These are remaining substeps within
 SECURITY-TRANSPORT; the parent stays in_progress.
