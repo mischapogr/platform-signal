@@ -116,10 +116,10 @@ and original evidence need trustworthy scope metadata and compatible historical
 handling before restricted reads can be enabled. An unavailable route or missing
 scope must not obtain authority from another operation.
 
-The selected next backend direction is established OAuth2 access-token
+The selected backend direction is established OAuth2 access-token
 introspection against a fixed authenticated provider endpoint, with OIDC sign-in
-handled by an existing trusted IdP/ingress. Active status, issuer, audience,
-subject and expiry will be required by the SIGNAL profile; access tokens are not
+handled by an existing trusted IdP/ingress. The implemented pure profile requires active status, issuer, audience,
+subject, expiry and Bearer token type; access tokens are not
 OIDC ID tokens. Provider timeouts, bounded bodies/concurrency, revocation, denial,
 malformed replies and cross-scope route behavior still need implementation and
 local simulations. The standard endpoint contract is
@@ -140,3 +140,35 @@ independent review pass. The final source-bound report is
 Review resolved retained programmatic spare capacity and serialization before
 nested length validation. This qualifies the pure grant model only; all backend,
 HTTP isolation/revocation and real-environment requirements above remain open.
+
+## Selected introspection response profile
+
+`access::introspection::IntrospectionProfile` operates only on a successful
+response obtained from an authenticated fixed provider. It proves neither that
+transport trust nor token authenticity. The provider must validate an access
+token; client-supplied identity JSON, OIDC ID-token payloads and forwarded user
+headers must never reach this constructor as authenticated provider responses.
+
+The response must be a JSON object no larger than16KiB. Recognized duplicate
+fields and malformed types fail; unknown RFC extension fields are ignored, never
+retained as permissions. The SIGNAL profile deliberately requires claims that
+RFC7662 permits providers to omit: exact configured issuer, exact audience (a
+string or at most16 unique bounded strings), nonempty subject<=256bytes,
+nonexpired integer expiry and a case-insensitive Bearer token type. Provider
+roles, groups, username and scope strings do not assign SIGNAL capabilities.
+An inactive token denies. Optional nbf/iat must not be future or at/after expiry;
+there is no clock-skew leeway. The trusted host supplies current Unix seconds.
+
+Operator profile issuer/audience bounds are2,048/256bytes. An explicit1–300second
+lease is clamped to token expiry; it bounds use of the returned identity but does
+not establish revocation. The parser has no network client or token cache.
+Errors expose static categories only. Private policy loading also rejects
+positional top-level arrays before typed parsing.
+
+Six profile fixtures plus the nine grant regressions pass with strict
+674default/725all-feature, formatting, both Clippy configurations, all-feature
+build, workspace13 and focused review. Evidence is source-bound in
+`target/goal-execution-20261007/SECURITY-ACCESS/introspection-validation-final/validation.json`.
+The array-shape review correction and integer-width fixture compile failure are
+retained. Native authenticated HTTPS and real server scope enforcement remain
+next; this acceptance closes no live IdP, cloud, ARM64, remote CI or release gate.
