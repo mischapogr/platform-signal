@@ -18,6 +18,16 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current SECURITY-AUDIT slice — 2026-10-09
+
+Parent in_progress. Strict bounded control record/ACK protocol and live verified
+subject references are passed_local: 6 new regressions, strict 739/790 workspace
+checks, both Clippy/fmt/workspace13 and review pass. No authority or operating audit
+sink is inferred from records. Continue independent bounded destination and native
+access/config/rule activation hooks, then secrets/encrypted-storage integration
+checks. See [audit contract](45-independent-audit.md) and
+`target/goal-execution-20261007/SECURITY-AUDIT/protocol-acceptance.json`.
+
 ## Current SECURITY-TRANSPORT slice — 2026-10-09
 
 SECURITY-TRANSPORT is passed_simulated for all frozen local substeps: native
