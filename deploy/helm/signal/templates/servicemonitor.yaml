@@ -1,4 +1,10 @@
 {{- if .Values.serviceMonitor.enabled }}
+{{- if and .Values.tls.existingSecret (or (not .Values.serviceMonitor.tls.existingSecret) (not .Values.serviceMonitor.tls.serverName)) }}
+{{- fail "mTLS metrics require serviceMonitor.tls.existingSecret and serverName" }}
+{{- end }}
+{{- if and .Values.serviceMonitor.tls.existingSecret (not .Values.tls.existingSecret) }}
+{{- fail "ServiceMonitor TLS requires server TLS" }}
+{{- end }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -17,4 +23,14 @@ spec:
       path: /metrics
       interval: {{ .Values.serviceMonitor.interval }}
       scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
+      {{- if .Values.tls.existingSecret }}
+      scheme: https
+      tlsConfig:
+        serverName: {{ .Values.serviceMonitor.tls.serverName | quote }}
+        ca:
+          secret: {name: {{ .Values.serviceMonitor.tls.existingSecret | quote }}, key: {{ .Values.serviceMonitor.tls.caKey | quote }}}
+        cert:
+          secret: {name: {{ .Values.serviceMonitor.tls.existingSecret | quote }}, key: {{ .Values.serviceMonitor.tls.certKey | quote }}}
+        keySecret: {name: {{ .Values.serviceMonitor.tls.existingSecret | quote }}, key: {{ .Values.serviceMonitor.tls.keyKey | quote }}}
+      {{- end }}
 {{- end }}

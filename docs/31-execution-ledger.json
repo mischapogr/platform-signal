@@ -619,7 +619,7 @@
     {
       "id": "SECURITY-TRANSPORT",
       "title": "mTLS and credential/certificate rotation",
-      "status": "in_progress",
+      "status": "passed_simulated",
       "dependencies": [
         "SECURITY-ACCESS"
       ],
@@ -634,7 +634,7 @@
         "docs/04-implementation-plan.md",
         "docs/44-transport-security.md"
       ],
-      "notes": "Native monolith/agent and shared SDK receipt-publishing TLS passed actual local tests, strict730/781 acceptance and independent review. One client TLS/file/DNS implementation; TLS uncertainty retains exact original receipt IDs/prefix across reopen. Parent stays in_progress for protected packaging/deployment probes; real PKI/native/fullCI/cloud/vendor/image/release exceptions unchanged.",
+      "notes": "All frozen local substeps passed: native mTLS/rotation, shared SDK publishing, protected loopback exec probes. Actual19 process/3 current-binary nonroot adapter/7 chart checks; strict733/784 gates and independent review. One first trial unrecorded query status failure retained without cause claim; subsequent gates pass with status diagnostics. Current complete image/cluster/PKI/cloud/native/fullCI/release remain separate.",
       "substeps": [
         {
           "id": "native-agent-server-mtls",
@@ -655,9 +655,12 @@
         },
         {
           "id": "protected-deployment-probes",
-          "status": "pending",
+          "status": "passed_simulated",
           "acceptance": [
             "Qualified mTLS readiness/liveness probes without plaintext or insecure verification fallback."
+          ],
+          "evidence": [
+            "target/goal-execution-20261007/SECURITY-TRANSPORT/probe-acceptance.json"
           ]
         }
       ]

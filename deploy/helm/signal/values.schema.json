@@ -19,7 +19,8 @@
     "tolerations",
     "affinity",
     "topologySpreadConstraints",
-    "limits"
+    "limits",
+    "tls"
   ],
   "properties": {
     "replicaCount": {
@@ -315,7 +316,8 @@
         "enabled",
         "labels",
         "interval",
-        "scrapeTimeout"
+        "scrapeTimeout",
+        "tls"
       ],
       "properties": {
         "enabled": {
@@ -334,6 +336,42 @@
         "scrapeTimeout": {
           "type": "string",
           "pattern": "^[1-9][0-9]*s$"
+        },
+        "tls": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "existingSecret",
+            "caKey",
+            "certKey",
+            "keyKey",
+            "serverName"
+          ],
+          "properties": {
+            "existingSecret": {
+              "type": "string",
+              "maxLength": 253
+            },
+            "caKey": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "maxLength": 253
+            },
+            "certKey": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "maxLength": 253
+            },
+            "keyKey": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+              "maxLength": 253
+            },
+            "serverName": {
+              "type": "string",
+              "maxLength": 253
+            }
+          }
         }
       }
     },
@@ -417,6 +455,31 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 9007199254740991
+        }
+      }
+    },
+    "tls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "existingSecret",
+        "serverKey",
+        "probeKey"
+      ],
+      "properties": {
+        "existingSecret": {
+          "type": "string",
+          "maxLength": 253
+        },
+        "serverKey": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "maxLength": 253
+        },
+        "probeKey": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "maxLength": 253
         }
       }
     }

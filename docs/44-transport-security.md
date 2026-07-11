@@ -1,10 +1,9 @@
 # Native transport security
 
 This is the implementation contract for the frozen SECURITY-TRANSPORT item.
-Status: in_progress. Native agent/server transport has passed_simulated acceptance
-below; shared collector publishing is also qualified, while protected deployment
-probes remain pending.
-Real cloud/native/CI/release qualification remains separate.
+Status: passed_simulated for the frozen local scope. Native monolith/agent,
+shared receipt publishing and protected deployment probes have the evidence below.
+Real PKI/cloud/native/CI/current-image/cluster/release qualification is separate.
 
 Keep the existing monolith and outbound agent. Optional native mTLS uses the
 already selected Rustls/ring stack. The server requires a valid client certificate
@@ -113,7 +112,43 @@ monolith/agent16 checks pass. Original ExtensionContext guards both polling and
 ready handoff. Strict730/781 tests, both Clippy/fmt/workspace13 and review pass.
 Evidence: `target/goal-execution-20261007/SECURITY-TRANSPORT/shared-acceptance.json`.
 
-Existing HTTP health probes cannot probe an mTLS-only listener without
-appropriate credentials; packaging/deployment must configure a qualified protected
-probe instead of silently weakening trust. These are remaining substeps within
-SECURITY-TRANSPORT; the parent stays in_progress.
+## Protected deployment probes
+
+The existing outbound `signal-agent` supplies quiet `--healthcheck`/`--readycheck`
+modes, before agent source/config/spool admission. `SIGNAL_HEALTHCHECK_ADDR`
+selects a nonzero numeric loopback socket; default127.0.0.1:8080. Optional
+`SIGNAL_PROBE_TLS_CONFIG` selects the same shared native client and private file
+limits. If server TLS is selected via `SIGNAL_TLS_CONFIG`, missing probe material
+fails closed. TLS never falls back to HTTP or weak verification. Even when server
+TLS is selected only through YAML, a plaintext probe fails at that TLS listener.
+
+One original two-second budget begins before environment/runtime/configuration
+initialization and includes TLS/HTTP/full response. The response must be200 and
+complete within at most1KiB; status alone cannot pass an unfinished body. Every
+poll/ready handoff rechecks the clock. No API token, source reads, spool mutation,
+redirect, ambient proxy or DNS target is used. The server certificate must include
+the chosen loopback IP SAN; the probe verifies this exact instance rather than a
+load balancer or sibling. Client certificate identity grants no API privileges.
+
+Docker's existing health executable performs a shell-free same-PID exec of that
+probe. Helm's three probes use exec with a three-second supervisor budget and
+separate private server/probe material from an existing Secret. Version1 Secret
+JSON contents remain outside the public repository. Material/root changes need a
+controlled stopped server restart; new probe invocations reload their own file.
+With TLS metrics, ServiceMonitor requires separate explicit CA/client/key Secret
+and server-name verification. Missing TLS metrics identity fails chart rendering.
+There is no `insecureSkipVerify` or HTTP scrape bypass.
+
+Kubernetes built-in HTTPS probes skip server certificate verification; the shared
+native exec probe avoids that bypass. Official [Kubernetes probe documentation](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
+was used after Context7's current documentation quota was exhausted. Native probe,
+chart, adapter and current image/cluster qualifications are distinct evidence.
+
+Protected probe acceptance passes actual monolith/agent19 compound checks, three
+current-binary adapter container cases with explicit UID/GID65532 and owned cleanup,
+seven positive/negative chart contracts, four harness regressions and independent
+review. Strict733/784 default/all-feature tests, both Clippy/fmt/workspace13 pass.
+The first query-status trial failure is retained without an inferred cause; the
+harness now records status and subsequent gates pass. Finite local evidence does
+not prove prolonged availability or a current full production image/cluster.
+See `target/goal-execution-20261007/SECURITY-TRANSPORT/probe-acceptance.json`.

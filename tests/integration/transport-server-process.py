@@ -182,6 +182,7 @@ commonName=supplied
             SIGNAL_CONNECTION_TIMEOUT_MS='1000', SIGNAL_SHUTDOWN_TIMEOUT_MS='1500', SIGNAL_MAX_CONNECTIONS='4')
         self.server_owner = owner
         self.trusted_context = context
+        self.server_material = material
         self.server = owner.spawn([str(self.server_binary)], env, 'server')
         def ready():
             if owner.exited(self.server) is not None:
@@ -199,6 +200,8 @@ commonName=supplied
 
     def rows(self, context, source):
         status, raw = absolute_request(context, self.port, '/v1/events?' + urllib.parse.urlencode({'source': source, 'limit': 10}), self.token)
+        if status != 200:
+            self.failure_http_status = status
         assert status == 200, 'transport query denied'
         return json.loads(raw)['events']
 
@@ -230,6 +233,19 @@ commonName=supplied
         length = struct.unpack('<I', data[:4])[0]
         assert length == len(data) - 12, 'retained spool frame length'
         return [json.loads(data[12:])['event']['id']]
+
+    def probe(self, owner, name, material, ready=False, success=True):
+        env = dict(self.environment, SIGNAL_TLS_CONFIG=str(self.server_material),
+                   SIGNAL_HEALTHCHECK_ADDR=f'127.0.0.1:{self.port}')
+        if material is not None:
+            env['SIGNAL_PROBE_TLS_CONFIG'] = str(material)
+        child = owner.spawn([str(self.agent_binary), '--readycheck' if ready else '--healthcheck'], env, name)
+        began = time.monotonic()
+        self.wait(lambda: owner.exited(child) is not None, 'protected probe exit deadline', 3)
+        code = owner.stop(child)
+        assert (code == 0) == success, 'protected probe status mismatch'
+        assert time.monotonic() - began < 2.5, 'protected probe exceeded original budget allowance'
+        assert owner.logs[-1].stat().st_size == 0, 'protected probe produced diagnostics'
 
     def deny(self, context, path='/readyz', port=None, server_trust_changed=False):
         denied = False
@@ -278,6 +294,18 @@ commonName=supplied
         wrong_root_config = self.material('wrong-root', client, [foreign])
         context = self.context(ca, client)
         self.start_server(server_config, context, 'initial-server')
+        probes = self.owner('initial-probes')
+        self.probe(probes, 'healthy', client_config)
+        self.probe(probes, 'ready', client_config, ready=True)
+        self.mark('actual_protected_health_and_readiness_without_api_token_or_source_spool')
+        foreign_config = self.material('foreign-probe', foreign_client, [ca])
+        malformed_probe = self.private / 'malformed-probe.json'
+        HELP.private_json(malformed_probe, {'schema_version': 1, 'private_canary': 'synthetic-private-canary'})
+        for name, material in [('missing', None), ('foreign', foreign_config),
+                               ('wrong-root', wrong_root_config), ('malformed', malformed_probe)]:
+            self.probe(probes, name, material, success=False)
+            assert absolute_request(context, self.port, '/readyz', self.token)[0] == 200
+        self.mark('protected_probe_denies_missing_foreign_wrong_root_malformed_identity_with_live_server')
         assert not self.agent('valid-agent', client_config, 'valid-mtls', host='localhost')
         self.wait(lambda: len(self.rows(context, 'valid-mtls')) == 1, 'actual mTLS persistence')
         original_ids = {row['id'] for row in self.rows(context, 'valid-mtls')}
@@ -367,6 +395,10 @@ commonName=supplied
         new_client = self.material('rotated-client', rotated_client, [rotated], [rotated_crl])
         new_context = self.context(rotated, rotated_client)
         self.start_server(new_server, new_context, 'rotated-server')
+        probes = self.owner('rotated-probes')
+        self.probe(probes, 'old-trust', client_config, success=False)
+        self.probe(probes, 'new-trust', new_client, ready=True)
+        self.mark('protected_probe_stopped_restart_rotation_denies_old_trust_accepts_new_identity')
         self.deny(context, server_trust_changed=True)
         retained = self.agent('old-roots-agent', client_config, 'rotated-recovery', token='synthetic-transport-token-a')
         assert len(retained) == 1
@@ -442,12 +474,14 @@ commonName=supplied
                 assert not any(value.encode() in data for value in canaries), 'private transport diagnostic leakage'
         self.mark('secret_free_bounded_process_diagnostics_and_owned_cleanup')
 
-    def cleanup(self):
+    def retire_processes(self):
         for owner in reversed(self.owners):
             try:
                 self.cleanup_errors.extend(owner.cleanup())
             except BaseException as exc:
                 self.cleanup_errors.append('owned transport cleanup: ' + type(exc).__name__)
+    def cleanup(self):
+        self.retire_processes()
         if not self.cleanup_errors:
             shutil.rmtree(self.private)
         else:
@@ -482,7 +516,7 @@ def main():
             signal.signal(kind, handler)
         report = {'schema_version': 1, 'status': 'passed_simulated' if failure is None and not run.cleanup_errors else 'failed',
             'started_at': started, 'completed_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            'checks': run.checks, 'failure_type': failure, 'failure_site': failure_site, 'cleanup_errors': run.cleanup_errors,
+            'checks': run.checks, 'failure_http_status': getattr(run, 'failure_http_status', None), 'failure_type': failure, 'failure_site': failure_site, 'cleanup_errors': run.cleanup_errors,
             'server_sha256': HELP.NATIVE.sha256(run.server_binary), 'agent_sha256': HELP.NATIVE.sha256(run.agent_binary),
             'limits': {'owners': 24, 'leaders_per_owner': 3, 'logs_per_owner': 8, 'log_bytes': 1048576,
                        'certificate_commands': 100, 'command_seconds': 5, 'response_bytes': 262144},

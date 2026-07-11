@@ -4,6 +4,7 @@ use std::{io::Write, process::ExitCode, time::Duration};
 use tokio_util::sync::CancellationToken;
 
 const HELP: &str = "signal-agent --server URL [--stdin | --file PATH ...] [--once]\n\
+  --healthcheck | --readycheck  Quiet local probe; SIGNAL_HEALTHCHECK_ADDR and SIGNAL_PROBE_TLS_CONFIG\n\
   --spool-dir PATH          Dedicated durable spool (default data/agent-spool)\n\
   --format auto|plain|json  JSON objects become attributes; plain lines become messages\n\
   --source-type TYPE        Source type (default log)\n\
@@ -48,6 +49,19 @@ fn main() -> ExitCode {
     if args.iter().any(|a| a == "--help" || a == "-h") {
         println!("{HELP}");
         return ExitCode::SUCCESS;
+    }
+    if args
+        .iter()
+        .any(|a| matches!(a.as_str(), "--healthcheck" | "--readycheck"))
+    {
+        if args.len() != 1 {
+            return ExitCode::FAILURE;
+        }
+        return if signal_agent::probe::from_env(args[0] == "--readycheck").is_ok() {
+            ExitCode::SUCCESS
+        } else {
+            ExitCode::FAILURE
+        };
     }
     let config = match AgentConfig::parse(args) {
         Ok(config) => config,
