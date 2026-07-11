@@ -84,3 +84,52 @@ Evidence: `target/goal-execution-20261007/RETENTION/cache-validation/validation.
 `cache-review.json` and `cache-server-simulation-final/report.json`. This does not
 retire remote query objects or qualify real cloud/native/HA/custody/release gates.
 Parent remains in_progress for retirement/reclamation and measurements.
+
+## Selected Small query-retirement protocol
+
+The next slice commits a logical horizon before any remote deletion is enabled.
+Only a prefix of complete committed batches may retire: every UTC hour must end
+before the validated query cutoff, and the last sequence must be at/below a fresh
+exclusive WAL checkpoint supplied by the trusted stopped host. A batch with a
+retained partition stops prefix retirement; unknown-age orphans remain held.
+Retirement uses a fresh publisher that has emitted no materialized query files,
+plus exclusive existing cache ownership when a cache exists. Live/physical source
+owners block that acquisition independently of a successor’s cache configuration.
+Explicit shutdown closes operations but stopped publisher handles retain source
+ownership; hosts must drop those handles before opening a successor. The typed
+checkpoint carries the WAL stream identity and is a trusted host report, not
+proof of exclusivity. A `drop_oldest` WAL checkpoint may exceed store high-water;
+only authenticated committed anchors at or below it retire. No HTTP producer can
+request this operation.
+
+Version1 control binds stream/backend, exact retired anchor/predecessor, policy,
+cutoff and checkpoint. A synced temporary record is atomically published and the
+control directory synced. Recovery validates complete controls, monotonic
+predecessors and the exact anchor in the authenticated committed chain before
+promoting a pending control or omitting retired data from queries. General owner
+opening only reads retirement controls; it never promotes/removes a pending record.
+Failed authentication preserves both current and candidate bytes. Existing manifests remain authentication
+history. Unknown/truncated/mismatched controls fail closed. Supported server
+startup rejects a WAL checkpoint below the retired floor. Historical replay at
+or below that floor is explicitly rejected, rather than presumed persisted.
+
+This first protocol slice grants no deletion capability. A later exact conditional
+removal seam must preserve pinned identities, permissions/locks and uncertain
+retry semantics; generic path-only delete cannot substitute for it. Old query
+objects and protected originals remain physically held during this slice. A
+retirement policy increase does not recover expired bytes; consistent restore and
+Standard fencing remain separate ledger contracts. Parent stays in_progress.
+
+## Accepted logical-retirement slice
+
+Strict default658/all-feature703, seven retirement parent regressions, actual
+SIGKILL at three control milestones, focused source review and fifteen current-
+binary S3/monolith scenarios pass. The real-server retirement control is explicitly
+synthetic; genuine synced WAL witnesses isolate the new rollback-floor guard from
+older frontier checks. Exact finding maps, source/snapshot/physical reader owners,
+current/pending controls and eight remote objects are preserved. Both native CI
+runners invoke the extended simulation, without claiming remote execution.
+Evidence: `target/goal-execution-20261007/RETENTION/retirement-validation-final/validation.json`,
+`retirement-review.json` and `retirement-server-simulation-final/report.json`.
+This grants no deletion/custody/fencing capability or external/release acceptance.
+The parent remains in_progress for conditional reclamation and measurements.

@@ -18,7 +18,7 @@ actual observability outage with M2 ACK gating, lost archive reply/exact replay,
 actual server and source crashes, uncertainty/reconciled reopen and fresh ACK.
 Private77 strict tests plus exact parent1 compound process gate and review pass;
 public588/622 remains unchanged. All source completeness, AWS/TLS/HA/shared-runtime
-and release exceptions stay visible. S3-QUERY is passed_simulated: default641/all-feature686 strict gates, source review, six helper regressions and eleven persistent S3/monolith scenarios pass. Four exact events/findings survive data-orphan and manifest-before-reply process crashes. RETENTION is in_progress: policy/report and stopped derived-cache maintenance pass strict default651/all-feature696, focused127/review, actual cache crash/rebuild and11 current-binary S3 scenarios; remote retirement/reclamation and measurements remain unfinished. Continue RETENTION; changed CI/images and AWS/TLS/native/HA/custody gates remain unqualified.
+and release exceptions stay visible. S3-QUERY is passed_simulated: default641/all-feature686 strict gates, source review, six helper regressions and eleven persistent S3/monolith scenarios pass. Four exact events/findings survive data-orphan and manifest-before-reply process crashes. RETENTION is in_progress: policy/report, stopped derived-cache maintenance and logical query-retirement pass strict default658/all-feature703, review, actual control/cache crash recovery and15 current-binary S3/monolith scenarios; conditional remote reclamation and measurements remain unfinished. Continue RETENTION; changed CI/images and AWS/TLS/native/HA/custody gates remain unqualified.
 
 
 ## Execution and evidence

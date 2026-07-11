@@ -8,7 +8,7 @@ use std::{collections::BTreeSet, io::Write};
 use uuid::Uuid;
 
 const MAX_SECONDS: u64 = 10 * 366 * 24 * 3600;
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RetentionPolicy {
     pub schema_version: u16,
@@ -70,6 +70,7 @@ impl ReportLimits {
 pub enum Reachability {
     ManifestChain,
     CommittedData,
+    RetiredData,
     UnreferencedQuery,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -79,6 +80,7 @@ pub enum RetentionDecision {
     ReplayBlocked,
     RequiresRetirementCommit,
     UnknownOrphanAge,
+    RetiredQuery,
 }
 #[derive(Debug, Serialize)]
 pub struct ReportObject {
@@ -149,7 +151,10 @@ impl RetentionReport {
                 let old = !file
                     .intersects(Some(cutoff), None)
                     .map_err(|_| StorageError::Corrupt("retention partition"))?;
-                let decision = if !old {
+                let retired = committed.reference.last_sequence <= snapshot.retired_through();
+                let decision = if retired {
+                    RetentionDecision::RetiredQuery
+                } else if !old {
                     RetentionDecision::KeepCommitted
                 } else if committed.reference.last_sequence > declared_wal_checkpoint {
                     RetentionDecision::ReplayBlocked
@@ -158,7 +163,11 @@ impl RetentionReport {
                 };
                 objects.push(ReportObject {
                     object: file.object.clone(),
-                    reachability: Reachability::CommittedData,
+                    reachability: if retired {
+                        Reachability::RetiredData
+                    } else {
+                        Reachability::CommittedData
+                    },
                     decision,
                 });
             }

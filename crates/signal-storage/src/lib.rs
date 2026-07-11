@@ -9,6 +9,7 @@ pub mod object_manifest;
 mod object_owner;
 pub mod object_publication;
 pub mod object_retention;
+pub mod object_retirement;
 #[cfg(feature = "s3")]
 pub mod object_s3;
 mod pages;

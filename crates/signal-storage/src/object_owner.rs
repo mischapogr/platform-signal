@@ -96,7 +96,7 @@ impl SmallOwner {
         for entry in fs::read_dir(&config.directory).map_err(StorageError::Io)? {
             check_context(Some(context))?;
             entries += 1;
-            if entries > 7 {
+            if entries > 9 {
                 return Err(StorageError::Corrupt("owner inventory"));
             }
             let entry = entry.map_err(StorageError::Io)?;
@@ -111,6 +111,8 @@ impl SmallOwner {
                 Some("genesis.json" | "genesis.tmp") if metadata.len() <= 256 => {}
                 Some("head.json" | "head.tmp")
                     if metadata.len() <= crate::object_head::HEAD_BYTES as u64 => {}
+                Some("retirement.json" | "retirement.tmp")
+                    if metadata.len() <= crate::object_retirement::RECORD_BYTES as u64 => {}
                 _ => return Err(StorageError::Corrupt("owner unknown entry")),
             }
         }
@@ -146,6 +148,22 @@ impl SmallOwner {
                 "Small query head recovery predecessor",
             ));
         }
+        let current_retirement = owner
+            .read_retirement_record(&owner.config.directory.join("retirement.json"), context)?;
+        let temp_retirement = owner
+            .read_retirement_record(&owner.config.directory.join("retirement.tmp"), context)?;
+        if let Some(candidate) = &temp_retirement {
+            retirement_transition(current_retirement.as_ref(), candidate)?;
+        }
+        for retirement in current_retirement.iter().chain(temp_retirement.iter()) {
+            let head = temp_head
+                .as_ref()
+                .or(current_head.as_ref())
+                .ok_or(StorageError::Corrupt("retirement requires query head"))?;
+            if retirement.anchor.last_sequence > head.current.last_sequence {
+                return Err(StorageError::Corrupt("retirement exceeds query head"));
+            }
+        }
         if has_binding {
             verify(&binding, &expected, context)?;
             // Complete matching temp can be removed; unknown/truncated temp holds.
@@ -173,6 +191,7 @@ impl SmallOwner {
         check_context(Some(context))?;
         owner.read_head(context)?;
         owner.query_initialized(context)?;
+        owner.read_retirement(context)?;
         Ok(owner)
     }
     /// Synced initialization witnesses a previously checked empty query namespace.
@@ -292,6 +311,104 @@ impl SmallOwner {
         crate::fs::sync_dir(&self.config.directory)?;
         check_context(Some(context))
     }
+    /// Read bounded controls without publishing an unauthenticated candidate.
+    pub(crate) fn read_retirement(
+        &self,
+        context: &OperationContext,
+    ) -> Result<crate::object_retirement::RetirementControls, StorageError> {
+        let current =
+            self.read_retirement_record(&self.config.directory.join("retirement.json"), context)?;
+        let pending =
+            self.read_retirement_record(&self.config.directory.join("retirement.tmp"), context)?;
+        if let Some(next) = &pending {
+            retirement_transition(current.as_ref(), next)?;
+        }
+        Ok((current, pending))
+    }
+    pub(crate) fn advance_retirement(
+        &self,
+        next: &crate::object_retirement::RetirementRecord,
+        context: &OperationContext,
+    ) -> Result<(), StorageError> {
+        self.advance_retirement_with(next, context, |_| Ok(()))
+    }
+    pub(crate) fn advance_retirement_with(
+        &self,
+        next: &crate::object_retirement::RetirementRecord,
+        context: &OperationContext,
+        mut after: impl FnMut(&'static str) -> Result<(), StorageError>,
+    ) -> Result<(), StorageError> {
+        check_context(Some(context))?;
+        next.validate(self.config.stream_id, self.config.backend_id)?;
+        let head = self
+            .read_head(context)?
+            .ok_or(StorageError::Corrupt("retirement requires query head"))?;
+        if next.anchor.last_sequence > head.current.last_sequence {
+            return Err(StorageError::Corrupt("retirement exceeds query head"));
+        }
+        let (current, pending) = self.read_retirement(context)?;
+        retirement_transition(current.as_ref(), next)?;
+        let temp = self.config.directory.join("retirement.tmp");
+        if let Some(pending) = pending {
+            if &pending != next {
+                return Err(StorageError::Corrupt("retirement pending mismatch"));
+            }
+            // Only the controller calls this after authenticating the candidate.
+            if current.as_ref() == Some(next) {
+                check_context(Some(context))?;
+                fs::remove_file(&temp).map_err(StorageError::Io)?;
+                crate::fs::sync_dir(&self.config.directory)?;
+                return check_context(Some(context));
+            }
+        } else {
+            if current.as_ref() == Some(next) {
+                return check_context(Some(context));
+            }
+            let bytes = next.encode(context)?;
+            let mut file = crate::fs::create(&temp)?;
+            file.write_all(&bytes).map_err(StorageError::Io)?;
+            check_context(Some(context))?;
+            file.sync_all().map_err(StorageError::Io)?;
+            after("temp_synced")?;
+        }
+        check_context(Some(context))?;
+        fs::rename(&temp, self.config.directory.join("retirement.json"))
+            .map_err(StorageError::Io)?;
+        after("renamed")?;
+        crate::fs::sync_dir(&self.config.directory)?;
+        after("directory_synced")?;
+        check_context(Some(context))
+    }
+    fn read_retirement_record(
+        &self,
+        path: &std::path::Path,
+        context: &OperationContext,
+    ) -> Result<Option<crate::object_retirement::RetirementRecord>, StorageError> {
+        check_context(Some(context))?;
+        match fs::symlink_metadata(path) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Ok(metadata)
+                if metadata.is_file()
+                    && metadata.len() <= crate::object_retirement::RECORD_BYTES as u64 => {}
+            Ok(_) => return Err(StorageError::Corrupt("retirement control file")),
+            Err(error) => return Err(StorageError::Io(error)),
+        }
+        let mut file = File::open(path).map_err(StorageError::Io)?;
+        let mut bytes = Vec::new();
+        (&mut file)
+            .take(crate::object_retirement::RECORD_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(StorageError::Io)?;
+        let record = crate::object_retirement::RetirementRecord::decode(
+            &bytes,
+            self.config.stream_id,
+            self.config.backend_id,
+            context,
+        )?;
+        file.sync_all().map_err(StorageError::Io)?;
+        check_context(Some(context))?;
+        Ok(Some(record))
+    }
     fn read_record(
         &self,
         path: &std::path::Path,
@@ -320,6 +437,22 @@ impl SmallOwner {
         check_context(Some(context))?;
         Ok(Some(record))
     }
+}
+fn retirement_transition(
+    current: Option<&crate::object_retirement::RetirementRecord>,
+    next: &crate::object_retirement::RetirementRecord,
+) -> Result<(), StorageError> {
+    if current == Some(next) {
+        return Ok(());
+    }
+    if next.previous_anchor.as_ref() != current.map(|record| &record.anchor)
+        || current.is_some_and(|record| {
+            next.query_before < record.query_before || next.wal_checkpoint < record.wal_checkpoint
+        })
+    {
+        return Err(StorageError::Corrupt("retirement control predecessor"));
+    }
+    Ok(())
 }
 fn verify(
     path: &std::path::Path,

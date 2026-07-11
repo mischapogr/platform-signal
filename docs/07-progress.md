@@ -1,5 +1,50 @@
 # Implementation progress
 
+## RETENTION logical query-retirement horizon — 2026-10-08
+
+RETENTION remains in_progress. A trusted stopped host supplies a fresh exclusive,
+stream-bound WAL checkpoint. Only complete committed batches wholly before the
+query cutoff retire, as a contiguous prefix. Mixed retained/expired batches stop
+advancement; unknown-age orphans remain held. A supported `drop_oldest` checkpoint
+may exceed store high-water; the authenticated anchor must stay at/below it.
+No HTTP producer retirement/deletion path is added.
+
+Source state retains the actual Small owner through stopped publisher handles
+and surviving physical readers, independently of successor cache configuration.
+Actual paused-read regressions block successors with no cache or a different
+cache directory after explicit shutdown. Retained snapshots also fence successors.
+Owners must drop stopped handles before reopening. Recovery reads both current
+and pending retirement controls without mutation, authenticates exact committed
+anchors/whole prefixes/inventory, then promotes a complete pending record.
+Forged candidate rejection preserves both byte arrays. Retired data may be absent;
+missing live data fails closed, while manifests retain authentication history.
+Replay at/below the retired floor is rejected. Server startup rejects a WAL
+checkpoint below that floor before readiness/admission.
+
+Seven parent retirement regressions, actual child SIGKILL at temporary-sync,
+rename and directory-sync milestones, strict default658/all-feature703 (storage
+91/default,100/S3; eight helpers ignored standalone), formatting, default/all-feature
+Clippy, all-feature build, workspace13 and focused source review pass. Fifteen
+current immutable-binary S3/monolith scenarios pass with all12 children reaped.
+The extended simulation uses an explicitly synthetic chain-bound retirement
+control and genuine synced WAL admissions captured at the base crash milestones.
+It proves the old frontier checks accept a rollback without retirement, then the
+retired-floor guard rejects the same restore. Exact canonical finding maps match
+through retirement, negative-control replay and consistent restoration; all eight
+remote objects remain unchanged. CI runs this simulation on both native runners.
+Evidence: `target/goal-execution-20261007/RETENTION/retirement-validation-final/validation.json`,
+`retirement-review.json`, `retirement-focused-5.log`,
+`retirement-server-simulation-final/report.json` and `retirement-candidate/binary.json`.
+
+Retained failed attempts include the initial large-response Clippy warning,
+sandbox socket denial, an existing S3 reopen test retaining its stopped handle,
+and the first simulation's reclaimed-WAL negative control. The corrections are
+bounded response boxing, authorized loopback execution, explicit handle drop,
+and genuine retained admission witnesses. No failed attempt is counted as passing.
+No remote deletion, private-original custody, fresh image, cloud/native/HA or
+release qualification follows. Next: exact conditional query reclamation and
+representative bounded query measurements inside the same frozen RETENTION item.
+
 ## RETENTION stopped derived-cache maintenance — 2026-10-08
 
 RETENTION stays in_progress. Stopped maintenance requires an existing exact
@@ -218,7 +263,7 @@ create-failure/replay test and release documentation now have local evidence;
 final independent review passed with no unresolved findings. The offline restore
 addition and native image-to-parser/pipeline runner also passed independent
 review. The prior workspace gate had 228 passing tests; the current settled
-default workspace gate has 651; the all-feature gate has 696 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
+default workspace gate has 658; the all-feature gate has 703 (14 independent-custody and two source-ticket fence regressions, 12 native byte-proof and nine signed proof-source regressions, 11 regional CloudTrail observer regressions, 13 bounded observer regressions, 11 signed AWS transport regressions and one additional signed-source/real-server test), including seven bounded collector-driver tests and four source/real-server delivery simulations, four HTTP publisher tests, eight retained-batch publication tests, eight capture tests and one inherited-description lock test, seven direct notification discovery tests, seven whole-object preparation tests, seven gzip/object reader tests, 11 retirement/replacement tests, 14 source-ACK tests, 12 owner-handover/reconciled-open tests, 12 verified-prefix progress tests, 21 initial source-receipt store tests, 16 CloudTrail parser/preparation tests, three native-to-finding
 profile tests, 24 SDK SourceCoverage tests, 106 local-store/intake/correction/
 payload/identity-pruning/scan tests and seven UI/exact-ID regressions. The current UI revision's AMD64 image has container, Helm, supply-chain and native
 qualification evidence. The new local kind campaign is blocked by kube-proxy
