@@ -1,0 +1,12 @@
+{
+  "name": "platform-signal-identity-qualification",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Optional established OIDC and browser qualification tooling; no runtime dependency",
+  "engines": { "node": ">=20.18.1" },
+  "dependencies": {
+    "openid-client": "6.8.8",
+    "playwright-core": "1.64.0",
+    "undici": "7.30.0"
+  }
+}

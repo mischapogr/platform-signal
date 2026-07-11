@@ -592,7 +592,7 @@
     {
       "id": "SECURITY-ACCESS",
       "title": "OIDC/trusted identity, scoped credentials and RBAC",
-      "status": "in_progress",
+      "status": "passed_simulated",
       "dependencies": [
         "CORE"
       ],
@@ -603,14 +603,18 @@
         "target/goal-execution-20261007/SECURITY-ACCESS/",
         "target/goal-execution-20261007/SECURITY-ACCESS/server-acceptance.json",
         "target/goal-execution-20261007/SECURITY-ACCESS/finding-acceptance.json",
-        "target/goal-execution-20261007/SECURITY-ACCESS/coverage-acceptance.json"
+        "target/goal-execution-20261007/SECURITY-ACCESS/coverage-acceptance.json",
+        "target/goal-execution-20261007/SECURITY-ACCESS/idp-acceptance.json",
+        "target/goal-execution-20261007/SECURITY-ACCESS/idp-browser-final/qualification.json",
+        "target/goal-execution-20261007/SECURITY-ACCESS/idp-review.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md",
-        "docs/42-access-control-contract.md"
+        "docs/42-access-control-contract.md",
+        "docs/43-local-idp-qualification.md"
       ],
-      "notes": "Accepted grants/profile/native HTTPS/query/admission/composed server, trusted finding history and native coverage binding. Strict718/769, both Clippy/fmt/build/workspace13 and independent review pass. Actual TLS native actor/read-write/cross-scope/cursor/revocation/restart preserves originals; request-local expiry/physical ownership and actual SQLite interruption qualify locally with red-green safeguards. Established local IdP/OIDC sign-in and remaining capabilities remain next; parent in_progress. No source-completeness, historical authentication, native/full-CI/cloud/image/release qualification."
+      "notes": "Frozen local scope complete: grants/profile/native HTTPS/query/admission/composed server, trusted findings/coverage, established Keycloak/OIDC/Chromium156 sign-in and existing console.11 compound IdP checks,8 helper failure regressions, independent review and reused unchanged strict718/769 source-bound Rust acceptance pass. Actual prior coverage supplies original-byte/cursor/actor/revocation/restart evidence. Unavailable evidence/admin/rule/audit HTTP routes404 remain closed, not operative services; established external sign-in uses existing console token field. CI wired but unexecuted on reviewed revision; live tenants/transport/cloud/native/fullCI/current-image/release remain separate. Continue SECURITY-TRANSPORT."
     },
     {
       "id": "SECURITY-TRANSPORT",

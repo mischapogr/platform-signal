@@ -7,6 +7,38 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## SECURITY-ACCESS established IdP acceptance — 2026-10-09
+
+SECURITY-ACCESS is passed_simulated for its frozen local scope. Actual pinned
+Keycloak26.8.0, locked openid-client and Chromium156 sign in through authenticated
+HTTPS authorization-code/PKCE/state/nonce. Fresh native introspection admits and
+queries only complete scoped event/finding pairs. Eleven compound checks include
+wrong audience/ID token/unbound identity/header denial, code replay, real session
+revocation, observed pre-expiry admission then expiry denial, malformed callback,
+actual provider pause/recovery and the existing SecOps console with no persisted
+browser token. Eight meaningful harness failure regressions and source review pass.
+
+Coverage's earlier actual TLS gate supplies authorized original coverage bytes,
+actor binding, cursor isolation, revocation and unchanged receipts/replay. Evidence/
+admin/rules/audit HTTP routes remain404 even with explicit corresponding grants;
+this qualifies fail-closed absence, not operative services. Sign-in is an established
+external IdP/client flow; the console uses its existing Access token field.
+
+No Rust/runtime dependency or behavior changed. Strict718default/769all-feature
+source-bound acceptance, both Clippy/fmt/build/workspace13 remain applicable.
+Workflow syntax/workspace checks and the dated optional npm audit pass (zero
+reported vulnerabilities). Both native GitHub Rust jobs now run this optional local
+IdP gate; reviewed-revision remote execution remains unverified. Early failed
+provider/audience/session/cleanup runs remain failed. An accidental shared browser
+cache cleanup was corrected by restoring both affected revision1208 entries from
+matching official archives; final acceptance uses the explicit project cache.
+
+Evidence: `target/goal-execution-20261007/SECURITY-ACCESS/idp-acceptance.json`,
+`idp-browser-final/qualification.json`, `idp-helper-final/`, `idp-review.json` and
+`idp-preparation/cache-correction.json`. See [local IdP qualification](43-local-idp-qualification.md).
+Next: SECURITY-TRANSPORT. Live IdP/rotation, native ARM64/full remote CI, real
+AWS/EKS/vendors, current production image and release remain separate gates.
+
 ## SECURITY-ACCESS coverage identity boundary — 2026-10-09
 
 Native coverage uses exact private binding selection, complete ReadCoverage or
