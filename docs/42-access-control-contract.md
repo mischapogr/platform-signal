@@ -4,7 +4,8 @@ This contract implements the frozen SECURITY-ACCESS item from the
 [execution ledger](31-execution-ledger.md) and the trust requirements in
 [product architecture](27-product-architecture.md#7-security-and-useful-defaults).
 Accepted slices provide bounded paired grants, an introspection response profile
-and fixed-provider native HTTPS token authentication. Mandatory trusted-host query filtering is accepted too. Server routes still use
+and fixed-provider native HTTPS token authentication. Mandatory trusted-host query filtering and generic producer admission are accepted.
+The composed signal-server routes still use
 the development server's optional single bearer token. SECURITY-ACCESS remains
 in progress until server enforcement and local identity-provider HTTP gates pass.
 
@@ -242,3 +243,35 @@ and a reproduced late-ready result. Strict689/740 and source review are bound in
 Source selection and scan-budget metadata remain aggregate storage diagnostics;
 this is row authorization, not per-account physical file selection or cloud
 ownership attestation. Server route integration and admission trust remain next.
+
+## Native identity producer admission
+
+The explicit `IngestService::new_with_identity` constructor installs the backend;
+a simultaneous shared API token is configuration failure. Identity mode never
+falls back to legacy `authorized`. `authenticate_headers` requires exactly one
+Bearer authorization field; malformed or oversized opaque credentials deny and
+forwarded user/role headers are irrelevant. Native authentication uses the
+original request deadline and service cancellation before reading its body.
+
+A grant must contain IngestEvents authority. Complete normalized batch scope
+checks precede every sink admission; exact canonical source/account/resource
+facts authorize and missing restricted facts deny without attribute fallback.
+No mixed unauthorized batch prefix is admitted. Preflight uses one clock snapshot
+for capability/scope checks after normalization. A lease ending during preflight
+or between admissions reports RequestTimeout408. A committed prefix remains
+truthful and retryable; a fresh request introspects again. Never report rollback
+of an admitted event. Native/provider/per-request timeouts are counted.
+
+Forbidden403 is a version1 permission-error category. The semantic validator
+classifies it permanent only with zero accepted events; permanent committed
+prefixes remain invalid. Body-unread denials use unknown zero totals rather than
+inventing an event count. Error text is static. Closed identity authority fails
+readiness. Metrics expose fixed physical/queue depth/capacity, workers, counters
+and closed state without secret/subject labels.
+
+Five generic producer-route regressions join ten native tests; actual TLS and
+Axum exercise a bounded volatile MemorySink and prefix suspension, not the
+composed durable server. Strict694/745 and review are bound in
+`target/goal-execution-20261007/SECURITY-ACCESS/admission-validation-final/validation.json`.
+Validated server access configuration, persisted HTTP admission/query checks and
+remaining scope-aware routes/local IdP acceptance remain next.

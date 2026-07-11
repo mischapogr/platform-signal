@@ -607,7 +607,7 @@
         "docs/04-implementation-plan.md",
         "docs/42-access-control-contract.md"
       ],
-      "notes": "Accepted bounded grants/profile/native HTTPS and mandatory trusted-host query grants. Five actual committed Parquet/DataFusion regressions, strict689/740, both Clippy/build/fmt/workspace13 and source review pass. Complete QueryEvents scopes filter canonical columns before sort/limit; user filters intersect, literals/nulls fail closed, expiry checked before/after selection, per row and final response. Reproduced paused-poll late-ready deadline fixed by original-context success check. No HTTP identity route wiring yet; parent stays in_progress. Whole-batch admission, server configuration/routes/local IdP HTTP scope/expiry/revocation next. External/native/remote/cloud/image/release exceptions retained."
+      "notes": "Accepted paired grants/profile/native HTTPS/query and generic producer admission: five new route/ten native regressions, strict694/745, both Clippy/build/fmt/workspace13 and review. Explicit identity mode never falls back; whole normalized batch canonical scope preflight, forwarded/duplicate credential denial, operation separation/revocation/deadline, closed readiness and bounded metrics. Lease-expired committed prefix408 remains exact Retry with fresh suffix; Forbidden403 permanent only zero prefix. Axum/TLS with volatile MemorySink only; composed server durable WAL/identity config, remaining findings/coverage/evidence/admin scope history and local IdP HTTP acceptance next. Parent in_progress; all real native/cloud/remote/image/release exceptions retained."
     },
     {
       "id": "SECURITY-TRANSPORT",
