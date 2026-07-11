@@ -7,6 +7,20 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## Logical query-retirement boundary — 2026-10-08
+
+RETENTION remains in_progress. Strict default658/all-feature703, source review,
+actual SIGKILL at three control milestones and fifteen current-binary persistent
+S3/monolith scenarios qualify a Small logical retirement horizon. Exact finding
+history, reader ownership, pending-control preservation and the server's rollback
+floor pass. The retirement-control server fixture is explicitly synthetic and
+uses genuine synced WAL admission witnesses. Both native CI runners are wired;
+remote execution, cloud/ARM64/HA/custody and release acceptance stay separate.
+Remote query objects and protected originals are physically held; reclamation and
+measurements remain unfinished. See [progress](07-progress.md),
+`target/goal-execution-20261007/RETENTION/retirement-validation-final/validation.json`,
+`retirement-review.json` and `retirement-server-simulation-final/report.json`.
+
 ## Stopped derived-cache boundary — 2026-10-08
 
 RETENTION stays in_progress. Strict default651/all-feature696, focused127,

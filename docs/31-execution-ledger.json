@@ -570,14 +570,17 @@
         "target/goal-execution-20261007/RETENTION/policy-review.json",
         "target/goal-execution-20261007/RETENTION/cache-validation/validation.json",
         "target/goal-execution-20261007/RETENTION/cache-review.json",
-        "target/goal-execution-20261007/RETENTION/cache-server-simulation-final/report.json"
+        "target/goal-execution-20261007/RETENTION/cache-server-simulation-final/report.json",
+        "target/goal-execution-20261007/RETENTION/retirement-validation-final/validation.json",
+        "target/goal-execution-20261007/RETENTION/retirement-review.json",
+        "target/goal-execution-20261007/RETENTION/retirement-server-simulation-final/report.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md",
         "docs/41-retention-contract.md"
       ],
-      "notes": "Policy/advisory report and stopped derived-cache maintenance accepted: strict default651/all-feature696, focused127, source review, actual SIGKILL/rebuild/permission/control preservation and physical reader ownership; current immutable monolith passes11 S3 scenarios. No remote query retirement/deletion, custody/fencing or external authority; synced retirement/reclamation and measurements remain required."
+      "notes": "Policy/report, stopped derived-cache maintenance and logical Small query-retirement accepted: default658/all-feature703, source review, actual three-stage control SIGKILL/recovery, independent physical-reader ownership and15 current-binary S3/monolith scenarios. Both native CI runners invoke extended simulation; execution is unqualified. Remote query objects/originals stay physically held; exact conditional reclamation and representative measurements remain required. No parent/external/release closure."
     },
     {
       "id": "SECURITY-ACCESS",
