@@ -1,6 +1,7 @@
 /target/
 /data/
 /tools/mcp/node_modules/
+/tools/identity/node_modules/
 /.idea/
 /.setting.app/
 /.setting.shop/

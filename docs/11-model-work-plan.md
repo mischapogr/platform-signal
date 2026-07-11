@@ -20,15 +20,16 @@ full MVP release is complete.
 
 ## Current SECURITY-ACCESS slice — 2026-10-09
 
-Paired grants/profile/native HTTPS, query/admission, composed server, trusted
-finding history and native coverage binding are accepted. Strict718default/
-769all-feature, both Clippy/fmt/build/workspace13 and source review pass. Actual
-TLS/monolith gates preserve exact scoped coverage bytes/cursors/receipts and
-finding feed across restart. Queued, ready-reply and actual SQLite lease-expiry
-checks preserve physical ownership and distinguish uncertain writes.
-SECURITY-ACCESS stays in_progress. Continue established local IdP/OIDC sign-in
-and remaining capabilities; preserve native/cloud/remote/image/release exceptions.
-See `target/goal-execution-20261007/SECURITY-ACCESS/coverage-acceptance.json`.
+SECURITY-ACCESS is passed_simulated for the frozen local scope: paired grants,
+profile/native HTTPS, query/admission, trusted finding history, native coverage and
+established Keycloak/OIDC/browser acceptance. Eleven compound actual local IdP
+checks and eight harness failure regressions pass with independent review. Existing
+strict718/769 Rust source-bound acceptance remains applicable. Absent evidence/
+admin/rule/audit routes stay404; established sign-in supplies a token to the existing
+console, without an embedded login server. Both native CI runners are wired, not
+qualified on this revision. Continue SECURITY-TRANSPORT; preserve cloud/live-tenant/
+native/full-CI/image/release exceptions. See
+`target/goal-execution-20261007/SECURITY-ACCESS/idp-acceptance.json`.
 
 ## Persistent execution Goal — 2026-10-07
 

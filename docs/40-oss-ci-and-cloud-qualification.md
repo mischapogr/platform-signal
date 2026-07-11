@@ -45,6 +45,16 @@ denial. Local AMD64 evidence has33 passing samples; remote execution stays open.
 It records debug structural timings, without claiming native production capacity,
 cloud prices or cache GET savings. See the [retention contract](41-retention-contract.md).
 
+Both Rust runners now also run the optional established local Keycloak/OIDC/browser
+gate: locked test-only npm tools, lock-selected Chromium in a project cache,
+manifest-pinned Keycloak, actual browser sign-in and native monolith scope/expiry/
+revocation/outage denials. Eight helper failure regressions protect owned cleanup
+and finite networking. Credentials stay in private temporary mounts outside
+artifacts; cleanup uncertainty fails and records private recovery identifiers.
+Local AMD64 passes11 compound checks; ARM64/remote execution on this revision
+remains open. This does not add a production identity service or qualify live
+provider/cloud authority. See [local IdP qualification](43-local-idp-qualification.md).
+
 After both Rust jobs pass, fresh native runner jobs build the production image,
 check host/daemon/ELF identity and persistence, run parsers and measured pipelines
 with a finite 120-second soak, run kind persistence/restart, and produce dependency
