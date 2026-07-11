@@ -7,6 +7,19 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## SECURITY-ACCESS introspection-profile boundary — 2026-10-09
+
+SECURITY-ACCESS remains in_progress. Six selected response-profile fixtures and
+nine paired-grant regressions pass with strict default674/all-feature725,
+formatting, both Clippy configurations, all-feature build, workspace13 and focused
+review. Object shape, active/issuer/audience/subject/Bearer type/expiry, finite
+lease, future nbf/iat denial, duplicates/bounds and ignored role/scope extensions
+are qualified as pure parsing. Fixed authenticated provider transport, opaque
+credential validation, OIDC sign-in/revocation and actual HTTP scope enforcement
+remain unfinished. Existing external/native/cloud/image/release gates stay open.
+See [progress](07-progress.md), [access contract](42-access-control-contract.md)
+and `target/goal-execution-20261007/SECURITY-ACCESS/introspection-acceptance.json`.
+
 ## SECURITY-ACCESS grant-only boundary — 2026-10-09
 
 SECURITY-ACCESS remains in_progress. Nine pure authorization/resource regressions,

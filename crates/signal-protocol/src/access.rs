@@ -1,5 +1,7 @@
 //! Bounded host-trusted identity and explicit operation/resource permissions.
 //! This module does not authenticate tokens, headers, or provider transports.
+pub mod introspection;
+
 use serde::{Deserialize, Serialize};
 use signal_event::SignalEvent;
 use std::{
@@ -203,6 +205,9 @@ impl AccessPolicy {
     pub fn from_json(bytes: &[u8]) -> Result<Self, AccessError> {
         if bytes.is_empty() || bytes.len() > POLICY_BYTES {
             return Err(AccessError::InvalidPolicy("document byte bound"));
+        }
+        if bytes.iter().find(|byte| !byte.is_ascii_whitespace()) != Some(&b'{') {
+            return Err(AccessError::InvalidPolicy("document schema"));
         }
         serde_json::from_slice(bytes).map_err(|_| AccessError::InvalidPolicy("document schema"))
     }

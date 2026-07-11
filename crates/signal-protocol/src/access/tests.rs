@@ -295,7 +295,7 @@ fn document() -> Value {
 #[test]
 fn malformed_policies_have_redacted_errors_and_never_compile() {
     let base = document();
-    let mut cases = Vec::new();
+    let mut cases = vec![json!([1, base["roles"], base["bindings"]])];
     for path in ["schema_version", "roles", "bindings"] {
         let mut missing = base.clone();
         missing.as_object_mut().unwrap().remove(path);
