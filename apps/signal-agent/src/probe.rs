@@ -198,28 +198,38 @@ mod tests {
         ] {
             let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
             let address = listener.local_addr()?;
+            let (sent, mut observed) = tokio::sync::oneshot::channel();
             let server = tokio::spawn(async move {
                 let (mut stream, _) = listener.accept().await?;
                 let mut request = [0u8; 1024];
                 let n = stream.read(&mut request).await?;
                 assert!(request[..n].starts_with(b"GET /readyz "));
                 stream.write_all(reply).await?;
+                let _ = sent.send(());
                 if stall {
-                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    // Keep the incomplete response physically open until the
+                    // probe's original production budget expires.
+                    std::future::pending::<()>().await;
                 }
                 Ok::<(), std::io::Error>(())
             });
             let began = Instant::now();
+            let budget = Duration::from_secs(2);
             let result = run(
                 Config { address, tls: None },
                 true,
-                began + Duration::from_millis(100),
+                began + budget,
                 CancellationToken::new(),
             )
             .await;
             assert_eq!(result, expected);
-            assert!(began.elapsed() < Duration::from_millis(500));
+            assert!(began.elapsed() < budget + Duration::from_secs(1));
             if stall {
+                assert!(
+                    observed.try_recv().is_ok(),
+                    "incomplete body was never sent"
+                );
+                assert!(began.elapsed() >= budget);
                 server.abort();
                 let _ = server.await;
             } else {

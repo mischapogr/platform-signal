@@ -426,6 +426,22 @@ impl RequestGrant {
             && self.identity.issuer == issuer
             && self.identity.subject == subject
     }
+    /// Host-only pseudonymous audit reference for the verified live issuer/subject.
+    /// It is metadata, not a token, capability, revocation cache or identity proof.
+    /// Framing prevents delimiter ambiguity; no bearer/header material is hashed.
+    pub fn audit_subject_key(&self, now: u64) -> Option<String> {
+        use sha2::{Digest, Sha256};
+        if now < self.issued_at || !self.identity.valid_at(now) {
+            return None;
+        }
+        let mut hash = Sha256::new();
+        hash.update(b"signal.audit.subject.v1\0");
+        hash.update((self.identity.issuer.len() as u64).to_be_bytes());
+        hash.update(self.identity.issuer.as_bytes());
+        hash.update((self.identity.subject.len() as u64).to_be_bytes());
+        hash.update(self.identity.subject.as_bytes());
+        Some(hash.finalize().iter().map(|b| format!("{b:02x}")).collect())
+    }
     /// Immutable request-local lease bounds for a trusted downstream adapter.
     /// Never persist these timestamps as proof or extend them across requests.
     pub fn lease_bounds(&self) -> (u64, u64) {

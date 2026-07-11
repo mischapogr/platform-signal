@@ -40,6 +40,11 @@ native/fullCI/cloud/vendor/release gates remain separate. Continue SECURITY-AUDI
 See [transport contract](44-transport-security.md) and
 `target/goal-execution-20261007/SECURITY-TRANSPORT/probe-acceptance.json`.
 
+SECURITY-AUDIT is in_progress. Its bounded record/ACK/live actor-reference protocol
+passes locally with 6 regressions, strict 739/790 gates and review. Continue the
+independent destination/native hooks and secrets/encrypted-storage seams. No
+operative collection or encryption proof is inferred. See [audit](45-independent-audit.md).
+
 ## Execution and evidence
 
 One coherent writer change set at a time. Verify, resolve focused review, record
@@ -93,7 +98,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | RETENTION | passed_simulated | S3-QUERY, EVIDENCE | Selective query acceleration, retention and cost controls |
 | SECURITY-ACCESS | passed_simulated | CORE | OIDC/trusted identity, scoped credentials and RBAC |
 | SECURITY-TRANSPORT | passed_simulated | SECURITY-ACCESS | mTLS and credential/certificate rotation |
-| SECURITY-AUDIT | pending | SECURITY-ACCESS, EVIDENCE | Restricted independent audit and secrets/encryption integration seams |
+| SECURITY-AUDIT | in_progress | SECURITY-ACCESS, EVIDENCE | Restricted independent audit and secrets/encryption integration seams |
 | SMALL-PILOT | pending | AWS-DELIVERY, COVERAGE-OBSERVERS, OUTBOX, EVIDENCE, S3-QUERY, SECURITY-TRANSPORT | Small source→evidence→finding→notification simulation |
 | SHARED-CONTRACT | pending | SMALL-PILOT | PostgreSQL shared-control schema, transactions, fencing and migration contract |
 | SHARED-RUNTIME | pending | SHARED-CONTRACT | Shared-control implementation and local PostgreSQL qualification |
