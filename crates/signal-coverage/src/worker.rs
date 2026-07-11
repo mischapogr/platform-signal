@@ -1,3 +1,4 @@
+use crate::intake::AuthorizationLease;
 use crate::{
     AuthorizedBinding, CoverageConfig, CoverageError as Error, CoverageMetrics, CoverageSubmission,
     IdentityPruneBudget, IdentityPruneOutcome, IntakeContext, IntakeOutcome, PayloadPruneBudget,
@@ -38,6 +39,7 @@ impl OperationContext {
 pub(crate) struct WorkContext {
     context: OperationContext,
     phase: Arc<AtomicU8>,
+    lease: Option<AuthorizationLease>,
 }
 impl WorkContext {
     fn new(context: OperationContext, maximum: Duration) -> Self {
@@ -47,16 +49,27 @@ impl WorkContext {
                 cancellation: context.cancellation.child_token(),
             },
             phase: Arc::new(AtomicU8::new(0)),
+            lease: None,
         }
     }
     pub fn check(&self) -> Result<(), Error> {
         if self.context.cancellation.is_cancelled() || self.phase.load(Ordering::Acquire) == 2 {
             Err(Error::Cancelled)
+        } else if self.lease.is_some_and(|lease| lease.check().is_err()) {
+            Err(Error::NotAuthorized)
         } else if Instant::now() >= self.context.deadline {
             Err(Error::Timeout)
         } else {
             Ok(())
         }
+    }
+    fn response_deadline(&self) -> Instant {
+        self.lease.map_or(self.context.deadline, |lease| {
+            self.context.deadline.min(lease.deadline())
+        })
+    }
+    fn authorization_expired(&self) -> bool {
+        self.lease.is_some_and(|lease| lease.check().is_err())
     }
     pub fn start(&self) -> Result<(), Error> {
         self.check()?;
@@ -156,7 +169,35 @@ enum Operation {
     Wake,
     #[cfg(test)]
     Pause(oneshot::Sender<()>, std::sync::mpsc::Receiver<()>, bool),
+    #[cfg(test)]
+    AuthorizationPause(
+        oneshot::Sender<()>,
+        std::sync::mpsc::Receiver<()>,
+        bool,
+        AuthorizationLease,
+    ),
+    #[cfg(test)]
+    AuthorizationSqlPause(
+        oneshot::Sender<()>,
+        std::sync::mpsc::Receiver<()>,
+        AuthorizationLease,
+    ),
 }
+impl Operation {
+    fn authorization_lease(&self) -> Option<AuthorizationLease> {
+        match self {
+            Self::Intake(command) => command.intake.authority.lease,
+            Self::AuthorizedLoad(_, authority) => authority.lease,
+            Self::Scan(command) => command.authority.lease,
+            #[cfg(test)]
+            Self::AuthorizationPause(_, _, _, lease) => Some(*lease),
+            #[cfg(test)]
+            Self::AuthorizationSqlPause(_, _, lease) => Some(*lease),
+            _ => None,
+        }
+    }
+}
+
 struct IntakeCommand {
     submission: CoverageSubmission,
     intake: IntakeContext,
@@ -302,7 +343,8 @@ impl CoverageStore {
                                     .map(|page| Value::Scan(Box::new(page))),
                                 Operation::Wake => Ok(Value::Done),
                                 #[cfg(test)]
-                                Operation::Pause(started, release, mutation) => {
+                                Operation::Pause(started, release, mutation)
+                                | Operation::AuthorizationPause(started, release, mutation, _) => {
                                     if mutation {
                                         command.ctx.start()?;
                                     }
@@ -313,8 +355,25 @@ impl CoverageStore {
                                     command.ctx.check()?;
                                     Ok(Value::Done)
                                 }
+                                #[cfg(test)]
+                                Operation::AuthorizationSqlPause(started, release, _) => {
+                                    let _ = started.send(());
+                                    release
+                                        .recv_timeout(Duration::from_secs(10))
+                                        .map_err(|_| Error::Timeout)?;
+                                    engine.test_recursive_read().map(|()| Value::Done)
+                                }
                             })
                     };
+                    // Authorization expiry during a read can interrupt SQLite;
+                    // classify it before corruption/SQL poison handling. Mutation
+                    // expiry retains the existing uncertain-outcome owner hold.
+                    if matches!(&result, Err(Error::Sqlite(rusqlite::Error::SqliteFailure(code, _)))
+                        if code.code == rusqlite::ErrorCode::OperationInterrupted)
+                        && command.ctx.authorization_expired()
+                    {
+                        result = Err(Error::NotAuthorized);
+                    }
                     if let Err(e) = &result {
                         if command.ctx.started()
                             || matches!(
@@ -572,6 +631,12 @@ impl CoverageStore {
         operation: Operation,
         context: OperationContext,
     ) -> Result<Value, Error> {
+        let mut ctx = WorkContext::new(context, self.config.operation_timeout);
+        ctx.lease = operation.authorization_lease();
+        if let Err(error) = ctx.check() {
+            increment(&self.shared.rejected);
+            return Err(error);
+        }
         if !self.metrics().available {
             increment(&self.shared.rejected);
             return Err(Error::Unavailable);
@@ -583,7 +648,6 @@ impl CoverageStore {
                 return Err(Error::Capacity);
             }
         };
-        let ctx = WorkContext::new(context, self.config.operation_timeout);
         let mut abort = AbortGuard {
             ctx: ctx.clone(),
             shared: self.shared.clone(),
@@ -604,16 +668,31 @@ impl CoverageStore {
             return Err(Error::Capacity);
         }
         let result = tokio::select! {
-            value=timeout_at(ctx.context.deadline,response)=>match value {
-                Ok(Ok(reply))=>{abort.armed=false;reply.result},
+            value=timeout_at(ctx.response_deadline(),response)=>match value {
+                Ok(Ok(reply))=>{
+                    match reply.result {
+                        Ok(value) => match ctx.check() {
+                            Ok(()) => { abort.armed=false; Ok(value) },
+                            Err(error) => Err(if ctx.started() { Error::OutcomeUnknown } else { error }),
+                        },
+                        Err(error) => { abort.armed=false; Err(error) },
+                    }
+                },
                 Ok(Err(_))=>Err(if ctx.started() {Error::OutcomeUnknown} else {Error::Unavailable}),
-                Err(_)=>{increment(&self.shared.timeouts);Err(if ctx.abort() {Error::OutcomeUnknown} else {Error::Timeout})}
+                Err(_)=>{
+                    let expired=ctx.authorization_expired();
+                    if !expired { increment(&self.shared.timeouts); }
+                    Err(if ctx.abort() {Error::OutcomeUnknown} else if expired {Error::NotAuthorized} else {Error::Timeout})
+                }
             },
             _=ctx.context.cancellation.cancelled()=>Err(if ctx.abort() {Error::OutcomeUnknown} else {Error::Cancelled}),
         };
         if abort.armed {
             if ctx.started() {
                 self.shared.fail();
+            }
+            if matches!(result, Err(Error::NotAuthorized)) {
+                increment(&self.shared.rejected);
             }
         } else if result.is_err() {
             increment(&self.shared.rejected);
@@ -1302,6 +1381,205 @@ mod tests {
             let uncertain = c.abort();
             assert_eq!(started.join().map_err(|_| "gate worker panic")?, uncertain);
         }
+        Ok(())
+    }
+    #[tokio::test]
+    async fn queued_authorization_expiry_denies_without_poisoning_or_releasing_physical_ownership()
+    -> TestResult {
+        let t = tempfile::tempdir()?;
+        let store = Arc::new(
+            CoverageStore::initialize(
+                cfg(t.path().join("coverage"), 2),
+                Uuid::new_v4(),
+                clock("2026-10-07T00:05:29Z")?,
+            )
+            .await?,
+        );
+        let (started, wait) = oneshot::channel();
+        let (release, blocked) = std::sync::mpsc::sync_channel(1);
+        let owner = store.clone();
+        let hold = tokio::spawn(async move {
+            owner
+                .request(Operation::Pause(started, blocked, false), context())
+                .await
+        });
+        wait.await?;
+        let f = fixture()?;
+        let p = prepared(&f["chains"][0]["commits"][0], &f)?;
+        let mut intake = crate::intake_tests::intake(&p, "2026-10-07T00:05:30Z")?;
+        let now = u64::try_from(chrono::Utc::now().timestamp())?;
+        intake.authority = intake.authority.with_lease(now, now + 2)?;
+        let result = store
+            .submit(crate::intake_tests::submission(&p)?, intake, context())
+            .await;
+        assert!(matches!(result, Err(Error::NotAuthorized)));
+        assert_eq!(store.metrics().operations_in_flight, 2);
+        assert!(store.metrics().available);
+        release.send(())?;
+        hold.await??;
+        // FIFO read retires the cancelled queued command before observing state.
+        assert!(store.load(p.record_id(), context()).await?.is_none());
+        assert_eq!(store.metrics().committed_sequence, 0);
+        assert!(store.metrics().available);
+        store.shutdown(context()).await?;
+        Ok(())
+    }
+    #[tokio::test]
+    async fn ready_reply_authorization_expiry_denies_without_disclosing_original_receipt()
+    -> TestResult {
+        let t = tempfile::tempdir()?;
+        let store = CoverageStore::initialize(
+            cfg(t.path().join("coverage"), 2),
+            Uuid::new_v4(),
+            clock("2026-10-07T00:05:29Z")?,
+        )
+        .await?;
+        let f = fixture()?;
+        let p = prepared(&f["chains"][0]["commits"][0], &f)?;
+        let receipt = store.append(p.clone(), context()).await?;
+        let now = u64::try_from(chrono::Utc::now().timestamp())?;
+        let authority = crate::intake_tests::authority(&p)?.with_lease(now, now + 2)?;
+        let deadline = authority.lease_deadline().ok_or("lease deadline")?;
+        let mut pending = Box::pin(store.get_authorized(p.record_id(), authority, context()));
+        let completed =
+            std::future::poll_fn(|cx| std::task::Poll::Ready(pending.as_mut().poll(cx).is_ready()))
+                .await;
+        assert!(!completed);
+        // A FIFO unleased read settles only after the earlier authorized read
+        // published its successful reply. The caller remains deliberately unpolled.
+        assert_eq!(
+            store
+                .load(p.record_id(), context())
+                .await?
+                .ok_or("barrier")?
+                .receipt,
+            receipt
+        );
+        assert!(
+            Instant::now() < deadline,
+            "barrier must precede lease expiry"
+        );
+        tokio::time::sleep(Duration::from_millis(2100)).await;
+        assert!(matches!(pending.await, Err(Error::NotAuthorized)));
+        assert!(store.metrics().available);
+        assert_eq!(
+            store
+                .load(p.record_id(), context())
+                .await?
+                .ok_or("record")?
+                .receipt,
+            receipt
+        );
+        store.shutdown(context()).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn authorization_expiry_after_mutation_gate_holds_owner_until_physical_retirement()
+    -> TestResult {
+        let t = tempfile::tempdir()?;
+        let config = cfg(t.path().join("coverage"), 1);
+        let store = Arc::new(
+            CoverageStore::initialize(
+                config.clone(),
+                Uuid::new_v4(),
+                clock("2026-10-07T00:05:29Z")?,
+            )
+            .await?,
+        );
+        let f = fixture()?;
+        let p = prepared(&f["chains"][0]["commits"][0], &f)?;
+        let receipt = store.append(p.clone(), context()).await?;
+        let now = u64::try_from(chrono::Utc::now().timestamp())?;
+        let lease = crate::intake_tests::authority(&p)?
+            .with_lease(now, now + 2)?
+            .lease
+            .ok_or("lease")?;
+        let (started, wait) = oneshot::channel();
+        let (release, blocked) = std::sync::mpsc::sync_channel(1);
+        let owner = store.clone();
+        let task = tokio::spawn(async move {
+            owner
+                .request(
+                    Operation::AuthorizationPause(started, blocked, true, lease),
+                    context(),
+                )
+                .await
+        });
+        wait.await?;
+        assert!(matches!(task.await?, Err(Error::OutcomeUnknown)));
+        assert!(!store.metrics().available);
+        assert_eq!(store.metrics().operations_in_flight, 1);
+        assert!(matches!(
+            CoverageStore::open(config.clone()).await,
+            Err(Error::Locked)
+        ));
+        release.send(())?;
+        assert!(matches!(
+            store.shutdown(context()).await,
+            Err(Error::Unavailable)
+        ));
+        assert_eq!(store.metrics().operations_in_flight, 0);
+        drop(store);
+        let reopened = CoverageStore::open(config).await?;
+        let original = reopened
+            .load(p.record_id(), context())
+            .await?
+            .ok_or("retained")?;
+        assert_eq!(original.receipt, receipt);
+        assert_eq!(original.raw, Some(p.raw));
+        reopened.shutdown(context()).await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn actual_sqlite_authorization_interrupt_preserves_healthy_owner_and_original_receipt()
+    -> TestResult {
+        let t = tempfile::tempdir()?;
+        let store = Arc::new(
+            CoverageStore::initialize(
+                cfg(t.path().join("coverage"), 2),
+                Uuid::new_v4(),
+                clock("2026-10-07T00:05:29Z")?,
+            )
+            .await?,
+        );
+        let f = fixture()?;
+        let p = prepared(&f["chains"][0]["commits"][0], &f)?;
+        let receipt = store.append(p.clone(), context()).await?;
+        let now = u64::try_from(chrono::Utc::now().timestamp())?;
+        let lease = crate::intake_tests::authority(&p)?
+            .with_lease(now, now + 2)?
+            .lease
+            .ok_or("lease")?;
+        let (started, wait) = oneshot::channel();
+        let (release, blocked) = std::sync::mpsc::sync_channel(1);
+        let owner = store.clone();
+        let task = tokio::spawn(async move {
+            owner
+                .request(
+                    Operation::AuthorizationSqlPause(started, blocked, lease),
+                    context(),
+                )
+                .await
+        });
+        wait.await?;
+        assert!(matches!(task.await?, Err(Error::NotAuthorized)));
+        assert_eq!(store.metrics().operations_in_flight, 1);
+        assert!(store.metrics().available);
+        release.send(())?;
+        // FIFO completion also verifies actual SQLITE_INTERRUPT normalization:
+        // a poisoned owner would refuse this queued read or close its reply.
+        let original = store
+            .load(p.record_id(), context())
+            .await?
+            .ok_or("original")?;
+        assert_eq!(original.receipt, receipt);
+        assert_eq!(original.raw, Some(p.raw));
+        assert!(store.metrics().available);
+        assert_eq!(store.metrics().failures, 0);
+        assert_eq!(store.metrics().operations_in_flight, 0);
+        store.shutdown(context()).await?;
         Ok(())
     }
 }

@@ -7,6 +7,38 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## SECURITY-ACCESS coverage identity boundary — 2026-10-09
+
+Native coverage uses exact private binding selection, complete ReadCoverage or
+WriteCoverage permission pairs, and the configured verified issuer/subject for
+writes. There is no legacy-token fallback. Reads have separate authority; global
+coverage metrics additionally require explicit all-scope ReadCoverage. Original
+binding/profile pins, receipts, bytes, replay, cursors and unknown-health semantics
+remain unchanged across restart. The selector header grants no identity.
+
+A request-local UTC/monotonic lease follows authorization into queue admission,
+physical reads/SQLite progress, the mutation/commit boundary and final response.
+Expired reads retain physical capacity until retirement without poisoning storage;
+started uncertain writes hold the owner and require reconciled reopening. Original
+operation watchdogs remain separate. A late denied successful POST response is
+reported as outcome_unknown; it must not imply definitely absent evidence.
+
+Eight added Rust regressions, strict718default/769all-feature workspace tests,
+formatting, both strict Clippy configurations, build/workspace13 and independent
+review pass. Actual TLS/monolith checks include actor/read-write/cross-scope/cursor
+denial, duplicate selectors, revocation, original receipt replay and SIGKILL/restart.
+The corrected ready-reply and actual SQLite interruption regressions fail when
+safeguards are temporarily disabled; source is restored exactly. Early socket,
+fixture expectation and authentication-cache failures remain retained.
+Evidence: `target/goal-execution-20261007/SECURITY-ACCESS/coverage-acceptance.json`,
+`coverage-validation-final/validation.json`, `coverage-review.json` and
+`coverage-red-green/report.json`.
+
+SECURITY-ACCESS stays in_progress. Next: established local IdP/OIDC sign-in and
+remaining capability contracts. No source completeness, historical authentication
+upgrade, native ARM64/full remote CI, real cloud/live tenant, current-image or
+release qualification follows.
+
 ## SECURITY-ACCESS finding boundary — 2026-10-09
 
 Trusted canonical finding scopes and paired pre-limit reads pass 13 added Rust
