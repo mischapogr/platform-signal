@@ -9,7 +9,7 @@ use object_store::{
 };
 use std::{
     sync::{
-        Arc, Mutex,
+        Arc, Mutex, Weak,
         atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
     },
     thread,
@@ -88,6 +88,7 @@ pub struct ObjectIoMetrics {
     pub closed: bool,
 }
 struct State {
+    owner_lease: Mutex<Option<Weak<crate::object_owner::SmallOwner>>>,
     slots: Arc<Semaphore>,
     closed: AtomicBool,
     running: AtomicUsize,
@@ -125,6 +126,8 @@ enum Work {
     ReadGenesis,
     InitializeGenesis,
     AdvanceHead(crate::object_head::HeadRecord),
+    ReadRetirement,
+    AdvanceRetirement(crate::object_retirement::RetirementRecord),
     #[cfg(test)]
     Pause(oneshot::Sender<()>, std::sync::mpsc::Receiver<()>),
 }
@@ -134,6 +137,7 @@ enum ResultData {
     Inventory(ObjectInventory),
     Head(Option<crate::object_manifest::PreviousManifest>),
     Genesis(bool),
+    Retirement(Box<crate::object_retirement::RetirementControls>),
     #[cfg(test)]
     Done,
 }
@@ -252,6 +256,7 @@ impl ObjectIo {
             .as_ref()
             .map(|(config, _, _)| (config.stream_id, config.backend_id));
         let state = Arc::new(State {
+            owner_lease: Mutex::new(None),
             slots: Arc::new(Semaphore::new(1)),
             closed: AtomicBool::new(false),
             running: AtomicUsize::new(0),
@@ -271,6 +276,10 @@ impl ObjectIo {
                     Some((config, context, reply)) => {
                         match crate::object_owner::SmallOwner::open(&config, &context) {
                             Ok(owner) => {
+                                let owner = Arc::new(owner);
+                                let Ok(mut lease) = shared.owner_lease.lock() else { return; };
+                                *lease = Some(Arc::downgrade(&owner));
+                                drop(lease);
                                 if reply.send(Ok(())).is_err() { return; }
                                 Some(owner)
                             }
@@ -283,7 +292,7 @@ impl ObjectIo {
                     shared.running.store(1, Ordering::Release);
                     let future = execute(
                         &*store, command.work, limits, &command.context,
-                        command.slot.clone(), runtime.is_some(), owner.as_ref(),
+                        command.slot.clone(), runtime.is_some(), owner.as_deref(),
                     );
                     let result = match &runtime {
                         Some(handle) => handle.block_on(async {
@@ -312,6 +321,17 @@ impl ObjectIo {
             limits,
             owner_binding,
         })
+    }
+    pub(crate) fn small_owner_lease(
+        &self,
+    ) -> Result<Arc<crate::object_owner::SmallOwner>, ObjectIoError> {
+        self.state
+            .owner_lease
+            .lock()
+            .map_err(|_| ObjectIoError::Closed)?
+            .as_ref()
+            .and_then(Weak::upgrade)
+            .ok_or(ObjectIoError::Closed)
     }
     pub fn small_owner_binding(&self) -> Option<(uuid::Uuid, uuid::Uuid)> {
         self.owner_binding
@@ -393,6 +413,47 @@ impl ObjectIo {
                 .await?
             {
                 ResultData::Head(_) => Ok(()),
+                _ => Err(ObjectIoError::Closed),
+            }
+        }
+        .await;
+        rejected.1 = result.is_err();
+        result
+    }
+    pub(crate) async fn read_small_retirement(
+        &self,
+        mut context: OperationContext,
+    ) -> Result<crate::object_retirement::RetirementControls, ObjectIoError> {
+        let mut rejected = RejectGuard(self.state.clone(), true);
+        let result = async {
+            let slot = self.admit(&mut context)?;
+            if self.owner_binding.is_none() {
+                return Err(ObjectIoError::Config);
+            }
+            match self.submit(Work::ReadRetirement, context, slot).await? {
+                ResultData::Retirement(record) => Ok(*record),
+                _ => Err(ObjectIoError::Closed),
+            }
+        }
+        .await;
+        rejected.1 = result.is_err();
+        result
+    }
+    pub(crate) async fn advance_small_retirement(
+        &self,
+        record: &crate::object_retirement::RetirementRecord,
+        mut context: OperationContext,
+    ) -> Result<(), ObjectIoError> {
+        let mut rejected = RejectGuard(self.state.clone(), true);
+        let result = async {
+            let slot = self.admit(&mut context)?;
+            let (stream, backend) = self.owner_binding.ok_or(ObjectIoError::Config)?;
+            record.validate(stream, backend).map_err(owner_error)?;
+            match self
+                .submit(Work::AdvanceRetirement(record.clone()), context, slot)
+                .await?
+            {
+                ResultData::Retirement(_) => Ok(()),
                 _ => Err(ObjectIoError::Closed),
             }
         }
@@ -731,6 +792,19 @@ async fn execute(
             let owner = owner.ok_or(ObjectIoError::Config)?;
             owner.advance_head(&next, ctx).map_err(owner_error)?;
             Ok(ResultData::Head(Some(next.current)))
+        }
+        Work::ReadRetirement => {
+            let owner = owner.ok_or(ObjectIoError::Config)?;
+            Ok(ResultData::Retirement(Box::new(
+                owner.read_retirement(ctx).map_err(owner_error)?,
+            )))
+        }
+        Work::AdvanceRetirement(record) => {
+            let owner = owner.ok_or(ObjectIoError::Config)?;
+            owner
+                .advance_retirement(&record, ctx)
+                .map_err(owner_error)?;
+            Ok(ResultData::Retirement(Box::new((Some(record), None))))
         }
         #[cfg(test)]
         Work::Pause(entered, release) => {

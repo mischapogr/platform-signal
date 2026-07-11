@@ -119,6 +119,7 @@ async fn actual_publication_replay_split_restart_and_snapshot_lease() -> Result 
     ));
     drop(snapshot);
     writer.shutdown(context()).await?;
+    drop(writer);
     let reopened = publisher(&owner, backend, PublicationConfig::default()).await?;
     let replay = reopened.append(&rows, context()).await?;
     assert_eq!(
@@ -144,6 +145,7 @@ async fn missing_head_requires_exact_initial_wal_reconciliation() -> Result {
     let rows = rows()?;
     writer.append(&rows[..2], context()).await?;
     writer.shutdown(context()).await?;
+    drop(writer);
     // Simulate process interruption after manifest creation but before any local
     // head witness, by removing only this test's owned witness.
     std::fs::remove_file(control.path().join("head.json"))?;
@@ -175,6 +177,7 @@ async fn synced_genesis_recovers_first_commit_with_smaller_replay_batches() -> R
     let rows = rows()?;
     writer.append(&rows, context()).await?;
     writer.shutdown(context()).await?;
+    drop(writer);
     assert!(control.path().join("genesis.json").exists());
     std::fs::remove_file(control.path().join("head.json"))?;
     let recovered = publisher(&owner, backend, PublicationConfig::default()).await?;
@@ -212,12 +215,14 @@ async fn unique_valid_tail_recovers_but_missing_data_holds() -> Result {
     let last = snapshot.manifests()[1].clone();
     drop(snapshot);
     writer.shutdown(context()).await?;
+    drop(writer);
     std::fs::write(control.path().join("head.json"), &original_head)?;
     let tail = publisher(&owner, backend.clone(), PublicationConfig::default()).await?;
     let snapshot = tail.snapshot(context()).await?;
     assert_eq!(snapshot.manifests().len(), 2);
     drop(snapshot);
     tail.shutdown(context()).await?;
+    drop(tail);
     std::fs::write(control.path().join("head.json"), &original_head)?;
     backend
         .delete(&object_store::path::Path::from(
@@ -244,6 +249,7 @@ async fn multiple_unknown_commit_slots_cannot_advance_the_head() -> Result {
     let original_head = std::fs::read(control.path().join("head.json"))?;
     writer.append(&rows[2..], context()).await?;
     writer.shutdown(context()).await?;
+    drop(writer);
     std::fs::write(control.path().join("head.json"), &original_head)?;
     backend
         .put(
@@ -402,6 +408,7 @@ async fn completed_publication_reply_cannot_bypass_original_deadline() -> Result
     );
     assert_eq!(writer.metrics().high_water, 11);
     writer.shutdown(context()).await?;
+    drop(writer);
     Ok(())
 }
 #[tokio::test]
@@ -421,6 +428,7 @@ async fn lost_data_and_manifest_create_replies_reconcile_exact_bytes() -> Result
         let replay = writer.append(&rows, context()).await?;
         assert_eq!(replay.new_count, 0);
         writer.shutdown(context()).await?;
+        drop(writer);
     }
     Ok(())
 }
@@ -453,6 +461,7 @@ async fn cancelled_manifest_response_keeps_lease_until_exit_and_recovers_from_ge
         tokio::time::sleep(std::time::Duration::from_millis(1)).await;
     }
     writer.shutdown(context()).await?;
+    drop(writer);
     backend.mode.store(0, Ordering::Release);
     let recovered = publisher(&owner, backend, PublicationConfig::default()).await?;
     let replay = recovered.append(&original[..1], context()).await?;
@@ -482,6 +491,7 @@ async fn readback_denial_leaves_only_orphans_and_no_completed_head() -> Result {
     let receipt = writer.append(&original, context()).await?;
     assert_eq!(receipt.new_count, 3);
     writer.shutdown(context()).await?;
+    drop(writer);
     Ok(())
 }
 #[tokio::test]
@@ -528,6 +538,7 @@ async fn conflicting_existing_object_and_missing_replay_sequence_hold() -> Resul
         Err(StorageError::InvalidBatch)
     ));
     writer.shutdown(context()).await?;
+    drop(writer);
     Ok(())
 }
 #[tokio::test]
@@ -562,6 +573,7 @@ async fn exact_capacity_retry_reuses_counted_orphan_without_permanent_full() -> 
     assert!(after.orphans().is_empty());
     drop(after);
     writer.shutdown(context()).await?;
+    drop(writer);
     Ok(())
 }
 #[tokio::test]
@@ -581,6 +593,7 @@ async fn changed_historical_object_identity_holds_new_append_and_recovery_head()
             writer.append(&original[2..], context()).await?;
         }
         writer.shutdown(context()).await?;
+        drop(writer);
         if recover_tail {
             std::fs::write(control.path().join("head.json"), &previous_head)?;
         }
@@ -647,5 +660,6 @@ async fn metadata_and_orphan_quota_hold_without_deleting_any_object() -> Result 
     );
     assert_eq!(writer.metrics().high_water, 7);
     writer.shutdown(context()).await?;
+    drop(writer);
     Ok(())
 }

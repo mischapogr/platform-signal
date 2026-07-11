@@ -78,11 +78,14 @@ pub struct CommittedManifest {
     pub reference: PreviousManifest,
     pub manifest: QueryManifest,
 }
-/// Owned finite metadata; holding a snapshot retains publisher admission. Query
+/// Owned finite metadata; a snapshot retains publisher admission and the actual
+/// Small owner even after publisher shutdown/drop. Query
 /// consumers still must authenticate exact object bytes before exposing rows.
 pub struct CommittedSnapshot {
     manifests: Vec<CommittedManifest>,
     orphans: Vec<QueryObjectRef>,
+    retired_through: u64,
+    _owner: Arc<crate::object_owner::SmallOwner>,
     _slot: Arc<OwnedSemaphorePermit>,
 }
 impl CommittedSnapshot {
@@ -91,6 +94,9 @@ impl CommittedSnapshot {
     }
     pub fn orphans(&self) -> &[QueryObjectRef] {
         &self.orphans
+    }
+    pub fn retired_through(&self) -> u64 {
+        self.retired_through
     }
 }
 #[derive(Clone, Copy, Debug)]
@@ -105,6 +111,9 @@ pub struct PublicationMetrics {
     pub closed: bool,
 }
 struct Shared {
+    // Retain the actual source owner through stopped handles and physical readers,
+    // independently of mutable materialization configuration.
+    _owner: Arc<crate::object_owner::SmallOwner>,
     slots: Arc<Semaphore>,
     closed: AtomicBool,
     running: AtomicUsize,
@@ -122,6 +131,7 @@ struct Shared {
     // Physical query jobs retain the source through BoundedLocalStore. Keep
     // derived ownership for that source lifetime, even after explicit shutdown.
     cache_owner: Mutex<Option<Arc<crate::object_owner::SmallOwner>>>,
+    retired_through: AtomicU64,
 }
 struct WorkerExit(Arc<Shared>);
 impl Drop for WorkerExit {
@@ -151,11 +161,17 @@ enum Work {
     Append(Vec<u8>),
     Snapshot,
     Select(Option<DateTime<Utc>>, Option<DateTime<Utc>>, usize, u64),
+    Retire(
+        crate::object_retention::RetentionPolicy,
+        crate::object_retirement::RetirementCheckpoint,
+        DateTime<Utc>,
+    ),
 }
 enum Reply {
     Receipt(StoreReceipt),
     Snapshot(CommittedSnapshot),
     Selection(FileSelection),
+    Retirement(u64),
 }
 struct Completion {
     result: Result<Reply, StorageError>,
@@ -187,7 +203,9 @@ impl ObjectPublisher {
             .small_owner_binding()
             .ok_or(StorageError::Config("Small publication owner required"))?;
         let codec = ObjectCodec::new(config.storage.clone(), config.manifests)?;
+        let owner = io.small_owner_lease().map_err(io_error)?;
         let shared = Arc::new(Shared {
+            _owner: owner,
             slots: Arc::new(Semaphore::new(1)),
             closed: AtomicBool::new(false),
             running: AtomicUsize::new(0),
@@ -203,6 +221,7 @@ impl ObjectPublisher {
             timeouts: AtomicU64::new(0),
             failures: AtomicU64::new(0),
             cache_owner: Mutex::new(None),
+            retired_through: AtomicU64::new(0),
         });
         let state = shared.clone();
         let policy = config.clone();
@@ -245,10 +264,19 @@ impl ObjectPublisher {
                                     .high_water
                                     .store(catalog.high_water(), Ordering::Release);
                                 Ok(Reply::Snapshot(CommittedSnapshot {
+                                    retired_through: catalog.retired_through(),
+                                    _owner: controller.io.small_owner_lease().map_err(io_error)?,
                                     manifests: catalog.manifests,
                                     orphans: catalog.orphans,
                                     _slot: command.slot.clone(),
                                 }))
+                            }
+                            Work::Retire(policy, checkpoint, now) => {
+                                let floor = controller
+                                    .retire(&policy, checkpoint, now, &command.context)
+                                    .await?;
+                                state.retired_through.store(floor, Ordering::Release);
+                                Ok(Reply::Retirement(floor))
                             }
                             Work::Select(from, to, max_files, max_decoded_bytes) => {
                                 let (selection, high_water) = controller
@@ -443,6 +471,41 @@ impl ObjectPublisher {
         self.record_result(&result);
         result
     }
+    pub fn retired_through(&self) -> u64 {
+        self.shared.retired_through.load(Ordering::Acquire)
+    }
+    /// Trusted stopped host only, before this publisher materializes any query.
+    /// The host must retain a fresh exclusive WAL checkpoint and validate it
+    /// against this stream. This commits a logical retirement horizon only;
+    /// it grants no deletion, source ACK, custody or distributed fencing.
+    pub async fn retire_query_prefix(
+        &self,
+        policy: &crate::object_retention::RetentionPolicy,
+        fresh_wal_checkpoint: crate::object_retirement::RetirementCheckpoint,
+        now: DateTime<Utc>,
+        mut context: OperationContext,
+    ) -> Result<u64, StorageError> {
+        let mut reject = Reject(self.shared.clone(), true);
+        let result = async {
+            let slot = self.admit(&mut context)?;
+            policy.validate()?;
+            match self
+                .request(
+                    Work::Retire(policy.clone(), fresh_wal_checkpoint, now),
+                    context,
+                    slot,
+                )
+                .await?
+            {
+                Reply::Retirement(floor) => Ok(floor),
+                _ => Err(StorageError::Closed),
+            }
+        }
+        .await;
+        reject.1 = result.is_err();
+        self.record_result(&result);
+        result
+    }
     pub fn close(&self) {
         self.shared.closed.store(true, Ordering::Release);
         self.shared.slots.close();
@@ -538,8 +601,14 @@ struct Catalog {
     bytes: u64,
     metadata: usize,
     inventory: Vec<QueryObjectRef>,
+    retirement: Option<crate::object_retirement::RetirementRecord>,
 }
 impl Catalog {
+    fn retired_through(&self) -> u64 {
+        self.retirement
+            .as_ref()
+            .map_or(0, |record| record.anchor.last_sequence)
+    }
     fn head(&self) -> Option<&PreviousManifest> {
         self.manifests.last().map(|m| &m.reference)
     }
@@ -557,6 +626,82 @@ struct Controller {
     state: Arc<Shared>,
 }
 impl Controller {
+    async fn retire(
+        &self,
+        policy: &crate::object_retention::RetentionPolicy,
+        fresh: crate::object_retirement::RetirementCheckpoint,
+        now: DateTime<Utc>,
+        context: &OperationContext,
+    ) -> Result<u64, StorageError> {
+        policy.validate()?;
+        if fresh.stream_id != self.stream {
+            return Err(StorageError::StreamMismatch);
+        }
+        let checkpoint = fresh.checkpoint;
+        // Fresh offline owner only. A publisher that emitted query files may
+        // still have physical readers even after front cancellation/shutdown.
+        if self.cache.is_some() {
+            return Err(StorageError::Busy);
+        }
+        let _cache_guard = match &self.config.materialization {
+            Some(config) if config.directory.try_exists().map_err(StorageError::Io)? => {
+                Some(Cache::open(config, self.stream, self.backend, context)?)
+            }
+            _ => None,
+        };
+        let catalog = self.recover(None, context).await?;
+        let floor = catalog.retired_through();
+        // A drop_oldest WAL may checkpoint beyond the store frontier. Only
+        // committed anchors at or below this fresh checkpoint may retire.
+        if checkpoint < floor {
+            return Err(StorageError::InvalidBatch);
+        }
+        let cutoff = now
+            .checked_sub_signed(chrono::TimeDelta::seconds(policy.query_seconds as i64))
+            .ok_or(StorageError::Config("retirement clock range"))?;
+        let mut anchor = None;
+        for committed in &catalog.manifests {
+            check_context(Some(context))?;
+            if committed.reference.last_sequence <= floor {
+                continue;
+            }
+            if committed.reference.last_sequence > checkpoint {
+                break;
+            }
+            let mut expired = true;
+            for file in &committed.manifest.files {
+                check_context(Some(context))?;
+                if file
+                    .intersects(Some(cutoff), None)
+                    .map_err(|_| StorageError::Corrupt("retirement partition"))?
+                {
+                    expired = false;
+                    break;
+                }
+            }
+            if !expired {
+                break;
+            }
+            anchor = Some(&committed.reference);
+        }
+        let Some(anchor) = anchor else {
+            return Ok(floor);
+        };
+        let record = crate::object_retirement::RetirementRecord::new(
+            self.stream,
+            self.backend,
+            catalog.retirement.as_ref().map(|r| &r.anchor),
+            anchor,
+            checkpoint,
+            now,
+            policy,
+        )?;
+        self.io
+            .advance_small_retirement(&record, context.clone())
+            .await
+            .map_err(io_error)?;
+        Ok(record.anchor.last_sequence)
+    }
     async fn select(
         &mut self,
         from: Option<DateTime<Utc>>,
@@ -571,6 +716,9 @@ impl Controller {
         let mut partitions = BTreeSet::new();
         let mut decoded = 0u64;
         for committed in &catalog.manifests {
+            if committed.reference.last_sequence <= catalog.retired_through() {
+                continue;
+            }
             for file in &committed.manifest.files {
                 check_context(Some(context))?;
                 if !file
@@ -714,6 +862,11 @@ impl Controller {
             .read_small_head(context.clone())
             .await
             .map_err(io_error)?;
+        let (current_retirement, pending_retirement) = self
+            .io
+            .read_small_retirement(context.clone())
+            .await
+            .map_err(io_error)?;
         let mut initialized = self
             .io
             .small_query_initialized(context.clone())
@@ -786,12 +939,23 @@ impl Controller {
             });
         }
         manifests.reverse();
+        validate_retired_prefix(&manifests, current_retirement.as_ref())?;
+        validate_retired_prefix(&manifests, pending_retirement.as_ref())?;
+        let retirement = pending_retirement
+            .as_ref()
+            .or(current_retirement.as_ref())
+            .cloned();
+        let floor = retirement.as_ref().map_or(0, |r| r.anchor.last_sequence);
         // Immutable pinned history is checked against current inventory before
         // advancing any recovered tail. Selected query reads still verify bytes.
         for committed in &manifests {
             check_inventory_identity(&entries, &committed.reference.object)?;
             for file in &committed.manifest.files {
-                check_inventory_identity(&entries, &file.object)?;
+                if committed.reference.last_sequence > floor
+                    || entries.iter().any(|e| e.key == file.object.key)
+                {
+                    check_inventory_identity(&entries, &file.object)?;
+                }
             }
         }
         let extra: Vec<_> = entries
@@ -845,7 +1009,9 @@ impl Controller {
         for committed in &manifests {
             referenced.insert(&committed.reference.object.key);
             for file in &committed.manifest.files {
-                if !entries.iter().any(|e| e.key == file.object.key) {
+                if committed.reference.last_sequence > floor
+                    && !entries.iter().any(|e| e.key == file.object.key)
+                {
                     return Err(StorageError::Corrupt("committed query data missing"));
                 }
                 if !referenced.insert(&file.object.key) {
@@ -859,6 +1025,15 @@ impl Controller {
             .cloned()
             .collect();
         check_context(Some(context))?;
+        // Promote an interrupted control only after the exact committed chain,
+        // every retirement prefix, and current inventory have authenticated.
+        if let Some(pending) = &pending_retirement {
+            self.io
+                .advance_small_retirement(pending, context.clone())
+                .await
+                .map_err(io_error)?;
+        }
+        self.state.retired_through.store(floor, Ordering::Release);
         self.state.disk_bytes.store(bytes, Ordering::Release);
         self.state.files.store(entries.len(), Ordering::Release);
         Ok(Catalog {
@@ -868,6 +1043,7 @@ impl Controller {
             bytes,
             metadata,
             inventory: entries,
+            retirement,
         })
     }
     /// Authenticate every actual row and cross-partition sequence before a
@@ -963,6 +1139,12 @@ impl Controller {
         crate::validate_batch(rows, &self.config.storage)?;
         let catalog = self.recover(Some(rows), context).await?;
         let high_water = catalog.high_water();
+        if rows
+            .first()
+            .is_some_and(|row| row.sequence <= catalog.retired_through())
+        {
+            return Err(StorageError::InvalidBatch);
+        }
         let replayed = rows.partition_point(|r| r.sequence <= high_water);
         let replay = &rows[..replayed];
         let mut matched = 0usize;
@@ -1158,6 +1340,42 @@ fn check_inventory_identity(
         return Err(StorageError::Corrupt(
             "committed query object identity drift",
         ));
+    }
+    Ok(())
+}
+fn validate_retired_prefix(
+    manifests: &[CommittedManifest],
+    retirement: Option<&crate::object_retirement::RetirementRecord>,
+) -> Result<(), StorageError> {
+    let Some(record) = retirement else {
+        return Ok(());
+    };
+    let index = manifests
+        .iter()
+        .position(|m| m.reference == record.anchor)
+        .ok_or(StorageError::Corrupt(
+            "retirement anchor missing from committed chain",
+        ))?;
+    if record
+        .previous_anchor
+        .as_ref()
+        .is_some_and(|previous| !manifests[..index].iter().any(|m| &m.reference == previous))
+    {
+        return Err(StorageError::Corrupt(
+            "retirement predecessor missing from chain",
+        ));
+    }
+    for committed in &manifests[..=index] {
+        for file in &committed.manifest.files {
+            if file
+                .intersects(Some(record.query_before), None)
+                .map_err(|_| StorageError::Corrupt("retirement partition"))?
+            {
+                return Err(StorageError::Corrupt(
+                    "retired prefix contains retained partition",
+                ));
+            }
+        }
     }
     Ok(())
 }

@@ -190,6 +190,7 @@ async fn native_versionless_list_supports_second_commit_reopen_and_exact_replay(
     }));
     drop(snapshot);
     first.shutdown(context()).await?;
+    drop(first);
     let reopened = writer(&endpoint.url, &owner).await?;
     let replay = reopened.append(&rows[..1], context()).await?;
     assert_eq!(

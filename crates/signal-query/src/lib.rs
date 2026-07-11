@@ -920,19 +920,38 @@ mod tests {
             Ok(Err(signal_storage::StorageError::Locked))
         );
 
-        let remote = object_store::local::LocalFileSystem::new_with_prefix(&objects)?;
-        let second = ObjectIo::open_small_local(
-            &owner,
-            remote,
-            ObjectIoLimits::default(),
-            OperationContext::new(Duration::from_secs(2)),
-        )
-        .await;
-        let locked = matches!(second, Err(ObjectIoError::OwnerLocked));
-        if let Ok(second) = second {
-            second
-                .shutdown(OperationContext::new(Duration::from_secs(2)))
-                .await?;
+        let mut locked = true;
+        // Neither no materialization nor a different cache root may bypass
+        // source ownership while the old physical read outlives shutdown.
+        for materialization in [
+            None,
+            Some(MaterializationConfig {
+                directory: temp.path().join("different-derived"),
+                ..cache_config.clone()
+            }),
+        ] {
+            let remote = object_store::local::LocalFileSystem::new_with_prefix(&objects)?;
+            let second = ObjectIo::open_small_local(
+                &owner,
+                remote,
+                ObjectIoLimits::default(),
+                OperationContext::new(Duration::from_secs(2)),
+            )
+            .await;
+            locked &= matches!(second, Err(ObjectIoError::OwnerLocked));
+            if let Ok(io) = second {
+                let successor = ObjectPublisher::new(
+                    io,
+                    tokio::runtime::Handle::current(),
+                    PublicationConfig {
+                        materialization,
+                        ..Default::default()
+                    },
+                )?;
+                successor
+                    .shutdown(OperationContext::new(Duration::from_secs(2)))
+                    .await?;
+            }
         }
         release.send(())?;
         tokio::time::timeout(Duration::from_secs(2), async {
@@ -971,7 +990,10 @@ mod tests {
             retained,
             "source owner dropped while physical query reader survived"
         );
-        assert_eq!(locked, !explicit_source_shutdown);
+        assert!(
+            locked,
+            "source owner released while physical reader survived"
+        );
         assert!(cache_locked, "cache pruned while physical reader survived");
         let pruned = std::thread::scope(|scope| {
             scope

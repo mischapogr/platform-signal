@@ -320,7 +320,10 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
     let wal = sink.snapshot();
     let store = Arc::new(Backend::open(&settings, storage_config, wal.stream_id).await?);
     let high_water = store.metrics().high_water;
-    if high_water > wal.last_sequence || wal.checkpoint.saturating_sub(high_water) > wal.dropped {
+    if high_water > wal.last_sequence
+        || wal.checkpoint.saturating_sub(high_water) > wal.dropped
+        || store.retired_through() > wal.checkpoint
+    {
         sink.shutdown().await?;
         store
             .shutdown(OperationContext::new(Duration::from_secs(5)))

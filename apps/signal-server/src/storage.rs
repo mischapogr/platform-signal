@@ -160,6 +160,13 @@ impl Backend {
             Self::Object(store) => store.storage_metrics(),
         }
     }
+    pub fn retired_through(&self) -> u64 {
+        match self {
+            Self::Local(_) => 0,
+            #[cfg(feature = "s3-query")]
+            Self::Object(store) => store.retired_through(),
+        }
+    }
     pub async fn append(
         &self,
         rows: &[StoredEvent],
