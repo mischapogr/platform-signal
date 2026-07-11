@@ -7,6 +7,18 @@ failure behavior. Phase 6 passed its local Linux AMD64 build, workspace,
 process, and independent-review gates. The evidence and platform limits are
 recorded below and in [07-progress.md](07-progress.md).
 
+## Native transport security
+
+`SIGNAL_AGENT_TLS_CONFIG` selects a bounded private version1 identity/roots/CRLs
+file and requires HTTPS. Explicit roots replace ambient trust; stock Rustls checks
+peer chain, hostname, time and supplied signed CRLs. Original request deadlines
+also cover ready-response handoff; uncertainty retains spool IDs. Fixed physical
+configuration/DNS workers retain their capacity after caller cancellation/expiry.
+Stopped/restart replacement rotates trust/identity without changing original
+spool/source cursors. See [transport contract](44-transport-security.md) and current
+acceptance in [progress](07-progress.md). This native slice does not yet qualify
+protected packaging probes, collector publishing, real PKI or external releases.
+
 ## Input contract
 
 Each agent process accepts at most 16 inputs. With no `--file` or `--stdin`, it

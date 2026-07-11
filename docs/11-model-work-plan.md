@@ -18,6 +18,17 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current SECURITY-TRANSPORT slice — 2026-10-09
+
+Native monolith/agent mTLS and stopped/restart identity/root/CRL/token rotation have
+passed_simulated evidence:16 actual compound checks,4 harness regressions and
+independent review. Strict727default/778all-feature tests, both Clippy/fmt and
+workspace13 pass;5 regressions reject disabled deadline safeguards and pass after
+exact source restoration. Parent SECURITY-TRANSPORT stays in_progress. Continue
+shared collector publishing TLS and protected deployment/health probes; no mandatory
+new service. Real PKI/native/fullCI/cloud/vendor/image/release remain separate.
+See `target/goal-execution-20261007/SECURITY-TRANSPORT/native-acceptance.json`.
+
 ## Current SECURITY-ACCESS slice — 2026-10-09
 
 SECURITY-ACCESS is passed_simulated for the frozen local scope: paired grants,

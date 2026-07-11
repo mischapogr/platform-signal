@@ -18,6 +18,7 @@ pub struct ConfigError(pub &'static str);
 pub struct AgentConfig {
     pub server: String,
     pub token: Option<String>,
+    pub tls_config: Option<PathBuf>,
     pub inputs: Vec<InputSpec>,
     pub spool: SpoolConfig,
     pub batch_events: usize,
@@ -180,6 +181,11 @@ impl AgentConfig {
             Ok(_) | Err(std::env::VarError::NotUnicode(_)) => return Err(ConfigError("API token")),
             Err(std::env::VarError::NotPresent) => None,
         };
+        let tls_config = match std::env::var("SIGNAL_AGENT_TLS_CONFIG") {
+            Ok(value) if !value.is_empty() && value.len() <= 4096 => Some(value.into()),
+            Err(std::env::VarError::NotPresent) => None,
+            _ => return Err(ConfigError("TLS configuration path")),
+        };
         let source = Source {
             source_type,
             name: source_name,
@@ -208,6 +214,7 @@ impl AgentConfig {
         Ok(Self {
             server,
             token,
+            tls_config,
             inputs,
             spool,
             batch_events,

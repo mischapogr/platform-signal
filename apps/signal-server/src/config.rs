@@ -114,6 +114,7 @@ macro_rules! section {
 }
 section!(Server {
     listen: Text,
+    tls_config: Text,
     max_connections: Count,
     connection_timeout: Text,
     connection_timeout_ms: Count,
@@ -445,7 +446,7 @@ impl Settings {
             return Err(ConfigError::Invalid("API token environment name"));
         }
         let mut values = BTreeMap::new();
-        mapping!(values,document.server,{listen=>"SIGNAL_LISTEN",max_connections=>"SIGNAL_MAX_CONNECTIONS"});
+        mapping!(values,document.server,{listen=>"SIGNAL_LISTEN",tls_config=>"SIGNAL_TLS_CONFIG",max_connections=>"SIGNAL_MAX_CONNECTIONS"});
         mapping!(values,document.ingest,{max_request_bytes=>"SIGNAL_MAX_REQUEST_BYTES",max_batch_events=>"SIGNAL_MAX_BATCH_EVENTS",max_in_flight=>"SIGNAL_MAX_IN_FLIGHT",api_token=>"SIGNAL_API_TOKEN"});
         mapping!(values,document.buffer,{wal_directory=>"SIGNAL_WAL_DIR",memory_events=>"SIGNAL_MEMORY_EVENTS",memory_bytes=>"SIGNAL_MEMORY_BYTES",max_record_bytes=>"SIGNAL_WAL_RECORD_BYTES",max_wal_bytes=>"SIGNAL_WAL_BYTES",segment_bytes=>"SIGNAL_WAL_SEGMENT_BYTES",max_segments=>"SIGNAL_WAL_SEGMENTS",command_capacity=>"SIGNAL_WAL_COMMANDS",max_waiters=>"SIGNAL_WAL_WAITERS",admission_policy=>"SIGNAL_ADMISSION_POLICY"});
         mapping!(values,document.storage,{storage_type=>"SIGNAL_STORAGE_TYPE",s3_endpoint=>"SIGNAL_S3_ENDPOINT",s3_region=>"SIGNAL_S3_REGION",s3_bucket=>"SIGNAL_S3_BUCKET",s3_backend_id=>"SIGNAL_S3_BACKEND_ID",s3_cache_directory=>"SIGNAL_S3_CACHE_DIR",s3_cache_files=>"SIGNAL_S3_CACHE_FILES",s3_cache_bytes=>"SIGNAL_S3_CACHE_BYTES",s3_object_bytes=>"SIGNAL_S3_OBJECT_BYTES",s3_inventory_objects=>"SIGNAL_S3_INVENTORY_OBJECTS",s3_catalog_bytes=>"SIGNAL_S3_CATALOG_BYTES",s3_allow_loopback_http=>"SIGNAL_S3_ALLOW_LOOPBACK_HTTP",directory=>"SIGNAL_STORAGE_DIR",flush_events=>"SIGNAL_STORAGE_BATCH_EVENTS",max_batch_bytes=>"SIGNAL_STORAGE_BATCH_BYTES",max_event_bytes=>"SIGNAL_STORAGE_EVENT_BYTES",max_disk_bytes=>"SIGNAL_STORAGE_BYTES",max_files=>"SIGNAL_STORAGE_FILES",command_capacity=>"SIGNAL_STORAGE_COMMANDS",compression=>"SIGNAL_STORAGE_COMPRESSION"});

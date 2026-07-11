@@ -619,7 +619,7 @@
     {
       "id": "SECURITY-TRANSPORT",
       "title": "mTLS and credential/certificate rotation",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "SECURITY-ACCESS"
       ],
@@ -631,7 +631,32 @@
       ],
       "references": [
         "docs/27-product-architecture.md",
-        "docs/04-implementation-plan.md"
+        "docs/04-implementation-plan.md",
+        "docs/44-transport-security.md"
+      ],
+      "notes": "Native agent/server mTLS and explicit stopped/restart trust/identity/CRL/token rotation passed16 actual compound checks,4 helper regressions and independent review. Strict727/778 zero-failure workspace acceptance, both Clippy/fmt/workspace13 and5 deadline red-green regressions pass. Parent remains in_progress for shared collector publishing TLS and protected packaging/deployment probes; external PKI/native/fullCI/cloud/vendor/image/release gates unchanged.",
+      "substeps": [
+        {
+          "id": "native-agent-server-mtls",
+          "status": "passed_simulated",
+          "evidence": [
+            "target/goal-execution-20261007/SECURITY-TRANSPORT/native-acceptance.json"
+          ]
+        },
+        {
+          "id": "shared-collector-publishing-tls",
+          "status": "pending",
+          "acceptance": [
+            "Use the same explicit bounded trust/identity and physical network budgets for collector publication; uncertainty retains original source receipt/spool IDs."
+          ]
+        },
+        {
+          "id": "protected-deployment-probes",
+          "status": "pending",
+          "acceptance": [
+            "Qualified mTLS readiness/liveness probes without plaintext or insecure verification fallback."
+          ]
+        }
       ]
     },
     {

@@ -75,3 +75,7 @@ path = "../../tests/integration/findings-feed.rs"
 [[test]]
 name = "access-server"
 path = "../../tests/integration/access-server.rs"
+
+[[test]]
+name = "transport-server"
+path = "../../tests/integration/transport-server.rs"

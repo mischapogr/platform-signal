@@ -53,8 +53,30 @@ impl BatchSender {
         connect_timeout: Duration,
         request_timeout: Duration,
     ) -> Result<Self, SendError> {
+        Self::with_tls(
+            endpoint,
+            token,
+            max_events,
+            max_request_bytes,
+            connect_timeout,
+            request_timeout,
+            None,
+        )
+    }
+
+    /// Explicit private trust and client identity; selecting TLS forbids HTTP.
+    pub fn with_tls(
+        endpoint: &str,
+        token: Option<&str>,
+        max_events: usize,
+        max_request_bytes: usize,
+        connect_timeout: Duration,
+        request_timeout: Duration,
+        tls: Option<rustls::ClientConfig>,
+    ) -> Result<Self, SendError> {
         let mut endpoint = url::Url::parse(endpoint).map_err(|_| SendError::Configuration)?;
         if !matches!(endpoint.scheme(), "http" | "https")
+            || (tls.is_some() && endpoint.scheme() != "https")
             || endpoint.host_str().is_none()
             || !endpoint.username().is_empty()
             || endpoint.password().is_some()
@@ -86,14 +108,20 @@ impl BatchSender {
                 Ok(value)
             })
             .transpose()?;
-        let client = Client::builder()
+        let mut builder = Client::builder()
             .no_proxy()
+            .http1_only()
+            .dns_resolver(std::sync::Arc::new(crate::dns::Resolver {
+                timeout: connect_timeout,
+            }))
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(connect_timeout)
             .timeout(request_timeout)
-            .pool_max_idle_per_host(1)
-            .build()
-            .map_err(|_| SendError::Configuration)?;
+            .pool_max_idle_per_host(1);
+        if let Some(tls) = tls {
+            builder = builder.use_preconfigured_tls(tls);
+        }
+        let client = builder.build().map_err(|_| SendError::Configuration)?;
         Ok(Self {
             client,
             endpoint,
@@ -109,6 +137,9 @@ impl BatchSender {
         events: &[SignalEvent],
         cancel: &CancellationToken,
     ) -> Result<BatchOutcome, SendError> {
+        let deadline = tokio::time::Instant::now()
+            .checked_add(self.request_timeout)
+            .ok_or(SendError::Configuration)?;
         if cancel.is_cancelled() {
             return Err(SendError::Cancelled);
         }
@@ -166,12 +197,40 @@ impl BatchSender {
                 serde_json::from_slice(&bytes).map_err(|_| SendError::InvalidResponse)?;
             verify(status, response, events)
         };
-        tokio::select! {
+        response_before_deadline(deadline, cancel, work).await
+    }
+}
+
+// A ready HTTP response must not acknowledge retained spool records when the
+// caller resumes after its original request deadline or cancellation.
+async fn response_before_deadline<T>(
+    deadline: tokio::time::Instant,
+    cancel: &CancellationToken,
+    work: impl std::future::Future<Output = Result<T, SendError>>,
+) -> Result<T, SendError> {
+    tokio::pin!(work);
+    let guarded = std::future::poll_fn(|cx| {
+        if cancel.is_cancelled() {
+            std::task::Poll::Ready(Err(SendError::Cancelled))
+        } else if tokio::time::Instant::now() >= deadline {
+            std::task::Poll::Ready(Err(SendError::Deadline))
+        } else {
+            work.as_mut().poll(cx).map(|result| {
+                if cancel.is_cancelled() {
+                    Err(SendError::Cancelled)
+                } else if tokio::time::Instant::now() >= deadline {
+                    Err(SendError::Deadline)
+                } else {
+                    result
+                }
+            })
+        }
+    });
+    tokio::select! {
             biased;
             _ = cancel.cancelled() => Err(SendError::Cancelled),
-            result = tokio::time::timeout(self.request_timeout, work) =>
+            result = tokio::time::timeout_at(deadline, guarded) =>
                 result.map_err(|_| SendError::Deadline)?,
-        }
     }
 }
 
@@ -242,6 +301,73 @@ mod tests {
         io::{AsyncReadExt, AsyncWriteExt},
         net::{TcpListener, TcpStream},
     };
+
+    #[tokio::test]
+    async fn ready_admission_after_deadline_or_cancellation_acknowledges_nothing() {
+        use std::{
+            cell::Cell,
+            future::Future,
+            task::{Context, Poll, Waker},
+        };
+        for cancelled in [false, true] {
+            let cancel = CancellationToken::new();
+            let ready = Cell::new(false);
+            let polls = Cell::new(0);
+            let deadline = tokio::time::Instant::now() + Duration::from_millis(50);
+            let response = std::future::poll_fn(|_| {
+                polls.set(polls.get() + 1);
+                if ready.get() {
+                    Poll::Ready(Ok(BatchOutcome {
+                        accepted: 1,
+                        disposition: Disposition::Complete,
+                    }))
+                } else {
+                    Poll::Pending
+                }
+            });
+            let result = response_before_deadline(deadline, &cancel, response);
+            tokio::pin!(result);
+            assert!(
+                result
+                    .as_mut()
+                    .poll(&mut Context::from_waker(Waker::noop()))
+                    .is_pending()
+            );
+            ready.set(true);
+            if cancelled {
+                cancel.cancel();
+            } else {
+                std::thread::sleep(
+                    deadline.saturating_duration_since(tokio::time::Instant::now())
+                        + Duration::from_millis(10),
+                );
+            }
+            assert_eq!(
+                result.await,
+                Err(if cancelled {
+                    SendError::Cancelled
+                } else {
+                    SendError::Deadline
+                })
+            );
+            assert_eq!(polls.get(), 1);
+        }
+    }
+
+    #[tokio::test]
+    async fn ready_response_crossing_deadline_cannot_acknowledge_spool() {
+        let cancel = CancellationToken::new();
+        let deadline = tokio::time::Instant::now() + Duration::from_millis(10);
+        let result = response_before_deadline(deadline, &cancel, async {
+            std::thread::sleep(Duration::from_millis(25));
+            Ok(BatchOutcome {
+                accepted: 1,
+                disposition: Disposition::Complete,
+            })
+        })
+        .await;
+        assert_eq!(result, Err(SendError::Deadline));
+    }
 
     fn event(id: &str) -> SignalEvent {
         serde_json::from_value(serde_json::json!({
