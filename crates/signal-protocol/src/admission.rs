@@ -58,6 +58,7 @@ pub fn verify_admission_response(
             AdmissionDisposition::ReduceBatch
         }
         (401, ErrorCode::Unauthorized)
+        | (403, ErrorCode::Forbidden)
         | (
             400,
             ErrorCode::InvalidJson

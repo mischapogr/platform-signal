@@ -70,6 +70,7 @@ pub enum IdentityError {
 }
 #[derive(Clone, Copy, Debug)]
 pub struct IdentityMetrics {
+    pub closed: bool,
     pub depth: usize,
     pub capacity: usize,
     pub queue_depth: usize,
@@ -155,6 +156,25 @@ impl Drop for RequestAttempt {
     }
 }
 impl IdentityBackend {
+    /// HTTP credentials never derive authority from forwarded user/role headers.
+    pub async fn authenticate_headers(
+        &self,
+        headers: &axum::http::HeaderMap,
+        context: IdentityContext,
+    ) -> Result<RequestGrant, IdentityError> {
+        use axum::http::header;
+        if headers.get_all(header::AUTHORIZATION).iter().count() != 1 {
+            return Err(IdentityError::InvalidCredential);
+        }
+        let token = headers
+            .get(header::AUTHORIZATION)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.split_once(' '))
+            .filter(|(scheme, _)| scheme.eq_ignore_ascii_case("Bearer"))
+            .map(|(_, token)| token)
+            .ok_or(IdentityError::InvalidCredential)?;
+        self.authenticate(token, context).await
+    }
     /// Requires an existing live Tokio runtime. No provider discovery or network
     /// work occurs at construction; all endpoint/credential/trust validation
     /// precedes spawning the finite physical workers.
@@ -388,6 +408,7 @@ impl IdentityBackend {
     pub fn metrics(&self) -> IdentityMetrics {
         let state = &self.inner.shared;
         IdentityMetrics {
+            closed: state.stopping.is_cancelled(),
             depth: state.capacity - state.slots.available_permits(),
             capacity: state.capacity,
             queue_depth: state.queued.load(Ordering::Acquire),

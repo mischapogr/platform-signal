@@ -20,13 +20,14 @@ full MVP release is complete.
 
 ## Current SECURITY-ACCESS slice — 2026-10-09
 
-Paired grants, selected profile, fixed-provider native HTTPS and mandatory
-trusted-host query filtering are accepted. Five query regressions, strict
-689default/740all-feature, both Clippy configurations, build/fmt/workspace13 and
-focused review pass. SECURITY-ACCESS stays in_progress. Continue whole-batch
-admission authority, server identity configuration and remaining route/local
-IdP-backed HTTP expiry/revocation/cross-scope acceptance. Preserve monolith,
-private policy and actual native/cloud/remote/image/release exceptions.
+Paired grants, selected profile, native HTTPS, mandatory query filtering and
+generic identity-backed producer admission are accepted. Five new route/ten
+native tests and strict694default/745all-feature, both Clippy/build/fmt/workspace13
+and source review pass. SECURITY-ACCESS stays in_progress. Continue validated
+private access configuration and composed server identity/query/admission wiring,
+then remaining findings/coverage/evidence/admin scope handling and local IdP
+HTTP expiry/revocation/cross-scope acceptance. Preserve monolith, private policy
+and actual native/cloud/remote/image/release exceptions.
 
 ## Persistent execution Goal — 2026-10-07
 

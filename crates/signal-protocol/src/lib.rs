@@ -46,6 +46,7 @@ pub enum ErrorCode {
     PayloadTooLarge,
     BatchTooLarge,
     Unauthorized,
+    Forbidden,
     Full,
     RequestTimeout,
     Unavailable,

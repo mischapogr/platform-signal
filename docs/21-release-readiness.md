@@ -7,6 +7,19 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## SECURITY-ACCESS producer-route boundary — 2026-10-09
+
+Five new producer-route regressions plus ten native tests pass. Strict694/745,
+formatting, both Clippy configurations, build/workspace13 and review qualify
+identity mode, whole-batch canonical scope preflight, denial without admission,
+lease-expired exact prefix Retry, fresh suffix admission, revocation, timeout and
+bounded metrics/readiness. Evidence uses actual Axum/TLS and a volatile memory
+sink. SECURITY-ACCESS stays in_progress: composed server configuration and durable
+WAL identity routes, remaining scope history/route enforcement and local IdP HTTP
+acceptance remain unfinished. All cloud/native/remote/image/dependency/release
+gates remain. See [access contract](42-access-control-contract.md) and
+`target/goal-execution-20261007/SECURITY-ACCESS/admission-acceptance.json`.
+
 ## SECURITY-ACCESS query-grant boundary — 2026-10-09
 
 The trusted-host authorized query entry point passes five actual committed
