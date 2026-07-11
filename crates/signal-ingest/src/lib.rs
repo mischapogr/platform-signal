@@ -1,4 +1,5 @@
 //! Validated, bounded HTTP ingestion through a storage-independent EventSink.
+pub mod identity;
 pub mod memory;
 pub mod server;
 
