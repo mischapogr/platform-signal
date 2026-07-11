@@ -600,14 +600,15 @@
         "Local identity-provider simulation; no identity-header bypass, expiry/revocation and cross-scope denials on ingest/query/evidence/findings/admin."
       ],
       "evidence": [
-        "target/goal-execution-20261007/SECURITY-ACCESS/"
+        "target/goal-execution-20261007/SECURITY-ACCESS/",
+        "target/goal-execution-20261007/SECURITY-ACCESS/server-acceptance.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md",
         "docs/42-access-control-contract.md"
       ],
-      "notes": "Accepted paired grants/profile/native HTTPS/query and generic producer admission: five new route/ten native regressions, strict694/745, both Clippy/build/fmt/workspace13 and review. Explicit identity mode never falls back; whole normalized batch canonical scope preflight, forwarded/duplicate credential denial, operation separation/revocation/deadline, closed readiness and bounded metrics. Lease-expired committed prefix408 remains exact Retry with fresh suffix; Forbidden403 permanent only zero prefix. Axum/TLS with volatile MemorySink only; composed server durable WAL/identity config, remaining findings/coverage/evidence/admin scope history and local IdP HTTP acceptance next. Parent in_progress; all real native/cloud/remote/image/release exceptions retained."
+      "notes": "Accepted pure grants/profile/native HTTPS/query/generic admission plus composed private identity/WAL/Parquet HTTP integration. Strict697/748, final corrected default/all-feature integration reruns, both Clippy/build/fmt/workspace13, four fixture/six owner/four cost regressions and15 retirement scenarios with review. Full workspace reuse limited to unchanged Rust/build files after Python-only cleanup correction; failed helper naming preserved and replaced by actual retirement simulation. Fresh revocation/cross-scope denial, exact query-before-limit, crash/restart and validated policy replacement pass synthetic provider. Explicit all-scope historical finding operations only; restricted finding history, coverage binding, remaining routes and established OIDC/local IdP acceptance next. Parent in_progress; native/cloud/remote/current-image/release exceptions remain."
     },
     {
       "id": "SECURITY-TRANSPORT",

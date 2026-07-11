@@ -7,6 +7,25 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## SECURITY-ACCESS composed-server boundary — 2026-10-09
+
+Private configuration, native authenticated durable admission and mandatory
+persisted event-query scopes pass actual TLS/monolith/WAL/Parquet simulations.
+Two integration checks include four bounded fixture failure cases; strict
+697/748, both Clippy/build/fmt/workspace13, ten existing helper regressions,
+15 persistent retirement scenarios and review pass. Full workspace evidence
+reuses unchanged Rust/build files after a Python-only cleanup correction; both
+focused integration configurations rerun on final fixture sources. A mistakenly
+named optional helper command remains failed in its original report, replaced
+by the existing retirement simulation in corrected acceptance.
+
+Restricted historical findings, coverage identity bridging, established OIDC
+sign-in and remaining route contracts are still required. Global finding reads
+require their explicit all-scope capabilities; unavailable administrative/evidence
+routes remain absent. SECURITY-ACCESS stays in_progress. This closes no native,
+cloud, current image or release gate. See [access contract](42-access-control-contract.md)
+and `target/goal-execution-20261007/SECURITY-ACCESS/server-acceptance.json`.
+
 ## SECURITY-ACCESS producer-route boundary — 2026-10-09
 
 Five new producer-route regressions plus ten native tests pass. Strict694/745,

@@ -21,11 +21,14 @@ public588/622 remains unchanged. All source completeness, AWS/TLS/HA/shared-runt
 and release exceptions stay visible. S3-QUERY is passed_simulated: default641/all-feature686 strict gates, source review, six helper regressions and eleven persistent S3/monolith scenarios pass. Four exact events/findings survive data-orphan and manifest-before-reply process crashes. RETENTION is passed_simulated: policy/report, stopped-cache, logical retirement, explicit exact-version query reclamation and bounded query measurements pass. Strict default659/all-feature710 remain unchanged;33 source-bound query samples over2,048 events/8hours and four failure helpers pass. Time pruning16→2 data GETs; cache remains rebuildable with mandatory remote reauthentication. Optional indexes deferred on measured evidence. Continue SECURITY-ACCESS; actual cloud/native/CI/kind/shared/custody/image/release gates stay open.
 
 
-SECURITY-ACCESS stays in_progress. Paired grants/profile/native HTTPS, query
-filtering and generic identity producer admission pass five route/ten native
-regressions, strict694default/745all-feature and focused review. Composed server
-configuration/durable identity routes, scope history and remaining local IdP
-HTTP acceptance remain required; see [access contract](42-access-control-contract.md).
+SECURITY-ACCESS stays in_progress. Composed private identity/WAL/Parquet admission
+and query simulations pass alongside the grants/profile/native mechanisms.
+Strict697/748 and final corrected focused integrations/review qualify current
+scope; source-reuse and retained-failure boundaries are explicit in
+`target/goal-execution-20261007/SECURITY-ACCESS/server-acceptance.json`.
+Restricted finding history, coverage binding, remaining capabilities and
+established local IdP/OIDC HTTP acceptance remain next; see the
+[access contract](42-access-control-contract.md).
 
 ## Execution and evidence
 

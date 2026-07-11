@@ -1,5 +1,38 @@
 # Implementation progress
 
+## SECURITY-ACCESS composed server identity — 2026-10-09
+
+`signal-server` now accepts strict private access configuration and connects the
+native backend to durable admission and persisted event queries. Identity mode
+rejects a bootstrap shared token. Request authentication precedes parsing, and
+query authority filters canonical rows before user limits. Fresh introspection
+observes revocation; capability separation and forwarded-identity denial remain.
+The original query deadline includes authentication and serialization. Shutdown
+closes the backend and joins its physical workers within the shared budget.
+
+Two compound integrations qualify the actual TLS provider/monolith/WAL/Parquet
+path and four fixture failure cases. Cross-account batches admit zero rows;
+exact scoped events survive SIGKILL/restart, and validated policy replacement
+removes the old subject. Explicit all-scope ReadFindings/ReadFindingsFeed can use
+the historical global journal; restricted findings and coverage identity bridging
+remain closed. Unimplemented evidence/admin/rules/audit routes remain absent.
+This is synthetic provider evidence, not established OIDC sign-in or live IdP proof.
+
+Strict Rust697default/748all-feature, formatting, both Clippy configurations,
+all-feature build/workspace13, six owner/four query-cost helpers and15 persistent
+retirement scenarios pass. Full workspace logs precede a Python-only interrupted
+provider-start correction; final focused integrations rerun both configurations.
+The failed optional helper command and earlier harness/sandbox failures remain
+retained. The composite acceptance records this reuse boundary rather than
+promoting the whole failed validation report. Review resolved finite log capture,
+spawn interruptions, silent TLS and pre-thread-start cleanup. Evidence:
+`target/goal-execution-20261007/SECURITY-ACCESS/server-acceptance.json`,
+`server-validation-corrected/validation.json` and `server-review.json`.
+
+SECURITY-ACCESS stays in_progress. Next: trustworthy compatible finding scopes,
+coverage binding, remaining capability enforcement and established local IdP
+sign-in/HTTP acceptance. Native/cloud/remote/image/release gates remain open.
+
 ## SECURITY-ACCESS producer admission — 2026-10-09
 
 `IngestService::new_with_identity` enables the native fixed-provider backend for
