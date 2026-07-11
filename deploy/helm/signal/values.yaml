@@ -15,6 +15,10 @@ persistence:
 auth:
   existingSecret: ""
   key: api-token
+tls:
+  existingSecret: ""
+  serverKey: server.json
+  probeKey: probe.json
 rules:
   existingConfigMap: ""
   keys: []
@@ -44,6 +48,12 @@ serviceMonitor:
   labels: {}
   interval: 30s
   scrapeTimeout: 10s
+  tls:
+    existingSecret: ""
+    caKey: ca.crt
+    certKey: tls.crt
+    keyKey: tls.key
+    serverName: ""
 podAnnotations: {}
 nodeSelector: {}
 tolerations: []

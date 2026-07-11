@@ -2,6 +2,35 @@
 
 
 
+
+## SECURITY-TRANSPORT complete locally — 2026-10-09
+
+The frozen local transport scope is passed_simulated. Quiet health/readiness modes
+in the existing agent use the shared native HTTP/mTLS client, exact loopback IP
+verification, one original two-second deadline and a complete bounded1KiB body.
+No source/spool/token access or insecure/plaintext fallback is introduced. The
+Docker adapter replaces itself without a shell/child; Helm uses exec probes and
+separate existing-Secret probe identity, with three-second supervision. TLS metrics
+require explicit CA/client/key/server-name references, never insecure scraping.
+
+Actual monolith/agent19 compound checks, three current-binary nonroot container
+adapter cases, seven positive/negative chart contracts, four harness regressions,
+strict733/784 default/all-feature workspace tests, both Clippy/fmt/workspace13 and
+independent review pass. The container substrate is the older14c56dc image with
+current binaries mounted; this is not a current complete production image. The
+first native trial failed an unrecorded query HTTP status; failure is retained,
+the harness now records status, and subsequent strict/final gates pass. No cause
+or prolonged stability claim is inferred. Test-only Clippy unwraps and two container
+harness review findings were corrected; failed evidence stays visible.
+
+Evidence: `target/goal-execution-20261007/SECURITY-TRANSPORT/probe-acceptance.json`,
+`probe-validation-reviewed/validation.json`, `probe-process-final/qualification.json`,
+`probe-container-qualified/qualification.json`, `probe-chart-qualified/validation.json`
+and `probe-review.json`. Native ARM64/full remote CI, real PKI/cloud/live tenants,
+current full-image/kind/release/publication remain separate. Continue SECURITY-AUDIT
+restricted independent audit and secrets/encryption seams; no routine stop.
+
+
 ## SECURITY-TRANSPORT shared collector TLS — 2026-10-09
 
 The collector SDK now owns the single native client TLS builder and retained

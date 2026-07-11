@@ -67,30 +67,41 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
-          {{- if .Values.auth.existingSecret }}
           env:
+            - name: SIGNAL_HEALTHCHECK_ADDR
+              value: {{ printf "127.0.0.1:%d" (int .Values.service.port) | quote }}
+            {{- if .Values.tls.existingSecret }}
+            - name: SIGNAL_TLS_CONFIG
+              value: /etc/signal/tls/server.json
+            - name: SIGNAL_PROBE_TLS_CONFIG
+              value: /etc/signal/tls/probe.json
+            {{- end }}
+            {{- if .Values.auth.existingSecret }}
             - name: SIGNAL_API_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.auth.existingSecret | quote }}
                   key: {{ .Values.auth.key | quote }}
-          {{- end }}
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
             - name: metrics
               containerPort: {{ .Values.service.metricsPort }}
           startupProbe:
-            httpGet: {path: /readyz, port: http}
-            timeoutSeconds: 2
+            exec:
+              command: ["/usr/local/bin/signal-agent", "--readycheck"]
+            timeoutSeconds: 3
             {{- toYaml .Values.probes.startup | nindent 12 }}
           readinessProbe:
-            httpGet: {path: /readyz, port: http}
-            timeoutSeconds: 2
+            exec:
+              command: ["/usr/local/bin/signal-agent", "--readycheck"]
+            timeoutSeconds: 3
             {{- toYaml .Values.probes.readiness | nindent 12 }}
           livenessProbe:
-            httpGet: {path: /healthz, port: http}
-            timeoutSeconds: 2
+            exec:
+              command: ["/usr/local/bin/signal-agent", "--healthcheck"]
+            timeoutSeconds: 3
             {{- toYaml .Values.probes.liveness | nindent 12 }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
@@ -98,6 +109,9 @@ spec:
             - {name: config, mountPath: /etc/signal/server.yaml, subPath: server.yaml, readOnly: true}
             - {name: data, mountPath: /var/lib/signal}
             - {name: tmp, mountPath: /tmp}
+            {{- if .Values.tls.existingSecret }}
+            - {name: tls, mountPath: /etc/signal/tls, readOnly: true}
+            {{- end }}
             {{- if .Values.rules.existingConfigMap }}
             {{- range .Values.rules.keys }}
             - name: rules
@@ -116,6 +130,15 @@ spec:
         - name: tmp
           emptyDir:
             sizeLimit: 128Mi
+        {{- if .Values.tls.existingSecret }}
+        - name: tls
+          secret:
+            secretName: {{ .Values.tls.existingSecret | quote }}
+            defaultMode: 0440
+            items:
+              - {key: {{ .Values.tls.serverKey | quote }}, path: server.json}
+              - {key: {{ .Values.tls.probeKey | quote }}, path: probe.json}
+        {{- end }}
         {{- if .Values.rules.existingConfigMap }}
         - name: rules
           configMap:
