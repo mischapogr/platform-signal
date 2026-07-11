@@ -187,3 +187,27 @@ binary persistent S3/monolith scenarios also pass. Evidence is retained under
 This does not qualify actual AWS conditional/version/Object Lock behavior, raw
 custody, Standard fencing, remote CI/native/kind, a fresh image or release.
 RETENTION remains in_progress for representative query/cache measurements.
+
+## Parent acceptance and measured query decision
+
+RETENTION is passed_simulated. The complete source-bound workload checks2,048
+synthetic events/8hours/16 committed batches,33 query samples and four helper
+failure regressions. Exact oracle IDs/messages/nested attributes, stable warm file
+identity/mtime/hash, empty-cache rebuild, no-data-read413 preflight and immutable
+source/checkpoint preservation pass. Prior strict Rust659/710 inputs are unchanged.
+
+Warm hourly queries select/download2 data objects, versus16 for broad and typed/
+JSON predicate queries. Median local debug wall times are501.187ms hourly and
+2,937.896ms broad. Every selected query reauthenticates pinned remote bytes; cache
+reuse is not a remote-GET saving. Encoded Parquet data totals17,390,662bytes under
+this synthetic payload/schema/compression setting; this is no universal ratio.
+The5-second normal server deadline is separate from file/decoded/operator budgets.
+The workload report records bounds/bytes/identities, not physical I/O or AWS TCO.
+
+Keep whole canonical v1 responses, existing partition/column projections and
+predicate pushdown. Defer optional field indexes because the measurement does not
+establish benefit. Preserve manifest authentication history within finite caps;
+exhaustion holds progress. Independent raw evidence policy and expired storage
+class restoration remain distinct. Actual cloud/native/HA/custody/release checks
+stay external/later gates. Evidence: `target/goal-execution-20261007/RETENTION/query-measurements-final/report.json`
+and `measurements-acceptance.json`.

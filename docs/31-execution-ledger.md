@@ -18,7 +18,7 @@ actual observability outage with M2 ACK gating, lost archive reply/exact replay,
 actual server and source crashes, uncertainty/reconciled reopen and fresh ACK.
 Private77 strict tests plus exact parent1 compound process gate and review pass;
 public588/622 remains unchanged. All source completeness, AWS/TLS/HA/shared-runtime
-and release exceptions stay visible. S3-QUERY is passed_simulated: default641/all-feature686 strict gates, source review, six helper regressions and eleven persistent S3/monolith scenarios pass. Four exact events/findings survive data-orphan and manifest-before-reply process crashes. RETENTION is in_progress: policy/report, stopped-cache, logical retirement and explicit stopped exact-version query reclamation pass strict default659/all-feature710, source review, finite native denial/replacement/hidden-version/lost-reply and actual before/after-effect SIGKILL/reopen;15 current-binary persistent S3/monolith non-regressions also pass. Bounded query/cache measurements remain unfinished. Continue RETENTION; actual cloud/native/CI/kind/shared/custody/image/release gates stay open.
+and release exceptions stay visible. S3-QUERY is passed_simulated: default641/all-feature686 strict gates, source review, six helper regressions and eleven persistent S3/monolith scenarios pass. Four exact events/findings survive data-orphan and manifest-before-reply process crashes. RETENTION is passed_simulated: policy/report, stopped-cache, logical retirement, explicit exact-version query reclamation and bounded query measurements pass. Strict default659/all-feature710 remain unchanged;33 source-bound query samples over2,048 events/8hours and four failure helpers pass. Time pruning16→2 data GETs; cache remains rebuildable with mandatory remote reauthentication. Optional indexes deferred on measured evidence. Continue SECURITY-ACCESS; actual cloud/native/CI/kind/shared/custody/image/release gates stay open.
 
 
 ## Execution and evidence
@@ -71,7 +71,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | DISPOSITIONS | passed_local | OUTBOX | Disposition/outcome backend seam |
 | EVIDENCE | passed_simulated | AWS-DELIVERY | Independent protected original route and validation simulation |
 | S3-QUERY | passed_simulated | CORE | Object-backed Parquet and committed query manifests |
-| RETENTION | in_progress | S3-QUERY, EVIDENCE | Selective query acceleration, retention and cost controls |
+| RETENTION | passed_simulated | S3-QUERY, EVIDENCE | Selective query acceleration, retention and cost controls |
 | SECURITY-ACCESS | pending | CORE | OIDC/trusted identity, scoped credentials and RBAC |
 | SECURITY-TRANSPORT | pending | SECURITY-ACCESS | mTLS and credential/certificate rotation |
 | SECURITY-AUDIT | pending | SECURITY-ACCESS, EVIDENCE | Restricted independent audit and secrets/encryption integration seams |

@@ -7,6 +7,21 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## RETENTION parent local/simulation acceptance — 2026-10-09
+
+RETENTION is passed_simulated: policy/reachability, stopped-cache maintenance,
+synced logical retirement, explicit exact-version query reclamation and bounded
+query measurements are complete within the frozen item. Current Rust remains
+strict default659/all-feature710;33 source-bound actual-server query samples over
+2,048 synthetic events, four failure helpers, source review and workflow checks
+pass. Selected UTC hour reduces data objects/GETs16→2; warm derived files remain
+stable but every query reauthenticates remote bytes. Denial precedes data reads.
+No optional field index or partial-event API is justified by this diagnostic.
+This does not qualify AWS/cloud/native/CI/kind/EKS/shared/custody, current images,
+production capacity or release. See [progress](07-progress.md),
+`target/goal-execution-20261007/RETENTION/query-measurements-final/report.json`,
+`measurement-review.json` and `measurements-acceptance.json`. Next: SECURITY-ACCESS.
+
 ## Exact query-version reclamation boundary — 2026-10-09
 
 RETENTION stays in_progress. Strict default659/all-feature710, source review,

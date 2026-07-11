@@ -38,6 +38,13 @@ and owned process-group cleanup. Command arguments must not contain secrets.
 A cancelled VM can interrupt artifact upload; absent evidence never counts as
 a pass.
 
+Both Rust runners also run a finite2,048-event/8-hour query/cache diagnostic and
+its failure-evidence helpers. It checks exact IDs/canonical fields, time selection,
+mandatory remote reauthentication, empty-cache rebuild and no-data-read budget
+denial. Local AMD64 evidence has33 passing samples; remote execution stays open.
+It records debug structural timings, without claiming native production capacity,
+cloud prices or cache GET savings. See the [retention contract](41-retention-contract.md).
+
 After both Rust jobs pass, fresh native runner jobs build the production image,
 check host/daemon/ELF identity and persistence, run parsers and measured pipelines
 with a finite 120-second soak, run kind persistence/restart, and produce dependency
