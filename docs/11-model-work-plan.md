@@ -20,13 +20,13 @@ full MVP release is complete.
 
 ## Current SECURITY-ACCESS slice — 2026-10-09
 
-Bounded pure grants and selected introspection response profile are accepted:
-nine grant/six response regressions, strict default674/all-feature725, both Clippy
-configurations, all-feature build, formatting, workspace13 and independent review.
-SECURITY-ACCESS stays in_progress. Continue bounded fixed-provider native HTTPS
-introspection and local provider/TLS failure/cancellation/recovery, then actual
-route/local IdP expiry/revocation/cross-scope gates. Preserve monolith, private
-policy, source evidence and native/cloud/remote/image/release exceptions.
+Bounded paired grants, selected response profile and native fixed-provider
+HTTPS backend are accepted. Ten native/TLS/ownership regressions, strict
+684default/735all-feature, both Clippy configurations, build/fmt/workspace13 and
+focused review pass. SECURITY-ACCESS stays in_progress. Continue mandatory query
+predicates before limits, whole-batch admission authority, server configuration
+and remaining route/local IdP expiry/revocation/cross-scope acceptance. Preserve
+monolith, private policy and actual native/cloud/remote/image/release exceptions.
 
 ## Persistent execution Goal — 2026-10-07
 

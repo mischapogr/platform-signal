@@ -3,10 +3,10 @@
 This contract implements the frozen SECURITY-ACCESS item from the
 [execution ledger](31-execution-ledger.md) and the trust requirements in
 [product architecture](27-product-architecture.md#7-security-and-useful-defaults).
-The first accepted slice is a pure bounded grant model in `signal-protocol`.
-It does **not** authenticate HTTP requests or replace the development server's
-optional single bearer token. SECURITY-ACCESS remains in progress until a trusted
-identity backend, route enforcement and local identity-provider simulations pass.
+Accepted slices provide bounded paired grants, an introspection response profile
+and fixed-provider native HTTPS token authentication. Server routes still use
+the development server's optional single bearer token. SECURITY-ACCESS remains
+in progress until server enforcement and local identity-provider HTTP gates pass.
 
 ## Policy and trust boundary
 
@@ -172,3 +172,45 @@ build, workspace13 and focused review. Evidence is source-bound in
 The array-shape review correction and integer-width fixture compile failure are
 retained. Native authenticated HTTPS and real server scope enforcement remain
 next; this acceptance closes no live IdP, cloud, ARM64, remote CI or release gate.
+
+## Native authenticated provider mechanism
+
+`signal-ingest::identity::IdentityBackend` requires one fixed operator endpoint,
+client ID/secret, response profile and immutable compiled private policy. The
+endpoint is HTTPS only (2,048 bytes), with no userinfo, query or fragment; caller
+input never selects its origin. Client ID/secret each cap at1,024 bytes. Only
+`client_secret_basic` is supported; each credential is form-encoded before the
+colon/Base64 header. The header is sensitive and errors contain static categories.
+Additional DER roots cap at8,16KiB each and64KiB total, alongside public WebPKI
+roots. Established rustls verifies trust, expiry and DNS/IP server name. No
+insecure verifier, redirects, proxy discovery, retry, connection pool or detached
+HTTP driver exists. Direct Hyper HTTP/1 work is driven within the physical request.
+
+Every request introspects fresh. Opaque credentials cap at4,096 graphic ASCII
+bytes; request form body caps at16KiB. Only an authenticated200 response with
+JSON content type, absent/identity encoding and bounded unique integrity headers
+reaches parsing. HTTP headers cap at32/16KiB; decoded response body caps16KiB.
+Trailers, oversized declared/chunked bodies and malformed responses fail closed.
+Operator request duration is positive and at most30 seconds and clamps caller
+deadlines. Cancellation is checked before and after physical phases; dropped
+callers cancel their request. There is no revocation cache; a returned request
+lease still requires permission checks at use time.
+
+A fixed1–16 physical worker pool and global admission semaphore bound queued,
+running and unconsumed completion work together. Native DNS runs only on these
+retained workers. A caller timeout cannot release its physical lease before an
+OS lookup finishes. Stop closes admission/cancels requests; shutdown joins only
+finished threads within its deadline. A stalled physical worker makes shutdown
+fail with visible capacity/alive metrics; it is never silently replaced. Queue,
+physical depth/capacity, workers alive, request/rejection/denial/failure counters
+are available. Dropping the last backend closes its sender; explicit shutdown
+is required to prove complete physical termination.
+
+Ten finite local tests use real TLS with fresh synthetic certificate material,
+including trust/name/expiry failures before credential transmission and fresh
+active/inactive checks. A controlled blocking worker pause qualifies capacity
+retention, not OS DNS latency. Provider fixture shutdown retains task ownership
+through await, with abort-on-drop qualification. Strict684/735 and source review
+are bound in `target/goal-execution-20261007/SECURITY-ACCESS/native-validation-corrected/validation.json`.
+Server routes/configuration, sign-in and full local HTTP authorization remain
+next. This proof closes no live provider, native ARM64, AWS or release gate.

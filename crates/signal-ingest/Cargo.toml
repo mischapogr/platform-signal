@@ -15,7 +15,7 @@ signal-event.workspace = true
 signal-protocol.workspace = true
 axum.workspace = true
 chrono.workspace = true
-hyper.workspace = true
+hyper = { workspace = true, features = ["client"] }
 hyper-util.workspace = true
 http-body-util.workspace = true
 serde.workspace = true
@@ -26,7 +26,15 @@ tokio.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
 uuid.workspace = true
+base64.workspace = true
+bytes.workspace = true
+url.workspace = true
+serde_urlencoded.workspace = true
+tokio-rustls = { version = "=0.26.6", default-features = false, features = ["ring", "tls12"] }
+rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
+webpki-roots = "=1.0.9"
 
 [dev-dependencies]
+tempfile.workspace = true
 tower.workspace = true
 tokio-stream.workspace = true
