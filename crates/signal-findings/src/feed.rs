@@ -23,7 +23,7 @@ impl Write for Output {
     }
 }
 impl Engine {
-    fn read_feed_record(
+    pub(super) fn read_feed_record(
         &mut self,
         entry: &Entry,
         previous: FindingsCursor,
@@ -128,6 +128,7 @@ impl Engine {
             let entry = Entry {
                 offset: entry.offset,
                 len: entry.len,
+                position: entry.position,
             };
             // Charge JSON string/container expansion, record buffer, Vec spare capacity,
             // encoded output including allocator growth, and the decoded Finding before read.

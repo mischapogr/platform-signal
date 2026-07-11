@@ -1,7 +1,7 @@
 //! One consumer checkpoints only after event and finding persistence finish.
 use signal_buffer::{BufferError, DurableBuffer};
 use signal_event::SignalEvent;
-use signal_findings::{Finding, FindingContext, FindingError, FindingStore};
+use signal_findings::{DerivedFinding, Finding, FindingContext, FindingError, FindingStore};
 use signal_protocol::{
     AdmissionFuture, EventSink, FindingSinkMetrics, LoggingSinkMetrics, QuerySinkMetrics,
     RuleSinkMetrics, SinkMetrics, StorageSinkMetrics,
@@ -31,6 +31,8 @@ pub struct PipelineSink {
 }
 
 pub struct DetectionPipeline {
+    /// Present only in native identity mode; retained startup WAL is unknown.
+    pub authenticated_after: Option<u64>,
     pub rules: RuleSet,
     pub findings: Arc<FindingStore>,
     pub max_rows: usize,
@@ -343,11 +345,20 @@ async fn complete_findings(
             .matches
             .fetch_add(findings.len() as u64, Ordering::Relaxed);
         for finding in findings {
+            let finding = match detection.authenticated_after {
+                Some(floor) => FindingOutput::Derived(DerivedFinding::from_event(
+                    finding,
+                    &row.event,
+                    row.sequence > floor,
+                )?),
+                None => FindingOutput::Legacy(finding),
+            };
+            let preview = finding.preview();
             let mut size = SizeCounter {
                 bytes: signal_findings::FINDING_FRAME_BYTES,
                 limit: detection.max_bytes,
             };
-            serde_json::to_writer(&mut size, &finding).map_err(|_| FindingError::Quota)?;
+            serde_json::to_writer(&mut size, &preview).map_err(|_| FindingError::Quota)?;
             if pending.len() == detection.max_rows || bytes + size.bytes > detection.max_bytes {
                 persist_findings(detection, std::mem::take(&mut pending), deadline, cancel).await?;
                 bytes = 0;
@@ -362,23 +373,48 @@ async fn complete_findings(
     Ok(())
 }
 
+enum FindingOutput {
+    Legacy(Finding),
+    Derived(DerivedFinding),
+}
+impl FindingOutput {
+    fn preview(&self) -> Finding {
+        match self {
+            Self::Legacy(finding) => finding.clone(),
+            Self::Derived(finding) => finding.budget_preview(),
+        }
+    }
+}
 async fn persist_findings(
     detection: &DetectionPipeline,
-    findings: Vec<Finding>,
+    findings: Vec<FindingOutput>,
     deadline: Instant,
     cancel: &CancellationToken,
 ) -> Result<(), PipelineError> {
     let total = findings.len();
-    let receipt = detection
-        .findings
-        .append(
-            findings,
-            FindingContext {
-                deadline,
-                cancellation: cancel.child_token(),
-            },
-        )
-        .await?;
+    let context = FindingContext {
+        deadline,
+        cancellation: cancel.child_token(),
+    };
+    let receipt = if detection.authenticated_after.is_some() {
+        let findings = findings
+            .into_iter()
+            .map(|finding| match finding {
+                FindingOutput::Derived(finding) => Ok(finding),
+                FindingOutput::Legacy(_) => Err(FindingError::Invalid("mixed finding modes")),
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        detection.findings.append_derived(findings, context).await?
+    } else {
+        let findings = findings
+            .into_iter()
+            .map(|finding| match finding {
+                FindingOutput::Legacy(finding) => Ok(finding),
+                FindingOutput::Derived(_) => Err(FindingError::Invalid("mixed finding modes")),
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        detection.findings.append(findings, context).await?
+    };
     if receipt.inserted + receipt.duplicates != total {
         return Err(PipelineError::Receipt);
     }
@@ -526,6 +562,7 @@ mod tests {
             logging: None,
             coverage: None,
             detection: Some(Arc::new(DetectionPipeline {
+                authenticated_after: None,
                 rules,
                 findings,
                 max_rows,
@@ -974,6 +1011,104 @@ mod tests {
             drop(lease);
             stop(&pipeline).await?;
         }
+        Ok(())
+    }
+    #[tokio::test]
+    async fn native_activation_floor_keeps_backlog_unknown_and_replay_preserves_exact_scopes()
+    -> Result {
+        let temp = TempDir::new()?;
+        let (wal, storage) = configs(&temp);
+        let finding_config = signal_findings::FindingConfig {
+            directory: temp.path().join("findings"),
+            ..Default::default()
+        };
+        let old = event("unverified retained backlog")?;
+        let new = event("fresh trusted host admission")?;
+        let mut pipeline =
+            open_detecting(wal.clone(), storage.clone(), finding_config.clone()).await?;
+        pipeline.admit(old.clone()).await?;
+        let floor = pipeline.buffer.snapshot().last_sequence;
+        {
+            let owner = Arc::get_mut(&mut pipeline).ok_or("pipeline ownership")?;
+            let detection = Arc::get_mut(owner.detection.as_mut().ok_or("detection")?)
+                .ok_or("detection ownership")?;
+            detection.authenticated_after = Some(floor);
+            detection
+                .findings
+                .enable_scopes(FindingContext::new(Duration::from_secs(5)))
+                .await?;
+        }
+        // This unit test qualifies the host floor; the HTTP gate proves native
+        // credential admission. A sequence number alone is never a credential.
+        pipeline.admit(new.clone()).await?;
+        let batch = pipeline.buffer.read_batch(10, 8192).await?;
+        let detection = pipeline.detection.as_ref().ok_or("detection")?;
+        complete_findings(
+            detection,
+            &batch,
+            Instant::now() + Duration::from_secs(5),
+            &CancellationToken::new(),
+        )
+        .await?;
+        let query = signal_findings::FindingQuery {
+            limit: 10,
+            ..Default::default()
+        };
+        let rows = detection
+            .findings
+            .query(query.clone(), FindingContext::new(Duration::from_secs(5)))
+            .await?;
+        assert_eq!(rows.len(), 2);
+        assert!(
+            !rows
+                .iter()
+                .find(|row| row.event_ids == [old.id])
+                .ok_or("old row")?
+                .attributes
+                .contains_key("signal.scope.v1")
+        );
+        assert!(
+            rows.iter()
+                .find(|row| row.event_ids == [new.id])
+                .ok_or("new row")?
+                .attributes
+                .contains_key("signal.scope.v1")
+        );
+        let journal = temp.path().join("findings/findings.journal");
+        let bytes = std::fs::read(&journal)?;
+        stop(&pipeline).await?;
+        let mut pipeline = open_detecting(wal, storage, finding_config).await?;
+        let floor = pipeline.buffer.snapshot().last_sequence;
+        {
+            let owner = Arc::get_mut(&mut pipeline).ok_or("pipeline ownership")?;
+            let detection = Arc::get_mut(owner.detection.as_mut().ok_or("detection")?)
+                .ok_or("detection ownership")?;
+            detection.authenticated_after = Some(floor);
+            detection
+                .findings
+                .enable_scopes(FindingContext::new(Duration::from_secs(5)))
+                .await?;
+        }
+        let batch = pipeline.buffer.read_batch(10, 8192).await?;
+        let detection = pipeline.detection.as_ref().ok_or("detection")?;
+        complete_findings(
+            detection,
+            &batch,
+            Instant::now() + Duration::from_secs(5),
+            &CancellationToken::new(),
+        )
+        .await?;
+        assert_eq!(
+            detection
+                .findings
+                .query(query, FindingContext::new(Duration::from_secs(5)))
+                .await?,
+            rows
+        );
+        assert_eq!(std::fs::read(&journal)?, bytes);
+        assert_eq!(pipeline.buffer.snapshot().checkpoint, 0);
+        assert_eq!(detection.findings.metrics().duplicates, 2);
+        stop(&pipeline).await?;
         Ok(())
     }
 }

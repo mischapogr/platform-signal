@@ -10,7 +10,8 @@ use serde::Serialize;
 use signal_findings::{
     DetectionSeverity, Finding, FindingContext, FindingError, FindingQuery, FindingStore,
 };
-use signal_ingest::{IngestConfig, authorized};
+use signal_ingest::{IngestConfig, identity::IdentityBackend};
+use signal_protocol::access::{Operation, RequestGrant};
 use signal_protocol::findings_feed::{FeedQueryError, parse_findings_feed_query};
 use std::{collections::HashSet, io::Write, sync::Arc, time::Duration};
 use tokio_util::sync::CancellationToken;
@@ -23,8 +24,10 @@ struct FindingState {
     response_bytes: usize,
     timeout: Duration,
     stopping: CancellationToken,
+    identity: Option<IdentityBackend>,
 }
 
+#[cfg(test)]
 pub fn router(
     store: Arc<FindingStore>,
     auth: IngestConfig,
@@ -32,6 +35,18 @@ pub fn router(
     response_bytes: usize,
     timeout: Duration,
     stopping: CancellationToken,
+) -> Router {
+    router_with_identity(store, auth, limit, response_bytes, timeout, stopping, None)
+}
+
+pub fn router_with_identity(
+    store: Arc<FindingStore>,
+    auth: IngestConfig,
+    limit: usize,
+    response_bytes: usize,
+    timeout: Duration,
+    stopping: CancellationToken,
+    identity: Option<IdentityBackend>,
 ) -> Router {
     Router::new()
         .route("/v1/findings", get(findings))
@@ -43,6 +58,7 @@ pub fn router(
             response_bytes,
             timeout,
             stopping,
+            identity,
         })
 }
 
@@ -72,13 +88,12 @@ async fn feed(
     response
 }
 async fn feed_inner(state: FindingState, raw: Option<String>, headers: HeaderMap) -> Response {
-    if !authorized(&state.auth, &headers) {
-        return error(
-            StatusCode::UNAUTHORIZED,
-            "unauthorized",
-            "valid bearer token required",
-        );
-    }
+    let context = request_context(&state);
+    let _guard = CancelOnDrop(context.cancellation.clone());
+    let grant = match authenticate(&state, &headers, &context, Operation::ReadFindingsFeed).await {
+        Ok(grant) => grant,
+        Err(response) => return response,
+    };
     let query = match parse_findings_feed_query(raw.as_deref().unwrap_or(""), state.limit) {
         Ok(query) => query,
         Err(FeedQueryError::InvalidQuery) => {
@@ -103,21 +118,15 @@ async fn feed_inner(state: FindingState, raw: Option<String>, headers: HeaderMap
             );
         }
     };
-    let cancellation = state.stopping.child_token();
-    let _guard = CancelOnDrop(cancellation.clone());
     match state
         .store
-        .feed(
-            query,
-            state.response_bytes,
-            FindingContext {
-                deadline: tokio::time::Instant::now() + state.timeout,
-                cancellation,
-            },
-        )
+        .feed(query, state.response_bytes, context.clone())
         .await
     {
-        Ok(bytes) => ([("content-type", "application/json")], bytes).into_response(),
+        Ok(bytes) => match finish(&context, grant.as_deref(), Operation::ReadFindingsFeed) {
+            None => ([("content-type", "application/json")], bytes).into_response(),
+            Some(response) => response,
+        },
         Err(FindingError::CursorStreamMismatch) => error(
             StatusCode::CONFLICT,
             "cursor_stream_mismatch",
@@ -138,6 +147,9 @@ async fn feed_inner(state: FindingState, raw: Option<String>, headers: HeaderMap
             "page_budget_exceeded",
             "findings feed page budget exceeded",
         ),
+        Err(FindingError::Denied) => {
+            error(StatusCode::FORBIDDEN, "forbidden", "finding access denied")
+        }
         Err(FindingError::Invalid(_)) => error(
             StatusCode::BAD_REQUEST,
             "invalid_query",
@@ -166,13 +178,20 @@ async fn findings(
     RawQuery(raw): RawQuery,
     headers: HeaderMap,
 ) -> Response {
-    if !authorized(&state.auth, &headers) {
-        return error(
-            StatusCode::UNAUTHORIZED,
-            "unauthorized",
-            "valid bearer token required",
-        );
-    }
+    let mut response = findings_inner(state, raw, headers).await;
+    response.headers_mut().insert(
+        "cache-control",
+        axum::http::HeaderValue::from_static("no-store"),
+    );
+    response
+}
+async fn findings_inner(state: FindingState, raw: Option<String>, headers: HeaderMap) -> Response {
+    let context = request_context(&state);
+    let _guard = CancelOnDrop(context.cancellation.clone());
+    let grant = match authenticate(&state, &headers, &context, Operation::ReadFindings).await {
+        Ok(grant) => grant,
+        Err(response) => return response,
+    };
     let query = match parse(raw.as_deref().unwrap_or(""), state.limit) {
         Ok(query) => query,
         Err(()) => {
@@ -183,18 +202,15 @@ async fn findings(
             );
         }
     };
-    let cancellation = state.stopping.child_token();
-    let _guard = CancelOnDrop(cancellation.clone());
-    let result = state
-        .store
-        .query(
-            query,
-            FindingContext {
-                deadline: tokio::time::Instant::now() + state.timeout,
-                cancellation,
-            },
-        )
-        .await;
+    let result = match &grant {
+        Some(grant) => {
+            state
+                .store
+                .query_authorized(query, context.clone(), grant.clone())
+                .await
+        }
+        None => state.store.query(query, context.clone()).await,
+    };
     match result {
         Ok(findings) => {
             let response = FindingResponse {
@@ -212,7 +228,13 @@ async fn findings(
                     "finding response limit exceeded",
                 );
             }
-            ([("content-type", "application/json")], bytes.bytes).into_response()
+            match finish(&context, grant.as_deref(), Operation::ReadFindings) {
+                None => ([("content-type", "application/json")], bytes.bytes).into_response(),
+                Some(response) => response,
+            }
+        }
+        Err(FindingError::Denied) => {
+            error(StatusCode::FORBIDDEN, "forbidden", "finding access denied")
         }
         Err(FindingError::Invalid(_)) => error(
             StatusCode::BAD_REQUEST,
@@ -240,6 +262,68 @@ async fn findings(
             "finding store unavailable",
         ),
     }
+}
+
+fn request_context(state: &FindingState) -> FindingContext {
+    FindingContext {
+        deadline: tokio::time::Instant::now() + state.timeout,
+        cancellation: state.stopping.child_token(),
+    }
+}
+fn allowed(grant: &RequestGrant, operation: Operation) -> bool {
+    if operation == Operation::ReadFindingsFeed {
+        crate::access::now()
+            .is_some_and(|at| grant.scopes(operation, at).any(|scope| scope.is_all()))
+    } else {
+        crate::access::capable(grant, operation)
+    }
+}
+async fn authenticate(
+    state: &FindingState,
+    headers: &HeaderMap,
+    context: &FindingContext,
+    operation: Operation,
+) -> Result<Option<Arc<RequestGrant>>, Response> {
+    let grant = crate::access::authenticate(
+        &state.auth,
+        state.identity.as_ref(),
+        headers,
+        context.deadline,
+        context.cancellation.clone(),
+    )
+    .await?;
+    if let Some(response) = finish(context, grant.as_ref(), operation) {
+        return Err(response);
+    }
+    Ok(grant.map(Arc::new))
+}
+fn finish(
+    context: &FindingContext,
+    grant: Option<&RequestGrant>,
+    operation: Operation,
+) -> Option<Response> {
+    if context.cancellation.is_cancelled() {
+        return Some(error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "unavailable",
+            "server stopping",
+        ));
+    }
+    if tokio::time::Instant::now() >= context.deadline {
+        return Some(error(
+            StatusCode::REQUEST_TIMEOUT,
+            "request_timeout",
+            "finding request deadline exceeded",
+        ));
+    }
+    if grant.is_some_and(|grant| !allowed(grant, operation)) {
+        return Some(error(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "finding access denied",
+        ));
+    }
+    None
 }
 
 struct LimitedBytes {

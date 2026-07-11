@@ -21,6 +21,7 @@ thiserror.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 crc32fast.workspace = true
+sha2.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
