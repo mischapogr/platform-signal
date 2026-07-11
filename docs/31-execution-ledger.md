@@ -21,14 +21,16 @@ public588/622 remains unchanged. All source completeness, AWS/TLS/HA/shared-runt
 and release exceptions stay visible. S3-QUERY is passed_simulated: default641/all-feature686 strict gates, source review, six helper regressions and eleven persistent S3/monolith scenarios pass. Four exact events/findings survive data-orphan and manifest-before-reply process crashes. RETENTION is passed_simulated: policy/report, stopped-cache, logical retirement, explicit exact-version query reclamation and bounded query measurements pass. Strict default659/all-feature710 remain unchanged;33 source-bound query samples over2,048 events/8hours and four failure helpers pass. Time pruning16→2 data GETs; cache remains rebuildable with mandatory remote reauthentication. Optional indexes deferred on measured evidence. Continue SECURITY-ACCESS; actual cloud/native/CI/kind/shared/custody/image/release gates stay open.
 
 
-SECURITY-ACCESS stays in_progress. Native coverage binding and request-local
-expiry join trusted finding scopes/history and composed native admission/query.
-Strict718/769, source review and actual TLS/monolith scope/cursor/revocation/restart
-pass; see `target/goal-execution-20261007/SECURITY-ACCESS/coverage-acceptance.json`.
-Physical expiry safeguards pass red/green checks. Established local IdP/OIDC and
-remaining capabilities remain next. Source completeness/historical authentication,
-native/full CI/cloud/image/release exceptions remain separate in the
-[access contract](42-access-control-contract.md).
+SECURITY-ACCESS is passed_simulated. Native coverage original-byte/actor/cursor
+acceptance and request-local expiry join trusted findings, composed native event
+admission/query and actual established Keycloak/OIDC/browser acceptance. Eleven
+compound browser/provider checks, eight harness failure regressions and independent
+review pass. Unchanged strict718/769 source-bound Rust gates remain applicable.
+Absent evidence/admin/rules/audit routes remain404; sign-in uses an established
+external client and the existing console token field. See
+`target/goal-execution-20261007/SECURITY-ACCESS/idp-acceptance.json` and the
+[local IdP contract](43-local-idp-qualification.md). Continue SECURITY-TRANSPORT;
+real native/full-CI/cloud/live-tenant/image/release gates remain separate.
 
 ## Execution and evidence
 
@@ -81,7 +83,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | EVIDENCE | passed_simulated | AWS-DELIVERY | Independent protected original route and validation simulation |
 | S3-QUERY | passed_simulated | CORE | Object-backed Parquet and committed query manifests |
 | RETENTION | passed_simulated | S3-QUERY, EVIDENCE | Selective query acceleration, retention and cost controls |
-| SECURITY-ACCESS | in_progress | CORE | OIDC/trusted identity, scoped credentials and RBAC |
+| SECURITY-ACCESS | passed_simulated | CORE | OIDC/trusted identity, scoped credentials and RBAC |
 | SECURITY-TRANSPORT | pending | SECURITY-ACCESS | mTLS and credential/certificate rotation |
 | SECURITY-AUDIT | pending | SECURITY-ACCESS, EVIDENCE | Restricted independent audit and secrets/encryption integration seams |
 | SMALL-PILOT | pending | AWS-DELIVERY, COVERAGE-OBSERVERS, OUTBOX, EVIDENCE, S3-QUERY, SECURITY-TRANSPORT | Small source→evidence→finding→notification simulation |

@@ -8,8 +8,9 @@ and fixed-provider native HTTPS token authentication. Mandatory trusted-host que
 The composed server supports explicit native identity for durable admission and
 persisted event queries. Bootstrap token mode remains available only when identity
 is absent. Trusted compatible finding scopes and restricted reads are implemented below.
-Native coverage binding is implemented below. SECURITY-ACCESS stays in progress
-until remaining capability handling and established local IdP gates pass.
+Native coverage binding and established local IdP acceptance are implemented below.
+SECURITY-ACCESS is passed_simulated for the frozen local scope; absent capabilities
+stay closed and real tenants/transport/native/CI/cloud/release gates remain separate.
 
 ## Policy and trust boundary
 
@@ -104,7 +105,7 @@ sorting, limits and serialization, and fails closed if the grant expires. It mus
 never turn an empty/expired selector set into an unfiltered query. Query URL
 parameters remain optional user filters, not authorization controls.
 
-## Capabilities and route integration still required
+## Capabilities and unavailable routes
 
 Operations are `ingest_events`, `query_events`, `read_findings`,
 `read_findings_feed`, `read_evidence`, `read_coverage`, `write_coverage`,
@@ -123,8 +124,8 @@ introspection against a fixed authenticated provider endpoint, with OIDC sign-in
 handled by an existing trusted IdP/ingress. The implemented pure profile requires active status, issuer, audience,
 subject, expiry and Bearer token type; access tokens are not
 OIDC ID tokens. Provider timeouts, bounded bodies/concurrency, revocation, denial,
-malformed replies pass finite native local fixtures; server cross-scope route
-behavior still needs implementation and local HTTP simulations. The standard endpoint contract is
+malformed replies pass finite native local fixtures; composed server cross-scope
+routes and actual established local IdP/browser simulation now pass. The standard endpoint contract is
 [RFC7662](https://datatracker.ietf.org/doc/html/rfc7662); sign-in semantics follow
 [OpenID Connect Core](https://openid.net/specs/openid-connect-core-1_0.html).
 Live IdP/TLS/rotation and cloud authority remain separate external evidence.
@@ -498,3 +499,23 @@ regression, and temporary faults are restored exactly. See
 `target/goal-execution-20261007/SECURITY-ACCESS/coverage-acceptance.json`.
 Established local IdP/OIDC sign-in and remaining capabilities remain required;
 real tenants/clouds/native/full CI, current images and releases stay separate.
+
+
+## Established local IdP acceptance
+
+The frozen SECURITY-ACCESS local scope is passed_simulated. The optional
+[Keycloak/OIDC qualification](43-local-idp-qualification.md) uses authenticated
+HTTPS, an established signature-verifying SDK and actual isolated browser sign-in,
+then fresh monolith introspection and complete paired scopes. Eleven compound
+checks and eight meaningful harness failure regressions pass with source review.
+Coverage's prior actual TLS gate supplies authorized original coverage bytes,
+complete immutable binding/actor/cursor isolation and unchanged receipts/replay.
+
+Absent evidence/admin/rule/audit HTTP routes remain404 even with explicit grants;
+this proves closed absence and does not claim implemented services. Protected
+archive original reads require their own authorized contract. The existing console
+uses its session-only Access token field with a real IdP-issued token; this slice
+creates no SIGNAL login server, cookie session or mandatory provider dependency.
+Real live-provider/transport/rotation/native/CI/cloud/release evidence stays separate.
+No production Rust/build input changed: accepted strict718/769 remains source-bound.
+Evidence: `target/goal-execution-20261007/SECURITY-ACCESS/idp-acceptance.json`.

@@ -44,6 +44,20 @@ jobs:
         run: python3 scripts/run-ci-check.py --name build --timeout 1200 -- cargo build --workspace --all-features --locked
       - name: Tests
         run: python3 scripts/run-ci-check.py --name tests --timeout 1200 -- cargo test --workspace --all-features --locked
+      - name: Established IdP harness failure regressions
+        run: python3 scripts/run-ci-check.py --name idp-helpers --timeout 60 -- python3 scripts/test-access-idp.py
+      - name: Install locked optional identity qualification tools
+        run: python3 scripts/run-ci-check.py --name idp-tools --timeout 180 -- npm ci --prefix tools/identity --engine-strict --ignore-scripts --no-audit --no-fund --fetch-retries=1 --fetch-timeout=15000 --cache target/idp-npm-cache
+      - name: Install locked Chromium and runner dependencies
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/target/idp-browsers
+        run: python3 scripts/run-ci-check.py --name idp-browser-install --timeout 600 -- node tools/identity/node_modules/playwright-core/cli.js install --with-deps --no-shell chromium
+      - name: Fetch pinned optional local IdP
+        run: python3 scripts/run-ci-check.py --name idp-image --timeout 240 -- docker pull quay.io/keycloak/keycloak@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc
+      - name: Real local OIDC browser and monolith qualification
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/target/idp-browsers
+        run: python3 scripts/run-ci-check.py --name idp-browser --timeout 360 -- python3 scripts/check-access-idp.py --output target/ci/idp-browser-qualification --binary target/debug/signal-server
       - name: Object simulator failure cleanup
         run: python3 scripts/run-ci-check.py --name object-query-helpers --timeout 60 -- python3 scripts/test-object-query.py
       - name: Persistent object query, crash replay and retirement simulation
