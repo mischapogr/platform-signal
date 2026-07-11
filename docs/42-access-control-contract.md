@@ -5,9 +5,10 @@ This contract implements the frozen SECURITY-ACCESS item from the
 [product architecture](27-product-architecture.md#7-security-and-useful-defaults).
 Accepted slices provide bounded paired grants, an introspection response profile
 and fixed-provider native HTTPS token authentication. Mandatory trusted-host query filtering and generic producer admission are accepted.
-The composed signal-server routes still use
-the development server's optional single bearer token. SECURITY-ACCESS remains
-in progress until server enforcement and local identity-provider HTTP gates pass.
+The composed server supports explicit native identity for durable admission and
+persisted event queries. Bootstrap token mode remains available only when identity
+is absent. SECURITY-ACCESS stays in progress until restricted finding/coverage
+contracts, remaining capability handling and established local IdP gates pass.
 
 ## Policy and trust boundary
 
@@ -275,3 +276,68 @@ composed durable server. Strict694/745 and review are bound in
 `target/goal-execution-20261007/SECURITY-ACCESS/admission-validation-final/validation.json`.
 Validated server access configuration, persisted HTTP admission/query checks and
 remaining scope-aware routes/local IdP acceptance remain next.
+
+
+## Composed private configuration and HTTP enforcement
+
+Set `SIGNAL_ACCESS_CONFIG` or the strict settings mapping
+`access: {config: /mounted/private-access.json}`. Resolve the provider client secret
+only from `SIGNAL_IDENTITY_CLIENT_SECRET`; unset the conflicting `SIGNAL_API_TOKEN`
+including empty values. The version1 private JSON document is a regular file
+bounded to512KiB and read/parsed on the retained single physical configuration
+worker within5seconds. Existing server/coverage settings retain64KiB limits.
+Final completion checks the original deadline and cancellation even if the worker
+reply was already ready when caller polling resumed.
+
+A deny-all synthetic configuration illustrates the wire contract:
+
+```json
+{
+  "schema_version": 1,
+  "endpoint": "https://identity.example.test/token",
+  "client_id": "synthetic-client",
+  "issuer": "https://identity.example.test",
+  "audience": "signal",
+  "lease_seconds": 30,
+  "workers": 2,
+  "request_timeout_ms": 1000,
+  "roots_der_base64": [],
+  "policy": {"schema_version": 1, "roles": [], "bindings": []}
+}
+```
+
+Unknown/duplicate fields, positional arrays, invalid profiles/policies and
+capacity violations fail before readiness. The nested policy is retained as
+bounded raw JSON so duplicate-field validation is not erased by a Value map.
+Additional roots are standard Base64 DER: at most8 roots,16KiB per decoded root
+and64KiB aggregate. Public WebPKI roots remain enabled. The native constructor
+validates transport/secret/roots before opening the WAL; there is no insecure
+TLS option. Configuration and provider identity stay fixed until validated restart.
+
+Explicit identity mode never falls back to the bootstrap token. Authentication
+precedes body/query parsing. Ingest uses whole-batch canonical scope preflight
+before WAL admission; query uses `execute_authorized` before user limits. The
+HTTP query deadline includes introspection and serialization, with final grant
+checks and no-store responses. Normal shutdown closes authentication and joins
+physical workers using the same deadline as transport/query/persistence cleanup.
+
+Historical finding list/feed routes currently require their distinct explicit
+all-scope permissions. Restricted finding reads return403 until compatible trusted
+scope metadata/history is implemented. Coverage routes also fail closed in identity
+mode until its configured binding bridge exists; legacy coverage tokens cannot
+bypass native authentication. Unimplemented original-evidence/admin/rules/audit
+HTTP routes remain404 even for a subject assigned those operation enums.
+The UI shell remains public and data requests use the API's authorization.
+
+Actual monolith/TLS/WAL/Parquet simulation proves zero admission for mixed scopes,
+exact persisted query-before-limit rows, no forwarded-identity or operation bypass,
+active/inactive/expired/audience denial, provider timeout and recovery, SIGKILL/
+restart and policy-binding removal on validated restart. Four fixture regressions
+qualify finite logs, owned child interruption, silent TLS and unstarted-provider
+cleanup; the short-log drainer preserves existing byte caps. Strict697/748 and
+corrected default/all-feature focused reruns, ten existing helpers and15 persistent
+retirement scenarios pass with independent review. The composite
+`target/goal-execution-20261007/SECURITY-ACCESS/server-acceptance.json` explicitly
+records full-workspace reuse after a Python-only correction and retains the failed
+optional helper invocation. This synthetic provider is not established OIDC
+sign-in, live tenant, native ARM64, AWS/EKS, current image or release qualification.

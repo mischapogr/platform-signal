@@ -6,7 +6,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use signal_ingest::{IngestConfig, authorized};
+use signal_ingest::{IngestConfig, identity::IdentityBackend};
 use signal_protocol::{API_SCHEMA_VERSION, parse_event_query};
 use signal_query::{QueryEngine, QueryError};
 use signal_storage::OperationContext;
@@ -20,14 +20,16 @@ struct QueryState {
     max_limit: usize,
     timeout: Duration,
     stopping: CancellationToken,
+    identity: Option<IdentityBackend>,
 }
 
-pub fn router(
+pub fn router_with_identity(
     engine: Arc<QueryEngine>,
     auth: IngestConfig,
     max_limit: usize,
     timeout: Duration,
     stopping: CancellationToken,
+    identity: Option<IdentityBackend>,
 ) -> Router {
     Router::new()
         .route("/v1/events", get(events))
@@ -37,6 +39,7 @@ pub fn router(
             max_limit,
             timeout,
             stopping,
+            identity,
         })
 }
 
@@ -53,11 +56,28 @@ async fn events(
     RawQuery(raw): RawQuery,
     headers: HeaderMap,
 ) -> Response {
-    if !authorized(&state.auth, &headers) {
+    let deadline = tokio::time::Instant::now() + state.timeout;
+    let cancellation = state.stopping.child_token();
+    let _guard = CancelOnDrop(cancellation.clone());
+    let grant = match crate::access::authenticate(
+        &state.auth,
+        state.identity.as_ref(),
+        &headers,
+        deadline,
+        cancellation.clone(),
+    )
+    .await
+    {
+        Ok(grant) => grant,
+        Err(response) => return response,
+    };
+    if grant.as_ref().is_some_and(|g| {
+        !crate::access::capable(g, signal_protocol::access::Operation::QueryEvents)
+    }) {
         return error(
-            StatusCode::UNAUTHORIZED,
-            "unauthorized",
-            "valid bearer token required",
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "event query access denied",
         );
     }
     let query = match parse_event_query(raw.as_deref().unwrap_or(""), state.max_limit) {
@@ -70,20 +90,36 @@ async fn events(
             );
         }
     };
-    let cancellation = state.stopping.child_token();
-    let _guard = CancelOnDrop(cancellation.clone());
-    match state
-        .engine
-        .execute(
-            query,
-            OperationContext {
-                deadline: tokio::time::Instant::now() + state.timeout,
-                cancellation,
-            },
-        )
-        .await
-    {
-        Ok(result) => Json(result).into_response(),
+    let context = OperationContext {
+        deadline,
+        cancellation,
+    };
+    let result = match &grant {
+        Some(grant) => state.engine.execute_authorized(query, context, grant).await,
+        None => state.engine.execute(query, context).await,
+    };
+    let response = match result {
+        Ok(result) => {
+            let response = Json(result).into_response();
+            // Serialization and a late resumed caller cannot extend a grant.
+            if tokio::time::Instant::now() >= deadline {
+                error(
+                    StatusCode::REQUEST_TIMEOUT,
+                    "request_timeout",
+                    "query deadline exceeded",
+                )
+            } else if grant.as_ref().is_some_and(|g| {
+                !crate::access::capable(g, signal_protocol::access::Operation::QueryEvents)
+            }) {
+                error(
+                    StatusCode::FORBIDDEN,
+                    "forbidden",
+                    "event query access denied",
+                )
+            } else {
+                response
+            }
+        }
         Err(QueryError::Denied) => error(
             StatusCode::FORBIDDEN,
             "forbidden",
@@ -112,7 +148,13 @@ async fn events(
             "unavailable",
             "query unavailable",
         ),
-    }
+    };
+    let mut response = response;
+    response.headers_mut().insert(
+        "cache-control",
+        axum::http::HeaderValue::from_static("no-store"),
+    );
+    response
 }
 
 fn error(status: StatusCode, code: &'static str, message: &'static str) -> Response {

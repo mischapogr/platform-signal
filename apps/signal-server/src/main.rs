@@ -1,4 +1,5 @@
 //! HTTP ingest, bounded WAL, replay-safe Parquet persistence and URL queries.
+mod access;
 mod config;
 mod coverage_api;
 mod finding_api;
@@ -37,6 +38,8 @@ use tokio_util::sync::CancellationToken;
 
 #[derive(Debug, Error)]
 enum AppError {
+    #[error(transparent)]
+    Identity(#[from] signal_ingest::identity::IdentityError),
     #[error(transparent)]
     Coverage(#[from] signal_coverage::CoverageError),
     #[error(transparent)]
@@ -172,6 +175,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
     };
     config.validate()?;
     limits.validate()?;
+    let identity_configuration = access::Configuration::load(&settings).await?;
     let coverage_configuration = coverage_api::Configuration::load(&settings).await?;
     let listen: SocketAddr = settings
         .optional("SIGNAL_LISTEN")?
@@ -316,6 +320,10 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
         RuleContext::new(Duration::from_millis(rule_timeout_ms as u64)),
     )
     .await?;
+    // Validate provider transport/policy before opening persistence or readiness.
+    let identity = identity_configuration
+        .map(access::Configuration::open)
+        .transpose()?;
     let sink = Arc::new(DurableBuffer::open(wal_config).await?);
     let wal = sink.snapshot();
     let store = Arc::new(Backend::open(&settings, storage_config, wal.stream_id).await?);
@@ -361,28 +369,55 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
         logging: Some(logger.writer()),
         coverage: coverage.as_ref().map(|state| state.store.clone()),
     });
-    let service = IngestService::new(config, pipeline.clone())?;
+    let access_timeout = config.request_timeout;
+    let service = match &identity {
+        Some(identity) => {
+            IngestService::new_with_identity(config, pipeline.clone(), identity.clone())?
+        }
+        None => IngestService::new(config, pipeline.clone())?,
+    };
     let query_cancel = service.cancellation();
     let mut router = service
         .router()
-        .merge(query_api::router(
+        .merge(query_api::router_with_identity(
             query.clone(),
             query_auth.clone(),
             query_limit,
             query_timeout,
             query_cancel.clone(),
+            identity.clone(),
         ))
-        .merge(finding_api::router(
-            findings.clone(),
-            query_auth,
-            finding_limit,
-            finding_bytes,
-            finding_timeout,
-            query_cancel.clone(),
-        ))
+        .merge({
+            let routes = finding_api::router(
+                findings.clone(),
+                query_auth,
+                finding_limit,
+                finding_bytes,
+                finding_timeout,
+                query_cancel.clone(),
+            );
+            match &identity {
+                Some(identity) => access::protect_historical_routes(
+                    routes,
+                    identity.clone(),
+                    finding_timeout,
+                    query_cancel.clone(),
+                ),
+                None => routes,
+            }
+        })
         .merge(ui::router());
     if let Some(coverage) = &coverage {
-        router = router.merge(coverage.router());
+        let routes = coverage.router();
+        router = router.merge(match &identity {
+            Some(identity) => access::protect_historical_routes(
+                routes,
+                identity.clone(),
+                access_timeout,
+                query_cancel.clone(),
+            ),
+            None => routes,
+        });
     }
     let listener = timeout(Duration::from_secs(5), TcpListener::bind(listen))
         .await
@@ -458,6 +493,10 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
     };
     let deadline = Instant::now() + limits.shutdown_timeout;
     service.stop_admission();
+    let identity_closed = match &identity {
+        Some(identity) => identity.close().map_err(AppError::from),
+        None => Ok(()),
+    };
     coverage_stopping.cancel();
     let result = match finished {
         Some(result) => result,
@@ -511,6 +550,10 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             .map_err(AppError::from),
         None => Ok(()),
     };
+    let identity_stopped = match &identity {
+        Some(identity) => identity.shutdown(deadline).await.map_err(AppError::from),
+        None => Ok(()),
+    };
     tracing::info!(
         pending_events = sink.metrics().depth,
         persisted_sequence = store.metrics().high_water,
@@ -522,6 +565,8 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
         .and(findings_flushed.map_err(AppError::from))
         .and(findings_stopped.map_err(AppError::from))
         .and(query_stopped.map_err(AppError::from))
+        .and(identity_closed)
+        .and(identity_stopped)
         .and(coverage_stopped);
     if let Err(error) = &result {
         logger.writer().report_error(error);
