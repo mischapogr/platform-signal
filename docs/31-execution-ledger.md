@@ -21,6 +21,11 @@ public588/622 remains unchanged. All source completeness, AWS/TLS/HA/shared-runt
 and release exceptions stay visible. S3-QUERY is passed_simulated: default641/all-feature686 strict gates, source review, six helper regressions and eleven persistent S3/monolith scenarios pass. Four exact events/findings survive data-orphan and manifest-before-reply process crashes. RETENTION is passed_simulated: policy/report, stopped-cache, logical retirement, explicit exact-version query reclamation and bounded query measurements pass. Strict default659/all-feature710 remain unchanged;33 source-bound query samples over2,048 events/8hours and four failure helpers pass. Time pruning16→2 data GETs; cache remains rebuildable with mandatory remote reauthentication. Optional indexes deferred on measured evidence. Continue SECURITY-ACCESS; actual cloud/native/CI/kind/shared/custody/image/release gates stay open.
 
 
+SECURITY-ACCESS stays in_progress. Its pure explicit paired grant slice passes nine
+regressions, strict default668/all-feature719 and focused review. HTTP provider
+verification, route scope enforcement and local IdP/revocation/cross-scope runtime
+acceptance remain required; see [access contract](42-access-control-contract.md).
+
 ## Execution and evidence
 
 One coherent writer change set at a time. Verify, resolve focused review, record
@@ -72,7 +77,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | EVIDENCE | passed_simulated | AWS-DELIVERY | Independent protected original route and validation simulation |
 | S3-QUERY | passed_simulated | CORE | Object-backed Parquet and committed query manifests |
 | RETENTION | passed_simulated | S3-QUERY, EVIDENCE | Selective query acceleration, retention and cost controls |
-| SECURITY-ACCESS | pending | CORE | OIDC/trusted identity, scoped credentials and RBAC |
+| SECURITY-ACCESS | in_progress | CORE | OIDC/trusted identity, scoped credentials and RBAC |
 | SECURITY-TRANSPORT | pending | SECURITY-ACCESS | mTLS and credential/certificate rotation |
 | SECURITY-AUDIT | pending | SECURITY-ACCESS, EVIDENCE | Restricted independent audit and secrets/encryption integration seams |
 | SMALL-PILOT | pending | AWS-DELIVERY, COVERAGE-OBSERVERS, OUTBOX, EVIDENCE, S3-QUERY, SECURITY-TRANSPORT | Small source→evidence→finding→notification simulation |
