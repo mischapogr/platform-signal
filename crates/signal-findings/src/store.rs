@@ -1,8 +1,13 @@
-use crate::{DetectionSeverity, Finding, encode};
+use crate::{
+    DerivedFinding, DetectionSeverity, Finding, encode,
+    scope::{self, Boundary},
+};
+use signal_protocol::access::{Operation as AccessOperation, RequestGrant, ScopeFacts};
 use signal_protocol::findings_feed::{FindingsCursor, FindingsFeedQuery};
 #[path = "feed.rs"]
 mod feed;
 use chrono::{DateTime, Datelike, Utc};
+use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, HashMap},
     fs::{self, File, OpenOptions},
@@ -36,6 +41,8 @@ fn frame_header(data: &[u8]) -> [u8; FINDING_FRAME_BYTES] {
 
 #[derive(Debug, Error)]
 pub enum FindingError {
+    #[error("finding access denied")]
+    Denied,
     #[error("invalid finding/configuration: {0}")]
     Invalid(&'static str),
     #[error("findings cursor stream mismatch")]
@@ -203,9 +210,11 @@ struct AppendEntry {
     id: Uuid,
     cursor: FindingsCursor,
 }
+#[derive(Clone, Copy)]
 struct Entry {
     offset: u64,
     len: usize,
+    position: u64,
 }
 struct Engine {
     file: File,
@@ -216,6 +225,7 @@ struct Engine {
     prefix: FindingsCursor,
     append_order: BTreeMap<u64, AppendEntry>,
     config: FindingConfig,
+    scope: Option<Boundary>,
 }
 fn safe_path(path: &Path, directory: bool) -> Result<(), FindingError> {
     for ancestor in path.ancestors() {
@@ -249,6 +259,8 @@ impl Engine {
             if entry.file_name() != ".lock"
                 && entry.file_name() != "findings.journal"
                 && entry.file_name() != "findings.journal.tmp"
+                && entry.file_name() != "scope.control"
+                && entry.file_name() != "scope.control.tmp"
             {
                 return Err(FindingError::Corrupt("unknown root entry"));
             }
@@ -267,6 +279,20 @@ impl Engine {
         safe_path(&path, false)?;
         safe_path(&temporary, false)?;
         let exists = path.try_exists().map_err(io)?;
+        if !exists
+            && (config
+                .directory
+                .join("scope.control")
+                .try_exists()
+                .map_err(io)?
+                || config
+                    .directory
+                    .join("scope.control.tmp")
+                    .try_exists()
+                    .map_err(io)?)
+        {
+            return Err(FindingError::Corrupt("scope control without journal"));
+        }
         if temporary.try_exists().map_err(io)? {
             // A temp without a final journal is an owned unfinished initial header.
             // A final plus temp is ambiguous and must not erase either artifact.
@@ -319,12 +345,13 @@ impl Engine {
             prefix: FindingsCursor::initial(stream).map_err(|_| FindingError::Invalid("stream"))?,
             append_order: BTreeMap::new(),
             config,
+            scope: None,
         };
         let mut offset = 24;
         while offset < engine.bytes {
             context.check()?;
             if engine.bytes - offset < FINDING_FRAME_BYTES as u64 {
-                engine.truncate(offset)?;
+                engine.truncate(offset, context)?;
                 break;
             }
             engine.file.seek(SeekFrom::Start(offset)).map_err(io)?;
@@ -352,7 +379,7 @@ impl Engine {
                 return Err(FindingError::Corrupt("record length"));
             }
             if engine.bytes - offset - (FINDING_FRAME_BYTES as u64) < len as u64 {
-                engine.truncate(offset)?;
+                engine.truncate(offset, context)?;
                 break;
             }
             let mut data = vec![0; len];
@@ -369,6 +396,7 @@ impl Engine {
                 let entry = Entry {
                     offset: entry.offset,
                     len: entry.len,
+                    position: entry.position,
                 };
                 if engine.read(&entry)? != finding {
                     return Err(FindingError::Conflict);
@@ -384,9 +412,228 @@ impl Engine {
         // retained journal has itself been synced, even if no tail was truncated.
         engine.file.sync_all().map_err(io)?;
         context.check()?;
+        engine.load_scope(context)?;
         Ok(engine)
     }
-    fn truncate(&mut self, offset: u64) -> Result<(), FindingError> {
+    fn journal_prefix_digest(
+        &mut self,
+        bytes: u64,
+        context: &FindingContext,
+    ) -> Result<[u8; 32], FindingError> {
+        let invalid = || FindingError::Corrupt("finding scope physical prefix");
+        if bytes < 24 || bytes > self.bytes {
+            return Err(invalid());
+        }
+        context.check()?;
+        self.file.seek(SeekFrom::Start(0)).map_err(io)?;
+        let mut header = [0; 24];
+        self.file.read_exact(&mut header).map_err(io)?;
+        let mut digest = Sha256::new();
+        digest.update(header);
+        let mut offset = 24;
+        let mut chunk = [0; 8192];
+        while offset < bytes {
+            context.check()?;
+            if bytes - offset < FINDING_FRAME_BYTES as u64 {
+                return Err(invalid());
+            }
+            let mut frame = [0; FINDING_FRAME_BYTES];
+            self.file.read_exact(&mut frame).map_err(io)?;
+            let len = u32::from_le_bytes(frame[..4].try_into().map_err(|_| invalid())?) as usize;
+            let header_crc = u32::from_le_bytes(frame[8..].try_into().map_err(|_| invalid())?);
+            if len == 0
+                || len > self.config.max_record_bytes
+                || crc32fast::hash(&frame[..8]) != header_crc
+                || bytes - offset - (FINDING_FRAME_BYTES as u64) < len as u64
+            {
+                return Err(invalid());
+            }
+            digest.update(frame);
+            let mut crc = crc32fast::Hasher::new();
+            let mut remaining = len;
+            while remaining > 0 {
+                context.check()?;
+                let count = remaining.min(chunk.len());
+                self.file.read_exact(&mut chunk[..count]).map_err(io)?;
+                digest.update(&chunk[..count]);
+                crc.update(&chunk[..count]);
+                remaining -= count;
+            }
+            if crc.finalize() != u32::from_le_bytes(frame[4..8].try_into().map_err(|_| invalid())?)
+            {
+                return Err(invalid());
+            }
+            offset += FINDING_FRAME_BYTES as u64 + len as u64;
+        }
+        context.check()?;
+        Ok(digest.finalize().into())
+    }
+    fn validate_scope(
+        &mut self,
+        boundary: &Boundary,
+        context: &FindingContext,
+    ) -> Result<(), FindingError> {
+        let invalid = || FindingError::Corrupt("finding scope prefix binding");
+        if boundary.cursor.stream() != self.prefix.stream() {
+            return Err(invalid());
+        }
+        let (cursor, bytes) = if boundary.cursor.position() == 0 {
+            (
+                FindingsCursor::initial(self.prefix.stream()).map_err(|_| invalid())?,
+                24,
+            )
+        } else {
+            let row = self
+                .append_order
+                .get(&boundary.cursor.position())
+                .ok_or_else(invalid)?;
+            let entry = self.ids.get(&row.id).ok_or_else(invalid)?;
+            (
+                row.cursor,
+                entry
+                    .offset
+                    .checked_add(entry.len as u64)
+                    .ok_or_else(invalid)?,
+            )
+        };
+        if boundary.cursor.encode() != cursor.encode() || bytes > boundary.bytes {
+            return Err(invalid());
+        }
+        if let Some(next) = boundary
+            .cursor
+            .position()
+            .checked_add(1)
+            .and_then(|position| self.append_order.get(&position))
+        {
+            let entry = self.ids.get(&next.id).ok_or_else(invalid)?;
+            if entry
+                .offset
+                .checked_add(entry.len as u64)
+                .ok_or_else(invalid)?
+                <= boundary.bytes
+            {
+                return Err(invalid());
+            }
+        }
+        if self.journal_prefix_digest(boundary.bytes, context)? != boundary.journal_digest {
+            return Err(invalid());
+        }
+        Ok(())
+    }
+    fn scope_charge(&self) -> u64 {
+        if self.scope.is_some() {
+            scope::CONTROL_BYTES as u64
+        } else {
+            0
+        }
+    }
+    fn load_scope(&mut self, context: &FindingContext) -> Result<(), FindingError> {
+        let current = self.config.directory.join("scope.control");
+        let temporary = self.config.directory.join("scope.control.tmp");
+        let exists = current.try_exists().map_err(io)?;
+        let pending = temporary.try_exists().map_err(io)?;
+        if exists && pending {
+            return Err(FindingError::Corrupt("ambiguous finding scope controls"));
+        }
+        if !exists && !pending {
+            return Ok(());
+        }
+        let path = if exists { &current } else { &temporary };
+        safe_path(path, false)?;
+        let mut file = File::open(path).map_err(io)?;
+        if file.metadata().map_err(io)?.len() != scope::CONTROL_BYTES as u64 {
+            return Err(FindingError::Corrupt("finding scope control size"));
+        }
+        let mut bytes = [0; scope::CONTROL_BYTES];
+        file.read_exact(&mut bytes).map_err(io)?;
+        let boundary = Boundary::decode(&bytes)?;
+        self.validate_scope(&boundary, context)?;
+        if self
+            .bytes
+            .checked_add(scope::CONTROL_BYTES as u64)
+            .is_none_or(|n| n > self.config.max_disk_bytes)
+            || self
+                .ids
+                .len()
+                .checked_mul(INDEX_BYTES)
+                .and_then(|n| n.checked_add(scope::CONTROL_INDEX_BYTES))
+                .is_none_or(|n| n > self.config.max_index_bytes)
+        {
+            return Err(FindingError::Quota);
+        }
+        context.check()?;
+        // A visible final control may have survived rename before directory sync.
+        // Finish both journal/control durability for current and pending recovery.
+        self.file.sync_all().map_err(io)?;
+        context.check()?;
+        file.sync_all().map_err(io)?;
+        context.check()?;
+        if pending {
+            // Only an exact complete control bound to the retained prefix can
+            // finish an interrupted publication; invalid bytes remain untouched.
+            fs::rename(&temporary, &current).map_err(io)?;
+        }
+        File::open(&self.config.directory)
+            .map_err(io)?
+            .sync_all()
+            .map_err(io)?;
+        context.check()?;
+        self.scope = Some(boundary);
+        Ok(())
+    }
+    fn enable_scope(
+        &mut self,
+        context: &FindingContext,
+        started: &AtomicBool,
+    ) -> Result<(), FindingError> {
+        context.check()?;
+        if self.scope.is_some() {
+            return Ok(());
+        }
+        if self
+            .bytes
+            .checked_add(scope::CONTROL_BYTES as u64)
+            .is_none_or(|n| n > self.config.max_disk_bytes)
+            || self
+                .ids
+                .len()
+                .checked_mul(INDEX_BYTES)
+                .and_then(|n| n.checked_add(scope::CONTROL_INDEX_BYTES))
+                .is_none_or(|n| n > self.config.max_index_bytes)
+        {
+            return Err(FindingError::Quota);
+        }
+        let boundary = Boundary {
+            generation: Uuid::new_v4(),
+            cursor: self.prefix,
+            bytes: self.bytes,
+            journal_digest: self.journal_prefix_digest(self.bytes, context)?,
+        };
+        let temporary = self.config.directory.join("scope.control.tmp");
+        let current = self.config.directory.join("scope.control");
+        started.store(true, Ordering::Release);
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)
+            .map_err(io)?;
+        file.write_all(&boundary.encode()).map_err(io)?;
+        file.sync_all().map_err(io)?;
+        context.check()?;
+        fs::rename(&temporary, &current).map_err(io)?;
+        File::open(&self.config.directory)
+            .map_err(io)?
+            .sync_all()
+            .map_err(io)?;
+        context.check()?;
+        self.scope = Some(boundary);
+        Ok(())
+    }
+    fn truncate(&mut self, offset: u64, context: &FindingContext) -> Result<(), FindingError> {
+        // Validate any retained activation before altering an incomplete tail.
+        // A foreign or invalid control must leave all recovery evidence intact.
+        self.load_scope(context)?;
+        context.check()?;
         self.file.set_len(offset).map_err(io)?;
         self.file.sync_all().map_err(io)?;
         self.bytes = offset;
@@ -405,6 +652,13 @@ impl Engine {
         if rows > self.config.max_findings
             || rows
                 .checked_mul(INDEX_BYTES)
+                .and_then(|bytes| {
+                    bytes.checked_add(if self.scope.is_some() {
+                        scope::CONTROL_INDEX_BYTES
+                    } else {
+                        0
+                    })
+                })
                 .is_none_or(|bytes| bytes > self.config.max_index_bytes)
         {
             return Err(FindingError::Quota);
@@ -418,6 +672,7 @@ impl Engine {
             Entry {
                 offset,
                 len: data.len(),
+                position: cursor.position(),
             },
         );
         self.order.insert((f.created_at, f.id), ());
@@ -427,16 +682,25 @@ impl Engine {
         Ok(())
     }
     fn read(&mut self, e: &Entry) -> Result<Finding, FindingError> {
-        self.file.seek(SeekFrom::Start(e.offset)).map_err(io)?;
-        let mut data = vec![0; e.len];
-        self.file.read_exact(&mut data).map_err(io)?;
-        serde_json::from_slice(&data).map_err(|_| FindingError::Corrupt("record JSON"))
+        let invalid = || FindingError::Corrupt("finding retained history index");
+        let next = self.append_order.get(&e.position).ok_or_else(invalid)?;
+        let (next_cursor, id) = (next.cursor, next.id);
+        let previous = if e.position == 1 {
+            FindingsCursor::initial(self.prefix.stream()).map_err(|_| invalid())?
+        } else {
+            self.append_order
+                .get(&e.position.checked_sub(1).ok_or_else(invalid)?)
+                .ok_or_else(invalid)?
+                .cursor
+        };
+        self.read_feed_record(e, previous, next_cursor, id)
     }
     fn append(
         &mut self,
         batch: Vec<Finding>,
         ctx: &FindingContext,
         started: &AtomicBool,
+        derived: bool,
     ) -> Result<FindingReceipt, FindingError> {
         let mut pending: BTreeMap<Uuid, (Finding, Vec<u8>)> = BTreeMap::new();
         let mut receipt = FindingReceipt::default();
@@ -447,6 +711,7 @@ impl Engine {
                 let e = Entry {
                     offset: e.offset,
                     len: e.len,
+                    position: e.position,
                 };
                 if self.read(&e)? != finding {
                     return Err(FindingError::Conflict);
@@ -458,6 +723,9 @@ impl Engine {
                 }
                 receipt.duplicates += 1;
             } else {
+                if !derived && finding.attributes.contains_key(scope::KEY) {
+                    return Err(FindingError::Invalid("reserved finding scope metadata"));
+                }
                 let data = encode(&finding, self.config.max_record_bytes)?;
                 added += FINDING_FRAME_BYTES as u64 + data.len() as u64;
                 pending.insert(finding.id, (finding, data));
@@ -466,7 +734,8 @@ impl Engine {
         self.reserve(pending.len())?;
         if self
             .bytes
-            .checked_add(added)
+            .checked_add(self.scope_charge())
+            .and_then(|bytes| bytes.checked_add(added))
             .is_none_or(|n| n > self.config.max_disk_bytes)
         {
             return Err(FindingError::Quota);
@@ -492,10 +761,42 @@ impl Engine {
         ctx.check()?;
         Ok(receipt)
     }
+    fn append_derived(
+        &mut self,
+        batch: Vec<DerivedFinding>,
+        context: &FindingContext,
+        started: &AtomicBool,
+    ) -> Result<FindingReceipt, FindingError> {
+        let mut resolved = Vec::with_capacity(batch.len());
+        for draft in batch {
+            context.check()?;
+            let proposed = self.scope.as_ref().map(|s| draft.annotated(s.generation));
+            let retained = self.ids.get(&draft.base.id).map(|e| Entry {
+                offset: e.offset,
+                len: e.len,
+                position: e.position,
+            });
+            let finding = if let Some(entry) = retained {
+                let old = self.read(&entry)?;
+                if old == draft.base || proposed.as_ref() == Some(&old) {
+                    old
+                } else {
+                    return Err(FindingError::Conflict);
+                }
+            } else if draft.authenticated_new {
+                proposed.ok_or(FindingError::Invalid("finding scope activation required"))?
+            } else {
+                draft.base
+            };
+            resolved.push(finding);
+        }
+        self.append(resolved, context, started, true)
+    }
     fn query(
         &mut self,
         q: FindingQuery,
         ctx: &FindingContext,
+        grant: Option<&RequestGrant>,
     ) -> Result<Vec<Finding>, FindingError> {
         let mut out = Vec::new();
         let mut bytes = 2usize;
@@ -503,8 +804,14 @@ impl Engine {
         // so sparse filters never allocate a vector of all finding IDs.
         let mut cursor = q.from.map(|t| (t, Uuid::nil()));
         let mut inclusive = true;
+        if let Some(grant) = grant {
+            check_grant(grant)?;
+        }
         loop {
             ctx.check()?;
+            if let Some(grant) = grant {
+                check_grant(grant)?;
+            }
             use std::ops::Bound::{Excluded, Included, Unbounded};
             let start = match cursor {
                 Some(c) if inclusive => Included(c),
@@ -528,8 +835,22 @@ impl Engine {
             let e = Entry {
                 offset: e.offset,
                 len: e.len,
+                position: e.position,
             };
             let f = self.read(&e)?;
+            if let Some(grant) = grant {
+                let facts = self.scope.as_ref().map_or(
+                    ScopeFacts {
+                        source: None,
+                        account: None,
+                        resource: None,
+                    },
+                    |s| s.facts(&f, e.offset),
+                );
+                if !grant.allows(AccessOperation::ReadFindings, facts, authorization_time()?) {
+                    continue;
+                }
+            }
             if q.severity.is_some_and(|s| s != f.severity)
                 || q.rule_id.as_ref().is_some_and(|r| r != &f.rule_id)
             {
@@ -553,6 +874,9 @@ impl Engine {
             }
         }
         ctx.check()?;
+        if let Some(grant) = grant {
+            check_grant(grant)?;
+        }
         Ok(out)
     }
 }
@@ -574,7 +898,9 @@ impl Shared {
 }
 enum Operation {
     Append(Vec<Finding>),
-    Query(FindingQuery),
+    AppendDerived(Vec<DerivedFinding>),
+    EnableScope,
+    Query(FindingQuery, Option<Arc<RequestGrant>>),
     Feed(FindingsFeedQuery, usize),
     Flush,
     Stop,
@@ -588,8 +914,8 @@ enum Operation {
 impl Operation {
     fn mutation(&self) -> bool {
         match self {
-            Self::Append(_) | Self::Flush => true,
-            Self::Query(_) | Self::Feed(_, _) | Self::Stop => false,
+            Self::Append(_) | Self::AppendDerived(_) | Self::EnableScope | Self::Flush => true,
+            Self::Query(_, _) | Self::Feed(_, _) | Self::Stop => false,
             #[cfg(test)]
             Self::Pause(_, _, mutation) => *mutation,
         }
@@ -681,8 +1007,7 @@ impl FindingStore {
                     if worker_shared.stopping.load(Ordering::Acquire) {
                         break;
                     }
-                    let mutation =
-                        matches!(command.operation, Operation::Append(_) | Operation::Flush);
+                    let mutation = command.operation.mutation();
                     let result = if worker_shared.closed.load(Ordering::Acquire) {
                         Err(FindingError::Closed)
                     } else if command.reply.is_closed() {
@@ -694,11 +1019,17 @@ impl FindingStore {
                             .and_then(|()| match command.operation {
                                 Operation::Stop => Err(FindingError::Closed),
                                 Operation::Append(batch) => engine
-                                    .append(batch, &command.context, &command.started)
+                                    .append(batch, &command.context, &command.started, false)
                                     .map(Reply::Receipt),
-                                Operation::Query(q) => {
-                                    engine.query(q, &command.context).map(Reply::Findings)
-                                }
+                                Operation::AppendDerived(batch) => engine
+                                    .append_derived(batch, &command.context, &command.started)
+                                    .map(Reply::Receipt),
+                                Operation::EnableScope => engine
+                                    .enable_scope(&command.context, &command.started)
+                                    .map(|()| Reply::Done),
+                                Operation::Query(q, grant) => engine
+                                    .query(q, &command.context, grant.as_deref())
+                                    .map(Reply::Findings),
                                 Operation::Feed(q, max_bytes) => {
                                     engine.feed(q, max_bytes, &command.context).map(Reply::Feed)
                                 }
@@ -718,7 +1049,7 @@ impl FindingStore {
                                     }
                                     let _ = started.send(());
                                     release
-                                        .recv_timeout(Duration::from_secs(2))
+                                        .recv_timeout(Duration::from_secs(5))
                                         .map_err(|_| FindingError::Timeout)
                                         .and_then(|()| command.context.check())
                                         .map(|()| Reply::Done)
@@ -733,6 +1064,7 @@ impl FindingStore {
                     if matches!(
                         result,
                         Err(FindingError::Quota
+                            | FindingError::Denied
                             | FindingError::Conflict
                             | FindingError::PageBudgetExceeded
                             | FindingError::CursorStreamMismatch
@@ -814,7 +1146,7 @@ impl FindingStore {
                 mpsc::error::TrySendError::Full(_) => FindingError::Full,
                 mpsc::error::TrySendError::Closed(_) => FindingError::Closed,
             })?;
-        let result = tokio::select! { result = timeout_at(context.deadline, response) => match result { Ok(Ok(r)) => r, Ok(Err(_)) => Err(FindingError::Closed), Err(_) => Err(FindingError::Timeout) }, () = context.cancellation.cancelled() => Err(FindingError::Cancelled) };
+        let result = tokio::select! { result = timeout_at(context.deadline, response) => match result { Ok(Ok(r)) => r.and_then(|reply| { context.check()?; Ok(reply) }), Ok(Err(_)) => Err(FindingError::Closed), Err(_) => Err(FindingError::Timeout) }, () = context.cancellation.cancelled() => Err(FindingError::Cancelled) };
         if matches!(result, Err(FindingError::Timeout)) {
             self.shared.timeouts.fetch_add(1, Ordering::Relaxed);
         }
@@ -861,6 +1193,28 @@ impl FindingStore {
         query: FindingQuery,
         context: FindingContext,
     ) -> Result<Vec<Finding>, FindingError> {
+        self.query_inner(query, context, None).await
+    }
+    /// Trusted grant filters physical rows before they count toward the limit.
+    pub async fn query_authorized(
+        &self,
+        query: FindingQuery,
+        context: FindingContext,
+        grant: Arc<RequestGrant>,
+    ) -> Result<Vec<Finding>, FindingError> {
+        check_grant(&grant)?;
+        let rows = self
+            .query_inner(query, context, Some(grant.clone()))
+            .await?;
+        check_grant(&grant)?;
+        Ok(rows)
+    }
+    async fn query_inner(
+        &self,
+        query: FindingQuery,
+        context: FindingContext,
+        grant: Option<Arc<RequestGrant>>,
+    ) -> Result<Vec<Finding>, FindingError> {
         if query.from.is_some_and(|t| !(0..=9999).contains(&t.year()))
             || query.to.is_some_and(|t| !(0..=9999).contains(&t.year()))
             || query.limit == 0
@@ -876,8 +1230,52 @@ impl FindingStore {
         {
             return Err(FindingError::Invalid("query"));
         }
-        match self.command(Operation::Query(query), context).await? {
+        match self
+            .command(Operation::Query(query, grant), context)
+            .await?
+        {
             Reply::Findings(f) => Ok(f),
+            _ => Err(FindingError::Closed),
+        }
+    }
+    /// Synced immutable activation separates historical attributes from trusted
+    /// derived scope. The existing feed/journal bytes are never rewritten.
+    pub async fn enable_scopes(&self, context: FindingContext) -> Result<(), FindingError> {
+        match self.command(Operation::EnableScope, context).await? {
+            Reply::Done => Ok(()),
+            _ => Err(FindingError::Closed),
+        }
+    }
+    pub async fn append_derived(
+        &self,
+        batch: Vec<DerivedFinding>,
+        context: FindingContext,
+    ) -> Result<FindingReceipt, FindingError> {
+        if batch.len() > self.config.max_append_rows {
+            return Err(FindingError::Quota);
+        }
+        let mut bytes = 0usize;
+        for draft in &batch {
+            context.check()?;
+            let preview = draft.budget_preview();
+            preview.validate()?;
+            bytes = bytes
+                .checked_add(
+                    encode(&preview, self.config.max_record_bytes)?.len() + FINDING_FRAME_BYTES,
+                )
+                .ok_or(FindingError::Quota)?;
+            if bytes > self.config.max_append_bytes {
+                return Err(FindingError::Quota);
+            }
+        }
+        // A logically tiny caller vector must not carry unbounded spare capacity
+        // into the retained physical operation queue (including empty batches).
+        let batch = compact_derived_batch(batch);
+        match self
+            .command(Operation::AppendDerived(batch), context)
+            .await?
+        {
+            Reply::Receipt(receipt) => Ok(receipt),
             _ => Err(FindingError::Closed),
         }
     }
@@ -971,8 +1369,30 @@ impl Drop for FindingStore {
 fn publish(shared: &Shared, engine: &Engine) {
     if let Ok(mut m) = shared.snapshot.lock() {
         m.findings = engine.ids.len();
-        m.disk_bytes = engine.bytes;
-        m.index_bytes = engine.ids.len() * INDEX_BYTES;
+        m.disk_bytes = engine.bytes + engine.scope_charge();
+        m.index_bytes = engine.ids.len() * INDEX_BYTES
+            + if engine.scope.is_some() {
+                scope::CONTROL_INDEX_BYTES
+            } else {
+                0
+            };
+    }
+}
+fn compact_derived_batch(batch: Vec<DerivedFinding>) -> Vec<DerivedFinding> {
+    batch.into_boxed_slice().into_vec()
+}
+fn authorization_time() -> Result<u64, FindingError> {
+    u64::try_from(Utc::now().timestamp()).map_err(|_| FindingError::Denied)
+}
+fn check_grant(grant: &RequestGrant) -> Result<(), FindingError> {
+    if grant
+        .scopes(AccessOperation::ReadFindings, authorization_time()?)
+        .next()
+        .is_some()
+    {
+        Ok(())
+    } else {
+        Err(FindingError::Denied)
     }
 }
 
@@ -1209,3 +1629,7 @@ mod worker_tests {
 #[cfg(test)]
 #[path = "feed_tests.rs"]
 mod feed_tests;
+
+#[cfg(test)]
+#[path = "scope/store_tests.rs"]
+mod scope_store_tests;

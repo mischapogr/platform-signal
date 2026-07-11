@@ -20,10 +20,31 @@ fn identity_fixture_bounds_output_interruptions_and_silent_tls_handshakes()
     Ok(())
 }
 
-#[test]
-fn authenticated_server_scopes_persisted_rows_and_recovers_after_restart()
+#[tokio::test]
+async fn authenticated_server_scopes_persisted_rows_and_recovers_after_restart()
 -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempfile::tempdir()?;
+    // Seed real durable but unprocessed WAL before native-mode startup. Its
+    // canonical account matches the reader, but admission provenance is unknown.
+    use signal_protocol::EventSink;
+    let event: signal_event::SignalEvent = serde_json::from_value(serde_json::json!({
+        "schema_version":1,"id":uuid::Uuid::new_v4(),
+        "timestamp":"2026-10-05T00:00:00Z","observed_at":"2026-10-05T00:00:00Z",
+        "source":{"type":"synthetic"},"severity":"info","message":"synthetic retained backlog",
+        "resource":{"kind":"host","id":"resource-a","account_id":"a"},"attributes":{},"tags":[]
+    }))?;
+    let wal = signal_buffer::DurableBuffer::open(signal_buffer::BufferConfig {
+        directory: temp.path().join("retained-wal"),
+        ..Default::default()
+    })
+    .await?;
+    wal.admit(event.clone()).await?;
+    assert_eq!(wal.snapshot().checkpoint, 0);
+    wal.shutdown().await?;
+    std::fs::write(
+        temp.path().join("retained-event.json"),
+        serde_json::to_vec(&event)?,
+    )?;
     let script = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/integration/access-server-process.py");
     let runner =

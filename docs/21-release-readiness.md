@@ -7,6 +7,21 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## SECURITY-ACCESS finding boundary — 2026-10-09
+
+Trusted canonical finding scopes and paired pre-limit reads pass 13 added Rust
+regressions and actual TLS/monolith startup/restart with a real retained WAL backlog.
+Historical findings stay unknown; new native admitted rows carry a prefix-bound
+scope generation. Existing finding IDs/bytes and the complete feed stay exact on
+replay. Invalid controls or post-open frame substitution fail closed.
+
+Strict 710/761, both Clippy configurations, formatting/build/workspace13 and source
+review pass. Review resolved unchecked list payloads, caller spare allocations and
+visible-control sync recovery. Coverage binding, established OIDC sign-in and
+remaining route contracts keep SECURITY-ACCESS in_progress. No legacy event
+provenance upgrade, signed custody, current-image, native/cloud/remote-CI or release
+claim follows. Evidence: `target/goal-execution-20261007/SECURITY-ACCESS/finding-acceptance.json`.
+
 ## SECURITY-ACCESS composed-server boundary — 2026-10-09
 
 Private configuration, native authenticated durable admission and mandatory

@@ -601,14 +601,15 @@
       ],
       "evidence": [
         "target/goal-execution-20261007/SECURITY-ACCESS/",
-        "target/goal-execution-20261007/SECURITY-ACCESS/server-acceptance.json"
+        "target/goal-execution-20261007/SECURITY-ACCESS/server-acceptance.json",
+        "target/goal-execution-20261007/SECURITY-ACCESS/finding-acceptance.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md",
         "docs/42-access-control-contract.md"
       ],
-      "notes": "Accepted pure grants/profile/native HTTPS/query/generic admission plus composed private identity/WAL/Parquet HTTP integration. Strict697/748, final corrected default/all-feature integration reruns, both Clippy/build/fmt/workspace13, four fixture/six owner/four cost regressions and15 retirement scenarios with review. Full workspace reuse limited to unchanged Rust/build files after Python-only cleanup correction; failed helper naming preserved and replaced by actual retirement simulation. Fresh revocation/cross-scope denial, exact query-before-limit, crash/restart and validated policy replacement pass synthetic provider. Explicit all-scope historical finding operations only; restricted finding history, coverage binding, remaining routes and established OIDC/local IdP acceptance next. Parent in_progress; native/cloud/remote/current-image/release exceptions remain."
+      "notes": "Accepted bounded grants/profile/native HTTPS/query/admission/composed server and trusted finding scope/history. Strict710/761, both Clippy/fmt/build/workspace13 and independent review pass. Real pending WAL startup keeps historical findings unknown, fresh native rows scoped; exact finding bytes/feed survive restart. Prefix-bound activation, reserved raw metadata denial, CRC/cursor-verified reads, bounded allocations and paired filtering before limit qualify locally. Coverage identity/binding, remaining capabilities and established local IdP/OIDC sign-in remain next. Parent in_progress; legacy event provenance is not upgraded, and native/cloud/remote/current-image/release gates remain."
     },
     {
       "id": "SECURITY-TRANSPORT",

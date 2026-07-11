@@ -1,5 +1,34 @@
 # Implementation progress
 
+## SECURITY-ACCESS trusted finding scopes — 2026-10-09
+
+Native identity mode derives finding scope from canonical events only after the
+captured startup WAL floor. Retained backlog creates unknown findings; exact
+existing history is never upgraded. A synced 144-byte activation control binds a
+random generation, feed cursor and exact physical journal prefix, including
+legacy duplicate frames. Invalid/foreign controls hold recovery bytes unchanged.
+New raw reserved metadata is denied. Indexed frame/cursor verification protects
+list reads and replay against post-open substitution, even with recomputed CRC.
+
+Restricted ReadFindings applies complete permission pairs before user filters and
+limits. Requests keep authentication inside the original deadline and recheck
+lease/cancellation after serialization; global feed requires ReadFindingsFeed with
+explicit all-scope permission. FindingV1 IDs and historical bytes/feed remain exact.
+
+Thirteen added Rust regressions, strict 710 default / 761 all-feature workspace tests,
+formatting, both Clippy configurations, build/workspace13 and independent review
+pass. The actual TLS/monolith gate seeds real unprocessed WAL before native startup,
+proves old unknown versus fresh scoped findings, and retains the complete feed
+across SIGKILL/restart. Review corrected frame verification, spare allocation and
+visible-control recovery sync. Failed early fixtures/lint attempts remain recorded.
+Evidence: `target/goal-execution-20261007/SECURITY-ACCESS/finding-acceptance.json`,
+`finding-validation-corrected/validation.json` and `finding-review.json`.
+
+SECURITY-ACCESS stays in_progress. Next: coverage identity/binding bridge,
+remaining capability contracts and established local IdP/OIDC acceptance. This
+slice does not upgrade legacy event provenance or qualify real cloud/native/remote
+CI, current images or a release. Hashes/checksums are not signed custody proofs.
+
 ## SECURITY-ACCESS composed server identity — 2026-10-09
 
 `signal-server` now accepts strict private access configuration and connects the

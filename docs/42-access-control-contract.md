@@ -7,8 +7,9 @@ Accepted slices provide bounded paired grants, an introspection response profile
 and fixed-provider native HTTPS token authentication. Mandatory trusted-host query filtering and generic producer admission are accepted.
 The composed server supports explicit native identity for durable admission and
 persisted event queries. Bootstrap token mode remains available only when identity
-is absent. SECURITY-ACCESS stays in progress until restricted finding/coverage
-contracts, remaining capability handling and established local IdP gates pass.
+is absent. Trusted compatible finding scopes and restricted reads are implemented below.
+SECURITY-ACCESS stays in progress until coverage binding, remaining capability
+handling and established local IdP gates pass.
 
 ## Policy and trust boundary
 
@@ -110,12 +111,11 @@ Operations are `ingest_events`, `query_events`, `read_findings`,
 `configure`, `manage_rules` and `read_audit`. These are distinct capabilities;
 granting one never implies another. This enum does not create new HTTP routes.
 
-The current findings journal feed and global configuration/rule/audit controls
+The findings journal feed and global configuration/rule/audit controls
 have no scoped row contract. Their permissions require all dimensions to be
 explicit `all`; compilation rejects restricted scopes for those operations.
-Do not post-filter an unscoped cursor feed and claim scoped isolation. Findings
-and original evidence need trustworthy scope metadata and compatible historical
-handling before restricted reads can be enabled. An unavailable route or missing
+Do not post-filter an unscoped cursor feed and claim scoped isolation. Finding scope metadata/history is implemented below; original-evidence reads
+still require their separate trusted contract. An unavailable route or missing
 scope must not obtain authority from another operation.
 
 The selected backend direction is established OAuth2 access-token
@@ -321,9 +321,9 @@ HTTP query deadline includes introspection and serialization, with final grant
 checks and no-store responses. Normal shutdown closes authentication and joins
 physical workers using the same deadline as transport/query/persistence cleanup.
 
-Historical finding list/feed routes currently require their distinct explicit
-all-scope permissions. Restricted finding reads return403 until compatible trusted
-scope metadata/history is implemented. Coverage routes also fail closed in identity
+At the initial composed-server slice, finding list/feed used distinct explicit
+all-scope permissions. The trusted finding slice below enables restricted lists.
+Coverage routes still fail closed in identity
 mode until its configured binding bridge exists; legacy coverage tokens cannot
 bypass native authentication. Unimplemented original-evidence/admin/rules/audit
 HTTP routes remain404 even for a subject assigned those operation enums.
@@ -341,3 +341,72 @@ retirement scenarios pass with independent review. The composite
 records full-workspace reuse after a Python-only correction and retains the failed
 optional helper invocation. This synthetic provider is not established OIDC
 sign-in, live tenant, native ARM64, AWS/EKS, current image or release qualification.
+
+
+## Trusted finding scope and preserved history
+
+`DerivedFinding::from_event` is an explicit host boundary, not a credential verifier.
+It requires the deterministic FindingV1 reconstructed from that canonical event;
+ordinary attributes, tags, roles and caller-selected findings cannot supply scope.
+The constructor retains the bounded reconstruction rather than caller spare
+capacity. Canonical source type, resource account and resource ID are hashed in a
+length/presence-delimited SHA256 binding. Each retained selector fact caps at 256
+bytes; longer facts become unknown without truncation, while the full binding
+digest still distinguishes divergent canonical identities on replay.
+
+Native monolith startup captures the retained WAL last sequence before HTTP
+admission, and activates the finding store before readiness. Only native identity
+mode plus a sequence above that startup floor allows a NEW finding to carry scope.
+A sequence by itself proves no identity. Retained unprocessed WAL remains unknown;
+already persisted exact findings keep original bytes/provenance during replay.
+The legacy bootstrap path does not create trusted scope. This finding mechanism
+does not retroactively establish legacy event provenance or source completeness.
+
+`scope.control` is an immutable 144-byte activation: magic, random UUID generation,
+exact logical feed cursor, physical byte offset, SHA256 of the complete original
+journal prefix, and control CRC. Recovery verifies stream/cursor/first-row boundary
+and the physical frame boundary/digest, including old semantic duplicate frames.
+Both current and complete pending controls sync journal/control/root before
+adoption. Invalid, partial, foreign, missing-journal or ambiguous controls remain
+held; recovery cannot truncate a tail first and hide invalid control evidence.
+A complete validated pending publication may finish. Restricted facts require a
+post-boundary row with this exact generation and valid bounded metadata.
+
+New raw append cannot insert reserved `signal.scope.v1` metadata, even before
+activation; existing exact legacy duplicate rows remain readable/replayable as
+unknown. Historical rows are never rewritten or upgraded. Known same-ID finding
+replay with a different canonical binding conflicts. Original indexed payload CRC,
+feed cursor digest, contract and ID are verified for list/duplicate reads as well
+as feed reads. Post-open substitution fails closed even if frame CRC is rewritten.
+These checks bind retained bytes; they are not signed authentication/custody proofs.
+Older software refuses the new root control entry; no permissive downgrade follows.
+
+Activation charges 144 disk bytes and 256 conservative index bytes. Derived batch
+rows/encoded previews use existing finite record/append bounds, and queued vector
+spare capacity is discarded. Existing retained physical-worker/cancellation and
+uncertain-mutation rules apply. Any recovery issue needs explicit reconciliation;
+there is no reset endpoint or implicit history repair.
+
+`GET /v1/findings` freshly authenticates native identity, checks ReadFindings before
+input parsing/queue admission, then applies complete paired scopes to verified
+canonical metadata before user filters and result limit. Unknown facts deny a
+restricted selector; explicit all dimensions may read unknown history. Lease and
+context checks repeat in the worker, after completion and after bounded response
+serialization, including empty results. The original deadline includes provider
+work; cancellation closes the response and all responses use no-store.
+
+`GET /v1/findings/feed` remains a global immutable cursor feed, requiring the
+separate ReadFindingsFeed capability with explicit all dimensions. It is never
+post-filtered into a scoped feed. Native coverage stays closed pending its binding
+bridge; unavailable evidence/admin/rules/audit routes remain absent. Scoped list
+permission does not imply feed, event-query or producer permission.
+
+Thirteen added regressions and strict 710/761 workspace acceptance pass with
+independent review. The actual TLS/monolith gate seeds real synced unprocessed WAL
+before native startup, verifies its newly generated finding stays unknown while
+fresh authenticated findings filter before limit, and checks the complete global
+feed remains exact across crash/restart. See
+`target/goal-execution-20261007/SECURITY-ACCESS/finding-acceptance.json`.
+Coverage identity/binding and established local IdP/OIDC acceptance remain next;
+this closes no native ARM64, full remote CI, actual cloud/live tenant, image or
+release gate.
