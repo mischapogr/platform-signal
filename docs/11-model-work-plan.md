@@ -33,17 +33,19 @@ campaign and reviewed-revision CI acceptance remain open. CI/candidate tooling
 preparation belongs to the existing release/external items, not new product scope;
 see [OSS CI and cloud qualification](40-oss-ci-and-cloud-qualification.md).
 
-RETENTION exact conditional reclamation acceptance is default659/all-feature710,
-with source review, bounded native denial/replacement/hidden-version/lost-reply
-and before/after-effect SIGKILL/reopen, plus15 current-binary persistent S3/monolith
-non-regressions. Logical retirement/stopped-cache evidence remains retained.
-The parent stays in_progress for bounded query/cache measurements. Preserve actual
-cloud/native CI/kind/HA/custody/image/release gates; no mandatory store/service split.
+RETENTION is passed_simulated: accepted default659/all-feature710 mechanisms,
+review, actual retirement/cache/reclamation process recovery,15 persistent monolith
+non-regressions and33 source-bound query/cache/budget samples over2,048 synthetic
+events. Four helper failure regressions and CI wiring checks pass. Time partition
+selection reduces data objects16→2; warm cache still reauthenticates remote bytes.
+Optional indexes are deferred on measured evidence. Continue SECURITY-ACCESS;
+preserve actual cloud/native/CI/kind/shared/custody/image/release exceptions.
 
 S3-QUERY is passed_simulated: default641/all-feature686 strict acceptance,
 focused source review, six helper regressions and eleven persistent S3/real-server
 scenarios pass. Four canonical events/findings survive data-orphan and uncertain
-manifest process crashes. Continue RETENTION in the frozen ledger. CI wiring and
+manifest process crashes. RETENTION acceptance is recorded above; continue
+SECURITY-ACCESS in the frozen ledger. CI wiring and
 explicit optional S3 packaging need fresh remote/image qualification; retain
 actual TLS/AWS/native/EKS/shared-runtime exceptions.
 

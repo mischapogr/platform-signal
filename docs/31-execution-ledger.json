@@ -555,7 +555,7 @@
     {
       "id": "RETENTION",
       "title": "Selective query acceleration, retention and cost controls",
-      "status": "in_progress",
+      "status": "passed_simulated",
       "dependencies": [
         "S3-QUERY",
         "EVIDENCE"
@@ -576,14 +576,18 @@
         "target/goal-execution-20261007/RETENTION/retirement-server-simulation-final/report.json",
         "target/goal-execution-20261007/RETENTION/reclamation-validation-final/validation.json",
         "target/goal-execution-20261007/RETENTION/reclamation-review.json",
-        "target/goal-execution-20261007/RETENTION/reclamation-server-simulation/report.json"
+        "target/goal-execution-20261007/RETENTION/reclamation-server-simulation/report.json",
+        "target/goal-execution-20261007/RETENTION/query-measurements-final/report.json",
+        "target/goal-execution-20261007/RETENTION/measurement-helper-tests-final.log",
+        "target/goal-execution-20261007/RETENTION/measurement-review.json",
+        "target/goal-execution-20261007/RETENTION/measurements-acceptance.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md",
         "docs/41-retention-contract.md"
       ],
-      "notes": "Policy/report, stopped-cache, logical retirement and explicit stopped exact-version query reclamation accepted. Strict default659/all-feature710; focused source review, bounded native hidden-version/denial/replacement/lost reply and actual before/after-effect SIGKILL/reopen. Native wire objects RAM-backed;15 persistent current-binary monolith non-regressions pass. Protected originals/orphans/live/history/control held; no raw deletion or source ACK. Parent in_progress for representative bounded query/cache/scan measurements. Real AWS conditional/version/Object Lock, native/CI/kind/shared/custody/image/release gates stay open."
+      "notes": "Completed frozen policy/report, stopped derived-cache maintenance, synced logical retirement, explicit stopped exact-version query reclamation and representative query/cost measurements. Strict Rust659/710 unchanged; focused review, actual process loss/recovery,15 persistent monolith non-regressions and33 source-bound query samples over2048 events/8hours. Time pruning selects16\u21922 files/remoteGETs; warm derived files stable but pinned remote bytes reauthenticated. Explicit file/decoded413 precedes data reads; cache rebuild exact. Four failure helpers/actionlint/workspace pass; both native runners wired, unexecuted on reviewed revision. Optional indexes deferred by measured decision, no partial-event API or raw-policy deletion. Real cloud/native/CI/kind/shared/custody/image/release exceptions retained."
     },
     {
       "id": "SECURITY-ACCESS",
