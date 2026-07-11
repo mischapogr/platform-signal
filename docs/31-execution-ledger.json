@@ -607,7 +607,7 @@
         "docs/04-implementation-plan.md",
         "docs/42-access-control-contract.md"
       ],
-      "notes": "Accepted bounded grants, selected profile and fixed-provider native HTTPS mechanism: ten native TLS/ownership regressions, strict684/735, both Clippy configurations, build/fmt/workspace13 and source review. TLS trust/name/expiry before credentials, fresh revocation/profile/private subject binding, bounded workers retaining physical leases through frontend timeout, finite response/body limits and cancellation/explicit shutdown qualified locally. Synthetic lookup pause is not real resolver availability. Parent stays in_progress: mandatory query/batch admission, server configuration/route enforcement/OIDC sign-in and local HTTP scope/expiry/revocation gates next. External/native/remote/cloud/image/release exceptions retained."
+      "notes": "Accepted bounded grants/profile/native HTTPS and mandatory trusted-host query grants. Five actual committed Parquet/DataFusion regressions, strict689/740, both Clippy/build/fmt/workspace13 and source review pass. Complete QueryEvents scopes filter canonical columns before sort/limit; user filters intersect, literals/nulls fail closed, expiry checked before/after selection, per row and final response. Reproduced paused-poll late-ready deadline fixed by original-context success check. No HTTP identity route wiring yet; parent stays in_progress. Whole-batch admission, server configuration/routes/local IdP HTTP scope/expiry/revocation next. External/native/remote/cloud/image/release exceptions retained."
     },
     {
       "id": "SECURITY-TRANSPORT",

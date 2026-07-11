@@ -7,6 +7,19 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## SECURITY-ACCESS query-grant boundary — 2026-10-09
+
+The trusted-host authorized query entry point passes five actual committed
+Parquet/DataFusion regressions and strict689default/740all-feature, formatting,
+both Clippy configurations, build/workspace13 and independent review. Mandatory
+complete scopes precede sort/limit; expiry, missing facts and paused-poll deadline
+fail closed. SECURITY-ACCESS remains in_progress: whole-batch admission,
+server identity configuration/routes and local IdP-backed HTTP scope/expiry/
+revocation acceptance remain unfinished. HTTP routes still use legacy admission.
+All actual cloud/native/remote/image/released-dependency/release gates remain.
+See [access contract](42-access-control-contract.md) and
+`target/goal-execution-20261007/SECURITY-ACCESS/query-acceptance.json`.
+
 ## SECURITY-ACCESS native-backend boundary — 2026-10-09
 
 Fixed-provider native HTTPS introspection passes ten local TLS/ownership

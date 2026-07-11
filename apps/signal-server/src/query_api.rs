@@ -84,6 +84,11 @@ async fn events(
         .await
     {
         Ok(result) => Json(result).into_response(),
+        Err(QueryError::Denied) => error(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "event query access denied",
+        ),
         Err(QueryError::Invalid) => {
             error(StatusCode::BAD_REQUEST, "invalid_query", "invalid query")
         }
