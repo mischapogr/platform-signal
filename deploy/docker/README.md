@@ -9,11 +9,22 @@ Refresh the base digests and rebuild when security updates become available.
 
 The default entrypoint is `signal-server`. The runtime uses UID/GID 65532,
 contains no compiler, and needs a writable `/var/lib/signal` volume. Mount
-configuration and rules read-only. The image healthcheck requests `/healthz`
-every five seconds through a shell-free Rust helper with one two-second I/O
-deadline and a 128-byte response limit. A custom HTTP bind port
-requires `SIGNAL_HEALTHCHECK_ADDR=127.0.0.1:<port>` (a numeric socket address). Kubernetes
-uses its own HTTP liveness and readiness probes.
+configuration and rules read-only. The existing `signal-healthcheck` executable
+replaces itself with `signal-agent --healthcheck`; no shell or additional child
+remains. The probe uses the shared HTTP/mTLS client, one original two-second
+budget (configuration/TLS/HTTP included), at most1KiB of response body and quiet
+exit codes. Docker supervises it with a three-second timeout. Set
+`SIGNAL_HEALTHCHECK_ADDR=127.0.0.1:<port>` for another bind port; only numeric
+loopback targets are allowed. Kubernetes uses the same client through exec probes.
+
+For native mTLS, mount private version1 server and separate probe identity/trust
+JSON files read-only, set `SIGNAL_TLS_CONFIG` and `SIGNAL_PROBE_TLS_CONFIG`, and
+include the selected loopback IP in the server certificate SAN. TLS selection
+never falls back to HTTP, anonymous TLS or insecure verification. Probe identities
+do not grant API operations; health endpoints need transport authentication but
+no API token. See the [transport contract](../../docs/44-transport-security.md).
+Replace material under operator control and restart the single owner for rotation.
+Older development images must be rebuilt to contain these probe modes.
 
 From the repository root, build and qualify the **native host architecture**:
 
@@ -57,7 +68,7 @@ For collection, mount the agent configuration and input files read-only and
 mount its configured spool directory writable, owned by UID/GID 65532.
 Pass the token from an explicit environment/configuration source, following
 [the agent contract](../../docs/15-phase6-agent.md). Disable the server image's
-HTTP healthcheck when selecting the agent entrypoint.
+server healthcheck when selecting the agent entrypoint.
 
 A configured builder can produce a multi-platform OCI artifact:
 
@@ -77,3 +88,19 @@ Docker configuration follows the current
 and [Dockerfile reference](https://docs.docker.com/reference/dockerfile/).
 Runtime selection follows the official
 [distroless C++/Rust runtime documentation](https://github.com/GoogleContainerTools/distroless/blob/main/cc/README.md).
+
+The focused adapter fixture can run current host binaries against an existing
+runtime substrate without qualifying that old image as a current release:
+
+```sh
+cargo build --locked -p signal-server -p signal-agent
+rustc --edition=2024 -D warnings deploy/docker/healthcheck.rs -o target/signal-healthcheck
+python3 scripts/check-protected-probe.py --image YOUR_EXISTING_RUNTIME_IMAGE \
+  --output target/protected-probe-UNIQUE
+```
+
+It creates only uniquely labelled UID/GID65532 containers, mounts the current
+probe/adapter read-only, and checks valid/missing/wrong-root private identity.
+The local server uses synthetic private certificates. Launch processes retire
+before owned container cleanup; uncertain cleanup retains private scratch and
+fails acceptance. Current full-image/native/cloud qualification is separate.

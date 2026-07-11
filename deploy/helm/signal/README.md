@@ -38,8 +38,9 @@ plus filesystem overhead. This chart uses filesystem Parquet only.
 
 The process runs as 65532 with a read-only root, dropped capabilities and bounded
 128Mi `/tmp`; its data mount is writable. `fsGroup` permits access on supporting
-CSI drivers. Probes use `/readyz` and `/healthz` on the API port; metrics have a
-separate named port. Requests and limits are configurable. Graceful shutdown gets
+CSI drivers. Probes execute the existing `signal-agent --readycheck` or `--healthcheck` against
+numeric loopback on the API port, with one original two-second client budget and
+three-second kubelet supervision; metrics have a separate named port. Requests and limits are configurable. Graceful shutdown gets
 30 seconds for the server's 10-second admission/flush shutdown budget.
 
 The optional PDB defaults to disabled; when enabled, `maxUnavailable: 1` permits
@@ -74,3 +75,37 @@ The node image is digest pinned from the
 [kind 0.30.0 release](https://github.com/kubernetes-sigs/kind/releases/tag/v0.30.0).
 This is local Linux architecture evidence; EKS and cross-architecture cluster
 qualification need their own runs.
+
+## Native authenticated probes
+
+Set `tls.existingSecret` to a separately created Secret containing `server.json`
+and `probe.json` (or override `serverKey`/`probeKey`). Each is the private version1
+[transport document](../../../docs/44-transport-security.md), with distinct server
+and probe leaf identities, explicit peer roots and optional signed CRLs. The
+chart projects only these keys read-only with0440 permissions and pod fsGroup65532;
+the Secret's symlinks resolve to regular files. Actual key contents never enter
+values or rendered YAML. The server certificate must include `IP:127.0.0.1` SAN
+for the local probe, as well as the intended external client DNS/IP names.
+
+Missing/invalid probe credentials or expired/revoked/untrusted peers fail probes.
+No HTTP, anonymous TLS, skipped certificate verification or sibling-pod fallback
+exists. The probe identity does not assign API/RBAC grants and sends no API token.
+Secret replacement is operator-controlled; restart the single server owner after
+server identity/root changes. New probe processes read the selected current file.
+A newer valid probe identity alone can be adopted between invocations when the
+running server already trusts it. Rebuild older development images before using
+the new exec modes.
+
+With native TLS, enabling ServiceMonitor additionally requires
+`serviceMonitor.tls.existingSecret` and `serviceMonitor.tls.serverName`. That
+separate Secret in the ServiceMonitor namespace has PEM `ca.crt`, `tls.crt` and
+`tls.key` keys (configurable). Its metrics identity must chain to the server's
+explicit client trust; `serverName` must match the server certificate SAN. The
+chart emits HTTPS with explicit CA/client certificate/key references and fails
+rendering if TLS metrics credentials are missing. It never emits
+`insecureSkipVerify`; the operator owns and restricts access to the metrics key.
+
+Exec is used because Kubernetes' built-in HTTPS HTTP probes skip server
+certificate verification; SIGNAL's native probe checks both peers instead.
+See [Kubernetes probe documentation](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/).
+Local render/native/container checks do not replace actual kind/EKS qualification.

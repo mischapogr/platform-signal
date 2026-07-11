@@ -32,13 +32,13 @@ external client and the existing console token field. See
 [local IdP contract](43-local-idp-qualification.md). Continue SECURITY-TRANSPORT;
 real native/full-CI/cloud/live-tenant/image/release gates remain separate.
 
-SECURITY-TRANSPORT stays in_progress. Native monolith/agent and shared SDK client
-TLS/file/DNS/receipt publishing have actual local evidence. TLS denial leaves exact
-IDs/prefix unchanged across reopen; valid reply commits only the verified prefix.
-Actual monolith/agent16 checks, strict730/781 gates and independent review pass.
-Continue protected packaging/deployment health probes. See
-[transport contract](44-transport-security.md) and
-`target/goal-execution-20261007/SECURITY-TRANSPORT/shared-acceptance.json`.
+SECURITY-TRANSPORT is passed_simulated for its frozen local scope: native mTLS,
+shared collector publishing and protected loopback exec health/readiness probes.
+Actual19 process/3 current-binary nonroot container/7 chart checks, strict733/784,
+both Clippy/fmt/workspace13 and review pass. Current full image/cluster, PKI,
+native/fullCI/cloud/vendor/release gates remain separate. Continue SECURITY-AUDIT.
+See [transport contract](44-transport-security.md) and
+`target/goal-execution-20261007/SECURITY-TRANSPORT/probe-acceptance.json`.
 
 ## Execution and evidence
 
@@ -92,7 +92,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | S3-QUERY | passed_simulated | CORE | Object-backed Parquet and committed query manifests |
 | RETENTION | passed_simulated | S3-QUERY, EVIDENCE | Selective query acceleration, retention and cost controls |
 | SECURITY-ACCESS | passed_simulated | CORE | OIDC/trusted identity, scoped credentials and RBAC |
-| SECURITY-TRANSPORT | in_progress | SECURITY-ACCESS | mTLS and credential/certificate rotation |
+| SECURITY-TRANSPORT | passed_simulated | SECURITY-ACCESS | mTLS and credential/certificate rotation |
 | SECURITY-AUDIT | pending | SECURITY-ACCESS, EVIDENCE | Restricted independent audit and secrets/encryption integration seams |
 | SMALL-PILOT | pending | AWS-DELIVERY, COVERAGE-OBSERVERS, OUTBOX, EVIDENCE, S3-QUERY, SECURITY-TRANSPORT | Small source→evidence→finding→notification simulation |
 | SHARED-CONTRACT | pending | SMALL-PILOT | PostgreSQL shared-control schema, transactions, fencing and migration contract |

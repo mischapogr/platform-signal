@@ -90,3 +90,15 @@ the accepted runtime image without
 building, pulling, tagging or publishing an image. This dev0 preview is not an
 alpha or release artifact; native ARM64, actual EKS, remote CI, released
 dependencies and the owner-held publication workflow remain open.
+
+## Protected health/readiness packaging
+
+The three runtime executables remain `signal-server`, `signal-agent` and
+`signal-healthcheck`. The small health executable replaces itself with the agent's
+quiet bounded probe. Helm uses that agent directly for startup/readiness/liveness.
+One two-second configuration/TLS/HTTP deadline sits inside three-second supervisor
+limits; numeric loopback, explicit private mTLS identity/trust and no API token
+prevent insecure health bypass. See [Docker](../deploy/docker/README.md),
+[Helm](../deploy/helm/signal/README.md) and [transport](44-transport-security.md).
+Existing development images need rebuilding. Focused mounted-current-binary
+adapter proof does not qualify an older full image or a cloud cluster.
