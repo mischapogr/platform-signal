@@ -20,6 +20,7 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 
 const MAX_BYTES: usize = 64 * 1024;
+const MAX_PRIVATE_BYTES: usize = 512 * 1024;
 const MAX_RULE_DIRECTORIES: usize = 64;
 static WORKER: Mutex<Option<thread::JoinHandle<()>>> = Mutex::new(None);
 static CAPACITY: OnceLock<Arc<Semaphore>> = OnceLock::new();
@@ -228,6 +229,7 @@ section!(Telemetry {
     max_record_bytes: Count,
 });
 section!(Coverage { config: Text });
+section!(Access { config: Text });
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Document {
@@ -251,6 +253,8 @@ struct Document {
     telemetry: Telemetry,
     #[serde(default, deserialize_with = "section_map")]
     coverage: Coverage,
+    #[serde(default, deserialize_with = "section_map")]
+    access: Access,
 }
 trait Value {
     fn setting_value(&self) -> String;
@@ -450,6 +454,7 @@ impl Settings {
         mapping!(values,document.findings,{directory=>"SIGNAL_FINDINGS_DIR",max_disk_bytes=>"SIGNAL_FINDINGS_BYTES",max_findings=>"SIGNAL_FINDINGS_MAX_FINDINGS",max_record_bytes=>"SIGNAL_FINDINGS_RECORD_BYTES",max_append_rows=>"SIGNAL_FINDINGS_BATCH_EVENTS",max_append_bytes=>"SIGNAL_FINDINGS_BATCH_BYTES",max_query_rows=>"SIGNAL_FINDINGS_QUERY_LIMIT",max_query_bytes=>"SIGNAL_FINDINGS_QUERY_BYTES",max_index_bytes=>"SIGNAL_FINDINGS_INDEX_BYTES",command_capacity=>"SIGNAL_FINDINGS_COMMANDS"});
         mapping!(values,document.telemetry,{metrics_listen=>"SIGNAL_METRICS_LISTEN",queue_records=>"SIGNAL_LOG_RECORDS",queue_bytes=>"SIGNAL_LOG_BYTES",max_record_bytes=>"SIGNAL_LOG_RECORD_BYTES"});
         mapping!(values,document.coverage,{config=>"SIGNAL_COVERAGE_CONFIG"});
+        mapping!(values,document.access,{config=>"SIGNAL_ACCESS_CONFIG"});
         duration(
             &mut values,
             "SIGNAL_CONNECTION_TIMEOUT_MS",
@@ -620,19 +625,27 @@ fn read_file(
     deadline: Instant,
     cancellation: &CancellationToken,
 ) -> Result<String, ConfigError> {
+    read_file_limited(path, MAX_BYTES, deadline, cancellation)
+}
+fn read_file_limited(
+    path: PathBuf,
+    max_bytes: usize,
+    deadline: Instant,
+    cancellation: &CancellationToken,
+) -> Result<String, ConfigError> {
     check(deadline, cancellation)?;
     let metadata = fs::symlink_metadata(&path).map_err(|_| ConfigError::Io)?;
     if !metadata.is_file() {
         return Err(ConfigError::Invalid("configuration file must be regular"));
     }
-    if metadata.len() > MAX_BYTES as u64 {
+    if metadata.len() > max_bytes as u64 {
         return Err(ConfigError::Invalid("configuration byte capacity"));
     }
     let file = File::open(path).map_err(|_| ConfigError::Io)?;
     if !file.metadata().map_err(|_| ConfigError::Io)?.is_file() {
         return Err(ConfigError::Invalid("configuration file must be regular"));
     }
-    let mut file = file.take(MAX_BYTES as u64 + 1);
+    let mut file = file.take(max_bytes as u64 + 1);
     let mut bytes = Vec::with_capacity(metadata.len() as usize);
     let mut chunk = [0; 4096];
     loop {
@@ -641,7 +654,7 @@ fn read_file(
         if count == 0 {
             break;
         }
-        if count > MAX_BYTES.saturating_sub(bytes.len()) {
+        if count > max_bytes.saturating_sub(bytes.len()) {
             return Err(ConfigError::Invalid("configuration byte capacity"));
         }
         bytes.extend_from_slice(&chunk[..count]);
@@ -711,6 +724,8 @@ where
         worker.join().map_err(|_| ConfigError::Unavailable)?;
     }
     drop(permit);
+    // A completed reply is not a timely reply if the caller resumes late.
+    check(deadline, cancellation)?;
     result
 }
 
@@ -725,11 +740,28 @@ where
     T: Send + 'static,
     F: FnOnce(&str) -> Result<T, ConfigError> + Send + 'static,
 {
+    read_limited_document(path, MAX_BYTES, deadline, cancellation, parse).await
+}
+/// Caller-selected finite byte ceiling; settings/coverage retain their 64KiB cap.
+pub async fn read_limited_document<T, F>(
+    path: PathBuf,
+    max_bytes: usize,
+    deadline: Instant,
+    cancellation: CancellationToken,
+    parse: F,
+) -> Result<T, ConfigError>
+where
+    T: Send + 'static,
+    F: FnOnce(&str) -> Result<T, ConfigError> + Send + 'static,
+{
+    if max_bytes == 0 || max_bytes > MAX_PRIVATE_BYTES {
+        return Err(ConfigError::Invalid("configuration byte ceiling"));
+    }
     let worker_cancel = cancellation.child_token();
     let operation_cancel = worker_cancel.clone();
     let guard = CancelOnDrop(worker_cancel.clone());
     let result = run_worker(deadline, &worker_cancel, move || {
-        let text = read_file(path, deadline, &operation_cancel)?;
+        let text = read_file_limited(path, max_bytes, deadline, &operation_cancel)?;
         check(deadline, &operation_cancel)?;
         let result = parse(&text)?;
         check(deadline, &operation_cancel)?;
@@ -970,6 +1002,20 @@ telemetry:
         let empty = super::tests::settings("schema_version: 1", &[])?;
         assert!(empty.rules_directories()?.is_empty());
         assert!(empty.optional("SIGNAL_API_TOKEN")?.is_none());
+        let access = super::tests::settings(
+            "schema_version: 1\naccess: {config: './private-access.json'}",
+            &[("SIGNAL_ACCESS_CONFIG", "./override-access.json")],
+        )?;
+        assert_eq!(
+            access.optional("SIGNAL_ACCESS_CONFIG")?.as_deref(),
+            Some("./override-access.json")
+        );
+        assert!(super::tests::settings("schema_version: 1\naccess: null", &[]).is_err());
+        assert!(super::tests::settings("schema_version: 1\naccess: {config: null}", &[]).is_err());
+        assert!(
+            super::tests::settings("schema_version: 1\naccess: {config: 'a', config: 'b'}", &[])
+                .is_err()
+        );
         Ok(())
     }
     #[tokio::test]
@@ -1115,6 +1161,53 @@ telemetry:
         )
         .await?;
         assert_eq!(recovered.number("SIGNAL_MAX_CONNECTIONS", 128)?, 128);
+        // Complete physical work, then resume its caller after the deadline.
+        // timeout_at can observe a ready reply before its elapsed timer.
+        use std::{future::Future, task::Poll};
+        let deadline = Instant::now() + Duration::from_millis(200);
+        let cancel = CancellationToken::new();
+        let mut late = Box::pin(run_worker(deadline, &cancel, || Ok(7u8)));
+        std::future::poll_fn(|context| {
+            assert!(late.as_mut().poll(context).is_pending());
+            Poll::Ready(())
+        })
+        .await;
+        tokio::time::sleep_until(deadline + Duration::from_millis(10)).await;
+        assert!(matches!(late.await, Err(ConfigError::Timeout)));
+        let path = temp.path().join("bounded-private.json");
+        fs::write(&path, vec![b'x'; MAX_BYTES + 1])?;
+        assert!(matches!(
+            read_document(
+                path.clone(),
+                Instant::now() + Duration::from_secs(2),
+                CancellationToken::new(),
+                |text| Ok(text.len())
+            )
+            .await,
+            Err(ConfigError::Invalid("configuration byte capacity"))
+        ));
+        assert_eq!(
+            read_limited_document(
+                path.clone(),
+                MAX_PRIVATE_BYTES,
+                Instant::now() + Duration::from_secs(2),
+                CancellationToken::new(),
+                |text| Ok(text.len())
+            )
+            .await?,
+            MAX_BYTES + 1
+        );
+        assert!(matches!(
+            read_limited_document(
+                path,
+                MAX_PRIVATE_BYTES + 1,
+                Instant::now() + Duration::from_secs(2),
+                CancellationToken::new(),
+                |text| Ok(text.len())
+            )
+            .await,
+            Err(ConfigError::Invalid("configuration byte ceiling"))
+        ));
         Ok(())
     }
 }

@@ -35,7 +35,8 @@ thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["raw_value"] }
+base64.workspace = true
 tokio-util.workspace = true
 
 [dev-dependencies]
@@ -70,3 +71,7 @@ path = "../../tests/integration/coverage-runtime.rs"
 [[test]]
 name = "findings-feed"
 path = "../../tests/integration/findings-feed.rs"
+
+[[test]]
+name = "access-server"
+path = "../../tests/integration/access-server.rs"

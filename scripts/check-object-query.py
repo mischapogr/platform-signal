@@ -93,7 +93,9 @@ class Run:
                 retained=0
                 with path.open('xb') as output:
                     while True:
-                        chunk=child.stdout.read(8192)
+                        # Stream short readiness records without waiting for a
+                        # full buffer or child exit; retain the same byte cap.
+                        chunk=child.stdout.read1(8192)
                         if not chunk:break
                         remaining=1024*1024-retained
                         output.write(chunk[:remaining]);output.flush();retained+=min(len(chunk),remaining)
