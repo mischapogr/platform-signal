@@ -7,6 +7,20 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## SECURITY-ACCESS native-backend boundary — 2026-10-09
+
+Fixed-provider native HTTPS introspection passes ten local TLS/ownership
+regressions, strict default684/all-feature735, formatting, both Clippy
+configurations, all-feature build, workspace13 and focused review. Fresh provider
+revocation, exact profile/private subject binding, TLS failures and retained
+physical worker capacity are qualified within the finite local fixture.
+SECURITY-ACCESS stays in_progress: server route enforcement, OIDC sign-in and
+local IdP-backed HTTP scope/revocation/expiry acceptance remain unfinished.
+The synthetic physical lookup pause is not real DNS availability evidence.
+All actual cloud/native/remote/image/released-dependency/release gates stay open.
+See [access contract](42-access-control-contract.md), [progress](07-progress.md)
+and `target/goal-execution-20261007/SECURITY-ACCESS/native-acceptance.json`.
+
 ## SECURITY-ACCESS introspection-profile boundary — 2026-10-09
 
 SECURITY-ACCESS remains in_progress. Six selected response-profile fixtures and

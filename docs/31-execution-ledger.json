@@ -607,7 +607,7 @@
         "docs/04-implementation-plan.md",
         "docs/42-access-control-contract.md"
       ],
-      "notes": "Accepted bounded pure grants and selected OAuth2 introspection response profile: nine grant/six profile regressions, strict default674/all-feature725, both Clippy configurations, build/fmt/workspace13 and independent review. Object-only top-level response/policy guard, active/issuer/audience/subject/expiry/Bearer type, finite lease, ignored role/scope extensions and static errors. No provider authentication, HTTP role enforcement or revocation claim; continue native fixed-provider HTTPS and route/local IdP cross-scope runtime acceptance before parent completion."
+      "notes": "Accepted bounded grants, selected profile and fixed-provider native HTTPS mechanism: ten native TLS/ownership regressions, strict684/735, both Clippy configurations, build/fmt/workspace13 and source review. TLS trust/name/expiry before credentials, fresh revocation/profile/private subject binding, bounded workers retaining physical leases through frontend timeout, finite response/body limits and cancellation/explicit shutdown qualified locally. Synthetic lookup pause is not real resolver availability. Parent stays in_progress: mandatory query/batch admission, server configuration/route enforcement/OIDC sign-in and local HTTP scope/expiry/revocation gates next. External/native/remote/cloud/image/release exceptions retained."
     },
     {
       "id": "SECURITY-TRANSPORT",

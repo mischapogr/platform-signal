@@ -1,5 +1,40 @@
 # Implementation progress
 
+## SECURITY-ACCESS native HTTPS backend — 2026-10-09
+
+The generic identity mechanism in `signal-ingest::identity` authenticates each
+opaque access token against one fixed operator-configured HTTPS introspection
+endpoint. It validates the provider with established rustls hostname/expiry/trust
+checks and authenticated client credentials, then applies the accepted response
+profile and exact private issuer/subject policy. No provider role/header claims,
+redirects, ambient proxies, retries or token/revocation cache supply authority.
+
+Ten local regressions pass: finite actual TLS active/inactive/fresh recovery,
+wrong issuer/audience/expiry/unbound subject, invalid response shapes/headers and
+bounded/chunked body failures, certificate trust/name/expiry denial before
+credentials, cancellation/abort, deadline clamping, fixed worker saturation and
+explicit shutdown. A synthetic nonpreemptible lookup pause demonstrates that
+frontend timeout cannot free an active physical lease; a short shutdown reports
+failure while that work remains visible, and joins after its release. This is
+not a stalled real OS resolver measurement. Review found a fixture handle could
+be detached if its cleanup future was cancelled; retained handle ownership and
+a pending-finish drop regression resolve it. Initial fixture compile/category
+errors and the superseded pre-correction campaign remain retained.
+
+Strict default684/all-feature735, formatting, both Clippy configurations,
+all-feature build, workspace13 and focused review pass on the corrected source.
+Evidence: `target/goal-execution-20261007/SECURITY-ACCESS/native-tests-tls-reviewed.log`,
+`native-validation-corrected/validation.json`, `native-review.json` and
+`native-acceptance.json`. Fresh synthetic TLS keys/certificates come from finite
+OpenSSL subprocesses; fixtures own their tasks, ports and child cleanup.
+
+SECURITY-ACCESS remains in_progress. No server route calls this backend yet;
+OIDC sign-in, local IdP-backed HTTP expiry/revocation/cross-scope acceptance,
+server readiness/configuration and route authorization remain unfinished.
+External/native/remote/cloud/HA/custody/image/release gates stay open.
+Next: mandatory query authorization before sorting/limits/serialization,
+whole-batch admission checks, then server integration and remaining routes.
+
 ## SECURITY-ACCESS introspection response profile — 2026-10-09
 
 SECURITY-ACCESS remains in_progress. A selected bounded OAuth2 response profile
