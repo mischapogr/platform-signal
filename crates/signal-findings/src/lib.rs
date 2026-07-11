@@ -1,6 +1,8 @@
 //! Versioned deterministic findings and bounded durable journal persistence.
 pub mod disposition;
+mod scope;
 mod store;
+pub use scope::DerivedFinding;
 pub use store::*;
 
 use chrono::{DateTime, Datelike, Utc};

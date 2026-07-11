@@ -3,7 +3,7 @@ use crate::config::{self, ConfigError, Settings};
 use axum::{
     Json, Router,
     extract::{Request, State},
-    http::{HeaderMap, Method, StatusCode},
+    http::{HeaderMap, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
 };
@@ -18,7 +18,7 @@ use signal_protocol::{
     access::{AccessPolicy, Operation, RequestGrant, introspection::IntrospectionProfile},
 };
 use std::{sync::Arc, time::Duration};
-use tokio::time::{Instant, timeout_at};
+use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
 const CONFIG_BYTES: usize = 512 * 1024;
@@ -204,9 +204,9 @@ struct Protected {
     timeout: Duration,
     stopping: CancellationToken,
 }
-/// Only an explicit all-scope finding permission can use the historical global
-/// journal. Restricted findings and coverage identity bridging are not yet ready.
-pub fn protect_historical_routes(
+/// Coverage identity binding is not qualified yet. Authenticate freshly, then
+/// deny forwarding into the legacy route rather than inferring another capability.
+pub fn protect_unbound_routes(
     router: Router,
     identity: IdentityBackend,
     timeout: Duration,
@@ -218,14 +218,14 @@ pub fn protect_historical_routes(
             timeout,
             stopping,
         },
-        historical,
+        unbound,
     ))
 }
-async fn historical(State(state): State<Protected>, request: Request, next: Next) -> Response {
+async fn unbound(State(state): State<Protected>, request: Request, _next: Next) -> Response {
     let deadline = Instant::now() + state.timeout;
     let cancellation = state.stopping.child_token();
     let _guard = CancelOnDrop(cancellation.clone());
-    let grant = match state
+    let result = state
         .identity
         .authenticate_headers(
             request.headers(),
@@ -234,36 +234,15 @@ async fn historical(State(state): State<Protected>, request: Request, next: Next
                 cancellation,
             },
         )
-        .await
-    {
-        Ok(grant) => grant,
-        Err(e) => return identity_error(e),
+        .await;
+    let mut response = match result {
+        Ok(_) => error(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "scoped route contract unavailable",
+        ),
+        Err(error) => identity_error(error),
     };
-    let operation = match (request.method(), request.uri().path()) {
-        (&Method::GET, "/v1/findings") => Operation::ReadFindings,
-        (&Method::GET, "/v1/findings/feed") => Operation::ReadFindingsFeed,
-        _ => {
-            return error(
-                StatusCode::FORBIDDEN,
-                "forbidden",
-                "scoped route contract unavailable",
-            );
-        }
-    };
-    let allowed = || now().is_some_and(|at| grant.scopes(operation, at).any(|s| s.is_all()));
-    if !allowed() {
-        return error(StatusCode::FORBIDDEN, "forbidden", "route access denied");
-    }
-    let response = tokio::select! {
-        biased;
-        () = state.stopping.cancelled() => error(StatusCode::SERVICE_UNAVAILABLE, "unavailable", "server stopping"),
-        result = timeout_at(deadline, next.run(request)) => match result {
-            Ok(response) if Instant::now() < deadline && allowed() => response,
-            Ok(_) => error(StatusCode::FORBIDDEN, "forbidden", "request access lease expired"),
-            Err(_) => error(StatusCode::REQUEST_TIMEOUT, "request_timeout", "route deadline exceeded"),
-        },
-    };
-    let mut response = response;
     response.headers_mut().insert(
         "cache-control",
         axum::http::HeaderValue::from_static("no-store"),

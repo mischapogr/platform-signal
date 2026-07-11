@@ -208,7 +208,7 @@ def main():
         roles.append({"id": "global", "permissions": [{"operation": op, "scope": all_scope}
                      for op in ("read_findings", "read_findings_feed", "read_evidence", "configure", "manage_rules", "read_audit")]})
         bindings.append({"issuer": issuer, "subject": "global", "roles": ["global"]})
-        # A restricted finding capability must not unlock historical global rows.
+        # A restricted finding capability authorizes only canonical, newly derived rows.
         roles.append({"id": "scoped-findings", "permissions": [{"operation": "read_findings", "scope": scoped("a")}]})
         bindings[2]["roles"].append("scoped-findings")
         config = {"schema_version": 1, "endpoint": f"https://127.0.0.1:{provider.server_port}/token",
@@ -218,8 +218,13 @@ def main():
                   "policy": {"schema_version": 1, "roles": roles, "bindings": bindings}}
         config_path = root / "identity.json"
         config_path.write_text(json.dumps(config))
+        rules = root / "rules"
+        rules.mkdir()
+        (rules / "synthetic.yaml").write_text("apiVersion: signal.dev/v1\nkind: Rule\nmetadata:\n  id: synthetic.scope\n  name: Synthetic scope\nspec:\n  severity: high\n  match:\n    all:\n      - field: source.type\n        eq: synthetic\n  finding:\n    title: Synthetic security event\n")
+        server_config = root / "server.yaml"
+        server_config.write_text("schema_version: 1\nrules:\n  directories:\n    - " + json.dumps(str(rules)) + "\n")
         env = {key: value for key, value in os.environ.items() if not key.startswith("SIGNAL_")}
-        env.update(SIGNAL_LISTEN="127.0.0.1:0", SIGNAL_ACCESS_CONFIG=str(config_path),
+        env.update(SIGNAL_CONFIG=str(server_config), SIGNAL_LISTEN="127.0.0.1:0", SIGNAL_ACCESS_CONFIG=str(config_path),
                    SIGNAL_IDENTITY_CLIENT_SECRET=secret, SIGNAL_WAL_DIR=str(root / "wal"),
                    SIGNAL_STORAGE_DIR=str(root / "events"), SIGNAL_FINDINGS_DIR=str(root / "findings"),
                    SIGNAL_STORAGE_FLUSH_MS="10", SIGNAL_QUERY_TIMEOUT_MS="500", SIGNAL_REQUEST_TIMEOUT_MS="500")
@@ -273,6 +278,10 @@ def main():
         start({"SIGNAL_IDENTITY_CLIENT_SECRET": ""}, fail=True)
         start({"SIGNAL_ACCESS_CONFIG": str(root)}, fail=True)
         assert not (root / "wal").exists()
+        retained_event = None
+        if (root / "retained-event.json").exists():
+            retained_event = json.loads((root / "retained-event.json").read_text())
+            (root / "retained-wal").rename(root / "wal")
         start()
         endpoint = "/v1/events"
         assert request("GET", endpoint + "?limit=bad", headers={"x-forwarded-user": "global"})[0] == 401
@@ -299,7 +308,7 @@ def main():
         def exact_rows():
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
-                code_a, rows_a, headers_a = request("GET", endpoint + "?limit=1", token="read-a")
+                code_a, rows_a, headers_a = request("GET", endpoint + "?from=2026-10-06T00%3A00%3A00Z&limit=1", token="read-a")
                 code_b, rows_b, _ = request("GET", endpoint + "?limit=1", token="read-b")
                 assert code_a == code_b == 200
                 assert headers_a.get("cache-control") == "no-store"
@@ -316,10 +325,35 @@ def main():
         assert request("POST", endpoint + "/batch", {"events": [events[1]]}, "write-a")[0] == 403
         counters["revoked"] = False
         exact_rows()
-        assert request("GET", "/v1/findings", token="read-a")[0] == 403
+        def exact_findings():
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                status, scoped_rows, headers = request("GET", "/v1/findings?limit=1", token="read-a")
+                assert status == 200 and headers.get("cache-control") == "no-store"
+                if scoped_rows["findings"]:
+                    rows = scoped_rows["findings"]
+                    assert len(rows) == 1 and rows[0]["event_ids"] == [events[1]["id"]]
+                    assert rows[0]["attributes"]["signal.scope.v1"]["account"] == "a"
+                    assert request("GET", "/v1/findings?rule_id=absent", token="read-a")[1]["findings"] == []
+                    status, global_rows, _ = request("GET", "/v1/findings", token="global")
+                    assert status == 200 and len(global_rows["findings"]) == 2 + int(retained_event is not None)
+                    expected_ids = {row["id"] for row in events}
+                    if retained_event is not None:
+                        expected_ids.add(retained_event["id"])
+                        historical = [row for row in global_rows["findings"] if row["event_ids"] == [retained_event["id"]]]
+                        assert len(historical) == 1 and "signal.scope.v1" not in historical[0]["attributes"]
+                    assert {row["event_ids"][0] for row in global_rows["findings"]} == expected_ids
+                    return rows
+                time.sleep(0.01)
+            raise TimeoutError("exact scoped finding deadline")
+        original_findings = exact_findings()
+        assert request("GET", "/v1/findings?limit=bad", token="write-a")[0] == 403
+        assert request("GET", "/v1/findings?limit=bad", token="read-a")[0] == 400
+        assert request("GET", "/v1/findings", token="read-b")[0] == 403
         assert request("GET", "/v1/findings/feed?after=begin", token="read-a")[0] == 403
         assert request("GET", "/v1/findings", token="global")[0] == 200
-        assert request("GET", "/v1/findings/feed?after=begin", token="global")[0] == 200
+        status, original_feed, _ = request("GET", "/v1/findings/feed?after=begin", token="global")
+        assert status == 200 and len(original_feed["findings"]) == 2 + int(retained_event is not None)
         assert request("GET", endpoint, token="global")[0] == 403
         for path in ("/v1/evidence", "/v1/admin", "/v1/rules", "/v1/audit"):
             conn = http.client.HTTPConnection(host, port, timeout=3)
@@ -333,6 +367,7 @@ def main():
         counters["stall"] = True
         started = time.monotonic()
         assert request("GET", endpoint, token="read-a")[0] == 408
+        assert request("GET", "/v1/findings", token="read-a")[0] == 408
         assert time.monotonic() - started < 1.5
         counters["stall"] = False
         time.sleep(0.25)
@@ -340,6 +375,8 @@ def main():
         stop(kill=True)
         start()
         exact_rows()
+        assert exact_findings() == original_findings
+        assert request("GET", "/v1/findings/feed?after=begin", token="global")[1] == original_feed
         stop()
         # Replacing policy changes subsequent requests only through validated restart.
         config["policy"]["bindings"] = [b for b in config["policy"]["bindings"] if b["subject"] != "read-a"]
@@ -354,7 +391,7 @@ def main():
             text = log_text(log)
             assert secret not in text and "legacy-synthetic-token" not in text
             assert "private-event-" not in text
-        print("Identity server gate passed: scoped synced admission, exact Parquet queries, revocation, crash/restart and immutable-policy reload")
+        print("Identity server gate passed: scoped synced admission, exact Parquet and scoped finding queries, unknown backlog, revocation, crash/restart and immutable-policy reload")
     finally:
         # Every owner gets cleanup even if another cleanup reports failure.
         signal.alarm(0)

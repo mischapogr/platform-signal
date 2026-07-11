@@ -341,7 +341,13 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
         );
     }
     let findings = Arc::new(FindingStore::open(finding_config, wal.stream_id).await?);
+    if identity.is_some() {
+        findings
+            .enable_scopes(FindingContext::new(finding_timeout))
+            .await?;
+    }
     let detection = Arc::new(DetectionPipeline {
+        authenticated_after: identity.as_ref().map(|_| wal.last_sequence),
         rules,
         findings: findings.clone(),
         max_rows: max_finding_rows,
@@ -387,30 +393,20 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             query_cancel.clone(),
             identity.clone(),
         ))
-        .merge({
-            let routes = finding_api::router(
-                findings.clone(),
-                query_auth,
-                finding_limit,
-                finding_bytes,
-                finding_timeout,
-                query_cancel.clone(),
-            );
-            match &identity {
-                Some(identity) => access::protect_historical_routes(
-                    routes,
-                    identity.clone(),
-                    finding_timeout,
-                    query_cancel.clone(),
-                ),
-                None => routes,
-            }
-        })
+        .merge(finding_api::router_with_identity(
+            findings.clone(),
+            query_auth,
+            finding_limit,
+            finding_bytes,
+            finding_timeout,
+            query_cancel.clone(),
+            identity.clone(),
+        ))
         .merge(ui::router());
     if let Some(coverage) = &coverage {
         let routes = coverage.router();
         router = router.merge(match &identity {
-            Some(identity) => access::protect_historical_routes(
+            Some(identity) => access::protect_unbound_routes(
                 routes,
                 identity.clone(),
                 access_timeout,
