@@ -12,8 +12,10 @@ use axum::{
     routing::{get, post},
 };
 use chrono::Utc;
+use identity::{IdentityBackend, IdentityContext, IdentityError};
 use serde_json::Value;
 use signal_event::{IngestEvent, ValidationError};
+use signal_protocol::access::{Operation, RequestGrant, ScopeFacts};
 use signal_protocol::{
     API_SCHEMA_VERSION, AdmissionError, ApiError, BatchInput, ErrorCode, EventSink, IngestResponse,
 };
@@ -117,6 +119,7 @@ struct HttpMetrics {
 
 struct Shared {
     config: IngestConfig,
+    identity: Option<IdentityBackend>,
     sink: Arc<dyn EventSink>,
     permits: Semaphore,
     stopping: CancellationToken,
@@ -130,11 +133,33 @@ pub struct IngestService {
 
 impl IngestService {
     pub fn new(config: IngestConfig, sink: Arc<dyn EventSink>) -> Result<Self, ConfigError> {
+        Self::build(config, sink, None)
+    }
+
+    pub fn new_with_identity(
+        config: IngestConfig,
+        sink: Arc<dyn EventSink>,
+        identity: IdentityBackend,
+    ) -> Result<Self, ConfigError> {
+        if config.api_token.is_some() {
+            return Err(ConfigError::Invalid(
+                "identity and shared token are mutually exclusive",
+            ));
+        }
+        Self::build(config, sink, Some(identity))
+    }
+
+    fn build(
+        config: IngestConfig,
+        sink: Arc<dyn EventSink>,
+        identity: Option<IdentityBackend>,
+    ) -> Result<Self, ConfigError> {
         config.validate()?;
         let permits = Semaphore::new(config.max_in_flight);
         Ok(Self {
             shared: Arc::new(Shared {
                 config,
+                identity,
                 sink,
                 permits,
                 stopping: CancellationToken::new(),
@@ -293,14 +318,46 @@ async fn ingest(service: IngestService, request: Request, is_batch: bool) -> Res
             None,
         );
     }
-    if !authorized(&shared.config, request.headers()) {
+    let grant = if let Some(identity) = &shared.identity {
+        let result = identity
+            .authenticate_headers(
+                request.headers(),
+                IdentityContext {
+                    deadline,
+                    cancellation: shared.stopping.child_token(),
+                },
+            )
+            .await;
+        match result {
+            Ok(grant) => {
+                if !has_ingest_authority(&grant, authorization_time()) {
+                    return attempt.error(
+                        StatusCode::FORBIDDEN,
+                        ErrorCode::Forbidden,
+                        "event admission access denied",
+                        None,
+                    );
+                }
+                Some(grant)
+            }
+            Err(error) => {
+                if error == IdentityError::Timeout {
+                    shared.metrics.timed_out.fetch_add(1, Ordering::Relaxed);
+                }
+                let (status, code, message) = identity_error(error);
+                return attempt.error(status, code, message, None);
+            }
+        }
+    } else if !authorized(&shared.config, request.headers()) {
         return attempt.error(
             StatusCode::UNAUTHORIZED,
             ErrorCode::Unauthorized,
             "Bearer authentication required",
             None,
         );
-    }
+    } else {
+        None
+    };
     if !request
         .headers()
         .get(header::CONTENT_TYPE)
@@ -415,9 +472,41 @@ async fn ingest(service: IngestService, request: Request, is_batch: bool) -> Res
                 );
             }
         };
+        let at = authorization_time();
+        if grant
+            .as_ref()
+            .is_some_and(|grant| !has_ingest_authority(grant, at))
+        {
+            shared.metrics.timed_out.fetch_add(1, Ordering::Relaxed);
+            return attempt.error(
+                StatusCode::REQUEST_TIMEOUT,
+                ErrorCode::RequestTimeout,
+                "request authority lease ended",
+                Some(index),
+            );
+        }
+        if !admission_allowed(grant.as_ref(), &event, at) {
+            return attempt.error(
+                StatusCode::FORBIDDEN,
+                ErrorCode::Forbidden,
+                "event admission access denied",
+                Some(index),
+            );
+        }
         events.push(event);
     }
     for (index, event) in events.into_iter().enumerate() {
+        if !admission_allowed(grant.as_ref(), &event, authorization_time()) {
+            // Whole-batch scopes already passed. Only the immutable request
+            // authority's time lease can now have ended. Preserve prefix/retry.
+            shared.metrics.timed_out.fetch_add(1, Ordering::Relaxed);
+            return attempt.error(
+                StatusCode::REQUEST_TIMEOUT,
+                ErrorCode::RequestTimeout,
+                "request authority lease ended",
+                Some(index),
+            );
+        }
         if Instant::now() >= deadline {
             shared.metrics.timed_out.fetch_add(1, Ordering::Relaxed);
             return attempt.error(
@@ -468,8 +557,58 @@ pub fn authorized(config: &IngestConfig, headers: &axum::http::HeaderMap) -> boo
     bool::from(provided.as_bytes().ct_eq(expected.as_bytes()))
 }
 
+fn authorization_time() -> Option<u64> {
+    u64::try_from(Utc::now().timestamp()).ok()
+}
+fn has_ingest_authority(grant: &RequestGrant, at: Option<u64>) -> bool {
+    at.is_some_and(|now| grant.scopes(Operation::IngestEvents, now).next().is_some())
+}
+fn admission_allowed(
+    grant: Option<&RequestGrant>,
+    event: &signal_event::SignalEvent,
+    at: Option<u64>,
+) -> bool {
+    grant.is_none_or(|grant| {
+        at.is_some_and(|now| grant.allows(Operation::IngestEvents, ScopeFacts::event(event), now))
+    })
+}
+fn identity_error(error: IdentityError) -> (StatusCode, ErrorCode, &'static str) {
+    match error {
+        IdentityError::InvalidCredential => (
+            StatusCode::UNAUTHORIZED,
+            ErrorCode::Unauthorized,
+            "valid access credential required",
+        ),
+        IdentityError::Denied => (
+            StatusCode::FORBIDDEN,
+            ErrorCode::Forbidden,
+            "event admission access denied",
+        ),
+        IdentityError::Busy => (
+            StatusCode::TOO_MANY_REQUESTS,
+            ErrorCode::Full,
+            "identity capacity is full",
+        ),
+        IdentityError::Timeout => (
+            StatusCode::REQUEST_TIMEOUT,
+            ErrorCode::RequestTimeout,
+            "identity deadline exceeded",
+        ),
+        _ => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            ErrorCode::Unavailable,
+            "identity backend unavailable",
+        ),
+    }
+}
+
 async fn ready(State(service): State<IngestService>) -> StatusCode {
-    if service.shared.stopping.is_cancelled() || service.shared.sink.metrics().closed {
+    if service.shared.stopping.is_cancelled()
+        || service.shared.sink.metrics().closed
+        || service.shared.identity.as_ref().is_some_and(|identity| {
+            identity.metrics().closed || identity.metrics().workers_alive == 0
+        })
+    {
         StatusCode::SERVICE_UNAVAILABLE
     } else {
         StatusCode::OK
@@ -512,6 +651,28 @@ async fn metrics(State(service): State<IngestService>) -> Response {
         sink.operations_in_flight,
         sink.operation_capacity
     );
+    if let Some(identity) = &shared.identity {
+        use std::fmt::Write;
+        let metric = identity.metrics();
+        for (name, value) in [
+            ("signal_identity_depth", metric.depth as u64),
+            ("signal_identity_capacity", metric.capacity as u64),
+            ("signal_identity_queue_depth", metric.queue_depth as u64),
+            (
+                "signal_identity_queue_capacity",
+                metric.queue_capacity as u64,
+            ),
+            ("signal_identity_running", metric.running as u64),
+            ("signal_identity_workers_alive", metric.workers_alive as u64),
+            ("signal_identity_requests_total", metric.requests),
+            ("signal_identity_rejected_total", metric.rejected),
+            ("signal_identity_denied_total", metric.denied),
+            ("signal_identity_failures_total", metric.failures),
+            ("signal_identity_closed", u64::from(metric.closed)),
+        ] {
+            let _ = writeln!(body, "{name} {value}");
+        }
+    }
     if let Some(rules) = sink.rules {
         use std::fmt::Write;
         for (name, value) in [

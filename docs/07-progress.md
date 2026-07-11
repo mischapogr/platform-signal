@@ -1,5 +1,45 @@
 # Implementation progress
 
+## SECURITY-ACCESS producer admission — 2026-10-09
+
+`IngestService::new_with_identity` enables the native fixed-provider backend for
+HTTP admission. Identity mode rejects a configured legacy shared token and never
+falls back to legacy or unauthenticated authorization. Exactly one bounded Bearer
+credential is authenticated before body parsing; forwarded user/role headers
+supply no authority. Missing IngestEvents capability denies. Every normalized
+batch event must match its complete canonical source/account/resource scope
+before the first sink admission; a mixed unauthorized batch admits zero events.
+
+Request authority is checked again for each admission. If its immutable time
+lease ends after a committed prefix, HTTP408 records that exact prefix, rejected
+suffix and index for the existing semantic validator's Retry result. A fresh
+request authenticates again and can admit the suffix. HTTP403 Forbidden denotes
+permission denial and is permanent only with zero accepted events; the verifier
+still rejects a permanent-error committed prefix. Invalid clock values fail
+closed. Stopped native authority fails readiness; physical/queue capacities,
+requests/rejections/denials/failures and closed state are exported without tokens.
+
+Five new route regressions plus ten existing native tests pass, including real
+local TLS, Axum handlers and a bounded volatile memory sink: mixed-batch denial,
+forwarded/duplicate/missing credential denial, token-mode conflict, canonical
+source/resource/missing-fact checks, role separation, fresh revocation, provider
+deadline and committed-prefix lease exhaustion/recovery. The final campaign uses
+a two-second lease and2100ms hold within the five-second request deadline. A test
+reply-vector construction compile failure is retained; no production review
+finding remains. Strict694default/745all-feature, formatting, both Clippy
+configurations, all-feature build, workspace13 and focused review pass.
+Evidence: `target/goal-execution-20261007/SECURITY-ACCESS/admission-validation-final/validation.json`,
+`admission-review.json`, `admission-acceptance.json`; focused history is retained.
+
+SECURITY-ACCESS stays in_progress. The composed signal-server still uses legacy
+configuration/routes; the route mechanism's memory-sink tests do not qualify
+identity-backed WAL admission. Server configuration, remaining route enforcement,
+trusted scope history and local IdP-backed HTTP acceptance remain unfinished.
+Actual native/cloud/remote/image/HA/custody/release exceptions stay open.
+Next: validated private access configuration and composed server identity wiring,
+with positive/negative persisted scope checks and remaining findings/coverage/
+evidence/admin handling; preserve OIDC sign-in at the trusted IdP/ingress boundary.
+
 ## SECURITY-ACCESS mandatory query grants — 2026-10-09
 
 The trusted host can call `QueryEngine::execute_authorized` with an authenticated

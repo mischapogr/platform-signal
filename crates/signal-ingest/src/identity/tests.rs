@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 use super::*;
+mod admission;
 mod fixture;
 use signal_protocol::access::{Operation, ScopeFacts};
 use std::time::Duration;
