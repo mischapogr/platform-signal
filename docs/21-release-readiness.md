@@ -10,6 +10,32 @@ Phase 9 AWS collection remains post-MVP.
 
 
 
+
+## SECURITY-AUDIT protocol slice — 2026-10-09
+
+Version 1 audit control records now distinguish access decisions, operation
+completion/uncertainty and runtime/rule activation. 4 KiB records and 1 KiB ACKs have
+strict object/field/version/time/UUID/sequence/hash validation, finite retained
+metadata and secret-free typed diagnostics. Exact original bytes survive intake;
+ACKs bind record/producer/sequence/body hash. Live verified grants produce framed,
+domain-separated pseudonymous actor references without granting audit permission.
+
+Six meaningful audit regressions, all existing protocol regressions, strict 739/790
+default/all-feature workspace tests, both Clippy/fmt/workspace13 and independent
+review pass. Tagged-unit extra-field acceptance and review array/spare-capacity
+bugs were reproduced before fixing; failed evidence is retained. The inherited
+healthy-probe test 100 ms budget failed under concurrent all-feature load. Production
+correctly timed out; the test now uses production 2 s and proves a partial body was
+sent/held open until expiry. No production probe behavior changed. No new dependency
+or process is added. Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/protocol-acceptance.json`,
+`protocol-validation-reviewed/validation.json`, `protocol-review.json` and red/green logs.
+
+SECURITY-AUDIT stays in_progress. Next: bounded independent destination and native
+access/config/rule activation hooks, then secret/encrypted-storage integration
+checks. Protocol acceptance does not qualify operative auditing, independent
+health, encryption, current image/cluster, native ARM/fullCI/cloud/release.
+
+
 ## SECURITY-TRANSPORT complete locally — 2026-10-09
 
 The frozen local transport scope is passed_simulated. Quiet health/readiness modes

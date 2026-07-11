@@ -668,7 +668,7 @@
     {
       "id": "SECURITY-AUDIT",
       "title": "Restricted independent audit and secrets/encryption integration seams",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "SECURITY-ACCESS",
         "EVIDENCE"
@@ -682,7 +682,32 @@
       ],
       "references": [
         "docs/27-product-architecture.md",
-        "docs/04-implementation-plan.md"
+        "docs/04-implementation-plan.md",
+        "docs/45-independent-audit.md"
+      ],
+      "notes": "Bounded version1 audit/ACK and live trusted actor reference passed_local with 6 regressions, strict 739/790 gates and independent review. Parent in_progress for destination/native hooks and secrets/encryption seams; no operative collection/encrypted-storage/cloud qualification inferred.",
+      "substeps": [
+        {
+          "id": "bounded-record-ack-protocol",
+          "status": "passed_local",
+          "evidence": [
+            "target/goal-execution-20261007/SECURITY-AUDIT/protocol-acceptance.json"
+          ]
+        },
+        {
+          "id": "independent-destination-native-hooks",
+          "status": "pending",
+          "acceptance": [
+            "Bounded independent restricted sink and operative access/config/rule activation audit; exact ACK, outages/replay/restart/crash/independent health acceptance."
+          ]
+        },
+        {
+          "id": "secrets-encrypted-storage-seams",
+          "status": "pending",
+          "acceptance": [
+            "Explicit private provider/secret/rotation/recovery and encrypted-storage settings checks; never imply configured storage is actually encrypted without real-environment proof."
+          ]
+        }
       ]
     },
     {
