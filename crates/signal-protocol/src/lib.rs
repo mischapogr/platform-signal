@@ -15,6 +15,7 @@ pub use admission::{
 pub mod access;
 pub mod findings_feed;
 pub mod query;
+pub mod transport;
 pub use query::{
     AttributeFilter, EventQuery, EventQueryResponse, QueryMetadata, QueryOrder,
     QueryValidationError, parse_event_query,

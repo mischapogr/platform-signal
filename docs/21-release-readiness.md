@@ -7,6 +7,37 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+
+## SECURITY-TRANSPORT native mTLS slice — 2026-10-09
+
+Optional bounded native mTLS now protects the monolith API and metrics listeners
+and the outbound agent. Explicit private version1 DER roots/identity/CRLs use
+stock Rustls/ring chain, hostname, time and signed revocation checks. There is no
+plaintext/anonymous fallback when selected, session resumption or early data.
+Transport certificates do not grant API capabilities or prove source completeness.
+Startup validates private material before agent source/spool or server readiness.
+
+The existing connection budget owns TLS and HTTP through teardown; original
+absolute deadlines reject late polls and ready handoffs. Fixed retained physical
+configuration/DNS workers keep capacity after caller timeout/cancellation. Actual
+local agent/server qualification passes16 compound checks: valid named-endpoint
+admission/WAL/Parquet/query, both-listener missing/foreign/expired peer denial,
+independent API credentials, wrong server trust/hostname/time, signed CRL denial,
+original spool IDs across retry and stopped root/certificate/token rotation,
+trickling original-deadline expiry and shutdown of demonstrably active handshakes.
+Four harness regressions, independent review, strict727default/778all-feature
+workspace tests (zero failures), both strict Clippy, fmt and workspace13 pass.
+Five regressions fail when deadline safeguards are disabled and pass after exact
+source restoration. Failed preflight/early expectations remain failed evidence.
+
+SECURITY-TRANSPORT stays in_progress: protected packaging/deployment health probes
+and the collector publishing TLS seam remain required. No current production
+image, native ARM64/full reviewed-revision remote CI, real PKI/cloud/vendor or
+release claim follows. Evidence: `target/goal-execution-20261007/SECURITY-TRANSPORT/native-acceptance.json`,
+`process-final/qualification.json`, `validation-final/validation.json`,
+`red-green/report.json` and `review.json`. See [native transport contract](44-transport-security.md).
+
+
 ## SECURITY-ACCESS established IdP acceptance — 2026-10-09
 
 SECURITY-ACCESS is passed_simulated for its frozen local scope. Actual pinned

@@ -3051,6 +3051,7 @@ dependencies = [
  "crc32fast",
  "libc",
  "reqwest",
+ "rustls",
  "serde",
  "serde_json",
  "signal-collector-sdk",

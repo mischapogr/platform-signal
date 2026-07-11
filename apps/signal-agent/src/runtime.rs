@@ -57,13 +57,26 @@ pub async fn run(
     stopping: CancellationToken,
 ) -> Result<RuntimeReport, AgentError> {
     config.spool.validate().map_err(|_| AgentError::Spool)?;
-    let sender = BatchSender::new(
+    let tls = match &config.tls_config {
+        Some(path) => Some(
+            crate::tls::load(
+                path.clone(),
+                Instant::now() + config.request_timeout,
+                stopping.clone(),
+            )
+            .await
+            .map_err(|_| AgentError::Http)?,
+        ),
+        None => None,
+    };
+    let sender = BatchSender::with_tls(
         &config.server,
         config.token.as_deref(),
         config.batch_events,
         config.batch_bytes,
         config.request_timeout.min(Duration::from_secs(3)),
         config.request_timeout,
+        tls,
     )
     .map_err(|_| AgentError::Http)?;
     let listener = if let Some(address) = config.metrics_listen {
@@ -422,6 +435,10 @@ fn metrics_text(inputs: &[InputReader], spool: &Spool, stats: &Counters) -> Stri
         stats.retries.load(Ordering::Relaxed),
         stats.requests.load(Ordering::Relaxed)
     );
+    text.push_str(&format!(
+        "signal_agent_dns_operations {}\nsignal_agent_dns_operation_capacity 1\nsignal_agent_dns_rejections_total {}\n",
+        crate::dns::depth(), crate::dns::rejections()
+    ));
     for (index, input) in inputs.iter().enumerate() {
         let i = input.metrics();
         for (name, value) in [
