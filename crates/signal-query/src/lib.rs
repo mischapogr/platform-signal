@@ -1,5 +1,6 @@
 //! Bounded DataFusion execution over committed Parquet files (ADR-005).
 
+mod access;
 mod io;
 
 use arrow::{
@@ -23,6 +24,7 @@ use futures_util::StreamExt;
 use signal_event::{Severity, lookup_attribute_path};
 use signal_protocol::{
     API_SCHEMA_VERSION, EventQuery, EventQueryResponse, QueryMetadata, QueryOrder,
+    access::RequestGrant,
 };
 use signal_storage::{OperationContext, ParquetStore, QueryFileSource, StorageError, codec};
 use std::{
@@ -94,6 +96,8 @@ impl QueryConfig {
 pub enum QueryError {
     #[error("invalid query configuration: {0}")]
     Config(&'static str),
+    #[error("event query access denied")]
+    Denied,
     #[error("invalid event query")]
     Invalid,
     #[error("query capacity is full")]
@@ -251,10 +255,30 @@ impl QueryEngine {
             io_worker_capacity: io.worker_capacity,
         }
     }
+    /// Trusted host entry point for deployments without configured identity.
+    /// Authenticated HTTP routes must use `execute_authorized` instead.
     pub async fn execute(
         &self,
         query: EventQuery,
+        context: OperationContext,
+    ) -> Result<EventQueryResponse, QueryError> {
+        self.execute_inner(query, context, None).await
+    }
+    /// Apply complete QueryEvents grants before sort/limit and verify them again
+    /// before returning any response. User filters only narrow that authority.
+    pub async fn execute_authorized(
+        &self,
+        query: EventQuery,
+        context: OperationContext,
+        grant: &RequestGrant,
+    ) -> Result<EventQueryResponse, QueryError> {
+        self.execute_inner(query, context, Some(grant)).await
+    }
+    async fn execute_inner(
+        &self,
+        query: EventQuery,
         mut context: OperationContext,
+        grant: Option<&RequestGrant>,
     ) -> Result<EventQueryResponse, QueryError> {
         self.counters.requests.fetch_add(1, Ordering::Relaxed);
         let started = Instant::now();
@@ -265,6 +289,7 @@ impl QueryEngine {
         };
         context.deadline = context.deadline.min(started + self.config.timeout);
         let result = async {
+            access::check(grant)?;
             query
                 .validate(self.config.max_limit)
                 .map_err(|_| QueryError::Invalid)?;
@@ -287,11 +312,16 @@ impl QueryEngine {
             tokio::select! {
                 biased;
                 _ = context.cancellation.cancelled() => Err(QueryError::Cancelled),
-                result = timeout_at(context.deadline, self.run(query, context.clone(), started)) =>
+                result = timeout_at(context.deadline, self.run(query, context.clone(), started, grant)) =>
                     result.map_err(|_| QueryError::Timeout)?,
             }
         }
-        .await;
+        .await
+        .and_then(|response| {
+            check_context(&context)?;
+            access::check(grant)?;
+            Ok(response)
+        });
         self.counters.latency_micros.fetch_add(
             started.elapsed().as_micros().min(u64::MAX as u128) as u64,
             Ordering::Relaxed,
@@ -346,6 +376,7 @@ impl QueryEngine {
         query: EventQuery,
         context: OperationContext,
         started: Instant,
+        grant: Option<&RequestGrant>,
     ) -> Result<EventQueryResponse, QueryError> {
         let selection = self
             .store
@@ -358,6 +389,7 @@ impl QueryEngine {
             )
             .await
             .map_err(storage_error)?;
+        access::check(grant)?;
         if selection.files.len() > self.config.max_files {
             return Err(QueryError::Resource);
         }
@@ -422,6 +454,9 @@ impl QueryEngine {
             )
             .await
             .map_err(df_error)?;
+        if let Some(grant) = grant {
+            frame = frame.filter(access::predicate(grant)?).map_err(df_error)?;
+        }
         for predicate in predicates(&query) {
             frame = frame.filter(predicate).map_err(df_error)?;
         }
@@ -452,6 +487,7 @@ impl QueryEngine {
                 }
                 let mut row = codec::decode(&batch.slice(index, 1)).map_err(storage_error)?;
                 let event = row.pop().ok_or(QueryError::Unavailable)?.event;
+                access::check_event(grant, &event)?;
                 let bytes = json_bytes(&event, self.config.max_response_bytes)?;
                 response.metadata.duration_ms = elapsed_ms(started);
                 let envelope = json_bytes(

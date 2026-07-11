@@ -1,5 +1,38 @@
 # Implementation progress
 
+## SECURITY-ACCESS mandatory query grants — 2026-10-09
+
+The trusted host can call `QueryEngine::execute_authorized` with an authenticated
+request grant. Complete QueryEvents source/account/resource permissions become
+mandatory canonical column predicates before sorting and limits. Whole paired
+scopes are ORed; source/account/resource dimensions inside one scope remain ANDed.
+Other operation permissions never expand query access. Optional URL filters
+intersect that authority. Exact literals (including `*`) have no wildcard meaning;
+missing restricted canonical facts deny and spoofed attributes have no authority.
+
+Permission/time checks run before source selection, after selection, on decoded
+rows and before a successful response (including empty storage). Empty or expired
+permissions deny rather than fall back to unfiltered execution. The final success
+path checks the original monotonic deadline/cancellation too. Review reproduced
+a late-ready result winning Tokio timeout after caller polling resumed past its
+deadline; an actual prepared empty selection regression fails without the check
+and passes with it. Five actual committed Parquet/DataFusion regressions pass.
+Strict default689/all-feature740, formatting, both Clippy configurations,
+all-feature build, workspace13 and focused review pass. Initial Clippy corrections
+and the reproduced pre-fix deadline failure remain retained. Evidence:
+`target/goal-execution-20261007/SECURITY-ACCESS/query-tests-reviewed.log`,
+`query-validation-final/validation.json`, `query-review.json`, `query-acceptance.json`.
+
+SECURITY-ACCESS remains in_progress. Existing server HTTP routes still use the
+legacy trusted-host `execute` entry point until identity integration; the new
+Denied error mapping does not itself enforce HTTP policy. Canonical stored facts
+still require admission trust; matching a supplied account proves no AWS ownership.
+Time selection and scan budgets describe the aggregate source, not physical
+per-account file isolation. No live IdP, native ARM64, cloud, remote CI, image,
+HA/custody or release qualification is claimed.
+Next: whole-batch admission authority, then server configuration/routes and local
+IdP-backed HTTP scope, expiry and revocation acceptance.
+
 ## SECURITY-ACCESS native HTTPS backend — 2026-10-09
 
 The generic identity mechanism in `signal-ingest::identity` authenticates each
