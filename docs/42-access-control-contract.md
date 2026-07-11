@@ -4,7 +4,7 @@ This contract implements the frozen SECURITY-ACCESS item from the
 [execution ledger](31-execution-ledger.md) and the trust requirements in
 [product architecture](27-product-architecture.md#7-security-and-useful-defaults).
 Accepted slices provide bounded paired grants, an introspection response profile
-and fixed-provider native HTTPS token authentication. Server routes still use
+and fixed-provider native HTTPS token authentication. Mandatory trusted-host query filtering is accepted too. Server routes still use
 the development server's optional single bearer token. SECURITY-ACCESS remains
 in progress until server enforcement and local identity-provider HTTP gates pass.
 
@@ -96,8 +96,8 @@ prove AWS ownership. Missing or historically unverified context cannot be repair
 by reading a convenient attribute.
 
 `RequestGrant::scopes` exposes only complete permissions for the requested
-operation. A later query integration must impose mandatory predicates before
-sorting, limits and serialization, and fail closed if the grant expires. It must
+operation. The trusted-host query integration imposes mandatory predicates before
+sorting, limits and serialization, and fails closed if the grant expires. It must
 never turn an empty/expired selector set into an unfiltered query. Query URL
 parameters remain optional user filters, not authorization controls.
 
@@ -121,8 +121,8 @@ introspection against a fixed authenticated provider endpoint, with OIDC sign-in
 handled by an existing trusted IdP/ingress. The implemented pure profile requires active status, issuer, audience,
 subject, expiry and Bearer token type; access tokens are not
 OIDC ID tokens. Provider timeouts, bounded bodies/concurrency, revocation, denial,
-malformed replies and cross-scope route behavior still need implementation and
-local simulations. The standard endpoint contract is
+malformed replies pass finite native local fixtures; server cross-scope route
+behavior still needs implementation and local HTTP simulations. The standard endpoint contract is
 [RFC7662](https://datatracker.ietf.org/doc/html/rfc7662); sign-in semantics follow
 [OpenID Connect Core](https://openid.net/specs/openid-connect-core-1_0.html).
 Live IdP/TLS/rotation and cloud authority remain separate external evidence.
@@ -214,3 +214,31 @@ through await, with abort-on-drop qualification. Strict684/735 and source review
 are bound in `target/goal-execution-20261007/SECURITY-ACCESS/native-validation-corrected/validation.json`.
 Server routes/configuration, sign-in and full local HTTP authorization remain
 next. This proof closes no live provider, native ARM64, AWS or release gate.
+
+## Mandatory trusted-host query execution
+
+`QueryEngine::execute_authorized` takes a backend-authenticated `RequestGrant`.
+No HTTP header or caller-selected selector list reaches this boundary as a grant.
+Only QueryEvents permission scopes contribute: each complete scope conjoins
+canonical `source_type`, `resource_account_id` and `resource_id`; complete scopes
+are disjoined. Immutable policy bounds one operation to at most8 scopes with
+64 exact literals per dimension. DataFusion predicates apply before user filters,
+sorting and limits. Restricted missing facts (SQL NULL) deny; attribute data and
+literal `*` values cannot supply wildcard or fallback authority.
+
+A missing/expired query permission denies before file selection. Time/permission
+checks repeat after selection, on decoded rows and before returning any response,
+including empty storage. Final success checks the original monotonic context
+before grant validity, preventing a ready inner result from defeating timeout
+when caller polling resumes late. No partially authorized event response returns.
+The legacy `execute` entry point remains only a trusted host API for deployments
+without configured identity; authenticated server routes must use the new method.
+
+Five real committed Parquet/DataFusion tests cover complete pair combinations,
+filter-before-limit/order, optional filter intersection, literals/missing facts,
+absence/expiry before selection, expiry while holding prepared files/empty data,
+and a reproduced late-ready result. Strict689/740 and source review are bound in
+`target/goal-execution-20261007/SECURITY-ACCESS/query-validation-final/validation.json`.
+Source selection and scan-budget metadata remain aggregate storage diagnostics;
+this is row authorization, not per-account physical file selection or cloud
+ownership attestation. Server route integration and admission trust remain next.
