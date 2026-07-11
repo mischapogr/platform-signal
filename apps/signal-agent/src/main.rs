@@ -20,7 +20,8 @@ const HELP: &str = "signal-agent --server URL [--stdin | --file PATH ...] [--onc
   --max-line-bytes N        Input line limit (default 65536)\n\
   --max-event-bytes N       Canonical event JSON limit (default 65536)\n\
   --metrics-listen ADDRESS  Optional bounded metrics listener\n\
-API token: SIGNAL_AGENT_API_TOKEN only. Flags override matching SIGNAL_AGENT_*\n\
+API token: SIGNAL_AGENT_API_TOKEN only. Optional private mTLS: SIGNAL_AGENT_TLS_CONFIG.\n\
+Flags override matching SIGNAL_AGENT_*\n\
 environment settings. Files follow until SIGTERM unless --once.\n";
 
 fn bounded_stderr(message: String) {

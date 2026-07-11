@@ -11,6 +11,7 @@ publish = false
 workspace = true
 
 [dependencies]
+rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
 chrono.workspace = true
 crc32fast.workspace = true
 libc.workspace = true

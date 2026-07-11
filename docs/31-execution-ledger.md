@@ -32,6 +32,13 @@ external client and the existing console token field. See
 [local IdP contract](43-local-idp-qualification.md). Continue SECURITY-TRANSPORT;
 real native/full-CI/cloud/live-tenant/image/release gates remain separate.
 
+SECURITY-TRANSPORT stays in_progress. Its native agent/server slice has16 compound
+actual mTLS/revocation/retained-ID/rotation/lifecycle checks,4 helper regressions,
+strict727/778 workspace gates,5 red/green deadline regressions and independent
+review. Continue shared collector publishing TLS, then protected deployment probes.
+See [transport contract](44-transport-security.md) and
+`target/goal-execution-20261007/SECURITY-TRANSPORT/native-acceptance.json`.
+
 ## Execution and evidence
 
 One coherent writer change set at a time. Verify, resolve focused review, record
@@ -84,7 +91,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | S3-QUERY | passed_simulated | CORE | Object-backed Parquet and committed query manifests |
 | RETENTION | passed_simulated | S3-QUERY, EVIDENCE | Selective query acceleration, retention and cost controls |
 | SECURITY-ACCESS | passed_simulated | CORE | OIDC/trusted identity, scoped credentials and RBAC |
-| SECURITY-TRANSPORT | pending | SECURITY-ACCESS | mTLS and credential/certificate rotation |
+| SECURITY-TRANSPORT | in_progress | SECURITY-ACCESS | mTLS and credential/certificate rotation |
 | SECURITY-AUDIT | pending | SECURITY-ACCESS, EVIDENCE | Restricted independent audit and secrets/encryption integration seams |
 | SMALL-PILOT | pending | AWS-DELIVERY, COVERAGE-OBSERVERS, OUTBOX, EVIDENCE, S3-QUERY, SECURITY-TRANSPORT | Small source→evidence→finding→notification simulation |
 | SHARED-CONTRACT | pending | SMALL-PILOT | PostgreSQL shared-control schema, transactions, fencing and migration contract |

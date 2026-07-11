@@ -7,6 +7,7 @@ mod logging;
 mod pipeline;
 mod query_api;
 mod storage;
+mod tls;
 mod ui;
 use config::Settings;
 use logging::{LoggerGuard, LoggingConfig};
@@ -175,6 +176,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
     };
     config.validate()?;
     limits.validate()?;
+    let tls = tls::load(&settings).await?;
     let identity_configuration = access::Configuration::load(&settings).await?;
     let coverage_configuration = coverage_api::Configuration::load(&settings).await?;
     let listen: SocketAddr = settings
@@ -452,21 +454,23 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
     let transport_stopping = service.cancellation();
     let permits = Arc::new(tokio::sync::Semaphore::new(limits.max_connections));
     let transport = async {
-        let api = server::serve_router_with_budget(
+        let api = server::serve_router_with_tls_budget(
             listener,
             service.clone(),
             router,
             limits,
             permits.clone(),
+            tls.clone(),
             std::future::pending::<()>(),
         );
         if let Some(metrics_listener) = metrics_listener {
-            let metrics = server::serve_router_with_budget(
+            let metrics = server::serve_router_with_tls_budget(
                 metrics_listener,
                 service.clone(),
                 service.metrics_router(),
                 limits,
                 permits,
+                tls,
                 std::future::pending::<()>(),
             );
             let (api, metrics) = tokio::join!(api, metrics);

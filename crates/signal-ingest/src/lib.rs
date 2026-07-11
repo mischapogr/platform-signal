@@ -2,6 +2,7 @@
 pub mod identity;
 pub mod memory;
 pub mod server;
+pub mod tls;
 
 use axum::{
     Json, Router,
