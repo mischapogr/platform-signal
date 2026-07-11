@@ -1,5 +1,36 @@
 # Implementation progress
 
+## SECURITY-ACCESS bounded grant contract — 2026-10-09
+
+SECURITY-ACCESS remains in_progress. The pure version1 grant model pairs each
+operation with its exact source/account/resource scope, binds the exact verified
+issuer/subject, and denies missing restricted facts, unknown identities, expiry
+and use before grant issuance. Multiple roles cannot cross-combine operations
+and account selectors. Canonical event source/resource fields supply facts;
+arbitrary attributes never grant authority. Global feed/admin capabilities require
+explicit all scopes; role names imply no privileges. Private bindings stay private.
+
+Nine focused adversarial tests and strict default668/all-feature719 workspace
+checks pass, with formatting, default/all-feature Clippy, all-feature build,
+workspace13 and independent review. Programmatic policies receive nonallocating
+nested length/count preflight before encoded-byte checks and lookup allocation;
+retained vectors/strings discard spare capacity. Review found and resolved those
+two resource issues. Errors remain static/redacted. The initial Clippy fixture
+allowance omission and earlier-source campaigns remain historical, not final proof.
+Evidence: `target/goal-execution-20261007/SECURITY-ACCESS/grant-tests-final.log`,
+`grant-validation-preflight-final/validation.json`, `grant-review.json` and
+`grant-acceptance.json`. See [access contract](42-access-control-contract.md).
+
+This module does not authenticate HTTP requests, validate provider transport,
+observe revocation or change the current server's optional single bearer token.
+The verified-identity constructor is an explicit trusted-host boundary. Stored
+canonical identity remains data that admission must bind to an authorized source;
+matching an account field is not cloud ownership proof. Current-source native
+ARM64/remote CI/kind, live IdP/cloud/custody/HA and fresh candidate/image/release
+qualification remain separate. Next within this frozen item: selected bounded
+OAuth2 introspection response validation, then native trusted transport and route
+integration/local identity-provider denial/recovery simulations.
+
 ## RETENTION bounded query/cache measurements and parent acceptance — 2026-10-09
 
 RETENTION is passed_simulated. The finite current-binary workload admits2,048

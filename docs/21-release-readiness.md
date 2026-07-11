@@ -7,6 +7,18 @@ The [definition of done](06-definition-of-done.md) marks observed local checks;
 its checked boxes do not substitute for the remaining release gates below.
 Phase 9 AWS collection remains post-MVP.
 
+## SECURITY-ACCESS grant-only boundary — 2026-10-09
+
+SECURITY-ACCESS remains in_progress. Nine pure authorization/resource regressions,
+strict default668/all-feature719, both Clippy configurations, formatting,
+all-feature build, workspace13 and focused independent review qualify explicit
+paired grants and bounded host-trusted identity only. No HTTP authentication,
+OIDC sign-in/revocation, route isolation or parent acceptance follows. Programmatic
+spare capacities and serializer-before-length-validation findings are resolved.
+Existing live/cloud/native/remote/image/release gates stay open. See
+[progress](07-progress.md), [access contract](42-access-control-contract.md) and
+`target/goal-execution-20261007/SECURITY-ACCESS/grant-acceptance.json`.
+
 ## RETENTION parent local/simulation acceptance — 2026-10-09
 
 RETENTION is passed_simulated: policy/reachability, stopped-cache maintenance,

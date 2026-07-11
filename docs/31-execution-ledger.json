@@ -592,7 +592,7 @@
     {
       "id": "SECURITY-ACCESS",
       "title": "OIDC/trusted identity, scoped credentials and RBAC",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "CORE"
       ],
@@ -604,8 +604,10 @@
       ],
       "references": [
         "docs/27-product-architecture.md",
-        "docs/04-implementation-plan.md"
-      ]
+        "docs/04-implementation-plan.md",
+        "docs/42-access-control-contract.md"
+      ],
+      "notes": "Accepted first pure bounded operation/scope grants and host-trusted identity: nine adversarial/resource regressions, strict default668/all-feature719, both Clippy configurations, build/fmt/workspace13 and independent review. Resolved retained spare-capacity and serialization-before-identifier-bound findings. No HTTP authentication/role enforcement claim; continue bounded OAuth2 introspection response profile, native authenticated backend, route enforcement and local IdP/expiry/revocation/cross-scope simulation before parent acceptance."
     },
     {
       "id": "SECURITY-TRANSPORT",
