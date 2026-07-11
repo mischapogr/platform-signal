@@ -14,17 +14,17 @@ use tokio_util::sync::CancellationToken;
 
 #[derive(Clone, Copy, Debug, thiserror::Error, Eq, PartialEq)]
 pub enum WorkerError {
-    #[error("invalid private agent TLS configuration")]
+    #[error("invalid private transport TLS configuration")]
     Configuration,
-    #[error("agent configuration I/O failed")]
+    #[error("transport configuration I/O failed")]
     Io,
-    #[error("agent physical worker is busy")]
+    #[error("transport physical worker is busy")]
     Busy,
-    #[error("agent physical worker deadline exceeded")]
+    #[error("transport physical worker deadline exceeded")]
     Timeout,
-    #[error("agent physical worker cancelled")]
+    #[error("transport physical worker cancelled")]
     Cancelled,
-    #[error("agent physical worker unavailable")]
+    #[error("transport physical worker unavailable")]
     Unavailable,
 }
 pub(crate) fn check(

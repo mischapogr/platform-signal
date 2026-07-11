@@ -1,7 +1,7 @@
 use super::*;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    net::{TcpListener, TcpStream},
+    net::TcpListener,
 };
 
 async fn setup(
@@ -13,7 +13,7 @@ async fn setup(
     Ok((s, b))
 }
 pub(super) async fn request(
-    stream: &mut TcpStream,
+    stream: &mut (impl tokio::io::AsyncRead + Unpin),
 ) -> Result<(String, Vec<u8>), Box<dyn std::error::Error + Send + Sync>> {
     let mut all = Vec::new();
     let mut chunk = [0u8; 4096];
