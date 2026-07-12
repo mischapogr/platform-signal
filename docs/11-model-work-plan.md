@@ -18,6 +18,15 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current EXT-CI diagnostic slice — 2026-10-09
+
+Both native jobs failed Tests on pushed880b31e; container/kind were skipped. The
+bounded public target classifier and command-disabled raw log emission pass six
+subprocess regressions, five candidate helpers and focused review; Rust unchanged.
+Push accepted tooling, use actual named failures for focused correction, and
+continue SECURITY-AUDIT durable outbox/native hooks independently. No remote/native
+runtime gate closes. Evidence: `target/goal-execution-20261007/EXT-CI/failure-diagnostics-acceptance.json`.
+
 ## Current SECURITY-AUDIT destination slice — 2026-10-09
 
 Restricted client/trait passed_local with 4 regressions, 20 compound HTTP/mTLS cases,

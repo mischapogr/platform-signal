@@ -8,9 +8,12 @@ import os
 from pathlib import Path
 import platform
 import re
+import secrets
 import signal
 import sys
 import time
+import tomllib
+import itertools
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('native_gate', ROOT / 'scripts/check-native-qualification.py')
@@ -18,6 +21,60 @@ gate = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gate)
 # Cargo/build diagnostics have a larger, still finite budget than a load report.
 gate.LOG_CAP = 8 * 1024 * 1024
+
+
+def rust_targets():
+    """Finite public manifest inventory; failure payloads cannot invent names."""
+    targets = set()
+    manifests = itertools.chain((ROOT / 'crates').glob('*/Cargo.toml'),
+                                (ROOT / 'apps').glob('*/Cargo.toml'))
+    total = 0
+    try:
+        for index, path in enumerate(manifests):
+            if index >= 64:
+                return set()
+            if not path.resolve().is_relative_to(ROOT.resolve()):
+                return set()
+            with path.open('rb') as stream:
+                data = stream.read(262145)
+            total += len(data)
+            if len(data) > 262144 or total > 4 * 1024 * 1024:
+                return set()
+            manifest = tomllib.loads(data.decode('utf-8'))
+            package = manifest.get('package', {}).get('name', '')
+            if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_-]{0,127}', package):
+                continue
+            if (path.parent / 'src/lib.rs').is_file() or 'lib' in manifest:
+                targets.add((package, 'lib', ''))
+            if (path.parent / 'src/main.rs').is_file():
+                targets.add((package, 'bin', package))
+            for kind in ('bin', 'test'):
+                entries = manifest.get(kind, [])
+                if not isinstance(entries, list) or len(entries) > 64:
+                    return set()
+                for entry in entries:
+                    name = entry.get('name', '')
+                    if isinstance(name, str) and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_-]{0,127}', name):
+                        targets.add((package, kind, name))
+    except (OSError, ValueError, TypeError, AttributeError):
+        return set()
+    return targets
+
+
+def failed_rust_targets(tail):
+    """Only source-validated package/target identifiers enter public metadata."""
+    allowed = rust_targets()
+    results = []
+    for line in tail.splitlines():
+        match = re.fullmatch(r'error: test failed, to rerun pass `-p ([A-Za-z_][A-Za-z0-9_-]{0,127}) --(lib|bin|test)(?: ([A-Za-z_][A-Za-z0-9_-]{0,127}))?`', line)
+        if not match:
+            continue
+        target = (match[1], match[2], match[3] or '')
+        if target in allowed and target not in results:
+            results.append(target)
+            if len(results) == 16:
+                break
+    return [{'package': p, 'kind': k, 'name': n} for p, k, n in results]
 
 
 def main(argv=None):
@@ -62,7 +119,26 @@ def main(argv=None):
             report['log_sha256'] = gate.sha256(log_path)
             with log_path.open('rb') as log:
                 log.seek(max(0, report['log_bytes'] - 65536))
-                print(log.read(65536).decode('utf-8', errors='replace'), flush=True)
+                tail = log.read(65536).decode('utf-8', errors='replace')
+                if os.environ.get('GITHUB_ACTIONS') == 'true':
+                    # Child output is data, never workflow commands. Generate the
+                    # unpredictable resume token after the child has retired.
+                    nonce = secrets.token_hex(32)
+                    print(f'::stop-commands::{nonce}', flush=True)
+                    try:
+                        print(tail, flush=True)
+                    finally:
+                        print(f'::{nonce}::', flush=True)
+                else:
+                    print(tail, flush=True)
+            if report['status'] == 'failed':
+                report['failed_rust_targets'] = failed_rust_targets(tail)
+                if os.environ.get('GITHUB_ACTIONS') == 'true':
+                    for target in report['failed_rust_targets']:
+                        label = f'{target["package"]} --{target["kind"]}'
+                        if target['name']:
+                            label += ' ' + target['name']
+                        print(f'::error title=Rust regression::{label}', flush=True)
         report_path.write_text(json.dumps(report, indent=2) + '\n')
     if error is not None:
         print(f'CI check failed: {args.name}: {report["error"]}', file=sys.stderr)
