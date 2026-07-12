@@ -21,6 +21,7 @@ struct QueryState {
     timeout: Duration,
     stopping: CancellationToken,
     identity: Option<IdentityBackend>,
+    audit: Option<Arc<crate::audit::Control>>,
 }
 
 pub fn router_with_identity(
@@ -30,6 +31,7 @@ pub fn router_with_identity(
     timeout: Duration,
     stopping: CancellationToken,
     identity: Option<IdentityBackend>,
+    audit: Option<Arc<crate::audit::Control>>,
 ) -> Router {
     Router::new()
         .route("/v1/events", get(events))
@@ -40,6 +42,7 @@ pub fn router_with_identity(
             timeout,
             stopping,
             identity,
+            audit,
         })
 }
 
@@ -59,27 +62,128 @@ async fn events(
     let deadline = tokio::time::Instant::now() + state.timeout;
     let cancellation = state.stopping.child_token();
     let _guard = CancelOnDrop(cancellation.clone());
-    let grant = match crate::access::authenticate(
+    let authentication = crate::access::authenticate(
         &state.auth,
         state.identity.as_ref(),
         &headers,
         deadline,
         cancellation.clone(),
     )
-    .await
-    {
-        Ok(grant) => grant,
-        Err(response) => return response,
+    .await;
+    use signal_protocol::audit::{Actor, Completion, Decision};
+    let (grant, early_response, actor, decision) = match authentication {
+        Ok(grant) => {
+            let denied = grant.as_ref().is_some_and(|g| {
+                !crate::access::capable(g, signal_protocol::access::Operation::QueryEvents)
+            });
+            let actor = match &grant {
+                Some(grant) => crate::access::now()
+                    .and_then(|now| grant.audit_subject_key(now))
+                    .map_or(Actor::Unattributed {}, |key| Actor::VerifiedSubject { key }),
+                None if state.auth.api_token.is_some() => Actor::Bootstrap {},
+                None => Actor::Anonymous {},
+            };
+            let response = denied.then(|| {
+                error(
+                    StatusCode::FORBIDDEN,
+                    "forbidden",
+                    "event query access denied",
+                )
+            });
+            (
+                grant,
+                response,
+                actor,
+                if denied {
+                    Decision::Denied
+                } else {
+                    Decision::Granted
+                },
+            )
+        }
+        Err(response) => {
+            let decision = if matches!(
+                response.status(),
+                StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN
+            ) {
+                Decision::Denied
+            } else {
+                Decision::Unavailable
+            };
+            (None, Some(response), Actor::Unattributed {}, decision)
+        }
     };
-    if grant.as_ref().is_some_and(|g| {
-        !crate::access::capable(g, signal_protocol::access::Operation::QueryEvents)
-    }) {
-        return error(
-            StatusCode::FORBIDDEN,
-            "forbidden",
-            "event query access denied",
-        );
+    let session = if let Some(audit) = &state.audit {
+        match audit
+            .begin(actor, decision, deadline, cancellation.clone())
+            .await
+        {
+            Ok(session) => Some(session),
+            Err(_) => {
+                return error(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "audit_unavailable",
+                    "restricted audit unavailable",
+                );
+            }
+        }
+    } else {
+        None
+    };
+    let response = match early_response {
+        Some(response) => response,
+        None => execute(&state, raw, grant.as_ref(), deadline, cancellation.clone()).await,
+    };
+    if let Some(session) = session {
+        let completion = if response.status().is_success() {
+            Completion::Success
+        } else if decision == Decision::Denied || response.status() == StatusCode::FORBIDDEN {
+            Completion::Denied
+        } else if matches!(
+            response.status(),
+            StatusCode::REQUEST_TIMEOUT | StatusCode::SERVICE_UNAVAILABLE
+        ) {
+            Completion::Uncertain
+        } else {
+            Completion::Failed
+        };
+        if session.finish(completion).await.is_err() {
+            return error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "audit_unavailable",
+                "restricted audit unavailable",
+            );
+        }
+        // Audit I/O cannot extend the original request or verified grant lease.
+        if cancellation.is_cancelled() || tokio::time::Instant::now() >= deadline {
+            return error(
+                StatusCode::REQUEST_TIMEOUT,
+                "request_timeout",
+                "query deadline exceeded",
+            );
+        }
+        if response.status().is_success()
+            && grant.as_ref().is_some_and(|g| {
+                !crate::access::capable(g, signal_protocol::access::Operation::QueryEvents)
+            })
+        {
+            return error(
+                StatusCode::FORBIDDEN,
+                "forbidden",
+                "event query access denied",
+            );
+        }
     }
+    response
+}
+
+async fn execute(
+    state: &QueryState,
+    raw: Option<String>,
+    grant: Option<&signal_protocol::access::RequestGrant>,
+    deadline: tokio::time::Instant,
+    cancellation: CancellationToken,
+) -> Response {
     let query = match parse_event_query(raw.as_deref().unwrap_or(""), state.max_limit) {
         Ok(query) => query,
         Err(_) => {
@@ -94,7 +198,7 @@ async fn events(
         deadline,
         cancellation,
     };
-    let result = match &grant {
+    let result = match grant {
         Some(grant) => state.engine.execute_authorized(query, context, grant).await,
         None => state.engine.execute(query, context).await,
     };
@@ -158,12 +262,17 @@ async fn events(
 }
 
 fn error(status: StatusCode, code: &'static str, message: &'static str) -> Response {
-    (
+    let mut response = (
         status,
         Json(serde_json::json!({
             "schema_version": API_SCHEMA_VERSION,
             "error": { "code": code, "message": message }
         })),
     )
-        .into_response()
+        .into_response();
+    response.headers_mut().insert(
+        "cache-control",
+        axum::http::HeaderValue::from_static("no-store"),
+    );
+    response
 }
