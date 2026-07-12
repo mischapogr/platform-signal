@@ -1,4 +1,4 @@
-//! Optional explicitly selected read control auditing. Confirmation never grants API authority.
+//! Optional explicitly selected access control auditing. Confirmation never grants API authority.
 use crate::config::{self, ConfigError, Settings};
 use chrono::Utc;
 use serde::Deserialize;
@@ -38,7 +38,7 @@ struct Wire {
 }
 impl Wire {
     fn parse(text: &str) -> Result<Self, ConfigError> {
-        let invalid = || ConfigError::Invalid("bounded read audit configuration");
+        let invalid = || ConfigError::Invalid("bounded access audit configuration");
         if text.is_empty()
             || text.len() > 65_536
             || text.bytes().find(|b| !b.is_ascii_whitespace()) != Some(b'{')
@@ -62,11 +62,15 @@ impl Wire {
 }
 fn valid_operations(operations: &[Operation]) -> bool {
     !operations.is_empty()
-        && operations.len() <= 3
+        && operations.len() <= 5
         && operations.iter().enumerate().all(|(index, operation)| {
             matches!(
                 operation,
-                Operation::QueryEvents | Operation::ReadFindings | Operation::ReadFindingsFeed
+                Operation::QueryEvents
+                    | Operation::ReadFindings
+                    | Operation::ReadFindingsFeed
+                    | Operation::ReadCoverage
+                    | Operation::WriteCoverage
             ) && !operations[..index].contains(operation)
         })
 }
@@ -172,6 +176,15 @@ impl Control {
             rejected: AtomicU64::new(0),
             incomplete: AtomicU64::new(0),
         }))
+    }
+    #[cfg(test)]
+    pub(crate) async fn test_open(
+        root: &Path,
+        destination: Arc<dyn AuditSink>,
+        operations: Vec<Operation>,
+        context: ExtensionContext,
+    ) -> Result<Arc<Self>, Unavailable> {
+        Self::open(root, destination, operations, context).await
     }
     pub fn selected(&self, operation: Operation) -> bool {
         self.operations.contains(&operation)
@@ -295,4 +308,4 @@ impl Drop for Session {
     }
 }
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

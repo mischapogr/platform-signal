@@ -308,13 +308,14 @@ impl Configuration {
         timeout: Duration,
         stopping: CancellationToken,
     ) -> Result<Arc<CoverageState>, CoverageError> {
-        self.open_with_identity(timeout, stopping, None).await
+        self.open_with_identity(timeout, stopping, None, None).await
     }
     pub async fn open_with_identity(
         self,
         timeout: Duration,
         stopping: CancellationToken,
         identity: Option<IdentityBackend>,
+        audit: Option<Arc<crate::audit::Control>>,
     ) -> Result<Arc<CoverageState>, CoverageError> {
         if self
             .scopes
@@ -335,6 +336,7 @@ impl Configuration {
             requests: Semaphore::new(REQUEST_CAPACITY),
             rejected: AtomicU64::new(0),
             identity,
+            audit,
         }))
     }
 }
@@ -346,6 +348,7 @@ pub struct CoverageState {
     requests: Semaphore,
     rejected: AtomicU64,
     identity: Option<IdentityBackend>,
+    audit: Option<Arc<crate::audit::Control>>,
 }
 impl CoverageState {
     fn scope(&self, headers: &HeaderMap) -> Option<&Scope> {
@@ -363,6 +366,7 @@ impl CoverageState {
         operation: AccessOperation,
         aggregate: bool,
         context: &OperationContext,
+        actor: &mut signal_protocol::audit::Actor,
     ) -> Result<ScopeAccess<'a>, Response> {
         if let Some(identity) = &self.identity {
             let grant = crate::access::authenticate(
@@ -374,6 +378,7 @@ impl CoverageState {
             )
             .await?
             .ok_or_else(|| error(StatusCode::FORBIDDEN, "forbidden"))?;
+            *actor = crate::audit::actor(Some(&grant), false);
             if !crate::access::capable(&grant, operation) {
                 return Err(error(StatusCode::FORBIDDEN, "forbidden"));
             }
@@ -403,6 +408,7 @@ impl CoverageState {
             let scope = self
                 .scope(headers)
                 .ok_or_else(|| error(StatusCode::UNAUTHORIZED, "unauthorized"))?;
+            *actor = signal_protocol::audit::Actor::Bootstrap {};
             let authority = grant_binding(scope).map_err(failure)?;
             Ok(ScopeAccess {
                 scope,
@@ -651,37 +657,137 @@ struct RecordResponse<'a> {
     profile_json: &'a str,
     current_health: &'static str,
 }
+#[derive(Clone, Copy)]
+enum Route {
+    Record,
+    History,
+    Metrics,
+}
 async fn record(State(state): State<Arc<CoverageState>>, request: Request) -> Response {
+    access(state, request, Route::Record).await
+}
+async fn access(state: Arc<CoverageState>, request: Request, route: Route) -> Response {
+    use signal_protocol::audit::{Actor, Decision};
     let context = request_context(&state);
     let _guard = CancelOnDrop(context.cancellation.clone());
     if state.stopping.is_cancelled() {
         return error(StatusCode::SERVICE_UNAVAILABLE, "stopping");
     }
-    let operation = if request.method() == Method::POST {
+    let operation = if matches!(route, Route::Record) && request.method() == Method::POST {
         AccessOperation::WriteCoverage
     } else {
         AccessOperation::ReadCoverage
     };
-    let access = match state
-        .authorize(request.headers(), operation, false, &context)
-        .await
+    let mut actor = Actor::Unattributed {};
+    let authorization = state
+        .authorize(
+            request.headers(),
+            operation,
+            matches!(route, Route::Metrics),
+            &context,
+            &mut actor,
+        )
+        .await;
+    let decision = match &authorization {
+        Ok(_) => Decision::Granted,
+        Err(response)
+            if matches!(
+                response.status(),
+                StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN
+            ) =>
+        {
+            Decision::Denied
+        }
+        Err(_) => Decision::Unavailable,
+    };
+    if authorization.is_err() {
+        state.rejected.fetch_add(1, Ordering::Relaxed);
+    }
+    let session = if let Some(audit) = state
+        .audit
+        .as_ref()
+        .filter(|audit| audit.selected(operation))
     {
-        Ok(access) => access,
-        Err(response) => {
-            state.rejected.fetch_add(1, Ordering::Relaxed);
-            return response;
+        match audit
+            .begin(
+                actor,
+                decision,
+                operation,
+                context.deadline,
+                context.cancellation.clone(),
+            )
+            .await
+        {
+            Ok(session) => Some(session),
+            Err(_) => return error(StatusCode::SERVICE_UNAVAILABLE, "audit_unavailable"),
+        }
+    } else {
+        None
+    };
+    let (response, access) = match authorization {
+        Err(response) => (response, None),
+        Ok(access) => {
+            let response = execute(&state, &access, request, &context, route).await;
+            (response, Some(access))
         }
     };
+    if let Some(session) = session {
+        if session
+            .finish(crate::audit::completion(response.status(), decision))
+            .await
+            .is_err()
+        {
+            // A POST may already have a committed immutable receipt. Never roll
+            // it back or claim audit uncertainty proves the write did not occur.
+            return error(StatusCode::SERVICE_UNAVAILABLE, "audit_unavailable");
+        }
+        if let Some(access) = access.as_ref() {
+            return post_audit_response(access, &context, response, &state);
+        }
+        if context.cancellation.is_cancelled() {
+            return error(StatusCode::SERVICE_UNAVAILABLE, "stopping");
+        }
+        if Instant::now() >= context.deadline {
+            return error(StatusCode::REQUEST_TIMEOUT, "timeout");
+        }
+    }
+    response
+}
+fn post_audit_response(
+    access: &ScopeAccess<'_>,
+    context: &OperationContext,
+    response: Response,
+    state: &CoverageState,
+) -> Response {
+    if response.status().is_success() {
+        completed_response(access, context, Ok(response), state)
+    } else {
+        // These static errors disclose no evidence. A prior uncertain write
+        // must remain uncertain even if its authority expires during auditing.
+        response
+    }
+}
+async fn execute(
+    state: &CoverageState,
+    access: &ScopeAccess<'_>,
+    request: Request,
+    context: &OperationContext,
+    route: Route,
+) -> Response {
     let Ok(_permit) = state.requests.try_acquire() else {
         state.rejected.fetch_add(1, Ordering::Relaxed);
         return error(StatusCode::TOO_MANY_REQUESTS, "capacity");
     };
-    if let Some(response) = access.finish(&context) {
+    if let Some(response) = access.finish(context) {
         state.rejected.fetch_add(1, Ordering::Relaxed);
         return response;
     }
-    let result = handle_record(&state, &access, request, context.clone()).await;
-    completed_response(&access, &context, result, &state)
+    let result = match route {
+        Route::Record => handle_record(state, access, request, context.clone()).await,
+        Route::History => handle_history(state, access, request, context.clone()).await,
+        Route::Metrics => handle_metrics(state, request),
+    };
+    completed_response(access, context, result, state)
 }
 async fn handle_record(
     state: &CoverageState,
@@ -781,36 +887,7 @@ struct HistoryResponse<'a> {
     current_health: &'static str,
 }
 async fn history(State(state): State<Arc<CoverageState>>, request: Request) -> Response {
-    let context = request_context(&state);
-    let _guard = CancelOnDrop(context.cancellation.clone());
-    if state.stopping.is_cancelled() {
-        return error(StatusCode::SERVICE_UNAVAILABLE, "stopping");
-    }
-    let access = match state
-        .authorize(
-            request.headers(),
-            AccessOperation::ReadCoverage,
-            false,
-            &context,
-        )
-        .await
-    {
-        Ok(access) => access,
-        Err(response) => {
-            state.rejected.fetch_add(1, Ordering::Relaxed);
-            return response;
-        }
-    };
-    let Ok(_permit) = state.requests.try_acquire() else {
-        state.rejected.fetch_add(1, Ordering::Relaxed);
-        return error(StatusCode::TOO_MANY_REQUESTS, "capacity");
-    };
-    if let Some(response) = access.finish(&context) {
-        state.rejected.fetch_add(1, Ordering::Relaxed);
-        return response;
-    }
-    let result = handle_history(&state, &access, request, context.clone()).await;
-    completed_response(&access, &context, result, &state)
+    access(state, request, Route::History).await
 }
 async fn handle_history(
     state: &CoverageState,
@@ -865,32 +942,11 @@ async fn handle_history(
     ))
 }
 async fn metrics(State(state): State<Arc<CoverageState>>, request: Request) -> Response {
-    let context = request_context(&state);
-    let _guard = CancelOnDrop(context.cancellation.clone());
-    if state.stopping.is_cancelled() {
-        return error(StatusCode::SERVICE_UNAVAILABLE, "stopping");
-    }
-    let access = match state
-        .authorize(
-            request.headers(),
-            AccessOperation::ReadCoverage,
-            true,
-            &context,
-        )
-        .await
-    {
-        Ok(access) => access,
-        Err(response) => {
-            state.rejected.fetch_add(1, Ordering::Relaxed);
-            return response;
-        }
-    };
-    let Ok(_permit) = state.requests.try_acquire() else {
-        state.rejected.fetch_add(1, Ordering::Relaxed);
-        return error(StatusCode::TOO_MANY_REQUESTS, "capacity");
-    };
+    access(state, request, Route::Metrics).await
+}
+fn handle_metrics(state: &CoverageState, request: Request) -> Result<Response, CoverageError> {
     if request.uri().query().is_some() {
-        return error(StatusCode::BAD_REQUEST, "invalid_query");
+        return Ok(error(StatusCode::BAD_REQUEST, "invalid_query"));
     }
     let m = state.store.metrics();
     // Aggregate bounds only, no record identity, binding, profile, token or source payload.
@@ -902,7 +958,7 @@ async fn metrics(State(state): State<Arc<CoverageState>>, request: Request) -> R
         "identities":m.identities,"identity_capacity":m.identity_capacity,"ledger_bytes":m.ledger_bytes,"ledger_capacity":m.ledger_capacity,
         "accepted":m.accepted,"replayed":m.replayed,"store_rejected":m.rejected,"http_rejected":state.rejected.load(Ordering::Relaxed),"timeouts":m.timeouts,"failures":m.failures}),
     );
-    completed_response(&access, &context, Ok(response), &state)
+    Ok(response)
 }
 struct LimitedBytes {
     bytes: Vec<u8>,
