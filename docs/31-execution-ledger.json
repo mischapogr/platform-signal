@@ -1319,13 +1319,14 @@
         "target/goal-execution-20261007/GITHUB-OSS/public-audit.json",
         "target/goal-execution-20261007/EXT-CI/failure-diagnostics-acceptance.json",
         "target/goal-execution-20261007/EXT-CI/destination-remote-jobs-1.json",
-        "target/goal-execution-20261007/EXT-CI/failure-diagnostics-remote-jobs-1.json"
+        "target/goal-execution-20261007/EXT-CI/failure-diagnostics-remote-jobs-1.json",
+        "target/goal-execution-20261007/EXT-CI/arm-fixture-acceptance.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md"
       ],
-      "notes": "2026-10-09 pushed57c1d1e public run37887706801 passes both native Rust Tests steps; ARM also passes IdP/browser and object/query simulation. Full run fails ARM legacy-candidate helper and AMD IdP/browser; container/kind skipped. Local fake-ARM reproduction identifies two legacy test host mocks; exact remote cause not inferred. Full reviewed-revision native/runtime/CI gate remains open."
+      "notes": "2026-10-09 pushed57c1d1e public run37887706801 passes both native Rust Tests steps; ARM also passes IdP/browser and object/query simulation. Full run fails ARM legacy-candidate helper and AMD IdP/browser; container/kind skipped. Local fake-ARM reproduction identifies two legacy test host mocks; exact remote cause not inferred. Full reviewed-revision native/runtime/CI gate remains open. Locally reproduced legacy fixture issue corrected: actual AMD64/simulated aarch6425/25, production host guards unchanged; reviewed full remote qualification still open."
     },
     {
       "id": "EXT-DEPENDENCY",

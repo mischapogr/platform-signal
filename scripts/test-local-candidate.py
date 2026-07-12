@@ -244,7 +244,9 @@ class CandidateIntegrity(unittest.TestCase):
                 self.assertEqual(c.verify(output)['status'], 'verified')
             image, review = fixture(root)
             other = root / 'target/other'
-            with mock.patch.object(c, 'run', side_effect=fake_docker(root)):
+            with mock.patch.object(c, 'run', side_effect=fake_docker(root)), \
+                    mock.patch.object(c.platform, 'system', return_value='Linux'), \
+                    mock.patch.object(c.platform, 'machine', return_value='x86_64'):
                 c.prepare(image, review, other, root)
             for name in ('source.tar.gz', 'signal-0.1.0.tgz', 'evidence.tar.gz'):
                 self.assertEqual(c.file_info(output / name, c.EVIDENCE_CAP), c.file_info(other / name, c.EVIDENCE_CAP))
@@ -412,6 +414,23 @@ class SafeArchives(unittest.TestCase):
 
 
 class OwnedFailure(unittest.TestCase):
+    def test_legacy_prepare_rejects_non_amd64_host_before_docker(self):
+        for system, machine in [('Linux', 'aarch64'), ('Darwin', 'x86_64')]:
+            with self.subTest(system=system, machine=machine), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                image, review = fixture(root)
+                output = root / 'target/candidate'
+                sentinel = write(root, 'target/unrelated', 'keep')
+                with mock.patch.object(c, 'run') as docker, \
+                        mock.patch.object(c.platform, 'system', return_value=system), \
+                        mock.patch.object(c.platform, 'machine', return_value=machine):
+                    with self.assertRaisesRegex(RuntimeError, 'native Linux AMD64 host required'):
+                        c.prepare(image, review, output, root)
+                docker.assert_not_called()
+                self.assertEqual({p.name for p in output.iterdir()}, {'candidate.json'})
+                self.assertEqual(c.read_json(output / 'candidate.json')['status'], 'failed')
+                self.assertEqual(sentinel.read_text(), 'keep')
+
     def test_failed_save_retains_failed_manifest_and_removes_only_owned_partials(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
@@ -424,7 +443,9 @@ class OwnedFailure(unittest.TestCase):
                     Path(command[command.index('--output') + 1]).write_text('partial')
                     raise KeyboardInterrupt('cancel export')
                 return normal(command, record, **kwargs)
-            with mock.patch.object(c, 'run', side_effect=fail):
+            with mock.patch.object(c, 'run', side_effect=fail), \
+                    mock.patch.object(c.platform, 'system', return_value='Linux'), \
+                    mock.patch.object(c.platform, 'machine', return_value='x86_64'):
                 with self.assertRaises(KeyboardInterrupt):
                     c.prepare(image, review, output, root)
             self.assertEqual({p.name for p in output.iterdir()}, {'candidate.json'})
