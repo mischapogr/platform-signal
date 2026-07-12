@@ -390,3 +390,22 @@ or account permissions, encryption, independently current restore, source
 completeness, power-loss durability, native/full CI or cloud/release operation.
 SECURITY-AUDIT remains in_progress; frozen52 counts unchanged. Next: actual
 independent receiver role and separately credentialed bounded health owner.
+
+## Independent HTTP transport acceptance
+
+The existing bounded HTTP engine now accepts a standalone router/state without
+constructing an EventSink or ordinary ingest readiness. Existing ingest wrappers,
+keepalive behavior and connection metric names retain their contracts. An accepted
+connection carries its original deadline/cancellation and one optional operation
+lease retained through actual socket/response exit. Independent hosts select one
+request per connection. Admission closes before cancellation on normal shutdown
+and when the serving future is dropped; socket tasks remain bounded and owned.
+
+Four new regressions cover original-clock lease ownership, pending response
+occupancy, pipelined-request exclusion and abort ordering. All44 ingest-focused
+tests, strict807/default and858/all-feature workspace tests, both Clippy/fmt,
+workspace13 and independent source review pass. Evidence:
+`target/goal-execution-20261007/SECURITY-AUDIT/receiver-transport-acceptance.json`.
+This is transport acceptance; authenticated receiver routes, independent health,
+permission isolation and native composition remain next. SECURITY-AUDIT remains
+in_progress and the frozen52 statuses are unchanged.

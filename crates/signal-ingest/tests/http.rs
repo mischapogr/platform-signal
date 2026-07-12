@@ -1,7 +1,7 @@
 use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
-    response::Response,
+    response::{IntoResponse, Response},
 };
 use serde_json::{Value, json};
 use signal_event::{IngestEvent, SignalEvent};
@@ -581,6 +581,269 @@ async fn connection_capacity_idle_deadline_and_shutdown_release_sockets() -> Res
     stop.cancel();
     timeout(Duration::from_secs(2), task).await???;
     assert_eq!(metric(&service, "signal_http_connections").await?, 0);
+    Ok(())
+}
+
+#[tokio::test]
+async fn independent_transport_retains_operation_through_pending_response_without_event_sink()
+-> Result {
+    use axum::{Extension, Router, routing::get};
+    use signal_ingest::server::{ConnectionContext, TransportState, serve_transport_router};
+    use tokio::sync::Semaphore;
+    let state =
+        TransportState::independent(CancellationToken::new(), Duration::from_secs(1), false)?;
+    let metrics = state.metrics();
+    let operation = Arc::new(Semaphore::new(1));
+    let entered = Arc::new(AtomicBool::new(false));
+    let token = Arc::new(std::sync::Mutex::new(None));
+    let app = Router::new().route(
+        "/hold",
+        get({
+            let operation = operation.clone();
+            let entered = entered.clone();
+            let token = token.clone();
+            move |Extension(context): Extension<ConnectionContext>| {
+                let operation = operation.clone();
+                let entered = entered.clone();
+                let token = token.clone();
+                async move {
+                    if context.try_acquire_operation(operation).is_err() {
+                        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+                    }
+                    let Ok(mut token) = token.lock() else {
+                        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                    };
+                    *token = Some(context.cancellation());
+                    entered.store(true, Ordering::Release);
+                    Response::new(Body::from_stream(tokio_stream::pending::<
+                        std::result::Result<bytes::Bytes, std::io::Error>,
+                    >()))
+                }
+            }
+        }),
+    );
+    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let address = listener.local_addr()?;
+    let stop = CancellationToken::new();
+    let signal = stop.clone();
+    let closed = Arc::new(AtomicBool::new(false));
+    let close = closed.clone();
+    let task = tokio::spawn(serve_transport_router(
+        listener,
+        state,
+        app,
+        ServerLimits {
+            max_connections: 2,
+            connection_timeout: Duration::from_secs(3),
+            shutdown_timeout: Duration::from_secs(1),
+        },
+        Arc::new(Semaphore::new(2)),
+        None,
+        (
+            move || {
+                close.store(true, Ordering::Release);
+            },
+            async move { signal.cancelled().await },
+        ),
+    ));
+    let mut nonreading = TcpStream::connect(address).await?;
+    nonreading
+        .write_all(b"GET /hold HTTP/1.1\r\nHost: local\r\n\r\n")
+        .await?;
+    timeout(Duration::from_secs(1), async {
+        while !entered.load(Ordering::Acquire) {
+            sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await?;
+    assert_eq!(operation.available_permits(), 0);
+    assert_eq!(metrics.snapshot().connections, 1);
+    assert_eq!(wire(address, "/hold", None).await?.0, 503);
+    assert_eq!(operation.available_permits(), 0);
+    timeout(Duration::from_secs(4), async {
+        while operation.available_permits() == 0 {
+            sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await?;
+    assert!(
+        token
+            .lock()
+            .map_err(|_| std::io::Error::other("fixture mutex"))?
+            .as_ref()
+            .is_some_and(CancellationToken::is_cancelled)
+    );
+    assert!(metrics.snapshot().timeouts >= 1);
+    assert_eq!(metrics.snapshot().connections, 0);
+    stop.cancel();
+    timeout(Duration::from_secs(2), task).await???;
+    assert!(closed.load(Ordering::Acquire));
+    Ok(())
+}
+
+#[tokio::test]
+async fn independent_single_request_transport_does_not_dispatch_pipelined_request() -> Result {
+    use axum::{Extension, Router, routing::get};
+    use signal_ingest::server::{ConnectionContext, TransportState, serve_transport_router};
+    use std::sync::atomic::AtomicU64;
+    use tokio::sync::Semaphore;
+    let calls = Arc::new(AtomicU64::new(0));
+    let count = calls.clone();
+    let operation = Arc::new(Semaphore::new(1));
+    let budget = operation.clone();
+    let app = Router::new().route(
+        "/one",
+        get(move |Extension(context): Extension<ConnectionContext>| {
+            let count = count.clone();
+            let budget = budget.clone();
+            async move {
+                if context.try_acquire_operation(budget).is_err() {
+                    return StatusCode::SERVICE_UNAVAILABLE.into_response();
+                }
+                count.fetch_add(1, Ordering::Relaxed);
+                "one".into_response()
+            }
+        }),
+    );
+    let state =
+        TransportState::independent(CancellationToken::new(), Duration::from_millis(200), false)?;
+    let metrics = state.metrics();
+    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let address = listener.local_addr()?;
+    let stop = CancellationToken::new();
+    let signal = stop.clone();
+    let task = tokio::spawn(serve_transport_router(
+        listener,
+        state,
+        app,
+        ServerLimits {
+            max_connections: 1,
+            connection_timeout: Duration::from_secs(1),
+            shutdown_timeout: Duration::from_secs(1),
+        },
+        Arc::new(Semaphore::new(1)),
+        None,
+        (|| {}, async move { signal.cancelled().await }),
+    ));
+    let mut socket = TcpStream::connect(address).await?;
+    socket
+        .write_all(
+            b"GET /one HTTP/1.1\r\nHost: local\r\n\r\nGET /one HTTP/1.1\r\nHost: local\r\n\r\n",
+        )
+        .await?;
+    let mut reply = Vec::new();
+    timeout(Duration::from_secs(2), socket.read_to_end(&mut reply)).await??;
+    assert_eq!(calls.load(Ordering::Relaxed), 1);
+    assert_eq!(String::from_utf8(reply)?.matches("HTTP/1.1 200").count(), 1);
+    assert_eq!(operation.available_permits(), 1);
+    assert_eq!(metrics.snapshot().connections, 0);
+    stop.cancel();
+    timeout(Duration::from_secs(2), task).await???;
+    Ok(())
+}
+
+#[tokio::test]
+async fn independent_transport_abort_stops_admission_before_cancelling_active_connection() -> Result
+{
+    use axum::{Extension, Router, routing::get};
+    use signal_ingest::server::{ConnectionContext, TransportState, serve_transport_router};
+    use tokio::sync::Semaphore;
+    let entered = Arc::new(AtomicBool::new(false));
+    let token = Arc::new(std::sync::Mutex::new(None));
+    let operation = Arc::new(Semaphore::new(1));
+    let app = Router::new().route(
+        "/hold",
+        get({
+            let entered = entered.clone();
+            let token = token.clone();
+            let operation = operation.clone();
+            move |Extension(context): Extension<ConnectionContext>| {
+                let entered = entered.clone();
+                let token = token.clone();
+                let operation = operation.clone();
+                async move {
+                    if context.try_acquire_operation(operation).is_err() {
+                        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+                    }
+                    let Ok(mut token) = token.lock() else {
+                        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                    };
+                    *token = Some(context.cancellation());
+                    entered.store(true, Ordering::Release);
+                    Response::new(Body::from_stream(tokio_stream::pending::<
+                        std::result::Result<bytes::Bytes, std::io::Error>,
+                    >()))
+                }
+            }
+        }),
+    );
+    let state =
+        TransportState::independent(CancellationToken::new(), Duration::from_secs(1), false)?;
+    let metrics = state.metrics();
+    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let address = listener.local_addr()?;
+    let closed = Arc::new(AtomicBool::new(false));
+    let ordered = Arc::new(AtomicBool::new(false));
+    let close = closed.clone();
+    let order = ordered.clone();
+    let observe = token.clone();
+    let stop_operations = operation.clone();
+    let task = tokio::spawn(serve_transport_router(
+        listener,
+        state,
+        app,
+        ServerLimits {
+            max_connections: 1,
+            connection_timeout: Duration::from_secs(10),
+            shutdown_timeout: Duration::from_secs(1),
+        },
+        Arc::new(Semaphore::new(1)),
+        None,
+        (
+            move || {
+                order.store(
+                    observe.lock().is_ok_and(|token| {
+                        token
+                            .as_ref()
+                            .is_some_and(|t: &CancellationToken| !t.is_cancelled())
+                    }),
+                    Ordering::Release,
+                );
+                stop_operations.close();
+                close.store(true, Ordering::Release);
+            },
+            std::future::pending(),
+        ),
+    ));
+    let mut socket = TcpStream::connect(address).await?;
+    socket
+        .write_all(b"GET /hold HTTP/1.1\r\nHost: local\r\n\r\n")
+        .await?;
+    timeout(Duration::from_secs(2), async {
+        while !entered.load(Ordering::Acquire) {
+            sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await?;
+    task.abort();
+    assert!(task.await.is_err_and(|e| e.is_cancelled()));
+    assert!(closed.load(Ordering::Acquire));
+    assert!(ordered.load(Ordering::Acquire));
+    assert!(operation.is_closed());
+    timeout(Duration::from_secs(2), async {
+        while metrics.snapshot().connections != 0 {
+            sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await?;
+    assert!(
+        token
+            .lock()
+            .map_err(|_| std::io::Error::other("fixture mutex"))?
+            .as_ref()
+            .is_some_and(CancellationToken::is_cancelled)
+    );
+    assert_eq!(operation.available_permits(), 1);
     Ok(())
 }
 
