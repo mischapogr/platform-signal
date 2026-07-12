@@ -75,6 +75,24 @@ impl Worker {
         T: Send + 'static,
         F: FnOnce() -> Result<T, WorkerError> + Send + 'static,
     {
+        self.run_with_factory(name, deadline, cancellation, || operation)
+            .await
+    }
+
+    /// Construct retained operation inputs only after the physical slot and old
+    /// handle are acquired. A rejected caller does not clone credential/body data.
+    pub async fn run_with_factory<T, F, B>(
+        &'static self,
+        name: &'static str,
+        deadline: Instant,
+        cancellation: CancellationToken,
+        prepare: B,
+    ) -> Result<T, WorkerError>
+    where
+        T: Send + 'static,
+        F: FnOnce() -> Result<T, WorkerError> + Send + 'static,
+        B: FnOnce() -> F + Send,
+    {
         check(deadline, &cancellation)?;
         if self
             .busy
@@ -96,6 +114,8 @@ impl Worker {
             if let Some(old) = handle.take() {
                 old.join().map_err(|_| WorkerError::Unavailable)?;
             }
+            check(deadline, &cancellation)?;
+            let operation = prepare();
             *handle = Some(
                 thread::Builder::new()
                     .name(name.into())
@@ -147,6 +167,59 @@ impl Worker {
 mod tests {
     use super::*;
     use std::{sync::mpsc::sync_channel, time::Duration};
+    #[tokio::test]
+    async fn busy_or_expired_callers_never_construct_retained_operation_inputs() {
+        static OWNER: Worker = Worker::new();
+        let (began, started) = oneshot::channel();
+        let (release, wait) = sync_channel(1);
+        let caller = tokio::spawn(OWNER.run(
+            "synthetic-lazy-owner",
+            Instant::now() + Duration::from_secs(2),
+            CancellationToken::new(),
+            move || {
+                began.send(()).unwrap();
+                wait.recv_timeout(Duration::from_secs(3)).unwrap();
+                Ok(1)
+            },
+        ));
+        tokio::time::timeout(Duration::from_secs(1), started)
+            .await
+            .unwrap()
+            .unwrap();
+        let prepared = AtomicBool::new(false);
+        assert_eq!(
+            OWNER
+                .run_with_factory(
+                    "synthetic-busy-input",
+                    Instant::now() + Duration::from_secs(1),
+                    CancellationToken::new(),
+                    || {
+                        prepared.store(true, Ordering::Relaxed);
+                        || Ok(2)
+                    }
+                )
+                .await,
+            Err(WorkerError::Busy)
+        );
+        assert!(!prepared.load(Ordering::Relaxed));
+        release.send(()).unwrap();
+        assert_eq!(caller.await.unwrap(), Ok(1));
+        assert_eq!(
+            OWNER
+                .run_with_factory(
+                    "synthetic-expired-input",
+                    Instant::now(),
+                    CancellationToken::new(),
+                    || {
+                        prepared.store(true, Ordering::Relaxed);
+                        || Ok(3)
+                    }
+                )
+                .await,
+            Err(WorkerError::Timeout)
+        );
+        assert!(!prepared.load(Ordering::Relaxed));
+    }
     #[tokio::test]
     async fn physical_ready_reply_is_denied_when_caller_resumes_after_deadline() {
         static OWNER: Worker = Worker::new();

@@ -685,7 +685,7 @@
         "docs/04-implementation-plan.md",
         "docs/45-independent-audit.md"
       ],
-      "notes": "Bounded version1 audit/ACK and live trusted actor reference passed_local with 6 regressions, strict 739/790 gates and independent review. Parent in_progress for destination/native hooks and secrets/encryption seams; no operative collection/encrypted-storage/cloud qualification inferred.",
+      "notes": "Bounded protocol and restricted client qualified locally; durable outbox/receiver/native hooks and secrets/encryption checks remain. 20 compound client cases and strict743/794 acceptance close no operative collection/encryption/cloud gate.",
       "substeps": [
         {
           "id": "bounded-record-ack-protocol",
@@ -696,9 +696,13 @@
         },
         {
           "id": "independent-destination-native-hooks",
-          "status": "pending",
+          "status": "in_progress",
           "acceptance": [
             "Bounded independent restricted sink and operative access/config/rule activation audit; exact ACK, outages/replay/restart/crash/independent health acceptance."
+          ],
+          "client_status": "passed_local",
+          "client_evidence": [
+            "target/goal-execution-20261007/SECURITY-AUDIT/destination-acceptance.json"
           ]
         },
         {

@@ -45,6 +45,10 @@ passes locally with 6 regressions, strict 739/790 gates and review. Continue the
 independent destination/native hooks and secrets/encrypted-storage seams. No
 operative collection or encryption proof is inferred. See [audit](45-independent-audit.md).
 
+The restricted audit client/trait is locally accepted. SECURITY-AUDIT stays
+in_progress for durable outbox/receiver/native hooks and encryption/secrets seams.
+Develop pushes are now owner-authorized; remote CI/native runtime remain gates.
+
 ## Execution and evidence
 
 One coherent writer change set at a time. Verify, resolve focused review, record

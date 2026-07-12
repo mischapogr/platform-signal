@@ -1,7 +1,7 @@
 //! Shared outbound client mechanisms; private trust/policy remain caller owned.
 mod dns;
 pub mod tls;
-mod worker;
+pub(crate) mod worker;
 pub use dns::Resolver as BoundedDnsResolver;
 use std::{sync::Arc, time::Duration};
 pub use worker::WorkerError as TransportError;
@@ -25,6 +25,7 @@ pub fn client(
         .http1_only()
         .dns_resolver(Arc::new(resolver))
         .redirect(reqwest::redirect::Policy::none())
+        .retry(reqwest::retry::never())
         .no_gzip()
         .no_brotli()
         .no_zstd()
