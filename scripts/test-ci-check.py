@@ -17,6 +17,43 @@ spec.loader.exec_module(ci)
 
 
 class RetainedDiagnostics(unittest.TestCase):
+    def test_native_stage_rejects_payloads_and_matches_source_enum(self):
+        source = (ci.ROOT / 'scripts/check-native-qualification.py').read_text()
+        stages = set(re.findall(r"report\['stage'\] = '([a-z-]+)'", source))
+        stages.update(re.findall(r"setdefault\('failed_stage', '([a-z-]+)'\)", source))
+        stages.add('prepare')
+        self.assertEqual(ci.gate.NATIVE_STAGES, stages)
+        for stage in ci.gate.NATIVE_STAGES - {'qualified'}:
+            self.assertEqual(ci.failed_native_stage(json.dumps(
+                {'status': 'failed', 'stage': stage, 'report': 'private-path'})), stage)
+        for value in [None, [], {'status': 'passed', 'stage': 'pipeline', 'report': 'private-path'},
+                      {'status': 'failed', 'stage': 'qualified', 'report': 'private-path'},
+                      {'status': 'failed', 'stage': 'secret%0A::error', 'report': 'private-path'},
+                      {'status': 'failed', 'stage': [], 'report': 'private-path'},
+                      {'status': 'failed', 'stage': 'pipeline', 'report': 'é' * 1024},
+                      {'status': 'failed', 'stage': 'pipeline', 'report': 'private-path', 'error': 'secret'}]:
+            self.assertIsNone(ci.failed_native_stage(json.dumps(value, ensure_ascii=False)))
+        self.assertIsNone(ci.failed_native_stage('{malformed'))
+        self.assertIsNone(ci.failed_native_stage(json.dumps(
+            {'status': 'failed', 'stage': 'pipeline', 'report': 'private-path'}) + '\ntrailing payload'))
+
+    def test_actual_native_failure_annotation_excludes_raw_payload_after_resume(self):
+        line = json.dumps({'status': 'failed', 'stage': 'pipeline', 'report': 'synthetic-secret-path'})
+        code = f'print("::error title=synthetic-secret::synthetic-secret"); print({line!r}); raise SystemExit(7)'
+        with tempfile.TemporaryDirectory() as folder, \
+                patch.dict(ci.os.environ, {'GITHUB_ACTIONS': 'true'}), \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            result, report = self.run_check(folder, 'native', code)
+        self.assertEqual(result, 1)
+        self.assertEqual(report['failed_native_stage'], 'pipeline')
+        captured = output.getvalue().splitlines()
+        token = re.fullmatch(r'::stop-commands::([0-9a-f]{64})', captured[0])[1]
+        resume = captured.index(f'::{token}::')
+        self.assertIn(line, captured[1:resume])
+        self.assertEqual(captured[resume + 1:],
+                         ['::error title=Reported native failure stage::pipeline'])
+        self.assertNotIn('synthetic-secret', '\n'.join(captured[resume + 1:]))
+
     def test_reported_idp_stage_matches_source_and_rejects_unbounded_payloads(self):
         source = (ci.ROOT / 'scripts/check-access-idp.py').read_text()
         self.assertEqual(ci.IDP_STAGES, set(re.findall(r"self.stage = '([a-z-]+)'", source)))

@@ -18,6 +18,14 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current native CI diagnostic slice — 2026-10-09
+
+Fixed native stages are reported after cleanup and allowlisted after disabled raw
+workflow output. CI10/native19/candidate5 helpers, syntax/workspace13 and review
+pass, including a red/green late interruption that can no longer preserve success.
+Remote cause and full qualification remain open. Resume native ingest audit hooks.
+See `target/goal-execution-20261007/EXT-CI/native-stage-acceptance.json`.
+
 ## Current native coverage audit slice — 2026-10-09
 
 Selected query/findings/feed/coverage read-write hooks share one bounded control

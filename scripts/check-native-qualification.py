@@ -25,6 +25,9 @@ TOTAL_CAP = 64 * 1024 * 1024
 REPORT_CAP = 2 * 1024 * 1024
 BINARY_CAP = 128 * 1024 * 1024
 ARCHITECTURES = {'amd64': ('x86_64', 62), 'arm64': ('aarch64', 183)}
+NATIVE_STAGES = frozenset({'prepare', 'native-identity', 'binary-extraction',
+                           'hardening', 'pipeline', 'soak', 'report-finalization',
+                           'container-cleanup', 'temporary-cleanup', 'qualified'})
 
 
 @contextlib.contextmanager
@@ -288,7 +291,7 @@ def main(argv=None):
     output.mkdir(parents=True, exist_ok=False)
     gate = Gate(output)
     report = {'schema_version': 1, 'status': 'failed', 'scope': ('native-soak' if args.soak_seconds >= 120 else 'diagnostic-soak') if args.soak_only else 'smoke' if args.quick else 'native-qualification',
-              'full_qualification': False, 'expected_architecture': args.expect_architecture,
+              'full_qualification': False, 'stage': 'prepare', 'expected_architecture': args.expect_architecture,
               'image_reference': args.image, 'host': {'os': platform.system(), 'architecture': platform.machine()},
               'commands': gate.commands, 'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
               'limits': {'capture_bytes_per_command': LOG_CAP, 'total_report_bytes': TOTAL_CAP, 'report_bytes': REPORT_CAP, 'binary_bytes': BINARY_CAP},
@@ -303,12 +306,14 @@ def main(argv=None):
             path = ROOT / source
             if path.is_file():
                 report['inputs_sha256'][source] = sha256(path)
+        report['stage'] = 'native-identity'
         if platform.system() != 'Linux' or platform.machine() != ARCHITECTURES[args.expect_architecture][0]:
             raise RuntimeError('Python host is not the expected native Linux architecture')
         daemon = json.loads(gate.run(['docker', 'info', '--format', '{"os":{{json .OSType}},"architecture":{{json .Architecture}}}']))
         image = json.loads(gate.run(['docker', 'image', 'inspect', '--format', '{"id":{{json .Id}},"os":{{json .Os}},"architecture":{{json .Architecture}},"repo_digests":{{json .RepoDigests}}}', args.image]))
         verify_native(args.expect_architecture, platform.system(), platform.machine(), daemon, image)
         report.update({'daemon': daemon, 'image': image})
+        report['stage'] = 'binary-extraction'
         temp = tempfile.TemporaryDirectory(prefix='signal-native-qualification-')
         binary = Path(temp.name) / 'signal-server'
         owns_container = True
@@ -319,6 +324,7 @@ def main(argv=None):
         report['binary_sha256'] = binary_hash
         retained = []
         if not args.soak_only:
+            report['stage'] = 'hardening'
             campaign = output / 'hardening'
 
             def campaign_files():
@@ -328,6 +334,7 @@ def main(argv=None):
                      timeout=330, files=campaign_files)
             validate_hardening(bounded_json(campaign / 'campaign.json'), campaign / 'campaign.log')
             report['hardening_directory'] = 'hardening'
+            report['stage'] = 'pipeline'
             pipeline = output / 'pipeline.json'
             command = [sys.executable, str(ROOT / 'benchmarks/pipeline.py'), '--server', str(binary), '--output', str(pipeline), '--image-id', image['id']]
             if args.quick:
@@ -336,18 +343,25 @@ def main(argv=None):
             validate_pipeline(bounded_json(pipeline), args.expect_architecture, image['id'], binary_hash, args.quick)
             retained.extend(('hardening/campaign.json', 'hardening/campaign.log', 'pipeline.json'))
         if args.soak_seconds:
+            report['stage'] = 'soak'
             soak = output / 'soak.json'
             command = [sys.executable, str(ROOT / 'benchmarks/soak.py'), '--server', str(binary),
                        '--output', str(soak), '--image-id', image['id'], '--seconds', str(args.soak_seconds)]
             gate.run(command, timeout=2 * args.soak_seconds + 180, files=lambda: [(soak, REPORT_CAP)])
             validate_soak(bounded_json(soak), args.expect_architecture, image['id'], binary_hash, args.soak_seconds)
             retained.append('soak.json')
+        report['stage'] = 'report-finalization'
         for name in retained:
             report['reports_sha256'][name] = sha256(output / name)
         report['status'] = 'passed'
         report['full_qualification'] = not args.quick and not args.soak_only
+        report['stage'] = 'qualified'
     except BaseException as error:
+        # Cancellation can arrive after preparing successful report metadata.
+        # A caught failure must never leave the qualification successful.
+        report.update(status='failed', full_qualification=False)
         report['error'] = str(error)
+        report['failed_stage'] = report['stage']
     finally:
         cleanup = []
         if owns_container:
@@ -356,6 +370,7 @@ def main(argv=None):
                 cleanup.append({'resource': 'owned-container', 'status': 'removed'})
             except BaseException as error:
                 cleanup.append({'resource': 'owned-container', 'status': 'failed', 'error': str(error)})
+                report.setdefault('failed_stage', 'container-cleanup')
                 report.update(status='failed', full_qualification=False, error='owned container cleanup failed')
         if temp is not None:
             try:
@@ -363,10 +378,16 @@ def main(argv=None):
                 cleanup.append({'resource': 'owned-temporary-directory', 'status': 'removed'})
             except BaseException as error:
                 cleanup.append({'resource': 'owned-temporary-directory', 'status': 'failed', 'error': str(error)})
+                report.setdefault('failed_stage', 'temporary-cleanup')
                 report.update(status='failed', full_qualification=False, error='owned temporary directory cleanup failed')
         report['cleanup'] = cleanup
         (output / 'qualification.json').write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
         print(f'Reports: {output}', flush=True)
+        # A fixed public diagnostic, never an authenticated outcome or a cause.
+        # Preserve the first failed stage even when owned cleanup also fails.
+        print(json.dumps({'status': report['status'],
+                          'stage': report.get('failed_stage', report['stage']),
+                          'report': str(output / 'qualification.json')}), flush=True)
     return 0 if report['status'] == 'passed' else 1
 
 
