@@ -153,3 +153,49 @@ Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/outbox-acceptance.json`
 This accepts the outbox mechanism only. Operative native hooks, an independently
 restricted durable receiver and outage health, and secrets/encrypted-storage
 integration remain unfinished. SECURITY-AUDIT stays in_progress.
+
+## Native query hook acceptance
+
+Optional `audit.config` YAML / `SIGNAL_AUDIT_CONFIG` selects a strict version1
+JSON profile with `operations: ["query_events"]`, an HTTPS `endpoint`, absolute
+`tls_config` and existing private `outbox_directory`, and bounded
+`connect_timeout_ms`. `SIGNAL_AUDIT_TOKEN` is a dedicated environment credential;
+the ordinary API token cannot substitute for a missing audit credential. Private
+TLS material uses the established transport envelope. Startup validates the
+profile/client and reconciles exact pending bytes before enabling this scope.
+No public/default deployment values or private identifiers are added.
+
+The existing query handler authenticates once. Only a live host-verified grant
+can supply a verified subject reference; bootstrap, anonymous and failed/unverified
+authentication remain distinct. A single bounded session confirms its newly
+staged access decision before executing the query and its matching completion
+before disclosing a response. Both records share an operation UUID and original
+request deadline/cancellation. Completion describes query execution/prepared
+response status, not proof the client received bytes. Later deadline/grant checks
+still deny disclosure. All query errors carry `Cache-Control: no-store`.
+
+Dropped/incomplete sessions and uncertain appends hold selected audit readiness;
+capacity/depth, rejection, incomplete, pending and physical/destination metrics
+contain no identity or payload labels. No detached completion is invented.
+Uncertainty cannot authorize a fresh request. Stopped restart may replay the exact
+pending record, but a new request must stage a new operation and confirm its exact
+record ID. Restart is not proof of independently current restored history.
+
+Six focused regressions and strict758 default/809 all-feature workspace tests,
+both Clippy/fmt/workspace13 and source review pass. A separate actual AMD64
+monolith/mTLS peer campaign passes27 finite checks: persisted query disclosure,
+denial auditing, lost decision/completion replies with withheld results/readiness
+failure, exact restart replay, wrong-ACK denial and receiver survival through
+monolith shutdown. Fourteen fsynced fixture receipts and nine canary-free ordinary
+logs are retained. The no-store review regression failed before fixing; test-only
+helper lint errors, sandbox denial and three fixture preparation failures remain
+recorded. No production source/binary drift or cleanup failure occurred.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/query-hooks-acceptance.json`,
+`query-hooks-validation-corrected/validation.json`, `query-hooks-review.json` and
+`query-hooks-native-independent/report.json`. The native campaign uses bootstrap
+identity and a synthetic receiver; enabled IdP auditing and production receiver
+durability/encryption remain separate. Other access paths, configuration/rules
+activation, independent production health and secrets/encryption seams are still
+unfinished. The profile deliberately rejects unimplemented operation scopes;
+parent SECURITY-AUDIT remains in_progress.

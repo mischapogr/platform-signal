@@ -22,6 +22,7 @@ use tokio::time::{Instant, sleep};
 use tokio_util::sync::CancellationToken;
 
 pub struct PipelineSink {
+    pub audit: Option<Arc<crate::audit::Control>>,
     pub buffer: Arc<DurableBuffer>,
     pub store: Arc<crate::storage::Backend>,
     pub query: Option<Arc<QueryEngine>>,
@@ -59,6 +60,8 @@ impl EventSink for PipelineSink {
     }
     fn metrics(&self) -> SinkMetrics {
         let mut metrics = self.buffer.metrics();
+        metrics.audit = self.audit.as_ref().map(|audit| audit.metrics());
+        metrics.closed |= metrics.audit.is_some_and(|audit| audit.held);
         metrics.closed |= self
             .coverage
             .as_ref()
@@ -498,6 +501,7 @@ mod tests {
             signal_storage::ParquetStore::open(storage, buffer.snapshot().stream_id).await?,
         ));
         Ok(Arc::new(PipelineSink {
+            audit: None,
             buffer,
             store,
             query: None,
@@ -556,6 +560,7 @@ mod tests {
             signal_rules::RuleLimits::default(),
         )?;
         Ok(Arc::new(PipelineSink {
+            audit: None,
             buffer,
             store,
             query: None,
@@ -918,6 +923,7 @@ mod tests {
         let store = Arc::new(crate::storage::Backend::Object(publisher.clone()));
         Ok((
             Arc::new(PipelineSink {
+                audit: None,
                 buffer,
                 store,
                 query: None,

@@ -1,5 +1,6 @@
 //! HTTP ingest, bounded WAL, replay-safe Parquet persistence and URL queries.
 mod access;
+mod audit;
 mod config;
 mod coverage_api;
 mod finding_api;
@@ -322,6 +323,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
         RuleContext::new(Duration::from_millis(rule_timeout_ms as u64)),
     )
     .await?;
+    let query_audit = audit::Control::load(&settings).await?;
     // Validate provider transport/policy before opening persistence or readiness.
     let identity = identity_configuration
         .map(access::Configuration::open)
@@ -374,6 +376,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
         None => None,
     };
     let pipeline = Arc::new(PipelineSink {
+        audit: query_audit.clone(),
         buffer: sink.clone(),
         store: store.clone(),
         query: Some(query.clone()),
@@ -397,6 +400,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             query_timeout,
             query_cancel.clone(),
             identity.clone(),
+            query_audit,
         ))
         .merge(finding_api::router_with_identity(
             findings.clone(),

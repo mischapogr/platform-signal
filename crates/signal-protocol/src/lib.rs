@@ -92,6 +92,7 @@ pub enum AdmissionError {
 /// Metrics are a point-in-time state snapshot, not a serialization contract.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SinkMetrics {
+    pub audit: Option<AuditControlMetrics>,
     pub findings: Option<FindingSinkMetrics>,
     pub logging: Option<LoggingSinkMetrics>,
     pub rules: Option<RuleSinkMetrics>,
@@ -118,6 +119,25 @@ pub struct SinkMetrics {
     pub waiters: usize,
     pub waiter_capacity: usize,
     pub timeouts: u64,
+}
+
+/// Fixed control-audit capacity and uncertainty, never identity or record data.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct AuditControlMetrics {
+    pub depth: usize,
+    pub capacity: usize,
+    pub rejected: u64,
+    pub incomplete: u64,
+    pub pending: usize,
+    pub pending_capacity: usize,
+    pub disk_depth: usize,
+    pub disk_capacity: usize,
+    pub disk_rejected: u64,
+    pub destination_depth: usize,
+    pub destination_capacity: usize,
+    pub destination_rejected: u64,
+    pub uncertain: u64,
+    pub held: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default)]

@@ -96,6 +96,15 @@ Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-acceptance.json`,
 `idp-stage-byte-red/validation.json`. Full remote/native gates remain open.
 Continue actual CI inspection and native audit integration.
 
+## Current native audit query slice — 2026-10-09
+
+Query-only hook passed_simulated: six focused regressions, strict758/809 checks,
+source review and27 actual AMD64 monolith/mTLS/fsynced-peer checks. No-store
+review failure corrected. Continue findings/coverage/ingest and runtime/rule
+activation hooks, then receiver/independent health/secrets-encryption within the
+existing SECURITY-AUDIT item. Scope remains query-only; enabled IdP and production
+receiver qualification are not inferred. See [audit](45-independent-audit.md).
+
 ## Execution and evidence
 
 One coherent writer change set at a time. Verify, resolve focused review, record
