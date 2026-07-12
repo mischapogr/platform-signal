@@ -110,3 +110,46 @@ checked at official docs.rs after Context7 reported quota exhaustion:
 [reqwest ClientBuilder](https://docs.rs/reqwest/0.12.28/reqwest/struct.ClientBuilder.html),
 [Tokio Runtime](https://docs.rs/tokio/1.53.2/tokio/runtime/struct.Runtime.html).
 Pinned source and runtime regressions bind the selected behavior.
+
+## Durable control outbox acceptance
+
+The Linux outbox retains one immutable pending record, a persistent producer UUID
+and an exact-ACK sequence/hash checkpoint. A separately selected current-user
+0700 root holds only fixed-name 0600 regular files. Safe descriptor-relative
+operations use the owned directory descriptor through `/proc/self/fd`; missing
+proc access, foreign owners, symlinks, external hard links, unknown inventory,
+oversize documents and inconsistent history fail closed. No new service or
+dependency is required. This is ordinary crash recovery, not proof that a copied
+older root is independently current history.
+
+Pending bytes and the directory are synced before possible delivery. A complete
+semantic ACK must match the original record, producer, sequence and body digest;
+its checkpoint is synced before reclaiming pending bytes. Lost replies replay the
+same bytes and identity. Recovered aliases are changed only after the complete
+bounded history graph validates. Live temporary controls prohibit disclosure or
+checkpoint advancement, including controls appearing while a reply is in flight.
+An old record's confirmed replay does not authorize a different operation.
+
+One physically retained disk worker has no queue and preserves ownership/locking
+after caller cancellation or timeout. Original request deadlines never renew;
+uncertain started mutations hold the open instance until validated reopen. Queue
+capacity, physical rejection and uncertainty are exposed separately. Actor/revision
+strings are compacted before entering the physical worker. Native hooks must still
+apply host-selected admission policy and correlate decisions with actual effects.
+
+Nine meaningful regressions pass, including eleven actual subprocess crash
+boundaries across identity publication, pending publication, checkpoint and
+reclamation. Strict 752 default/803 all-feature workspace tests, both Clippy,
+fmt/workspace13 and focused review pass. Review failures for premature alias
+cleanup, retained spare capacity and live temporary controls remain recorded.
+The inherited configuration timing fixture now explicitly synchronizes worker
+start/release/completion before its original-deadline denial; production behavior
+is unchanged. An isolated pre-correction pass does not establish the prior failure's
+cause. Failed/interrupted campaigns and a mistaken zero-test filter are retained
+and excluded from acceptance.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/outbox-acceptance.json`,
+`outbox-validation-final/validation.json`, `outbox-review.json` and crash/review logs.
+This accepts the outbox mechanism only. Operative native hooks, an independently
+restricted durable receiver and outage health, and secrets/encrypted-storage
+integration remain unfinished. SECURITY-AUDIT stays in_progress.
