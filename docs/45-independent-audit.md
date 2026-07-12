@@ -347,3 +347,46 @@ This accepts a bounded substep, not all SECURITY-AUDIT. Production receiver,
 independent health/permission isolation, native IdP+audit composition, secrets and
 encrypted storage remain. Frozen52 item statuses/counts do not change. Current
 remote-image/native/cluster/candidate/cloud gates remain separate.
+
+## Independent receipt journal acceptance
+
+SDK `audit::receiver::AuditReceiver` is a generic Linux mechanism separate from
+ordinary WAL/query storage. Trusted host setup explicitly initializes an empty
+current-user0700 root or opens existing history; absent/corrupt history is never
+implicitly reset. Configured authenticated namespace membership is finite and
+checked before physical admission/input copy. `TrustedProducer` construction is
+a host responsibility and authenticates no request or source field by itself.
+First sequence1, exact next head, globally unique record UUIDs and byte-exact old
+retries are enforced across interleaved producers. Original order/whitespace/time
+remain unchanged; exact ACK follows synced journal and verified original readback.
+
+Record/producers/index/bytes have finite validated caps and precharged indexes;
+full rejects without overwrite/eviction. One retained physical disk worker/root
+lock owns input and syscall through caller loss. Aggregate health reads atomics
+without the disk mutex and exposes no identities; it is not independent external
+health. Descriptor identity/mode/link/type and fixed store control are checked.
+A version1 private frame binds store identity and original body in SHA256, with
+an independent header checksum over identity/magic/length/body digest checked
+before tail arithmetic or truncation. Only a complete validated header followed
+by an incomplete final body can be truncated after preceding history validates;
+partial/altered headers and corrupt complete frames remain evidence.
+
+Independent review found two real defects despite pre-review 801/852 strict
+success: final length growth could erase an ACKed complete frame, and caller loss
+between the final context check and mutation arming could leave unheld effects.
+Both actual regressions failed before correction. Header validation now precedes
+recovery, and arming precedes the final original-clock check: drop-before-arm
+prevents writes; drop-after-arm conservatively holds until exclusive reopen.
+Eleven compound regressions, five actual process crash stages, both physical-drop
+cases, final strict 803/854, both Clippy/fmt/workspace13 and renewed review pass.
+Exact replay after complete/lost reply effects does not duplicate history.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/receiver-store-acceptance.json`,
+`receiver-store-validation-corrected/validation.json`, `receiver-store-review.json`,
+`receiver-store-length-red/receiver-length-red.json`,
+`receiver-store-arm-red/receiver-arm-red.json`. Earlier reports remain superseded.
+This does not qualify a receiver HTTP host/TLS/authentication/probe, separate UID
+or account permissions, encryption, independently current restore, source
+completeness, power-loss durability, native/full CI or cloud/release operation.
+SECURITY-AUDIT remains in_progress; frozen52 counts unchanged. Next: actual
+independent receiver role and separately credentialed bounded health owner.

@@ -25,6 +25,15 @@ and live-vendor checks must remain separately visible, never closed by simulatio
 
 ## Native CI status — 2026-10-09
 
+Settled develop14f8a7c CI run37911167139 failed as observed09:47UTC.
+Complete AMD64 Rust job passes; ARM64 fails its Rust Tests step after successful
+fmt/Clippy/build. Public annotations expose generic exit1 with no target/cause.
+Container/Kubernetes/supply-chain/candidate jobs are skipped. No complete current
+native or release qualification is claimed. Evidence:
+`target/goal-execution-20261007/EXT-CI/activation-hooks-remote-jobs-2.json` and
+`activation-hooks-arm64-annotations.json`. Prior observations retain their own
+source bindings; source-local tests cannot replace this failed native gate.
+
 Settled developacc11ffe CI run37906759594 is failed as observed09:13UTC.
 Both complete native Rust jobs, production images and basic container/persistence
 checks pass. Both native pipeline/finite-soak steps fail at reported stage
@@ -76,6 +85,49 @@ Evidence: `target/goal-execution-20261007/EXT-CI/native-stage-acceptance.json`,
 This is locally accepted tooling, not the cause of earlier remote failures or a
 closed native/container/Kubernetes/supply-chain/release gate. Continue existing
 SECURITY-AUDIT hooks and source-bound remote CI evidence without scope expansion.
+
+## Independent audit receipt journal — 2026-10-09
+
+SDK `audit::receiver::AuditReceiver` is a generic Linux mechanism separate from
+ordinary WAL/query storage. Trusted host setup explicitly initializes an empty
+current-user0700 root or opens existing history; absent/corrupt history is never
+implicitly reset. Configured authenticated namespace membership is finite and
+checked before physical admission/input copy. `TrustedProducer` construction is
+a host responsibility and authenticates no request or source field by itself.
+First sequence1, exact next head, globally unique record UUIDs and byte-exact old
+retries are enforced across interleaved producers. Original order/whitespace/time
+remain unchanged; exact ACK follows synced journal and verified original readback.
+
+Record/producers/index/bytes have finite validated caps and precharged indexes;
+full rejects without overwrite/eviction. One retained physical disk worker/root
+lock owns input and syscall through caller loss. Aggregate health reads atomics
+without the disk mutex and exposes no identities; it is not independent external
+health. Descriptor identity/mode/link/type and fixed store control are checked.
+A version1 private frame binds store identity and original body in SHA256, with
+an independent header checksum over identity/magic/length/body digest checked
+before tail arithmetic or truncation. Only a complete validated header followed
+by an incomplete final body can be truncated after preceding history validates;
+partial/altered headers and corrupt complete frames remain evidence.
+
+Independent review found two real defects despite pre-review 801/852 strict
+success: final length growth could erase an ACKed complete frame, and caller loss
+between the final context check and mutation arming could leave unheld effects.
+Both actual regressions failed before correction. Header validation now precedes
+recovery, and arming precedes the final original-clock check: drop-before-arm
+prevents writes; drop-after-arm conservatively holds until exclusive reopen.
+Eleven compound regressions, five actual process crash stages, both physical-drop
+cases, final strict 803/854, both Clippy/fmt/workspace13 and renewed review pass.
+Exact replay after complete/lost reply effects does not duplicate history.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/receiver-store-acceptance.json`,
+`receiver-store-validation-corrected/validation.json`, `receiver-store-review.json`,
+`receiver-store-length-red/receiver-length-red.json`,
+`receiver-store-arm-red/receiver-arm-red.json`. Earlier reports remain superseded.
+This does not qualify a receiver HTTP host/TLS/authentication/probe, separate UID
+or account permissions, encryption, independently current restore, source
+completeness, power-loss durability, native/full CI or cloud/release operation.
+SECURITY-AUDIT remains in_progress; frozen52 counts unchanged. Next: actual
+independent receiver role and separately credentialed bounded health owner.
 
 ## Native startup activation audit — 2026-10-09
 

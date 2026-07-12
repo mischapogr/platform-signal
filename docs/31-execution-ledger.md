@@ -109,6 +109,15 @@ Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
 Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
 `soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
 
+## Current independent receipt store — 2026-10-09
+
+Bounded SDK journal passed_local:11 compound regressions, five actual crash stages,
+final strict 803/854 and review. High length-growth deletion and medium prewrite
+cancellation races reproduced red and fixed; original bytes/exact retries survive.
+Receiver host/TLS/separate health/permissions/native IdP/secrets/encryption remain
+next inside frozen SECURITY-AUDIT. Store hashes/ACK do not prove current restore
+or complete collection. See [audit contract](45-independent-audit.md);52 unchanged.
+
 ## Current startup activation slice — 2026-10-09
 
 Actual prepared runtime resource/rules startup activation passed_simulated:
