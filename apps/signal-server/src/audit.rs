@@ -1,5 +1,7 @@
 //! Optional explicitly selected access control auditing. Confirmation never grants API authority.
+mod activation;
 use crate::config::{self, ConfigError, Settings};
+pub(crate) use activation::{HashWriter, RuntimeInputs, runtime_revision, within_startup};
 use chrono::Utc;
 use serde::Deserialize;
 use signal_collector_sdk::{
@@ -9,7 +11,7 @@ use signal_collector_sdk::{
 use signal_protocol::{
     AuditControlMetrics,
     access::Operation,
-    audit::{Action, Actor, AuditSink, Completion, Decision},
+    audit::{Action, Actor, AuditSink, Completion, ConfigurationKind, Decision},
 };
 use std::{
     path::{Path, PathBuf},
@@ -30,7 +32,10 @@ use uuid::Uuid;
 #[serde(deny_unknown_fields)]
 struct Wire {
     schema_version: u16,
+    #[serde(default)]
     operations: Vec<Operation>,
+    #[serde(default)]
+    configuration_activations: Vec<ConfigurationKind>,
     endpoint: String,
     tls_config: String,
     outbox_directory: String,
@@ -47,7 +52,7 @@ impl Wire {
         }
         let wire: Self = serde_json::from_str(text).map_err(|_| invalid())?;
         if wire.schema_version != 1
-            || !valid_operations(&wire.operations)
+            || !valid_profile(&wire.operations, &wire.configuration_activations)
             || wire.endpoint.is_empty()
             || wire.endpoint.len() > 2048
             || !(1..=30_000).contains(&wire.connect_timeout_ms)
@@ -73,6 +78,15 @@ fn valid_operations(operations: &[Operation]) -> bool {
                     | Operation::WriteCoverage
                     | Operation::IngestEvents
             ) && !operations[..index].contains(operation)
+        })
+}
+fn valid_profile(operations: &[Operation], activations: &[ConfigurationKind]) -> bool {
+    (!operations.is_empty() || !activations.is_empty())
+        && (operations.is_empty() || valid_operations(operations))
+        && activations.len() <= 2
+        && activations.iter().enumerate().all(|(index, kind)| {
+            matches!(kind, ConfigurationKind::Runtime | ConfigurationKind::Rules)
+                && !activations[..index].contains(kind)
         })
 }
 
@@ -107,6 +121,7 @@ pub struct Unavailable;
 
 pub struct Control {
     operations: Vec<Operation>,
+    activations: Vec<ConfigurationKind>,
     outbox: AuditOutbox,
     destination: Arc<dyn AuditSink>,
     slots: Arc<Semaphore>,
@@ -114,17 +129,33 @@ pub struct Control {
     incomplete: AtomicU64,
 }
 impl Control {
-    pub async fn load(settings: &Settings) -> Result<Option<Arc<Self>>, ConfigError> {
+    pub async fn load(
+        settings: &Settings,
+        startup: &ExtensionContext,
+    ) -> Result<Option<Arc<Self>>, ConfigError> {
         let Some(path) = settings.optional("SIGNAL_AUDIT_CONFIG")? else {
             return Ok(None);
         };
         if path.is_empty() || path.len() > 4096 {
             return Err(ConfigError::Invalid("audit configuration path"));
         }
-        let deadline = Instant::now() + Duration::from_secs(5);
-        let cancellation = CancellationToken::new();
-        let wire =
-            config::read_document(path.into(), deadline, cancellation.clone(), Wire::parse).await?;
+        let load_deadline = Instant::now() + Duration::from_secs(5);
+        let cancellation = startup.cancellation().child_token();
+        let wire = config::read_document(
+            path.into(),
+            load_deadline,
+            cancellation.clone(),
+            Wire::parse,
+        )
+        .await?;
+        // Only explicit activation selection adds the original startup clock.
+        // Existing operations-only profiles retain their five-second load cap.
+        let deadline = if wire.configuration_activations.is_empty() {
+            load_deadline
+        } else {
+            startup.check().map_err(|_| ConfigError::Timeout)?;
+            load_deadline.min(startup.deadline())
+        };
         // Dedicated environment secret only. Never use the ordinary API token.
         let token = settings.secret_environment("SIGNAL_AUDIT_TOKEN")?;
         let root = PathBuf::from(wire.outbox_directory);
@@ -146,18 +177,34 @@ impl Control {
         .await?;
         let context = ExtensionContext::from_deadline(cancellation, deadline)
             .map_err(|_| ConfigError::Timeout)?;
-        Self::open(&root, Arc::new(destination), wire.operations, context)
-            .await
-            .map(Some)
-            .map_err(|_| ConfigError::Invalid("audit outbox or recovery unavailable"))
+        Self::open_profile(
+            &root,
+            Arc::new(destination),
+            wire.operations,
+            wire.configuration_activations,
+            context,
+        )
+        .await
+        .map(Some)
+        .map_err(|_| ConfigError::Invalid("audit outbox or recovery unavailable"))
     }
+    #[cfg(test)]
     async fn open(
         root: &Path,
         destination: Arc<dyn AuditSink>,
         operations: Vec<Operation>,
         context: ExtensionContext,
     ) -> Result<Arc<Self>, Unavailable> {
-        if !valid_operations(&operations) {
+        Self::open_profile(root, destination, operations, Vec::new(), context).await
+    }
+    async fn open_profile(
+        root: &Path,
+        destination: Arc<dyn AuditSink>,
+        operations: Vec<Operation>,
+        activations: Vec<ConfigurationKind>,
+        context: ExtensionContext,
+    ) -> Result<Arc<Self>, Unavailable> {
+        if !valid_profile(&operations, &activations) {
             return Err(Unavailable);
         }
         let outbox = AuditOutbox::open(root, context.clone())
@@ -171,6 +218,7 @@ impl Control {
             .map_err(|_| Unavailable)?;
         Ok(Arc::new(Self {
             operations,
+            activations,
             outbox,
             destination,
             slots: Arc::new(Semaphore::new(1)),

@@ -41,6 +41,8 @@ use tokio_util::sync::CancellationToken;
 #[derive(Debug, Error)]
 enum AppError {
     #[error(transparent)]
+    Audit(#[from] audit::Unavailable),
+    #[error(transparent)]
     Identity(#[from] signal_ingest::identity::IdentityError),
     #[error(transparent)]
     Coverage(#[from] signal_coverage::CoverageError),
@@ -157,284 +159,15 @@ async fn run() -> Result<(), AppError> {
 }
 
 async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), AppError> {
-    let config = IngestConfig {
-        max_request_bytes: settings.number("SIGNAL_MAX_REQUEST_BYTES", 1_048_576)?,
-        max_batch_events: settings.number("SIGNAL_MAX_BATCH_EVENTS", 1000)?,
-        max_in_flight: settings.number("SIGNAL_MAX_IN_FLIGHT", 64)?,
-        request_timeout: Duration::from_millis(
-            settings.number("SIGNAL_REQUEST_TIMEOUT_MS", 5000)? as u64
-        ),
-        api_token: settings.optional("SIGNAL_API_TOKEN")?,
-    };
-    let limits = ServerLimits {
-        max_connections: settings.number("SIGNAL_MAX_CONNECTIONS", 128)?,
-        connection_timeout: Duration::from_millis(
-            settings.number("SIGNAL_CONNECTION_TIMEOUT_MS", 60_000)? as u64,
-        ),
-        shutdown_timeout: Duration::from_millis(
-            settings.number("SIGNAL_SHUTDOWN_TIMEOUT_MS", 10_000)? as u64,
-        ),
-    };
-    config.validate()?;
-    limits.validate()?;
-    let tls = tls::load(&settings).await?;
-    let identity_configuration = access::Configuration::load(&settings).await?;
-    let coverage_configuration = coverage_api::Configuration::load(&settings).await?;
-    let listen: SocketAddr = settings
-        .optional("SIGNAL_LISTEN")?
-        .unwrap_or_else(|| "127.0.0.1:8080".to_owned())
-        .parse()
-        .map_err(|_| AppError::Environment("SIGNAL_LISTEN"))?;
-    let metrics_listen: Option<SocketAddr> = settings
-        .optional("SIGNAL_METRICS_LISTEN")?
-        .map(|value| {
-            value
-                .parse()
-                .map_err(|_| AppError::Environment("SIGNAL_METRICS_LISTEN"))
-        })
-        .transpose()?;
-    let metrics_listen = metrics_listen.filter(|address| *address != listen);
-    if metrics_listen.is_some() && limits.max_connections < 2 {
-        return Err(ConfigError::Invalid(
-            "separate metrics listener requires at least two connection slots",
-        )
-        .into());
-    }
-    let wal_config = BufferConfig {
-        directory: settings
-            .optional("SIGNAL_WAL_DIR")?
-            .unwrap_or_else(|| "data/wal".to_owned())
-            .into(),
-        max_events: settings.number("SIGNAL_MEMORY_EVENTS", 10_000)?,
-        max_memory_bytes: settings.number("SIGNAL_MEMORY_BYTES", 67_108_864)?,
-        max_record_bytes: settings.number("SIGNAL_WAL_RECORD_BYTES", 2_097_152)?,
-        max_wal_bytes: settings.number("SIGNAL_WAL_BYTES", 268_435_456)? as u64,
-        segment_bytes: settings.number("SIGNAL_WAL_SEGMENT_BYTES", 8_388_608)? as u64,
-        max_segments: settings.number("SIGNAL_WAL_SEGMENTS", 128)?,
-        command_capacity: settings.number("SIGNAL_WAL_COMMANDS", 64)?,
-        max_waiters: settings.number("SIGNAL_WAL_WAITERS", 64)?,
-        policy: settings
-            .optional("SIGNAL_ADMISSION_POLICY")?
-            .unwrap_or_else(|| "reject_new".to_owned())
-            .parse()?,
-        operation_timeout: Duration::from_millis(
-            settings.number("SIGNAL_WAL_TIMEOUT_MS", 5000)? as u64
-        ),
-        block_timeout: Duration::from_millis(
-            settings.number("SIGNAL_WAL_BLOCK_TIMEOUT_MS", 1000)? as u64
-        ),
-    };
-    let storage_config = StorageConfig {
-        directory: settings
-            .optional("SIGNAL_STORAGE_DIR")?
-            .unwrap_or_else(|| "data/events".to_owned())
-            .into(),
-        max_batch_events: settings.number("SIGNAL_STORAGE_BATCH_EVENTS", 1000)?,
-        max_batch_bytes: settings.number("SIGNAL_STORAGE_BATCH_BYTES", 8_388_608)?,
-        max_event_bytes: settings.number("SIGNAL_STORAGE_EVENT_BYTES", 2_097_152)?,
-        max_disk_bytes: settings.number("SIGNAL_STORAGE_BYTES", 1_073_741_824)? as u64,
-        max_files: settings.number("SIGNAL_STORAGE_FILES", 100_000)?,
-        command_capacity: settings.number("SIGNAL_STORAGE_COMMANDS", 8)?,
-        operation_timeout: Duration::from_millis(
-            settings.number("SIGNAL_STORAGE_TIMEOUT_MS", 120_000)? as u64,
-        ),
-        compression: settings
-            .optional("SIGNAL_STORAGE_COMPRESSION")?
-            .unwrap_or_else(|| "snappy".to_owned())
-            .parse()?,
-    };
-    let query_config = QueryConfig {
-        memory_bytes: settings.number("SIGNAL_QUERY_MEMORY_BYTES", 268_435_456)?,
-        max_concurrent: settings.number("SIGNAL_QUERY_CONCURRENCY", 4)?,
-        max_files: settings.number("SIGNAL_QUERY_FILES", 1024)?,
-        max_limit: settings.number("SIGNAL_QUERY_LIMIT", 1000)?,
-        max_response_bytes: settings.number("SIGNAL_QUERY_RESPONSE_BYTES", 8_388_608)?,
-        batch_rows: settings.number("SIGNAL_QUERY_BATCH_ROWS", 128)?,
-        target_partitions: settings.number("SIGNAL_QUERY_PARTITIONS", 1)?,
-        timeout: Duration::from_millis(settings.number("SIGNAL_QUERY_TIMEOUT_MS", 10_000)? as u64),
-    };
-    query_config.validate()?;
-    let query_timeout = query_config.timeout.min(config.request_timeout);
-    let query_limit = query_config.max_limit;
-    wal_config.validate()?;
-    storage_config.validate()?;
-    let consumer_config = ConsumerConfig {
-        max_events: storage_config.max_batch_events.min(wal_config.max_events),
-        max_bytes: storage_config
-            .max_batch_bytes
-            .min(wal_config.max_memory_bytes),
-        operation_timeout: storage_config.operation_timeout,
-        flush_interval: Duration::from_millis(
-            settings.number("SIGNAL_STORAGE_FLUSH_MS", 1000)? as u64
-        ),
-    };
-    if consumer_config.flush_interval.is_zero()
-        || consumer_config.flush_interval > Duration::from_secs(60)
-    {
-        return Err(StorageError::Config("storage flush interval must be 1..60000ms").into());
-    }
-    if storage_config.max_event_bytes < wal_config.max_record_bytes
-        || consumer_config.max_bytes < wal_config.max_record_bytes
-    {
-        return Err(StorageError::Config("storage limits must fit the maximum WAL record").into());
-    }
-    let finding_config = FindingConfig {
-        directory: settings
-            .optional("SIGNAL_FINDINGS_DIR")?
-            .unwrap_or_else(|| "data/findings".into())
-            .into(),
-        max_disk_bytes: settings.number("SIGNAL_FINDINGS_BYTES", 268_435_456)? as u64,
-        max_findings: settings.number("SIGNAL_FINDINGS_MAX_FINDINGS", 100_000)?,
-        max_record_bytes: settings.number("SIGNAL_FINDINGS_RECORD_BYTES", 65_536)?,
-        max_append_rows: settings.number("SIGNAL_FINDINGS_BATCH_EVENTS", 1000)?,
-        max_append_bytes: settings.number("SIGNAL_FINDINGS_BATCH_BYTES", 1_048_576)?,
-        max_query_rows: settings.number("SIGNAL_FINDINGS_QUERY_LIMIT", 1000)?,
-        max_query_bytes: settings.number("SIGNAL_FINDINGS_QUERY_BYTES", 8_388_608)?,
-        max_index_bytes: settings.number("SIGNAL_FINDINGS_INDEX_BYTES", 16_777_216)?,
-        command_capacity: settings.number("SIGNAL_FINDINGS_COMMANDS", 8)?,
-        operation_timeout: Duration::from_millis(
-            settings.number("SIGNAL_FINDINGS_TIMEOUT_MS", 5000)? as u64,
-        ),
-    };
-    finding_config.validate_feed()?;
-    let finding_limit = finding_config.max_query_rows;
-    let finding_bytes = finding_config.max_query_bytes;
-    let finding_timeout = finding_config.operation_timeout.min(config.request_timeout);
-    let max_finding_rows = finding_config.max_append_rows;
-    let max_finding_bytes = finding_config.max_append_bytes;
-    let rule_limits = RuleLimits {
-        max_rules: settings.number("SIGNAL_RULES_MAX_RULES", 256)?,
-        max_directory_entries: settings.number("SIGNAL_RULES_MAX_DIRECTORY_ENTRIES", 4096)?,
-        max_document_bytes: settings.number("SIGNAL_RULES_MAX_DOCUMENT_BYTES", 65_536)?,
-        max_total_bytes: settings.number("SIGNAL_RULES_MAX_TOTAL_BYTES", 4_194_304)?,
-        max_predicates: settings.number("SIGNAL_RULES_MAX_PREDICATES", 128)?,
-        max_value_nodes: settings.number("SIGNAL_RULES_MAX_VALUE_NODES", 4096)?,
-        max_depth: settings.number("SIGNAL_RULES_MAX_DEPTH", 32)?,
-        max_field_bytes: settings.number("SIGNAL_RULES_MAX_FIELD_BYTES", 512)?,
-        max_title_bytes: settings.number("SIGNAL_RULES_MAX_TITLE_BYTES", 4096)?,
-    };
-    let rule_timeout_ms = settings.number("SIGNAL_RULES_TIMEOUT_MS", 5000)?;
-    if !(1..=300_000).contains(&rule_timeout_ms) {
-        return Err(ConfigError::Invalid("rule load timeout must be 1..300000ms").into());
-    }
-    let rules = RuleSet::load(
-        &settings.rules_directories()?,
-        rule_limits,
-        RuleContext::new(Duration::from_millis(rule_timeout_ms as u64)),
+    // One original clock spans preparation, recovery and every selected fresh
+    // startup confirmation. Ordinary unselected startup retains its own limits.
+    let startup_cancellation = CancellationToken::new();
+    let _startup_guard = startup_cancellation.clone().drop_guard();
+    let startup = signal_collector_sdk::ExtensionContext::new(
+        startup_cancellation.clone(),
+        Duration::from_secs(60),
     )
-    .await?;
-    let query_audit = audit::Control::load(&settings).await?;
-    // Validate provider transport/policy before opening persistence or readiness.
-    let identity = identity_configuration
-        .map(access::Configuration::open)
-        .transpose()?;
-    let sink = Arc::new(DurableBuffer::open(wal_config).await?);
-    let wal = sink.snapshot();
-    let store = Arc::new(Backend::open(&settings, storage_config, wal.stream_id).await?);
-    let high_water = store.metrics().high_water;
-    if high_water > wal.last_sequence
-        || wal.checkpoint.saturating_sub(high_water) > wal.dropped
-        || store.retired_through() > wal.checkpoint
-    {
-        sink.shutdown().await?;
-        store
-            .shutdown(OperationContext::new(Duration::from_secs(5)))
-            .await?;
-        return Err(
-            StorageError::Config("storage high water and WAL checkpoint are incompatible").into(),
-        );
-    }
-    let findings = Arc::new(FindingStore::open(finding_config, wal.stream_id).await?);
-    if identity.is_some() {
-        findings
-            .enable_scopes(FindingContext::new(finding_timeout))
-            .await?;
-    }
-    let detection = Arc::new(DetectionPipeline {
-        authenticated_after: identity.as_ref().map(|_| wal.last_sequence),
-        rules,
-        findings: findings.clone(),
-        max_rows: max_finding_rows,
-        max_bytes: max_finding_bytes,
-        evaluated: AtomicU64::new(0),
-        matches: AtomicU64::new(0),
-        failures: AtomicU64::new(0),
-    });
-    let query = Arc::new(QueryEngine::with_source(query_config, store.clone())?);
-    let query_auth = config.clone();
-    let coverage_stopping = CancellationToken::new();
-    let coverage = match coverage_configuration {
-        Some(configuration) => Some(
-            configuration
-                .open_with_identity(
-                    query_auth.request_timeout,
-                    coverage_stopping.clone(),
-                    identity.clone(),
-                    query_audit.clone(),
-                )
-                .await?,
-        ),
-        None => None,
-    };
-    let pipeline = Arc::new(PipelineSink {
-        audit: query_audit.clone(),
-        buffer: sink.clone(),
-        store: store.clone(),
-        query: Some(query.clone()),
-        detection: Some(detection),
-        logging: Some(logger.writer()),
-        coverage: coverage.as_ref().map(|state| state.store.clone()),
-    });
-    let service = IngestService::new_with_security(
-        config,
-        pipeline.clone(),
-        identity.clone(),
-        query_audit
-            .as_ref()
-            .and_then(|control| control.ingest_auditor()),
-    )?;
-    let query_cancel = service.cancellation();
-    let mut router = service
-        .router()
-        .merge(query_api::router_with_identity(
-            query.clone(),
-            query_auth.clone(),
-            query_limit,
-            query_timeout,
-            query_cancel.clone(),
-            identity.clone(),
-            query_audit.clone(),
-        ))
-        .merge(finding_api::router_with_security(
-            findings.clone(),
-            query_auth,
-            finding_limit,
-            finding_bytes,
-            finding_timeout,
-            query_cancel.clone(),
-            finding_api::Security {
-                identity: identity.clone(),
-                audit: query_audit,
-            },
-        ))
-        .merge(ui::router());
-    if let Some(coverage) = &coverage {
-        let routes = coverage.router();
-        router = router.merge(routes);
-    }
-    let listener = timeout(Duration::from_secs(5), TcpListener::bind(listen))
-        .await
-        .map_err(|_| AppError::BindTimeout)?
-        .map_err(AppError::Bind)?;
-    let metrics_listener = match metrics_listen {
-        Some(address) => Some(
-            timeout(Duration::from_secs(5), TcpListener::bind(address))
-                .await
-                .map_err(|_| AppError::BindTimeout)?
-                .map_err(AppError::Bind)?,
-        ),
-        None => None,
-    };
+    .map_err(|_| ConfigError::Invalid("startup audit budget"))?;
     // Install signal handlers before readiness; setup failure cannot leave a running server.
     #[cfg(unix)]
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
@@ -442,6 +175,478 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
     #[cfg(unix)]
     let mut interrupt = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
         .map_err(AppError::Signal)?;
+    let query_audit = audit::Control::load(&settings, &startup).await?;
+    let preparation = async {
+        let config = IngestConfig {
+            max_request_bytes: settings.number("SIGNAL_MAX_REQUEST_BYTES", 1_048_576)?,
+            max_batch_events: settings.number("SIGNAL_MAX_BATCH_EVENTS", 1000)?,
+            max_in_flight: settings.number("SIGNAL_MAX_IN_FLIGHT", 64)?,
+            request_timeout: Duration::from_millis(
+                settings.number("SIGNAL_REQUEST_TIMEOUT_MS", 5000)? as u64,
+            ),
+            api_token: settings.optional("SIGNAL_API_TOKEN")?,
+        };
+        let limits = ServerLimits {
+            max_connections: settings.number("SIGNAL_MAX_CONNECTIONS", 128)?,
+            connection_timeout: Duration::from_millis(
+                settings.number("SIGNAL_CONNECTION_TIMEOUT_MS", 60_000)? as u64,
+            ),
+            shutdown_timeout: Duration::from_millis(
+                settings.number("SIGNAL_SHUTDOWN_TIMEOUT_MS", 10_000)? as u64,
+            ),
+        };
+        config.validate()?;
+        limits.validate()?;
+        let tls = tls::load(&settings).await?;
+        let identity_configuration = access::Configuration::load(&settings).await?;
+        let coverage_configuration = coverage_api::Configuration::load(&settings).await?;
+        let listen: SocketAddr = settings
+            .optional("SIGNAL_LISTEN")?
+            .unwrap_or_else(|| "127.0.0.1:8080".to_owned())
+            .parse()
+            .map_err(|_| AppError::Environment("SIGNAL_LISTEN"))?;
+        let metrics_listen: Option<SocketAddr> = settings
+            .optional("SIGNAL_METRICS_LISTEN")?
+            .map(|value| {
+                value
+                    .parse()
+                    .map_err(|_| AppError::Environment("SIGNAL_METRICS_LISTEN"))
+            })
+            .transpose()?;
+        let metrics_listen = metrics_listen.filter(|address| *address != listen);
+        if metrics_listen.is_some() && limits.max_connections < 2 {
+            return Err(ConfigError::Invalid(
+                "separate metrics listener requires at least two connection slots",
+            )
+            .into());
+        }
+        let wal_config = BufferConfig {
+            directory: settings
+                .optional("SIGNAL_WAL_DIR")?
+                .unwrap_or_else(|| "data/wal".to_owned())
+                .into(),
+            max_events: settings.number("SIGNAL_MEMORY_EVENTS", 10_000)?,
+            max_memory_bytes: settings.number("SIGNAL_MEMORY_BYTES", 67_108_864)?,
+            max_record_bytes: settings.number("SIGNAL_WAL_RECORD_BYTES", 2_097_152)?,
+            max_wal_bytes: settings.number("SIGNAL_WAL_BYTES", 268_435_456)? as u64,
+            segment_bytes: settings.number("SIGNAL_WAL_SEGMENT_BYTES", 8_388_608)? as u64,
+            max_segments: settings.number("SIGNAL_WAL_SEGMENTS", 128)?,
+            command_capacity: settings.number("SIGNAL_WAL_COMMANDS", 64)?,
+            max_waiters: settings.number("SIGNAL_WAL_WAITERS", 64)?,
+            policy: settings
+                .optional("SIGNAL_ADMISSION_POLICY")?
+                .unwrap_or_else(|| "reject_new".to_owned())
+                .parse()?,
+            operation_timeout: Duration::from_millis(
+                settings.number("SIGNAL_WAL_TIMEOUT_MS", 5000)? as u64,
+            ),
+            block_timeout: Duration::from_millis(
+                settings.number("SIGNAL_WAL_BLOCK_TIMEOUT_MS", 1000)? as u64,
+            ),
+        };
+        let storage_config = StorageConfig {
+            directory: settings
+                .optional("SIGNAL_STORAGE_DIR")?
+                .unwrap_or_else(|| "data/events".to_owned())
+                .into(),
+            max_batch_events: settings.number("SIGNAL_STORAGE_BATCH_EVENTS", 1000)?,
+            max_batch_bytes: settings.number("SIGNAL_STORAGE_BATCH_BYTES", 8_388_608)?,
+            max_event_bytes: settings.number("SIGNAL_STORAGE_EVENT_BYTES", 2_097_152)?,
+            max_disk_bytes: settings.number("SIGNAL_STORAGE_BYTES", 1_073_741_824)? as u64,
+            max_files: settings.number("SIGNAL_STORAGE_FILES", 100_000)?,
+            command_capacity: settings.number("SIGNAL_STORAGE_COMMANDS", 8)?,
+            operation_timeout: Duration::from_millis(
+                settings.number("SIGNAL_STORAGE_TIMEOUT_MS", 120_000)? as u64,
+            ),
+            compression: settings
+                .optional("SIGNAL_STORAGE_COMPRESSION")?
+                .unwrap_or_else(|| "snappy".to_owned())
+                .parse()?,
+        };
+        let query_config = QueryConfig {
+            memory_bytes: settings.number("SIGNAL_QUERY_MEMORY_BYTES", 268_435_456)?,
+            max_concurrent: settings.number("SIGNAL_QUERY_CONCURRENCY", 4)?,
+            max_files: settings.number("SIGNAL_QUERY_FILES", 1024)?,
+            max_limit: settings.number("SIGNAL_QUERY_LIMIT", 1000)?,
+            max_response_bytes: settings.number("SIGNAL_QUERY_RESPONSE_BYTES", 8_388_608)?,
+            batch_rows: settings.number("SIGNAL_QUERY_BATCH_ROWS", 128)?,
+            target_partitions: settings.number("SIGNAL_QUERY_PARTITIONS", 1)?,
+            timeout: Duration::from_millis(
+                settings.number("SIGNAL_QUERY_TIMEOUT_MS", 10_000)? as u64
+            ),
+        };
+        query_config.validate()?;
+        let query_timeout = query_config.timeout.min(config.request_timeout);
+        let query_limit = query_config.max_limit;
+        wal_config.validate()?;
+        storage_config.validate()?;
+        let consumer_config = ConsumerConfig {
+            max_events: storage_config.max_batch_events.min(wal_config.max_events),
+            max_bytes: storage_config
+                .max_batch_bytes
+                .min(wal_config.max_memory_bytes),
+            operation_timeout: storage_config.operation_timeout,
+            flush_interval: Duration::from_millis(
+                settings.number("SIGNAL_STORAGE_FLUSH_MS", 1000)? as u64,
+            ),
+        };
+        if consumer_config.flush_interval.is_zero()
+            || consumer_config.flush_interval > Duration::from_secs(60)
+        {
+            return Err(StorageError::Config("storage flush interval must be 1..60000ms").into());
+        }
+        if storage_config.max_event_bytes < wal_config.max_record_bytes
+            || consumer_config.max_bytes < wal_config.max_record_bytes
+        {
+            return Err(
+                StorageError::Config("storage limits must fit the maximum WAL record").into(),
+            );
+        }
+        let finding_config = FindingConfig {
+            directory: settings
+                .optional("SIGNAL_FINDINGS_DIR")?
+                .unwrap_or_else(|| "data/findings".into())
+                .into(),
+            max_disk_bytes: settings.number("SIGNAL_FINDINGS_BYTES", 268_435_456)? as u64,
+            max_findings: settings.number("SIGNAL_FINDINGS_MAX_FINDINGS", 100_000)?,
+            max_record_bytes: settings.number("SIGNAL_FINDINGS_RECORD_BYTES", 65_536)?,
+            max_append_rows: settings.number("SIGNAL_FINDINGS_BATCH_EVENTS", 1000)?,
+            max_append_bytes: settings.number("SIGNAL_FINDINGS_BATCH_BYTES", 1_048_576)?,
+            max_query_rows: settings.number("SIGNAL_FINDINGS_QUERY_LIMIT", 1000)?,
+            max_query_bytes: settings.number("SIGNAL_FINDINGS_QUERY_BYTES", 8_388_608)?,
+            max_index_bytes: settings.number("SIGNAL_FINDINGS_INDEX_BYTES", 16_777_216)?,
+            command_capacity: settings.number("SIGNAL_FINDINGS_COMMANDS", 8)?,
+            operation_timeout: Duration::from_millis(
+                settings.number("SIGNAL_FINDINGS_TIMEOUT_MS", 5000)? as u64,
+            ),
+        };
+        finding_config.validate_feed()?;
+        let finding_limit = finding_config.max_query_rows;
+        let finding_bytes = finding_config.max_query_bytes;
+        let finding_timeout = finding_config.operation_timeout.min(config.request_timeout);
+        let max_finding_rows = finding_config.max_append_rows;
+        let max_finding_bytes = finding_config.max_append_bytes;
+        let rule_limits = RuleLimits {
+            max_rules: settings.number("SIGNAL_RULES_MAX_RULES", 256)?,
+            max_directory_entries: settings.number("SIGNAL_RULES_MAX_DIRECTORY_ENTRIES", 4096)?,
+            max_document_bytes: settings.number("SIGNAL_RULES_MAX_DOCUMENT_BYTES", 65_536)?,
+            max_total_bytes: settings.number("SIGNAL_RULES_MAX_TOTAL_BYTES", 4_194_304)?,
+            max_predicates: settings.number("SIGNAL_RULES_MAX_PREDICATES", 128)?,
+            max_value_nodes: settings.number("SIGNAL_RULES_MAX_VALUE_NODES", 4096)?,
+            max_depth: settings.number("SIGNAL_RULES_MAX_DEPTH", 32)?,
+            max_field_bytes: settings.number("SIGNAL_RULES_MAX_FIELD_BYTES", 512)?,
+            max_title_bytes: settings.number("SIGNAL_RULES_MAX_TITLE_BYTES", 4096)?,
+        };
+        let rule_timeout_ms = settings.number("SIGNAL_RULES_TIMEOUT_MS", 5000)?;
+        if !(1..=300_000).contains(&rule_timeout_ms) {
+            return Err(ConfigError::Invalid("rule load timeout must be 1..300000ms").into());
+        }
+        let rules = RuleSet::load(
+            &settings.rules_directories()?,
+            rule_limits.clone(),
+            RuleContext::new(Duration::from_millis(rule_timeout_ms as u64)),
+        )
+        .await?;
+        // Validate provider transport/policy before opening persistence or readiness.
+        let identity = identity_configuration
+            .map(access::Configuration::open)
+            .transpose()?;
+        // Capture exactly the retained validated objects before moving them into
+        // the inactive runtime. Never reopen configuration/rule files or settings.
+        let runtime_revision = match &query_audit {
+            Some(control)
+                if control
+                    .selects_activation(signal_protocol::audit::ConfigurationKind::Runtime) =>
+            {
+                Some(audit::runtime_revision(
+                    audit::RuntimeInputs {
+                        ingest: &config,
+                        server: &limits,
+                        buffer: &wal_config,
+                        storage: &storage_config,
+                        query: &query_config,
+                        findings: &finding_config,
+                        rules: &rule_limits,
+                        consumer: &consumer_config,
+                        rule_timeout: Duration::from_millis(rule_timeout_ms as u64),
+                        tls: tls.is_some(),
+                        identity: identity.is_some(),
+                        coverage: coverage_configuration.is_some(),
+                        separate_metrics: metrics_listen.is_some(),
+                    },
+                    &startup,
+                )?)
+            }
+            _ => None,
+        };
+        let rules_revision = match &query_audit {
+            Some(control)
+                if control.selects_activation(signal_protocol::audit::ConfigurationKind::Rules) =>
+            {
+                let mut writer = audit::HashWriter::new();
+                rules.write_revision(
+                    &mut writer,
+                    64 * 1024 * 1024,
+                    &RuleContext {
+                        deadline: startup.deadline(),
+                        cancellation: startup_cancellation.clone(),
+                    },
+                )?;
+                Some(writer.finish())
+            }
+            _ => None,
+        };
+        let sink = Arc::new(DurableBuffer::open(wal_config).await?);
+        let wal = sink.snapshot();
+        let store = Arc::new(Backend::open(&settings, storage_config, wal.stream_id).await?);
+        let high_water = store.metrics().high_water;
+        if high_water > wal.last_sequence
+            || wal.checkpoint.saturating_sub(high_water) > wal.dropped
+            || store.retired_through() > wal.checkpoint
+        {
+            sink.shutdown().await?;
+            store
+                .shutdown(OperationContext::new(Duration::from_secs(5)))
+                .await?;
+            return Err(StorageError::Config(
+                "storage high water and WAL checkpoint are incompatible",
+            )
+            .into());
+        }
+        let findings = Arc::new(FindingStore::open(finding_config, wal.stream_id).await?);
+        if identity.is_some() {
+            findings
+                .enable_scopes(FindingContext::new(finding_timeout))
+                .await?;
+        }
+        let detection = Arc::new(DetectionPipeline {
+            authenticated_after: identity.as_ref().map(|_| wal.last_sequence),
+            rules,
+            findings: findings.clone(),
+            max_rows: max_finding_rows,
+            max_bytes: max_finding_bytes,
+            evaluated: AtomicU64::new(0),
+            matches: AtomicU64::new(0),
+            failures: AtomicU64::new(0),
+        });
+        let query = Arc::new(QueryEngine::with_source(query_config, store.clone())?);
+        let query_auth = config.clone();
+        let coverage_stopping = CancellationToken::new();
+        let coverage = match coverage_configuration {
+            Some(configuration) => Some(
+                configuration
+                    .open_with_identity(
+                        query_auth.request_timeout,
+                        coverage_stopping.clone(),
+                        identity.clone(),
+                        query_audit.clone(),
+                    )
+                    .await?,
+            ),
+            None => None,
+        };
+        let pipeline = Arc::new(PipelineSink {
+            audit: query_audit.clone(),
+            buffer: sink.clone(),
+            store: store.clone(),
+            query: Some(query.clone()),
+            detection: Some(detection),
+            logging: Some(logger.writer()),
+            coverage: coverage.as_ref().map(|state| state.store.clone()),
+        });
+        let service = IngestService::new_with_security(
+            config,
+            pipeline.clone(),
+            identity.clone(),
+            query_audit
+                .as_ref()
+                .and_then(|control| control.ingest_auditor()),
+        )?;
+        let query_cancel = service.cancellation();
+        let mut router = service
+            .router()
+            .merge(query_api::router_with_identity(
+                query.clone(),
+                query_auth.clone(),
+                query_limit,
+                query_timeout,
+                query_cancel.clone(),
+                identity.clone(),
+                query_audit.clone(),
+            ))
+            .merge(finding_api::router_with_security(
+                findings.clone(),
+                query_auth,
+                finding_limit,
+                finding_bytes,
+                finding_timeout,
+                query_cancel.clone(),
+                finding_api::Security {
+                    identity: identity.clone(),
+                    audit: query_audit.clone(),
+                },
+            ))
+            .merge(ui::router());
+        if let Some(coverage) = &coverage {
+            let routes = coverage.router();
+            router = router.merge(routes);
+        }
+        let listener = timeout(Duration::from_secs(5), TcpListener::bind(listen))
+            .await
+            .map_err(|_| AppError::BindTimeout)?
+            .map_err(AppError::Bind)?;
+        let metrics_listener = match metrics_listen {
+            Some(address) => Some(
+                timeout(Duration::from_secs(5), TcpListener::bind(address))
+                    .await
+                    .map_err(|_| AppError::BindTimeout)?
+                    .map_err(AppError::Bind)?,
+            ),
+            None => None,
+        };
+        Ok::<_, AppError>((
+            service,
+            sink,
+            store,
+            findings,
+            query,
+            identity,
+            coverage,
+            coverage_stopping,
+            pipeline,
+            consumer_config,
+            query_cancel,
+            listener,
+            metrics_listener,
+            limits,
+            tls,
+            router,
+            runtime_revision,
+            rules_revision,
+        ))
+    };
+    let prepared = if query_audit
+        .as_ref()
+        .is_some_and(|control| control.has_activations())
+    {
+        let guarded = audit::within_startup(&startup, preparation);
+        #[cfg(unix)]
+        let result = tokio::select! {
+            biased;
+            _ = terminate.recv() => Err(audit::Unavailable.into()),
+            _ = interrupt.recv() => Err(audit::Unavailable.into()),
+            result = guarded => result,
+        };
+        #[cfg(not(unix))]
+        let result = tokio::select! {
+            biased;
+            _ = tokio::signal::ctrl_c() => Err(audit::Unavailable.into()),
+            result = guarded => result,
+        };
+        result
+    } else {
+        preparation.await
+    };
+    let (
+        service,
+        sink,
+        store,
+        findings,
+        query,
+        identity,
+        coverage,
+        coverage_stopping,
+        pipeline,
+        consumer_config,
+        query_cancel,
+        listener,
+        metrics_listener,
+        limits,
+        tls,
+        router,
+        runtime_revision,
+        rules_revision,
+    ) = prepared?;
+    if let Some(control) = query_audit
+        .as_ref()
+        .filter(|control| control.has_activations())
+    {
+        let activate = async {
+            if let Some(revision) = runtime_revision {
+                control
+                    .activate(
+                        signal_protocol::audit::ConfigurationKind::Runtime,
+                        revision,
+                        startup.clone(),
+                    )
+                    .await?;
+            }
+            if let Some(revision) = rules_revision {
+                control
+                    .activate(
+                        signal_protocol::audit::ConfigurationKind::Rules,
+                        revision,
+                        startup.clone(),
+                    )
+                    .await?;
+            }
+            startup.check().map_err(|_| audit::Unavailable)
+        };
+        #[cfg(unix)]
+        let activated = tokio::select! {
+            biased;
+            _ = terminate.recv() => Err(audit::Unavailable),
+            _ = interrupt.recv() => Err(audit::Unavailable),
+            result = activate => result,
+        };
+        #[cfg(not(unix))]
+        let activated = tokio::select! {
+            biased;
+            _ = tokio::signal::ctrl_c() => Err(audit::Unavailable),
+            result = activate => result,
+        };
+        // Recheck after the ready select handoff, before enabling any work.
+        let activated = activated.and_then(|()| startup.check().map_err(|_| audit::Unavailable));
+        if let Err(error) = activated {
+            startup_cancellation.cancel();
+            service.stop_admission();
+            coverage_stopping.cancel();
+            if let Some(identity) = &identity {
+                let _ = identity.close();
+            }
+            // Cleanup has a separate finite budget; it cannot renew activation.
+            let deadline = Instant::now() + limits.shutdown_timeout;
+            let _ = query
+                .shutdown(OperationContext {
+                    deadline,
+                    cancellation: CancellationToken::new(),
+                })
+                .await;
+            let _ = store
+                .shutdown(OperationContext {
+                    deadline,
+                    cancellation: CancellationToken::new(),
+                })
+                .await;
+            let _ = findings
+                .shutdown(FindingContext {
+                    deadline,
+                    cancellation: CancellationToken::new(),
+                })
+                .await;
+            if let Some(coverage) = &coverage {
+                let _ = coverage
+                    .store
+                    .shutdown(signal_coverage::OperationContext {
+                        deadline,
+                        cancellation: CancellationToken::new(),
+                    })
+                    .await;
+            }
+            let _ = timeout_at(deadline, sink.shutdown()).await;
+            return Err(error.into());
+        }
+    }
     let drain = CancellationToken::new();
     let cancel = CancellationToken::new();
     let failed = CancellationToken::new();
