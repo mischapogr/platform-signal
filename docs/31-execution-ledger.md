@@ -109,6 +109,14 @@ Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
 Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
 `soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
 
+## Current independent HTTP transport — 2026-10-09
+
+Generic engine passed_local: four new lease/lifetime/abort/pipeline regressions,
+44focused and807/858strict tests, both Clippy/fmt/workspace13 and source review.
+No fabricated ingest service or readiness; original clock and socket lifetime
+own the operation lease. Actual receiver authentication/health host remains next
+within SECURITY-AUDIT. See [audit contract](45-independent-audit.md);52 unchanged.
+
 ## Current independent receipt store — 2026-10-09
 
 Bounded SDK journal passed_local:11 compound regressions, five actual crash stages,

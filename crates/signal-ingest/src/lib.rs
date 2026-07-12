@@ -115,10 +115,7 @@ struct HttpMetrics {
     rejected: AtomicU64,
     rejected_requests: AtomicU64,
     timed_out: AtomicU64,
-    connections: AtomicU64,
-    connection_capacity: AtomicU64,
-    connection_timeouts: AtomicU64,
-    connection_errors: AtomicU64,
+    transport: Arc<server::TransportMetrics>,
 }
 
 struct Shared {
@@ -771,10 +768,22 @@ async fn metrics(State(service): State<IngestService>) -> Response {
         sink.dropped,
         shared.config.max_in_flight - shared.permits.available_permits(),
         shared.config.max_in_flight,
-        shared.metrics.connections.load(Ordering::Relaxed),
-        shared.metrics.connection_capacity.load(Ordering::Relaxed),
-        shared.metrics.connection_timeouts.load(Ordering::Relaxed),
-        shared.metrics.connection_errors.load(Ordering::Relaxed),
+        shared.metrics.transport.connections.load(Ordering::Relaxed),
+        shared
+            .metrics
+            .transport
+            .connection_capacity
+            .load(Ordering::Relaxed),
+        shared
+            .metrics
+            .transport
+            .connection_timeouts
+            .load(Ordering::Relaxed),
+        shared
+            .metrics
+            .transport
+            .connection_errors
+            .load(Ordering::Relaxed),
         sink.wal_bytes,
         sink.wal_byte_capacity,
         sink.wal_segments,

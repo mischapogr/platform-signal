@@ -18,6 +18,14 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current independent HTTP transport — 2026-10-09
+
+Generic engine passed_local: four new lease/lifetime/abort/pipeline regressions,
+44focused and807/858strict tests, both Clippy/fmt/workspace13 and source review.
+No fabricated ingest service or readiness; original clock and socket lifetime
+own the operation lease. Actual receiver authentication/health host remains next
+within SECURITY-AUDIT. See [audit contract](45-independent-audit.md);52 unchanged.
+
 ## Current independent receipt store — 2026-10-09
 
 Bounded SDK journal passed_local:11 compound regressions, five actual crash stages,
