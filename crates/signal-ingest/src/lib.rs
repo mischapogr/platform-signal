@@ -674,6 +674,39 @@ async fn metrics(State(service): State<IngestService>) -> Response {
             let _ = writeln!(body, "{name} {value}");
         }
     }
+    if let Some(audit) = sink.audit {
+        use std::fmt::Write;
+        for (name, value) in [
+            ("signal_audit_depth", audit.depth as u64),
+            ("signal_audit_capacity", audit.capacity as u64),
+            ("signal_audit_rejected_total", audit.rejected),
+            ("signal_audit_incomplete_total", audit.incomplete),
+            ("signal_audit_pending", audit.pending as u64),
+            (
+                "signal_audit_pending_capacity",
+                audit.pending_capacity as u64,
+            ),
+            ("signal_audit_disk_depth", audit.disk_depth as u64),
+            ("signal_audit_disk_capacity", audit.disk_capacity as u64),
+            ("signal_audit_disk_rejected_total", audit.disk_rejected),
+            (
+                "signal_audit_destination_depth",
+                audit.destination_depth as u64,
+            ),
+            (
+                "signal_audit_destination_capacity",
+                audit.destination_capacity as u64,
+            ),
+            (
+                "signal_audit_destination_rejected_total",
+                audit.destination_rejected,
+            ),
+            ("signal_audit_uncertain_total", audit.uncertain),
+            ("signal_audit_held", u64::from(audit.held)),
+        ] {
+            let _ = writeln!(body, "{name} {value}");
+        }
+    }
     if let Some(rules) = sink.rules {
         use std::fmt::Write;
         for (name, value) in [

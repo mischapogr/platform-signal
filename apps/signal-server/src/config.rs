@@ -231,6 +231,7 @@ section!(Telemetry {
 });
 section!(Coverage { config: Text });
 section!(Access { config: Text });
+section!(Audit { config: Text });
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Document {
@@ -256,6 +257,8 @@ struct Document {
     coverage: Coverage,
     #[serde(default, deserialize_with = "section_map")]
     access: Access,
+    #[serde(default, deserialize_with = "section_map")]
+    audit: Audit,
 }
 trait Value {
     fn setting_value(&self) -> String;
@@ -456,6 +459,7 @@ impl Settings {
         mapping!(values,document.telemetry,{metrics_listen=>"SIGNAL_METRICS_LISTEN",queue_records=>"SIGNAL_LOG_RECORDS",queue_bytes=>"SIGNAL_LOG_BYTES",max_record_bytes=>"SIGNAL_LOG_RECORD_BYTES"});
         mapping!(values,document.coverage,{config=>"SIGNAL_COVERAGE_CONFIG"});
         mapping!(values,document.access,{config=>"SIGNAL_ACCESS_CONFIG"});
+        mapping!(values,document.audit,{config=>"SIGNAL_AUDIT_CONFIG"});
         duration(
             &mut values,
             "SIGNAL_CONNECTION_TIMEOUT_MS",
@@ -1013,6 +1017,21 @@ telemetry:
         );
         assert!(super::tests::settings("schema_version: 1\naccess: null", &[]).is_err());
         assert!(super::tests::settings("schema_version: 1\naccess: {config: null}", &[]).is_err());
+        let audit = super::tests::settings(
+            "schema_version: 1\naudit: {config: '/private/audit.json'}",
+            &[("SIGNAL_AUDIT_CONFIG", "/private/override-audit.json")],
+        )?;
+        assert_eq!(
+            audit.optional("SIGNAL_AUDIT_CONFIG")?.as_deref(),
+            Some("/private/override-audit.json")
+        );
+        for yaml in [
+            "schema_version: 1\naudit: null",
+            "schema_version: 1\naudit: {config: null}",
+            "schema_version: 1\naudit: {token: 'synthetic-secret'}",
+        ] {
+            assert!(super::tests::settings(yaml, &[]).is_err());
+        }
         assert!(
             super::tests::settings("schema_version: 1\naccess: {config: 'a', config: 'b'}", &[])
                 .is_err()

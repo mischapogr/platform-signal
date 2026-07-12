@@ -23,6 +23,29 @@ and live-vendor checks must remain separately visible, never closed by simulatio
 
 
 
+## SECURITY-AUDIT native query hook — 2026-10-09
+
+Optional explicit query-only auditing now confirms a durable access decision
+before execution and exact matching completion before response disclosure, using
+one original deadline and existing authentication once. Dedicated mTLS/audit
+credential configuration has no API-token fallback. Incomplete/uncertain sessions
+hold selected readiness and expose finite unlabeled capacity/health metrics.
+
+Six focused regressions, strict758/809 workspace tests (zero failures), both Clippy,
+fmt/workspace13 and source review pass. The separate actual AMD64 monolith/mTLS
+peer passes27 checks with14 fsynced receipts: query/denial, lost ACKs/no disclosure,
+readiness, stopped exact replay/new operation IDs, bad ACK, independent peer
+survival and startup negatives. Nine ordinary logs omit token/query canaries.
+No production source/binary drift or cleanup errors. No-store failure was reproduced
+and fixed; helper lint/sandbox/three fixture preparation failures remain retained.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/query-hooks-acceptance.json`,
+`query-hooks-validation-corrected/validation.json`, `query-hooks-review.json` and
+`query-hooks-native-independent/report.json`. Bootstrap/synthetic finite proof
+qualifies this query slice; enabled IdP auditing, other access/config/rule hooks,
+production receiver/health and secrets/encryption remain open. Parent stays
+in_progress; continue next native access hooks. See [audit](45-independent-audit.md).
+
 ## EXT-CI reported IdP failure stages — 2026-10-09
 
 The CI wrapper now promotes only a fixed public stage enum from a failed IdP
