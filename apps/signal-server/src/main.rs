@@ -1,6 +1,7 @@
 //! HTTP ingest, bounded WAL, replay-safe Parquet persistence and URL queries.
 mod access;
 mod audit;
+mod audit_receiver;
 mod config;
 mod coverage_api;
 mod finding_api;
@@ -40,6 +41,8 @@ use tokio_util::sync::CancellationToken;
 
 #[derive(Debug, Error)]
 enum AppError {
+    #[error(transparent)]
+    AuditReceiver(#[from] audit_receiver::HostError),
     #[error(transparent)]
     Audit(#[from] audit::Unavailable),
     #[error(transparent)]
@@ -99,6 +102,17 @@ async fn main() -> ExitCode {
 
 async fn run() -> Result<(), AppError> {
     let args: Vec<_> = env::args_os().skip(1).collect();
+    match args.as_slice() {
+        [role, config, path]
+            if (role == "--audit-receiver" || role == "--initialize-audit-receiver")
+                && config == "--config" =>
+        {
+            return audit_receiver::run(path.into(), role == "--initialize-audit-receiver")
+                .await
+                .map_err(Into::into);
+        }
+        _ => {}
+    }
     let mut initialize_coverage = false;
     let path = match args.as_slice() {
         [flag] if flag == "--version" => {
@@ -107,7 +121,7 @@ async fn run() -> Result<(), AppError> {
         }
         [flag] if flag == "--help" => {
             println!(
-                "signal-server: durable HTTP ingest, Parquet storage and URL queries\nUsage: signal-server [--config PATH | --initialize-coverage [--config PATH] | --help | --version]\nConfiguration: see docs/12-phase3-storage.md and docs/13-phase4-query.md. SIGNAL_LISTEN, SIGNAL_API_TOKEN, SIGNAL_WAL_DIR, SIGNAL_ADMISSION_POLICY and bounded HTTP/WAL limits.\nAccepted events are synced to WAL, then persisted to Parquet before checkpointing. GET /v1/events and /v1/findings query persisted data. SIGNAL_CONFIG loads strict versioned YAML; environment overrides YAML."
+                "signal-server: durable HTTP ingest, Parquet storage and URL queries\nUsage: signal-server [--config PATH | --initialize-coverage [--config PATH] | --audit-receiver --config PATH | --initialize-audit-receiver --config PATH | --help | --version]\nConfiguration: see docs/12-phase3-storage.md and docs/13-phase4-query.md. SIGNAL_LISTEN, SIGNAL_API_TOKEN, SIGNAL_WAL_DIR, SIGNAL_ADMISSION_POLICY and bounded HTTP/WAL limits.\nAccepted events are synced to WAL, then persisted to Parquet before checkpointing. GET /v1/events and /v1/findings query persisted data. SIGNAL_CONFIG loads strict versioned YAML; environment overrides YAML.\nIndependent audit receiver uses its own strict private configuration and mandatory mTLS; see docs/45-independent-audit.md."
             );
             return Ok(());
         }
