@@ -685,7 +685,7 @@
         "docs/04-implementation-plan.md",
         "docs/45-independent-audit.md"
       ],
-      "notes": "Protocol/client/outbox, six native hooks, startup activations, receipt journal and generic HTTP transport accepted locally. Actual independent receiver/health host and permission isolation, native IdP composition/secrets/encryption remain; parent in_progress.",
+      "notes": "Protocol/client/outbox, native hooks/startup, receipt journal, generic transport and explicit receiver/health HTTP host accepted locally. Independent native composition/health owner/permission isolation, native IdP composition/secrets/encryption remain; parent in_progress.",
       "substeps": [
         {
           "id": "bounded-record-ack-protocol",
@@ -739,6 +739,14 @@
           "receiver_transport_status": "passed_local",
           "receiver_transport_evidence": [
             "target/goal-execution-20261007/SECURITY-AUDIT/receiver-transport-acceptance.json"
+          ],
+          "receiver_host_status": "passed_local",
+          "receiver_host_evidence": [
+            "target/goal-execution-20261007/SECURITY-AUDIT/receiver-host-acceptance.json"
+          ],
+          "receiver_host_native_status": "passed_simulated",
+          "receiver_host_native_evidence": [
+            "target/goal-execution-20261007/SECURITY-AUDIT/receiver-host-native/report.json"
           ]
         },
         {
