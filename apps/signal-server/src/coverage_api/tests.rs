@@ -685,3 +685,390 @@ async fn cancelled_requests_do_not_mutate_store_and_bounded_serialization_fails_
     stop(&state).await?;
     Ok(())
 }
+
+async fn audit_control(
+    spool: &std::path::Path,
+    sink: Arc<crate::audit::tests::SyncedDestination>,
+    operations: Vec<AccessOperation>,
+) -> TestResult<Arc<crate::audit::Control>> {
+    Ok(crate::audit::Control::test_open(
+        spool,
+        sink,
+        operations,
+        signal_collector_sdk::ExtensionContext::new(
+            CancellationToken::new(),
+            Duration::from_secs(10),
+        )?,
+    )
+    .await?)
+}
+async fn audited(v: &Value, control: Arc<crate::audit::Control>) -> TestResult<Arc<CoverageState>> {
+    Ok(configuration(v)?
+        .open_with_identity(
+            Duration::from_secs(10),
+            CancellationToken::new(),
+            None,
+            Some(control),
+        )
+        .await?)
+}
+fn coverage_operations() -> Vec<AccessOperation> {
+    vec![
+        AccessOperation::ReadCoverage,
+        AccessOperation::WriteCoverage,
+    ]
+}
+fn audit_record(
+    path: &std::path::Path,
+    sequence: u64,
+) -> TestResult<signal_protocol::audit::PreparedAudit> {
+    Ok(signal_protocol::audit::PreparedAudit::from_original(
+        &std::fs::read(path.join(sequence.to_string()))?,
+    )?)
+}
+#[tokio::test]
+async fn coverage_audit_writes_replays_reads_and_errors_emit_only_control_pairs() -> TestResult {
+    use signal_protocol::audit::{Action, Actor, Completion, Decision};
+    use std::sync::atomic::Ordering;
+    let _serial = crate::audit::tests::SERIAL.lock().await;
+    let spool = crate::audit::tests::root()?;
+    let archive = crate::audit::tests::root()?;
+    let data = tempfile::tempdir()?;
+    let sink = crate::audit::tests::destination(archive.path(), 0);
+    let control = audit_control(spool.path(), sink.clone(), coverage_operations()).await?;
+    let v = wire(&data.path().join("store"))?;
+    initialize(&v).await?;
+    let state = audited(&v, control.clone()).await?;
+    let report = report()?;
+    let id = report["record_id"].as_str().ok_or("id")?;
+    let url = format!("/v1/coverage/records/{id}");
+    let raw = serde_json::to_vec(&report)?;
+    let (_, accepted) = call(&state, Method::POST, &url, Some(TOKEN), raw.clone()).await?;
+    assert_eq!(state.store.metrics().accepted, 1);
+    let (_, replayed) = call(&state, Method::POST, &url, Some(TOKEN), raw).await?;
+    assert_eq!(accepted["receipt"], replayed["receipt"]);
+    for (method, url, token, expected) in [
+        (Method::GET, url.as_str(), Some(TOKEN), StatusCode::OK),
+        (
+            Method::GET,
+            "/v1/coverage/history",
+            Some(TOKEN),
+            StatusCode::OK,
+        ),
+        (
+            Method::GET,
+            "/v1/coverage/metrics",
+            Some(TOKEN),
+            StatusCode::OK,
+        ),
+        (Method::GET, url.as_str(), None, StatusCode::UNAUTHORIZED),
+        (
+            Method::POST,
+            "/v1/coverage/records/not-a-uuid",
+            Some(TOKEN),
+            StatusCode::BAD_REQUEST,
+        ),
+    ] {
+        let (status, _) = call(&state, method, url, token, Vec::new()).await?;
+        assert_eq!(status, expected);
+    }
+    assert_eq!(sink.calls.load(Ordering::SeqCst), 14);
+    for sequence in (1..=13).step_by(2) {
+        let first = audit_record(archive.path(), sequence)?;
+        let last = audit_record(archive.path(), sequence + 1)?;
+        let Action::AccessDecision {
+            operation,
+            operation_id,
+            decision,
+        } = first.record().action
+        else {
+            return Err("decision".into());
+        };
+        let expected = if sequence <= 3 || sequence == 13 {
+            AccessOperation::WriteCoverage
+        } else {
+            AccessOperation::ReadCoverage
+        };
+        assert_eq!(operation, expected);
+        let completion = if sequence == 11 {
+            Completion::Denied
+        } else if sequence == 13 {
+            Completion::Failed
+        } else {
+            Completion::Success
+        };
+        assert!(
+            last.record().action
+                == Action::OperationCompletion {
+                    operation,
+                    operation_id,
+                    completion
+                }
+        );
+        assert!(
+            decision
+                == if sequence == 11 {
+                    Decision::Denied
+                } else {
+                    Decision::Granted
+                }
+        );
+        assert!(matches!(first.record().actor, Actor::Bootstrap {}) || sequence == 11);
+        for record in [first, last] {
+            let text = String::from_utf8_lossy(record.body());
+            for secret in [
+                TOKEN,
+                id,
+                "fixture-source",
+                "fixture-authority-v1",
+                "profile_fingerprint",
+            ] {
+                assert!(!text.contains(secret));
+            }
+        }
+    }
+    assert!(!control.metrics().held);
+    stop(&state).await
+}
+#[tokio::test]
+async fn coverage_decision_loss_prevents_admission_but_completion_loss_keeps_exact_committed_receipt()
+-> TestResult {
+    use signal_protocol::audit::Action;
+    let _serial = crate::audit::tests::SERIAL.lock().await;
+    for lose_on in [1, 2] {
+        let spool = crate::audit::tests::root()?;
+        let archive = crate::audit::tests::root()?;
+        let data = tempfile::tempdir()?;
+        let sink = crate::audit::tests::destination(archive.path(), lose_on);
+        let control = audit_control(spool.path(), sink.clone(), coverage_operations()).await?;
+        let v = wire(&data.path().join("store"))?;
+        initialize(&v).await?;
+        let state = audited(&v, control.clone()).await?;
+        let r = report()?;
+        let id = r["record_id"].as_str().ok_or("id")?;
+        let url = format!("/v1/coverage/records/{id}");
+        let raw = serde_json::to_vec(&r)?;
+        let (status, response) = call(&state, Method::POST, &url, Some(TOKEN), raw.clone()).await?;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert!(response.get("receipt").is_none());
+        assert_eq!(state.store.metrics().accepted, u64::from(lose_on == 2));
+        assert!(control.metrics().held);
+        let pending = std::fs::read(spool.path().join("pending"))?;
+        assert_eq!(
+            pending,
+            std::fs::read(archive.path().join(lose_on.to_string()))?
+        );
+        let old = audit_record(archive.path(), lose_on)?;
+        let operation_id = match old.record().action {
+            Action::AccessDecision { operation_id, .. }
+            | Action::OperationCompletion { operation_id, .. } => operation_id,
+            _ => return Err("read action".into()),
+        };
+        stop(&state).await?;
+        drop(state);
+        drop(control);
+        let control = audit_control(spool.path(), sink.clone(), coverage_operations()).await?;
+        let state = audited(&v, control.clone()).await?;
+        let (status, retry) = call(&state, Method::POST, &url, Some(TOKEN), raw).await?;
+        assert_eq!(
+            status,
+            if lose_on == 1 {
+                StatusCode::CREATED
+            } else {
+                StatusCode::OK
+            }
+        );
+        assert!(retry.get("receipt").is_some());
+        assert_eq!(state.store.metrics().payloads, 1);
+        assert_eq!(
+            std::fs::read(archive.path().join(lose_on.to_string()))?,
+            pending
+        );
+        let fresh = audit_record(archive.path(), lose_on + 1)?;
+        let Action::AccessDecision {
+            operation_id: fresh_id,
+            ..
+        } = fresh.record().action
+        else {
+            return Err("fresh decision".into());
+        };
+        assert_ne!(fresh_id, operation_id);
+        let (status, read) = call(&state, Method::GET, &url, Some(TOKEN), Vec::new()).await?;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(read["receipt"], retry["receipt"]);
+        stop(&state).await?;
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn coverage_read_ack_loss_withholds_originals_history_and_aggregate_metadata() -> TestResult {
+    let _serial = crate::audit::tests::SERIAL.lock().await;
+    for route in ["record", "history", "metrics"] {
+        for lose_on in [1, 2] {
+            let spool = crate::audit::tests::root()?;
+            let archive = crate::audit::tests::root()?;
+            let data = tempfile::tempdir()?;
+            let sink = crate::audit::tests::destination(archive.path(), lose_on);
+            let control = audit_control(
+                spool.path(),
+                sink.clone(),
+                vec![AccessOperation::ReadCoverage],
+            )
+            .await?;
+            let v = wire(&data.path().join("store"))?;
+            initialize(&v).await?;
+            let state = audited(&v, control.clone()).await?;
+            let r = report()?;
+            let id = r["record_id"].as_str().ok_or("id")?;
+            let url = format!("/v1/coverage/records/{id}");
+            let (status, _) = call(
+                &state,
+                Method::POST,
+                &url,
+                Some(TOKEN),
+                serde_json::to_vec(&r)?,
+            )
+            .await?;
+            assert_eq!(status, StatusCode::CREATED);
+            assert_eq!(sink.calls.load(Ordering::SeqCst), 0);
+            let uri = match route {
+                "record" => url.as_str(),
+                "history" => "/v1/coverage/history",
+                _ => "/v1/coverage/metrics",
+            };
+            let (status, value) = call(&state, Method::GET, uri, Some(TOKEN), Vec::new()).await?;
+            assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+            assert!(
+                value.get("receipt").is_none()
+                    && value.get("records").is_none()
+                    && value.get("accepted").is_none()
+            );
+            assert!(!value.to_string().contains(id));
+            assert_eq!(state.store.metrics().payloads, 1);
+            assert!(control.metrics().held);
+            let pending = std::fs::read(spool.path().join("pending"))?;
+            assert_eq!(
+                pending,
+                std::fs::read(archive.path().join(lose_on.to_string()))?
+            );
+            stop(&state).await?;
+            drop(state);
+            drop(control);
+            let control = audit_control(
+                spool.path(),
+                sink.clone(),
+                vec![AccessOperation::ReadCoverage],
+            )
+            .await?;
+            let state = audited(&v, control).await?;
+            assert_eq!(
+                std::fs::read(archive.path().join(lose_on.to_string()))?,
+                pending
+            );
+            let (status, _) = call(&state, Method::GET, uri, Some(TOKEN), Vec::new()).await?;
+            assert_eq!(status, StatusCode::OK);
+            stop(&state).await?;
+        }
+    }
+    Ok(())
+}
+#[tokio::test]
+async fn coverage_and_query_share_one_bounded_control_slot_before_mutation() -> TestResult {
+    use signal_protocol::audit::{Actor, Completion, Decision};
+    let _serial = crate::audit::tests::SERIAL.lock().await;
+    let spool = crate::audit::tests::root()?;
+    let archive = crate::audit::tests::root()?;
+    let data = tempfile::tempdir()?;
+    let sink = crate::audit::tests::destination(archive.path(), 0);
+    let control = audit_control(
+        spool.path(),
+        sink.clone(),
+        vec![
+            AccessOperation::QueryEvents,
+            AccessOperation::ReadFindings,
+            AccessOperation::ReadFindingsFeed,
+            AccessOperation::ReadCoverage,
+            AccessOperation::WriteCoverage,
+        ],
+    )
+    .await?;
+    let v = wire(&data.path().join("store"))?;
+    initialize(&v).await?;
+    let state = audited(&v, control.clone()).await?;
+    let r = report()?;
+    let url = format!(
+        "/v1/coverage/records/{}",
+        r["record_id"].as_str().ok_or("id")?
+    );
+    let ctx = signal_collector_sdk::ExtensionContext::new(
+        CancellationToken::new(),
+        Duration::from_secs(10),
+    )?;
+    let session = control
+        .begin(
+            Actor::Anonymous {},
+            Decision::Granted,
+            AccessOperation::QueryEvents,
+            ctx.deadline(),
+            ctx.cancellation().clone(),
+        )
+        .await?;
+    for (method, uri, body) in [
+        (Method::POST, url.as_str(), serde_json::to_vec(&r)?),
+        (Method::GET, "/v1/coverage/history", Vec::new()),
+    ] {
+        let (status, _) = call(&state, method, uri, Some(TOKEN), body).await?;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    }
+    assert_eq!(state.store.metrics().payloads, 0);
+    assert_eq!(sink.calls.load(Ordering::SeqCst), 1);
+    assert_eq!(control.metrics().rejected, 2);
+    assert!(!control.metrics().held);
+    session.finish(Completion::Success).await?;
+    let (status, _) = call(
+        &state,
+        Method::POST,
+        &url,
+        Some(TOKEN),
+        serde_json::to_vec(&r)?,
+    )
+    .await?;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(state.store.metrics().payloads, 1);
+    stop(&state).await
+}
+
+#[tokio::test]
+async fn uncertain_write_response_survives_late_authority_denial_after_audit() -> TestResult {
+    let data = tempfile::tempdir()?;
+    let v = wire(&data.path().join("store"))?;
+    initialize(&v).await?;
+    let state = open(&v).await?;
+    let native = native_configuration(&native_wire(std::path::Path::new("fixture-native"))?)?;
+    let scope = &native.scopes[0];
+    let denied = native_grant(
+        "impostor",
+        json!([native_permission("write_coverage", "a")]),
+    )?;
+    let access = ScopeAccess {
+        scope,
+        request_grant: Some(denied),
+        authority: grant_binding(scope)?,
+        operation: AccessOperation::WriteCoverage,
+        aggregate: false,
+    };
+    let context = OperationContext::new(Duration::from_secs(10));
+    assert_eq!(
+        access.finish(&context).map(|response| response.status()),
+        Some(StatusCode::FORBIDDEN)
+    );
+    let response = post_audit_response(
+        &access,
+        &context,
+        failure(CoverageError::OutcomeUnknown),
+        &state,
+    );
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    stop(&state).await
+}
