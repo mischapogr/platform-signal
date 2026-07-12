@@ -24,7 +24,7 @@ struct FindingState {
     response_bytes: usize,
     timeout: Duration,
     stopping: CancellationToken,
-    identity: Option<IdentityBackend>,
+    security: Security,
 }
 
 #[cfg(test)]
@@ -36,17 +36,31 @@ pub fn router(
     timeout: Duration,
     stopping: CancellationToken,
 ) -> Router {
-    router_with_identity(store, auth, limit, response_bytes, timeout, stopping, None)
+    router_with_security(
+        store,
+        auth,
+        limit,
+        response_bytes,
+        timeout,
+        stopping,
+        Security::default(),
+    )
 }
 
-pub fn router_with_identity(
+#[derive(Clone, Default)]
+pub struct Security {
+    pub identity: Option<IdentityBackend>,
+    pub audit: Option<Arc<crate::audit::Control>>,
+}
+
+pub fn router_with_security(
     store: Arc<FindingStore>,
     auth: IngestConfig,
     limit: usize,
     response_bytes: usize,
     timeout: Duration,
     stopping: CancellationToken,
-    identity: Option<IdentityBackend>,
+    security: Security,
 ) -> Router {
     Router::new()
         .route("/v1/findings", get(findings))
@@ -58,7 +72,7 @@ pub fn router_with_identity(
             response_bytes,
             timeout,
             stopping,
-            identity,
+            security,
         })
 }
 
@@ -80,20 +94,19 @@ async fn feed(
     RawQuery(raw): RawQuery,
     headers: HeaderMap,
 ) -> Response {
-    let mut response = feed_inner(state, raw, headers).await;
+    let mut response = read(state, raw, headers, Operation::ReadFindingsFeed).await;
     response.headers_mut().insert(
         "cache-control",
         axum::http::HeaderValue::from_static("no-store"),
     );
     response
 }
-async fn feed_inner(state: FindingState, raw: Option<String>, headers: HeaderMap) -> Response {
-    let context = request_context(&state);
-    let _guard = CancelOnDrop(context.cancellation.clone());
-    let grant = match authenticate(&state, &headers, &context, Operation::ReadFindingsFeed).await {
-        Ok(grant) => grant,
-        Err(response) => return response,
-    };
+async fn feed_inner(
+    state: &FindingState,
+    raw: Option<String>,
+    context: &FindingContext,
+    grant: Option<&RequestGrant>,
+) -> Response {
     let query = match parse_findings_feed_query(raw.as_deref().unwrap_or(""), state.limit) {
         Ok(query) => query,
         Err(FeedQueryError::InvalidQuery) => {
@@ -123,7 +136,7 @@ async fn feed_inner(state: FindingState, raw: Option<String>, headers: HeaderMap
         .feed(query, state.response_bytes, context.clone())
         .await
     {
-        Ok(bytes) => match finish(&context, grant.as_deref(), Operation::ReadFindingsFeed) {
+        Ok(bytes) => match finish(context, grant, Operation::ReadFindingsFeed) {
             None => ([("content-type", "application/json")], bytes).into_response(),
             Some(response) => response,
         },
@@ -178,20 +191,19 @@ async fn findings(
     RawQuery(raw): RawQuery,
     headers: HeaderMap,
 ) -> Response {
-    let mut response = findings_inner(state, raw, headers).await;
+    let mut response = read(state, raw, headers, Operation::ReadFindings).await;
     response.headers_mut().insert(
         "cache-control",
         axum::http::HeaderValue::from_static("no-store"),
     );
     response
 }
-async fn findings_inner(state: FindingState, raw: Option<String>, headers: HeaderMap) -> Response {
-    let context = request_context(&state);
-    let _guard = CancelOnDrop(context.cancellation.clone());
-    let grant = match authenticate(&state, &headers, &context, Operation::ReadFindings).await {
-        Ok(grant) => grant,
-        Err(response) => return response,
-    };
+async fn findings_inner(
+    state: &FindingState,
+    raw: Option<String>,
+    context: &FindingContext,
+    grant: Option<&Arc<RequestGrant>>,
+) -> Response {
     let query = match parse(raw.as_deref().unwrap_or(""), state.limit) {
         Ok(query) => query,
         Err(()) => {
@@ -202,7 +214,7 @@ async fn findings_inner(state: FindingState, raw: Option<String>, headers: Heade
             );
         }
     };
-    let result = match &grant {
+    let result = match grant {
         Some(grant) => {
             state
                 .store
@@ -228,7 +240,7 @@ async fn findings_inner(state: FindingState, raw: Option<String>, headers: Heade
                     "finding response limit exceeded",
                 );
             }
-            match finish(&context, grant.as_deref(), Operation::ReadFindings) {
+            match finish(context, grant.map(AsRef::as_ref), Operation::ReadFindings) {
                 None => ([("content-type", "application/json")], bytes.bytes).into_response(),
                 Some(response) => response,
             }
@@ -278,24 +290,105 @@ fn allowed(grant: &RequestGrant, operation: Operation) -> bool {
         crate::access::capable(grant, operation)
     }
 }
-async fn authenticate(
-    state: &FindingState,
-    headers: &HeaderMap,
-    context: &FindingContext,
+async fn read(
+    state: FindingState,
+    raw: Option<String>,
+    headers: HeaderMap,
     operation: Operation,
-) -> Result<Option<Arc<RequestGrant>>, Response> {
-    let grant = crate::access::authenticate(
+) -> Response {
+    use signal_protocol::audit::{Actor, Decision};
+    let context = request_context(&state);
+    let _guard = CancelOnDrop(context.cancellation.clone());
+    let authentication = crate::access::authenticate(
         &state.auth,
-        state.identity.as_ref(),
-        headers,
+        state.security.identity.as_ref(),
+        &headers,
         context.deadline,
         context.cancellation.clone(),
     )
-    .await?;
-    if let Some(response) = finish(context, grant.as_ref(), operation) {
-        return Err(response);
+    .await;
+    let (grant, early, actor, decision) = match authentication {
+        Ok(grant) => {
+            let actor = crate::audit::actor(grant.as_ref(), state.auth.api_token.is_some());
+            let early = finish(&context, grant.as_ref(), operation);
+            let decision = match early.as_ref().map(Response::status) {
+                None => Decision::Granted,
+                Some(StatusCode::FORBIDDEN | StatusCode::UNAUTHORIZED) => Decision::Denied,
+                Some(_) => Decision::Unavailable,
+            };
+            (grant.map(Arc::new), early, actor, decision)
+        }
+        Err(response) => {
+            let decision = if matches!(
+                response.status(),
+                StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN
+            ) {
+                Decision::Denied
+            } else {
+                Decision::Unavailable
+            };
+            (None, Some(response), Actor::Unattributed {}, decision)
+        }
+    };
+    let session = if let Some(audit) = state
+        .security
+        .audit
+        .as_ref()
+        .filter(|audit| audit.selected(operation))
+    {
+        match audit
+            .begin(
+                actor,
+                decision,
+                operation,
+                context.deadline,
+                context.cancellation.clone(),
+            )
+            .await
+        {
+            Ok(session) => Some(session),
+            Err(_) => return audit_unavailable(),
+        }
+    } else {
+        None
+    };
+    let response = match early {
+        Some(response) => response,
+        None => {
+            // Recording the decision cannot renew the grant or request deadline.
+            if let Some(response) = finish(&context, grant.as_deref(), operation) {
+                response
+            } else if operation == Operation::ReadFindingsFeed {
+                feed_inner(&state, raw, &context, grant.as_deref()).await
+            } else {
+                findings_inner(&state, raw, &context, grant.as_ref()).await
+            }
+        }
+    };
+    if let Some(session) = session {
+        if session
+            .finish(crate::audit::completion(response.status(), decision))
+            .await
+            .is_err()
+        {
+            return audit_unavailable();
+        }
+        if response.status().is_success() {
+            if let Some(response) = finish(&context, grant.as_deref(), operation) {
+                return response;
+            }
+        } else if let Some(response) = finish(&context, None, operation) {
+            return response;
+        }
     }
-    Ok(grant.map(Arc::new))
+    response
+}
+fn audit_unavailable() -> Response {
+    error(
+        StatusCode::SERVICE_UNAVAILABLE,
+        "audit_unavailable",
+        "restricted audit unavailable",
+    )
 }
 fn finish(
     context: &FindingContext,
@@ -451,6 +544,102 @@ mod tests {
         ] {
             assert!(parse(raw, 100).is_err(), "{raw}");
         }
+    }
+    #[test]
+    fn audited_read_guards_preserve_feed_authority_and_expiry()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use signal_protocol::access::{
+            AccessPolicy, AuthenticatedIdentity, Permission, ResourceScope, Role, Selection,
+            SubjectBinding,
+        };
+        let now = crate::access::now().ok_or("clock unavailable")?;
+        let make = |permissions: Vec<Permission>,
+                    issued: u64,
+                    expires: u64|
+         -> Result<RequestGrant, Box<dyn std::error::Error>> {
+            let policy = AccessPolicy {
+                schema_version: 1,
+                roles: vec![Role {
+                    id: "fixture-role".into(),
+                    permissions,
+                }],
+                bindings: vec![SubjectBinding {
+                    issuer: "fixture-issuer".into(),
+                    subject: "fixture-subject".into(),
+                    roles: vec!["fixture-role".into()],
+                }],
+            }
+            .compile()?;
+            // Explicit host-verified fixture. Never derived from network headers.
+            Ok(policy.grant(
+                AuthenticatedIdentity::from_verified_backend(
+                    "fixture-issuer".into(),
+                    "fixture-subject".into(),
+                    issued,
+                    expires,
+                )?,
+                issued,
+            )?)
+        };
+        let restricted = make(
+            vec![Permission {
+                operation: Operation::ReadFindings,
+                scope: ResourceScope {
+                    sources: Selection::Only(vec!["fixture-source".into()]),
+                    accounts: Selection::All,
+                    resources: Selection::All,
+                },
+            }],
+            now,
+            now + 60,
+        )?;
+        let context = FindingContext::new(Duration::from_secs(10));
+        assert!(finish(&context, Some(&restricted), Operation::ReadFindings).is_none());
+        assert_eq!(
+            finish(&context, Some(&restricted), Operation::ReadFindingsFeed).map(|r| r.status()),
+            Some(StatusCode::FORBIDDEN)
+        );
+        let global = make(
+            vec![Permission {
+                operation: Operation::ReadFindingsFeed,
+                scope: ResourceScope::all(),
+            }],
+            now,
+            now + 60,
+        )?;
+        assert!(finish(&context, Some(&global), Operation::ReadFindingsFeed).is_none());
+        let expired = make(
+            vec![Permission {
+                operation: Operation::ReadFindingsFeed,
+                scope: ResourceScope::all(),
+            }],
+            now - 3,
+            now - 1,
+        )?;
+        assert_eq!(
+            finish(&context, Some(&expired), Operation::ReadFindingsFeed).map(|r| r.status()),
+            Some(StatusCode::FORBIDDEN)
+        );
+        assert!(matches!(
+            crate::audit::actor(Some(&expired), true),
+            signal_protocol::audit::Actor::Unattributed {}
+        ));
+        let cancelled = FindingContext::new(Duration::from_secs(10));
+        cancelled.cancellation.cancel();
+        assert_eq!(
+            finish(&cancelled, Some(&global), Operation::ReadFindingsFeed).map(|r| r.status()),
+            Some(StatusCode::SERVICE_UNAVAILABLE)
+        );
+        let expired_context = FindingContext {
+            deadline: tokio::time::Instant::now() - Duration::from_secs(1),
+            cancellation: CancellationToken::new(),
+        };
+        assert_eq!(
+            finish(&expired_context, Some(&global), Operation::ReadFindingsFeed)
+                .map(|r| r.status()),
+            Some(StatusCode::REQUEST_TIMEOUT)
+        );
+        Ok(())
     }
     type TestResult = Result<(), Box<dyn std::error::Error>>;
     async fn http_fixture(

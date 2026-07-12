@@ -96,6 +96,28 @@ Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-acceptance.json`,
 `idp-stage-byte-red/validation.json`. Full remote/native gates remain open.
 Continue actual CI inspection and native audit integration.
 
+## Native CI status — 2026-10-09
+
+Run37892977827 on3b172b70 passes both complete native Rust jobs, both production
+image builds and basic container runtime/persistence. Both native parser/pipeline/
+finite-soak steps fail; kind/supply-chain/candidate stages are skipped. Public
+annotations expose only exit1, and anonymous detailed logs return403. The exact
+failure cause is unconfirmed. One current-debug AMD64 quick profile passes488
+admissions/durable events and20 queries; it cannot qualify either remote image.
+Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
+07:08UTC. Complete reviewed-revision EXT-CI/EXT-ARM64 remain external_pending.
+Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
+`soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
+
+## Current native findings audit slice — 2026-10-09
+
+Selected query/findings/feed hooks share one bounded outbox/session. Findings
+slice passed_simulated: five new regressions, strict763/814, focused reviews and
+59 actual AMD64/mTLS/fsynced-peer checks. Parent SECURITY-AUDIT remains in_progress
+for coverage/ingest/runtime activation hooks, receiver/health and secrets/encryption.
+Native IdP composition and full current-revision CI/release qualification stay open.
+See [audit](45-independent-audit.md) and `findings-hooks-acceptance.json`.
+
 ## Current native audit query slice — 2026-10-09
 
 Query-only hook passed_simulated: six focused regressions, strict758/809 checks,

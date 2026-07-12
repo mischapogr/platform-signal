@@ -138,7 +138,13 @@ async fn query_grant_denial_and_invalid_input_emit_exact_secret_free_control_pai
     let archive = root()?;
     let data = root()?;
     let sink = destination(archive.path(), 0);
-    let control = Control::open(spool.path(), sink.clone(), context()?).await?;
+    let control = Control::open(
+        spool.path(),
+        sink.clone(),
+        vec![Operation::QueryEvents],
+        context()?,
+    )
+    .await?;
     let (store, engine) = engine(data.path()).await?;
     let routes = router(engine.clone(), control.clone());
     for (uri, token, status) in [
@@ -220,7 +226,13 @@ async fn lost_decision_reply_prevents_query_and_exact_reopen_cannot_authorize_fr
     let archive = root()?;
     let data = root()?;
     let sink = destination(archive.path(), 1);
-    let control = Control::open(spool.path(), sink.clone(), context()?).await?;
+    let control = Control::open(
+        spool.path(),
+        sink.clone(),
+        vec![Operation::QueryEvents],
+        context()?,
+    )
+    .await?;
     let (store, engine) = engine(data.path()).await?;
     let routes = router(engine.clone(), control.clone());
     let response = routes.clone().oneshot(request("/v1/events", true)?).await?;
@@ -246,7 +258,13 @@ async fn lost_decision_reply_prevents_query_and_exact_reopen_cannot_authorize_fr
     assert_eq!(sink.calls.load(Ordering::SeqCst), 1);
     drop(routes);
     drop(control);
-    let reopened = Control::open(spool.path(), sink.clone(), context()?).await?;
+    let reopened = Control::open(
+        spool.path(),
+        sink.clone(),
+        vec![Operation::QueryEvents],
+        context()?,
+    )
+    .await?;
     assert_eq!(fs::read(archive.path().join("1"))?, original);
     assert_eq!(engine.metrics().requests, 0);
     let routes = router(engine.clone(), reopened);
@@ -280,7 +298,13 @@ async fn lost_completion_reply_withholds_query_response_and_preserves_exact_pend
     let archive = root()?;
     let data = root()?;
     let sink = destination(archive.path(), 2);
-    let control = Control::open(spool.path(), sink.clone(), context()?).await?;
+    let control = Control::open(
+        spool.path(),
+        sink.clone(),
+        vec![Operation::QueryEvents],
+        context()?,
+    )
+    .await?;
     let (store, engine) = engine(data.path()).await?;
     let routes = router(engine.clone(), control.clone());
     let response = routes.clone().oneshot(request("/v1/events", true)?).await?;
@@ -308,7 +332,8 @@ async fn lost_completion_reply_withholds_query_response_and_preserves_exact_pend
     assert_eq!(engine.metrics().requests, 1);
     drop(routes);
     drop(control);
-    let reopened = Control::open(spool.path(), sink, context()?).await?;
+    let reopened =
+        Control::open(spool.path(), sink, vec![Operation::QueryEvents], context()?).await?;
     assert_eq!(fs::read(archive.path().join("2"))?, original);
     assert_eq!(reopened.metrics().pending, 0);
     stopped(store, engine).await
@@ -319,12 +344,19 @@ async fn capacity_and_incomplete_drop_are_visible_without_detached_completion() 
     let spool = root()?;
     let archive = root()?;
     let sink = destination(archive.path(), 0);
-    let control = Control::open(spool.path(), sink.clone(), context()?).await?;
+    let control = Control::open(
+        spool.path(),
+        sink.clone(),
+        vec![Operation::QueryEvents],
+        context()?,
+    )
+    .await?;
     let original = context()?;
     let session = control
         .begin(
             Actor::Anonymous {},
             Decision::Granted,
+            Operation::QueryEvents,
             original.deadline(),
             original.cancellation().clone(),
         )
@@ -337,6 +369,7 @@ async fn capacity_and_incomplete_drop_are_visible_without_detached_completion() 
             .begin(
                 Actor::Anonymous {},
                 Decision::Granted,
+                Operation::QueryEvents,
                 original.deadline(),
                 original.cancellation().clone()
             )
@@ -354,6 +387,7 @@ async fn capacity_and_incomplete_drop_are_visible_without_detached_completion() 
             .begin(
                 Actor::Anonymous {},
                 Decision::Granted,
+                Operation::QueryEvents,
                 original.deadline(),
                 original.cancellation().clone()
             )
@@ -371,7 +405,13 @@ async fn completion_uses_original_clock_and_denied_decision_cannot_report_succes
         let spool = root()?;
         let archive = root()?;
         let sink = destination(archive.path(), 0);
-        let control = Control::open(spool.path(), sink.clone(), context()?).await?;
+        let control = Control::open(
+            spool.path(),
+            sink.clone(),
+            vec![Operation::QueryEvents],
+            context()?,
+        )
+        .await?;
         let cancel = CancellationToken::new();
         let until = Instant::now() + Duration::from_secs(2);
         let session = control
@@ -382,6 +422,7 @@ async fn completion_uses_original_clock_and_denied_decision_cannot_report_succes
                 } else {
                     Decision::Granted
                 },
+                Operation::QueryEvents,
                 until,
                 cancel.clone(),
             )
@@ -404,9 +445,28 @@ fn configuration_is_strict_scoped_bounded_and_never_prints_values() -> Result {
         "endpoint":"https://audit.example.invalid/v1/audit/records", "tls_config":"/private/tls.json",
         "outbox_directory":"/private/audit", "connect_timeout_ms":1000});
     Wire::parse(&original.to_string())?;
+    for operations in [
+        serde_json::json!(["read_findings"]),
+        serde_json::json!(["read_findings_feed", "query_events"]),
+        serde_json::json!(["query_events", "read_findings", "read_findings_feed"]),
+    ] {
+        let mut selected = original.clone();
+        selected["operations"] = operations;
+        Wire::parse(&selected.to_string())?;
+    }
     for (key, value) in [
         ("schema_version", serde_json::json!(2)),
         ("operations", serde_json::json!(["ingest_events"])),
+        ("operations", serde_json::json!([])),
+        (
+            "operations",
+            serde_json::json!([
+                "query_events",
+                "read_findings",
+                "read_findings_feed",
+                "read_findings"
+            ]),
+        ),
         (
             "operations",
             serde_json::json!(["query_events", "query_events"]),
@@ -434,4 +494,376 @@ fn configuration_is_strict_scoped_bounded_and_never_prints_values() -> Result {
         .is_err()
     );
     Ok(())
+}
+
+fn read_operations() -> Vec<Operation> {
+    vec![
+        Operation::QueryEvents,
+        Operation::ReadFindings,
+        Operation::ReadFindingsFeed,
+    ]
+}
+async fn findings_store(
+    path: &Path,
+) -> std::result::Result<Arc<signal_findings::FindingStore>, Box<dyn std::error::Error>> {
+    let store = Arc::new(
+        signal_findings::FindingStore::open(
+            signal_findings::FindingConfig {
+                directory: path.into(),
+                ..Default::default()
+            },
+            Uuid::new_v4(),
+        )
+        .await?,
+    );
+    store
+        .append(
+            vec![signal_findings::Finding {
+                schema_version: 1,
+                id: Uuid::new_v4(),
+                rule_id: "synthetic.rule".into(),
+                created_at: Utc::now(),
+                severity: signal_findings::DetectionSeverity::High,
+                title: "synthetic-sensitive-finding".into(),
+                event_ids: vec![Uuid::new_v4()],
+                attributes: Default::default(),
+            }],
+            signal_findings::FindingContext::new(Duration::from_secs(10)),
+        )
+        .await?;
+    Ok(store)
+}
+fn findings_router(
+    store: Arc<signal_findings::FindingStore>,
+    control: Arc<Control>,
+) -> axum::Router {
+    crate::finding_api::router_with_security(
+        store,
+        signal_ingest::IngestConfig {
+            api_token: Some("ordinary-test-secret".into()),
+            ..Default::default()
+        },
+        1000,
+        65536,
+        Duration::from_secs(10),
+        CancellationToken::new(),
+        crate::finding_api::Security {
+            identity: None,
+            audit: Some(control),
+        },
+    )
+}
+async fn finding_shutdown(store: Arc<signal_findings::FindingStore>) -> Result {
+    store
+        .shutdown(signal_findings::FindingContext::new(Duration::from_secs(
+            10,
+        )))
+        .await?;
+    Ok(())
+}
+#[tokio::test]
+async fn findings_list_feed_denials_and_invalid_cursors_emit_exact_control_pairs() -> Result {
+    let _serial = SERIAL.lock().await;
+    let spool = root()?;
+    let archive = root()?;
+    let data = root()?;
+    let sink = destination(archive.path(), 0);
+    let control = Control::open(spool.path(), sink.clone(), read_operations(), context()?).await?;
+    let store = findings_store(data.path()).await?;
+    let routes = findings_router(store.clone(), control.clone());
+    for (uri, token, expected, operation, completion) in [
+        (
+            "/v1/findings",
+            true,
+            StatusCode::OK,
+            Operation::ReadFindings,
+            Completion::Success,
+        ),
+        (
+            "/v1/findings/feed?after=begin",
+            true,
+            StatusCode::OK,
+            Operation::ReadFindingsFeed,
+            Completion::Success,
+        ),
+        (
+            "/v1/findings?rule_id=synthetic-private-filter",
+            false,
+            StatusCode::UNAUTHORIZED,
+            Operation::ReadFindings,
+            Completion::Denied,
+        ),
+        (
+            "/v1/findings/feed?after=synthetic-private-cursor",
+            false,
+            StatusCode::UNAUTHORIZED,
+            Operation::ReadFindingsFeed,
+            Completion::Denied,
+        ),
+        (
+            "/v1/findings/feed?after=synthetic-private-cursor",
+            true,
+            StatusCode::BAD_REQUEST,
+            Operation::ReadFindingsFeed,
+            Completion::Failed,
+        ),
+    ] {
+        let response = routes.clone().oneshot(request(uri, token)?).await?;
+        assert_eq!(response.status(), expected);
+        assert_eq!(
+            response
+                .headers()
+                .get("cache-control")
+                .and_then(|v| v.to_str().ok()),
+            Some("no-store")
+        );
+        let body = axum::body::to_bytes(response.into_body(), 65536).await?;
+        if expected == StatusCode::OK {
+            assert!(String::from_utf8_lossy(&body).contains("synthetic-sensitive-finding"));
+        }
+        let sequence = sink.calls.load(Ordering::SeqCst);
+        let first = PreparedAudit::from_original(&fs::read(
+            archive.path().join((sequence - 1).to_string()),
+        )?)?;
+        let last =
+            PreparedAudit::from_original(&fs::read(archive.path().join(sequence.to_string()))?)?;
+        let Action::AccessDecision {
+            operation: actual,
+            operation_id,
+            decision,
+        } = first.record().action
+        else {
+            return Err("expected decision".into());
+        };
+        assert_eq!(actual, operation);
+        assert!(
+            last.record().action
+                == Action::OperationCompletion {
+                    operation,
+                    operation_id,
+                    completion
+                }
+        );
+        assert!(
+            decision
+                == if completion == Completion::Denied {
+                    Decision::Denied
+                } else {
+                    Decision::Granted
+                }
+        );
+        for prepared in [first, last] {
+            let raw = String::from_utf8_lossy(prepared.body());
+            for secret in [
+                "ordinary-test-secret",
+                "synthetic-sensitive-finding",
+                "synthetic-private-filter",
+                "synthetic-private-cursor",
+            ] {
+                assert!(!raw.contains(secret));
+            }
+        }
+    }
+    assert_eq!(sink.calls.load(Ordering::SeqCst), 10);
+    assert!(!control.metrics().held);
+    drop(routes);
+    drop(control);
+    finding_shutdown(store).await
+}
+#[tokio::test]
+async fn findings_lost_decision_or_completion_withholds_data_and_replays_exact_bytes() -> Result {
+    let _serial = SERIAL.lock().await;
+    for uri in ["/v1/findings", "/v1/findings/feed?after=begin"] {
+        for lose_on in [1, 2] {
+            let spool = root()?;
+            let archive = root()?;
+            let data = root()?;
+            let sink = destination(archive.path(), lose_on);
+            let control =
+                Control::open(spool.path(), sink.clone(), read_operations(), context()?).await?;
+            let store = findings_store(data.path()).await?;
+            let routes = findings_router(store.clone(), control.clone());
+            let response = routes.clone().oneshot(request(uri, true)?).await?;
+            assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+            assert_eq!(
+                response
+                    .headers()
+                    .get("cache-control")
+                    .and_then(|v| v.to_str().ok()),
+                Some("no-store")
+            );
+            let body = axum::body::to_bytes(response.into_body(), 65536).await?;
+            let value: serde_json::Value = serde_json::from_slice(&body)?;
+            assert_eq!(value["error"]["code"], "audit_unavailable");
+            assert!(value.get("findings").is_none() && value.get("next_cursor").is_none());
+            assert!(!String::from_utf8_lossy(&body).contains("synthetic-sensitive-finding"));
+            assert!(control.metrics().held);
+            let original = fs::read(spool.path().join("pending"))?;
+            assert_eq!(
+                original,
+                fs::read(archive.path().join(lose_on.to_string()))?
+            );
+            let old = PreparedAudit::from_original(&original)?;
+            let old_operation = match old.record().action {
+                Action::AccessDecision { operation_id, .. }
+                | Action::OperationCompletion { operation_id, .. } => operation_id,
+                _ => return Err("expected read action".into()),
+            };
+            drop(routes);
+            drop(control);
+            let reopened =
+                Control::open(spool.path(), sink.clone(), read_operations(), context()?).await?;
+            assert!(!reopened.metrics().held);
+            assert_eq!(
+                fs::read(archive.path().join(lose_on.to_string()))?,
+                original
+            );
+            let response = findings_router(store.clone(), reopened.clone())
+                .oneshot(request(uri, true)?)
+                .await?;
+            assert_eq!(response.status(), StatusCode::OK);
+            let fresh = PreparedAudit::from_original(&fs::read(
+                archive.path().join((lose_on + 1).to_string()),
+            )?)?;
+            let Action::AccessDecision { operation_id, .. } = fresh.record().action else {
+                return Err("expected new decision".into());
+            };
+            assert_ne!(operation_id, old_operation);
+            assert_eq!(sink.calls.load(Ordering::SeqCst), lose_on + 3);
+            drop(reopened);
+            finding_shutdown(store).await?;
+        }
+    }
+    Ok(())
+}
+#[tokio::test]
+async fn selected_reads_share_one_session_without_queueing_or_cross_operation_completion() -> Result
+{
+    let _serial = SERIAL.lock().await;
+    let spool = root()?;
+    let archive = root()?;
+    let data = root()?;
+    let sink = destination(archive.path(), 0);
+    let control = Control::open(spool.path(), sink.clone(), read_operations(), context()?).await?;
+    let store = findings_store(data.path()).await?;
+    let routes = findings_router(store.clone(), control.clone());
+    let ctx = context()?;
+    let session = control
+        .begin(
+            Actor::Anonymous {},
+            Decision::Granted,
+            Operation::QueryEvents,
+            ctx.deadline(),
+            ctx.cancellation().clone(),
+        )
+        .await?;
+    for uri in ["/v1/findings", "/v1/findings/feed?after=begin"] {
+        let response = routes.clone().oneshot(request(uri, true)?).await?;
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+    assert_eq!(sink.calls.load(Ordering::SeqCst), 1);
+    assert_eq!(control.metrics().rejected, 2);
+    assert_eq!(control.metrics().capacity, 1);
+    assert!(!control.metrics().held);
+    session.finish(Completion::Success).await?;
+    assert_eq!(
+        routes
+            .clone()
+            .oneshot(request("/v1/findings", true)?)
+            .await?
+            .status(),
+        StatusCode::OK
+    );
+    let last = PreparedAudit::from_original(&fs::read(archive.path().join("4"))?)?;
+    assert!(matches!(
+        last.record().action,
+        Action::OperationCompletion {
+            operation: Operation::ReadFindings,
+            completion: Completion::Success,
+            ..
+        }
+    ));
+    drop(routes);
+    drop(control);
+    finding_shutdown(store).await
+}
+#[tokio::test]
+async fn explicit_read_selection_does_not_silently_enable_other_paths() -> Result {
+    let _serial = SERIAL.lock().await;
+    let spool = root()?;
+    let archive = root()?;
+    let data = root()?;
+    let query_data = root()?;
+    let sink = destination(archive.path(), 0);
+    let control = Control::open(
+        spool.path(),
+        sink.clone(),
+        vec![Operation::ReadFindings],
+        context()?,
+    )
+    .await?;
+    let store = findings_store(data.path()).await?;
+    let routes = findings_router(store.clone(), control.clone());
+    let (query_store, query_engine) = engine(query_data.path()).await?;
+    assert_eq!(
+        router(query_engine.clone(), control.clone())
+            .oneshot(request("/v1/events", true)?)
+            .await?
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        routes
+            .clone()
+            .oneshot(request("/v1/findings/feed?after=begin", true)?)
+            .await?
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(sink.calls.load(Ordering::SeqCst), 0);
+    let ctx = context()?;
+    assert!(
+        control
+            .begin(
+                Actor::Anonymous {},
+                Decision::Granted,
+                Operation::ReadFindingsFeed,
+                ctx.deadline(),
+                ctx.cancellation().clone()
+            )
+            .await
+            .is_err()
+    );
+    let session = control
+        .begin(
+            Actor::Anonymous {},
+            Decision::Granted,
+            Operation::ReadFindings,
+            ctx.deadline(),
+            ctx.cancellation().clone(),
+        )
+        .await?;
+    drop(session);
+    assert!(control.metrics().held);
+    assert_eq!(
+        routes
+            .clone()
+            .oneshot(request("/v1/findings", true)?)
+            .await?
+            .status(),
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    assert_eq!(
+        routes
+            .clone()
+            .oneshot(request("/v1/findings/feed?after=begin", true)?)
+            .await?
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(sink.calls.load(Ordering::SeqCst), 1);
+    drop(routes);
+    drop(control);
+    finding_shutdown(store).await?;
+    stopped(query_store, query_engine).await
 }

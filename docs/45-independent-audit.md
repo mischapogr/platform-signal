@@ -199,3 +199,25 @@ durability/encryption remain separate. Other access paths, configuration/rules
 activation, independent production health and secrets/encryption seams are still
 unfinished. The profile deliberately rejects unimplemented operation scopes;
 parent SECURITY-AUDIT remains in_progress.
+
+## Selected findings hook acceptance
+
+The optional profile now accepts a nonempty unique subset of `query_events`,
+`read_findings` and `read_findings_feed` only. Every selected path shares the same
+one-session/outbox capacity and exact decision/completion contract. The findings
+router preserves scoped list authorization, global-only immutable feed access,
+strict cursor handling, original request clocks and final grant checks. A durable
+completion describes prepared operation results, never proof of client delivery.
+Only explicit unselected paths skip control recording; startup rejects unsupported,
+empty and duplicate selections. Ingest/coverage/config/rule hooks are still absent.
+
+Five new regressions and settled strict763/814 tests, both Clippy/fmt/workspace13,
+source reviews and59 actual AMD64/mTLS/fsynced-peer checks pass. Lost ACKs for
+both endpoints withhold finding/cursor disclosure, hold all selected paths and
+readiness, and replay original bytes after stopped restart without reusing operation
+identity. Thirty-five receipts and11 ordinary logs retain privacy checks. Two
+inherited fixture synchronization corrections preserve production behavior and
+retain failed campaigns; the idle failure cause remains unestablished. This is
+bootstrap/synthetic finite proof; enabled native IdP/audit composition and the
+production receiver/health/encryption remain unqualified. Parent stays in_progress.
+See `target/goal-execution-20261007/SECURITY-AUDIT/findings-hooks-acceptance.json`.

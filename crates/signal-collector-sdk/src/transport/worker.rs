@@ -224,13 +224,16 @@ mod tests {
     async fn physical_ready_reply_is_denied_when_caller_resumes_after_deadline() {
         static OWNER: Worker = Worker::new();
         let (began, started) = oneshot::channel();
-        let deadline = Instant::now() + Duration::from_millis(500);
+        let (release, wait) = sync_channel(1);
+        let deadline = Instant::now() + Duration::from_secs(2);
         let future = OWNER.run(
             "synthetic-ready-reply",
             deadline,
             CancellationToken::new(),
             move || {
                 began.send(()).unwrap();
+                // Retain the reply until the outer select observes worker start.
+                wait.recv_timeout(Duration::from_secs(3)).unwrap();
                 Ok(7)
             },
         );
@@ -239,6 +242,7 @@ mod tests {
             result = started => result.unwrap(),
             result = &mut future => panic!("caller consumed reply early: {result:?}"),
         }
+        release.send(()).unwrap();
         while OWNER
             .handle
             .lock()

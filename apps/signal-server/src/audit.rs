@@ -1,4 +1,4 @@
-//! Optional query-only control auditing. Confirmation never grants API authority.
+//! Optional explicitly selected read control auditing. Confirmation never grants API authority.
 use crate::config::{self, ConfigError, Settings};
 use chrono::Utc;
 use serde::Deserialize;
@@ -38,7 +38,7 @@ struct Wire {
 }
 impl Wire {
     fn parse(text: &str) -> Result<Self, ConfigError> {
-        let invalid = || ConfigError::Invalid("bounded query audit configuration");
+        let invalid = || ConfigError::Invalid("bounded read audit configuration");
         if text.is_empty()
             || text.len() > 65_536
             || text.bytes().find(|b| !b.is_ascii_whitespace()) != Some(b'{')
@@ -47,7 +47,7 @@ impl Wire {
         }
         let wire: Self = serde_json::from_str(text).map_err(|_| invalid())?;
         if wire.schema_version != 1
-            || wire.operations != [Operation::QueryEvents]
+            || !valid_operations(&wire.operations)
             || wire.endpoint.is_empty()
             || wire.endpoint.len() > 2048
             || !(1..=30_000).contains(&wire.connect_timeout_ms)
@@ -60,11 +60,48 @@ impl Wire {
         Ok(wire)
     }
 }
+fn valid_operations(operations: &[Operation]) -> bool {
+    !operations.is_empty()
+        && operations.len() <= 3
+        && operations.iter().enumerate().all(|(index, operation)| {
+            matches!(
+                operation,
+                Operation::QueryEvents | Operation::ReadFindings | Operation::ReadFindingsFeed
+            ) && !operations[..index].contains(operation)
+        })
+}
+
+pub fn actor(grant: Option<&signal_protocol::access::RequestGrant>, bootstrap: bool) -> Actor {
+    match grant {
+        Some(grant) => crate::access::now()
+            .and_then(|now| grant.audit_subject_key(now))
+            .map_or(Actor::Unattributed {}, |key| Actor::VerifiedSubject { key }),
+        None if bootstrap => Actor::Bootstrap {},
+        None => Actor::Anonymous {},
+    }
+}
+
+pub fn completion(status: axum::http::StatusCode, decision: Decision) -> Completion {
+    if status.is_success() {
+        Completion::Success
+    } else if decision == Decision::Denied || status == axum::http::StatusCode::FORBIDDEN {
+        Completion::Denied
+    } else if matches!(
+        status,
+        axum::http::StatusCode::REQUEST_TIMEOUT | axum::http::StatusCode::SERVICE_UNAVAILABLE
+    ) {
+        Completion::Uncertain
+    } else {
+        Completion::Failed
+    }
+}
+
 #[derive(Clone, Copy, Debug, thiserror::Error)]
 #[error("restricted audit is unavailable")]
 pub struct Unavailable;
 
 pub struct Control {
+    operations: Vec<Operation>,
     outbox: AuditOutbox,
     destination: Arc<dyn AuditSink>,
     slots: Arc<Semaphore>,
@@ -104,7 +141,7 @@ impl Control {
         .await?;
         let context = ExtensionContext::from_deadline(cancellation, deadline)
             .map_err(|_| ConfigError::Timeout)?;
-        Self::open(&root, Arc::new(destination), context)
+        Self::open(&root, Arc::new(destination), wire.operations, context)
             .await
             .map(Some)
             .map_err(|_| ConfigError::Invalid("audit outbox or recovery unavailable"))
@@ -112,8 +149,12 @@ impl Control {
     async fn open(
         root: &Path,
         destination: Arc<dyn AuditSink>,
+        operations: Vec<Operation>,
         context: ExtensionContext,
     ) -> Result<Arc<Self>, Unavailable> {
+        if !valid_operations(&operations) {
+            return Err(Unavailable);
+        }
         let outbox = AuditOutbox::open(root, context.clone())
             .await
             .map_err(|_| Unavailable)?;
@@ -124,12 +165,16 @@ impl Control {
             .await
             .map_err(|_| Unavailable)?;
         Ok(Arc::new(Self {
+            operations,
             outbox,
             destination,
             slots: Arc::new(Semaphore::new(1)),
             rejected: AtomicU64::new(0),
             incomplete: AtomicU64::new(0),
         }))
+    }
+    pub fn selected(&self, operation: Operation) -> bool {
+        self.operations.contains(&operation)
     }
     pub fn metrics(&self) -> AuditControlMetrics {
         let disk = self.outbox.metrics();
@@ -157,13 +202,14 @@ impl Control {
         self: &Arc<Self>,
         mut actor: Actor,
         decision: Decision,
+        operation: Operation,
         deadline: Instant,
         cancellation: CancellationToken,
     ) -> Result<Session, Unavailable> {
         let context =
             ExtensionContext::from_deadline(cancellation, deadline).map_err(|_| Unavailable)?;
         context.check().map_err(|_| Unavailable)?;
-        if self.metrics().held {
+        if !self.selected(operation) || self.metrics().held {
             self.rejected.fetch_add(1, Ordering::Relaxed);
             return Err(Unavailable);
         }
@@ -179,13 +225,14 @@ impl Control {
             _permit: permit,
             actor,
             decision,
+            operation,
             operation_id: Uuid::new_v4(),
             context,
             completed: false,
         };
         session
             .publish(Action::AccessDecision {
-                operation: Operation::QueryEvents,
+                operation,
                 operation_id: session.operation_id,
                 decision,
             })
@@ -199,6 +246,7 @@ pub struct Session {
     _permit: OwnedSemaphorePermit,
     actor: Actor,
     decision: Decision,
+    operation: Operation,
     operation_id: Uuid,
     context: ExtensionContext,
     completed: bool,
@@ -230,7 +278,7 @@ impl Session {
             return Err(Unavailable);
         }
         self.publish(Action::OperationCompletion {
-            operation: Operation::QueryEvents,
+            operation: self.operation,
             operation_id: self.operation_id,
             completion,
         })
