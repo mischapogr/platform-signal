@@ -5,6 +5,44 @@
 
 
 
+## Native CI status — 2026-10-09
+
+Run37892977827 on3b172b70 passes both complete native Rust jobs, both production
+image builds and basic container runtime/persistence. Both native parser/pipeline/
+finite-soak steps fail; kind/supply-chain/candidate stages are skipped. Public
+annotations expose only exit1, and anonymous detailed logs return403. The exact
+failure cause is unconfirmed. One current-debug AMD64 quick profile passes488
+admissions/durable events and20 queries; it cannot qualify either remote image.
+Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
+07:08UTC. Complete reviewed-revision EXT-CI/EXT-ARM64 remain external_pending.
+Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
+`soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
+
+## Native findings access audit — 2026-10-09
+
+Explicit selected-read auditing now supports only `query_events`, `read_findings`
+and `read_findings_feed`, as a nonempty unique subset. They share one bounded
+session/outbox. Findings list/feed confirm a durable decision before journal work
+and matching completion before disclosure, preserving one authentication, scoped
+list filtering, global-only feed authority and original deadlines/grant leases.
+Unselected operations remain explicitly unselected. All responses are no-store.
+
+Five additional regressions, strict763 default/814 all-feature tests (zero failures),
+both Clippy/fmt/workspace13 and focused source reviews pass. The actual AMD64
+monolith/independent mTLS peer passes59 checks with35 fsynced receipts and11 clean
+ordinary logs: real rule-generated findings, denials/invalid input, lost decision
+and completion ACKs for each endpoint, shared failure/readiness, exact restart
+replay/new IDs, wrong ACK and explicit selection. No source/binary drift or cleanup
+errors. Sandbox and failed campaigns remain retained. Two existing test fixtures
+now synchronize startup/worker release; agent/worker production behavior is unchanged.
+The idle failure cause is unestablished; the worker early-reply race was reproduced.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/findings-hooks-acceptance.json`,
+`findings-hooks-validation-settled/validation.json`, the three focused review reports
+and `findings-hooks-native-independent/report.json`. This is finite synthetic
+bootstrap/local proof. Native IdP/audit composition, other hooks, production
+receiver/independent health and secrets/encryption remain open; parent in_progress.
+
 ## SECURITY-AUDIT native query hook — 2026-10-09
 
 Optional explicit query-only auditing now confirms a durable access decision

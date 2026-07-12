@@ -685,7 +685,7 @@
         "docs/04-implementation-plan.md",
         "docs/45-independent-audit.md"
       ],
-      "notes": "Protocol/client/outbox mechanisms accepted locally; query-only native hook passed_simulated with six regressions, strict758/809 and27 actual process/mTLS/fsynced-peer checks. Other hooks, enabled IdP auditing, production receiver/independent health and secrets/encryption remain.",
+      "notes": "Protocol/client/outbox and selected query/findings/feed native hooks accepted in finite local scope. Findings strict763/814 and59 actual process checks pass. Other hooks, native IdP/audit composition, production receiver/independent health and secrets/encryption remain.",
       "substeps": [
         {
           "id": "bounded-record-ack-protocol",
@@ -711,6 +711,10 @@
           "query_hooks_status": "passed_simulated",
           "query_hooks_evidence": [
             "target/goal-execution-20261007/SECURITY-AUDIT/query-hooks-acceptance.json"
+          ],
+          "findings_hooks_status": "passed_simulated",
+          "findings_hooks_evidence": [
+            "target/goal-execution-20261007/SECURITY-AUDIT/findings-hooks-acceptance.json"
           ]
         },
         {
@@ -1269,13 +1273,16 @@
         "docs/21-release-readiness.md",
         "docs/40-oss-ci-and-cloud-qualification.md",
         "target/goal-execution-20261007/GITHUB-OSS/public-audit.json",
-        "target/goal-execution-20261007/EXT-CI/failure-diagnostics-remote-jobs-1.json"
+        "target/goal-execution-20261007/EXT-CI/failure-diagnostics-remote-jobs-1.json",
+        "target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json",
+        "target/goal-execution-20261007/EXT-CI/soak-triage-public/report.json",
+        "target/goal-execution-20261007/EXT-CI/query-hooks-remote-jobs-1.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md"
       ],
-      "notes": "2026-10-09 pushed57c1d1e public run37887706801 passes both native Rust Tests steps; ARM also passes IdP/browser and object/query simulation. Full run fails ARM legacy-candidate helper and AMD IdP/browser; container/kind skipped. Local fake-ARM reproduction identifies two legacy test host mocks; exact remote cause not inferred. Full reviewed-revision native/runtime/CI gate remains open."
+      "notes": "2026-10-09 pushed57c1d1e public run37887706801 passes both native Rust Tests steps; ARM also passes IdP/browser and object/query simulation. Full run fails ARM legacy-candidate helper and AMD IdP/browser; container/kind skipped. Local fake-ARM reproduction identifies two legacy test host mocks; exact remote cause not inferred. Full reviewed-revision native/runtime/CI gate remains open. Run37892977827 on3b172b70 passes both complete native Rust jobs and both image/basic runtime/persistence gates, but both native pipeline steps fail; kind/supply-chain/candidate skipped. Cause unconfirmed. fe5 query hook pushed; run37895779773 still in progress as of07:08UTC. No full gate closure."
     },
     {
       "id": "EXT-AWS",
@@ -1326,13 +1333,16 @@
         "target/goal-execution-20261007/EXT-CI/failure-diagnostics-remote-jobs-1.json",
         "target/goal-execution-20261007/EXT-CI/arm-fixture-acceptance.json",
         "target/goal-execution-20261007/EXT-CI/idp-stage-acceptance.json",
-        "target/goal-execution-20261007/EXT-CI/arm-fixture-remote-jobs-2.json"
+        "target/goal-execution-20261007/EXT-CI/arm-fixture-remote-jobs-2.json",
+        "target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json",
+        "target/goal-execution-20261007/EXT-CI/soak-triage-public/report.json",
+        "target/goal-execution-20261007/EXT-CI/query-hooks-remote-jobs-1.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md"
       ],
-      "notes": "2026-10-09 pushed57c1d1e public run37887706801 passes both native Rust Tests steps; ARM also passes IdP/browser and object/query simulation. Full run fails ARM legacy-candidate helper and AMD IdP/browser; container/kind skipped. Local fake-ARM reproduction identifies two legacy test host mocks; exact remote cause not inferred. Full reviewed-revision native/runtime/CI gate remains open. Locally reproduced legacy fixture issue corrected: actual AMD64/simulated aarch6425/25, production host guards unchanged; reviewed full remote qualification still open. Bounded fixed-enum reported IdP stage diagnostics qualify locally (eight diagnostic/five candidate regressions, source review); no remote root cause/gate inferred. Run37891341029 onb057e7b passes complete AMD Rust job, but ARM fails Tests and downstream container/kind is skipped; exact ARM cause remains unknown. Diagnostic3b172b7 is pushed, new run37892977827 still in progress."
+      "notes": "2026-10-09 pushed57c1d1e public run37887706801 passes both native Rust Tests steps; ARM also passes IdP/browser and object/query simulation. Full run fails ARM legacy-candidate helper and AMD IdP/browser; container/kind skipped. Local fake-ARM reproduction identifies two legacy test host mocks; exact remote cause not inferred. Full reviewed-revision native/runtime/CI gate remains open. Locally reproduced legacy fixture issue corrected: actual AMD64/simulated aarch6425/25, production host guards unchanged; reviewed full remote qualification still open. Bounded fixed-enum reported IdP stage diagnostics qualify locally (eight diagnostic/five candidate regressions, source review); no remote root cause/gate inferred. Run37891341029 onb057e7b passes complete AMD Rust job, but ARM fails Tests and downstream container/kind is skipped; exact ARM cause remains unknown. Diagnostic3b172b7 is pushed, new run37892977827 still in progress. Run37892977827 on3b172b70 passes both complete native Rust jobs and both image/basic runtime/persistence gates, but both native pipeline steps fail; kind/supply-chain/candidate skipped. Cause unconfirmed. fe5 query hook pushed; run37895779773 still in progress as of07:08UTC. No full gate closure."
     },
     {
       "id": "EXT-DEPENDENCY",

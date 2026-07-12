@@ -23,6 +23,44 @@ and live-vendor checks must remain separately visible, never closed by simulatio
 
 
 
+## Native CI status — 2026-10-09
+
+Run37892977827 on3b172b70 passes both complete native Rust jobs, both production
+image builds and basic container runtime/persistence. Both native parser/pipeline/
+finite-soak steps fail; kind/supply-chain/candidate stages are skipped. Public
+annotations expose only exit1, and anonymous detailed logs return403. The exact
+failure cause is unconfirmed. One current-debug AMD64 quick profile passes488
+admissions/durable events and20 queries; it cannot qualify either remote image.
+Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
+07:08UTC. Complete reviewed-revision EXT-CI/EXT-ARM64 remain external_pending.
+Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
+`soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
+
+## Native findings access audit — 2026-10-09
+
+Explicit selected-read auditing now supports only `query_events`, `read_findings`
+and `read_findings_feed`, as a nonempty unique subset. They share one bounded
+session/outbox. Findings list/feed confirm a durable decision before journal work
+and matching completion before disclosure, preserving one authentication, scoped
+list filtering, global-only feed authority and original deadlines/grant leases.
+Unselected operations remain explicitly unselected. All responses are no-store.
+
+Five additional regressions, strict763 default/814 all-feature tests (zero failures),
+both Clippy/fmt/workspace13 and focused source reviews pass. The actual AMD64
+monolith/independent mTLS peer passes59 checks with35 fsynced receipts and11 clean
+ordinary logs: real rule-generated findings, denials/invalid input, lost decision
+and completion ACKs for each endpoint, shared failure/readiness, exact restart
+replay/new IDs, wrong ACK and explicit selection. No source/binary drift or cleanup
+errors. Sandbox and failed campaigns remain retained. Two existing test fixtures
+now synchronize startup/worker release; agent/worker production behavior is unchanged.
+The idle failure cause is unestablished; the worker early-reply race was reproduced.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/findings-hooks-acceptance.json`,
+`findings-hooks-validation-settled/validation.json`, the three focused review reports
+and `findings-hooks-native-independent/report.json`. This is finite synthetic
+bootstrap/local proof. Native IdP/audit composition, other hooks, production
+receiver/independent health and secrets/encryption remain open; parent in_progress.
+
 ## SECURITY-AUDIT native query hook — 2026-10-09
 
 Optional explicit query-only auditing now confirms a durable access decision
@@ -1151,10 +1189,10 @@ recorded inputs/artifacts but are unsigned local evidence.
 
 | Gate | Current boundary | Completion evidence needed |
 | --- | --- | --- |
-| Native ARM64 build/runtime/container/Kubernetes and measured hardening benchmarks | Native GitHub ARM64 runners are now available and execute the public workflow; full architecture-specific runtime qualification remains open. The current AMD64 image passed container, Helm, supply-chain, parser/pipeline and 120-second soak gates; its kind run is blocked before application startup. No native ARM64 execution observed | Native ARM64 runner logs and reviewed architecture-specific runtime, persistence and benchmark evidence |
+| Native ARM64 build/runtime/container/Kubernetes and measured hardening benchmarks | On3b172b70 both complete native Rust jobs, production image builds and basic container runtime/persistence pass. Both native pipeline steps fail; Kubernetes and supply-chain stages are skipped. fe5 CI remains in progress at the retained observation. | Native ARM64 runner logs and reviewed architecture-specific runtime, persistence and benchmark evidence |
 | Current local kind deployment | Three attempts timed out on the PVC; owned-cluster diagnosis records kube-proxy `too many open files` and provisioner API timeout. Prior image proof is historical | Restore host-resource preconditions and pass the current-image standard-chart persistence/restart gate |
 | EKS deployment | Deferred: no authorized EKS environment is available. The preceding kind milestone was local proof; the fresh kind gate is currently blocked by host-resource exhaustion. Neither establishes EKS or AWS storage/runtime behavior. | Actual approved cluster/namespace/storage/image/architecture evidence and persistent restart checks |
-| Remote CI | Workflow source and local checks pass; no pushed revision/job execution | Successful required native jobs and retained report artifacts for the reviewed revision |
+| Remote CI | Both native Rust jobs, image builds and basic runtime pass on3b172b70; native pipeline fails on both, kind/supply-chain skipped. Latest fe5 push CI is in progress | Successful required native jobs and retained report artifacts for the reviewed revision |
 | Released external dependency | Private application uses separate checkout/source-path dependencies | External application build/test against the actual released version and locked dependency graph |
 | Release artifacts/publication | Owner authorized local commits on `develop`; develop pushes are authorized; publication remains unapproved. No release version was selected or bumped; `main` receives changes only when release ready | Qualified release artifacts after required gates pass and the owner-directed release workflow; ARM64, EKS, remote CI and released dependencies remain external gates |
 
@@ -1168,7 +1206,9 @@ not legal approval. The first image's failed 65 HIGH/four CRITICAL report descri
 the previous image and is retained separately; it must not be mixed into final
 image qualification.
 
-Authentication is an optional static token. Keep it configured before exposing
+Historical MVP baseline below predates the locally accepted native OIDC/RBAC, mTLS and selected audit hooks above; it is not a statement of current capability.
+
+Authentication was an optional static token. Keep it configured before exposing
 admission outside trusted clients. There is no MVP OIDC/RBAC, per-tenant isolation,
 TLS termination or arbitrary-extension sandbox. Extensions are trusted,
 cooperative in-process code. Network exposure, certificate handling, credentials

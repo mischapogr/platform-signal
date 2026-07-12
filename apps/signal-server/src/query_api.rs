@@ -70,19 +70,13 @@ async fn events(
         cancellation.clone(),
     )
     .await;
-    use signal_protocol::audit::{Actor, Completion, Decision};
+    use signal_protocol::audit::{Actor, Decision};
     let (grant, early_response, actor, decision) = match authentication {
         Ok(grant) => {
             let denied = grant.as_ref().is_some_and(|g| {
                 !crate::access::capable(g, signal_protocol::access::Operation::QueryEvents)
             });
-            let actor = match &grant {
-                Some(grant) => crate::access::now()
-                    .and_then(|now| grant.audit_subject_key(now))
-                    .map_or(Actor::Unattributed {}, |key| Actor::VerifiedSubject { key }),
-                None if state.auth.api_token.is_some() => Actor::Bootstrap {},
-                None => Actor::Anonymous {},
-            };
+            let actor = crate::audit::actor(grant.as_ref(), state.auth.api_token.is_some());
             let response = denied.then(|| {
                 error(
                     StatusCode::FORBIDDEN,
@@ -113,9 +107,19 @@ async fn events(
             (None, Some(response), Actor::Unattributed {}, decision)
         }
     };
-    let session = if let Some(audit) = &state.audit {
+    let session = if let Some(audit) = state
+        .audit
+        .as_ref()
+        .filter(|audit| audit.selected(signal_protocol::access::Operation::QueryEvents))
+    {
         match audit
-            .begin(actor, decision, deadline, cancellation.clone())
+            .begin(
+                actor,
+                decision,
+                signal_protocol::access::Operation::QueryEvents,
+                deadline,
+                cancellation.clone(),
+            )
             .await
         {
             Ok(session) => Some(session),
@@ -135,18 +139,7 @@ async fn events(
         None => execute(&state, raw, grant.as_ref(), deadline, cancellation.clone()).await,
     };
     if let Some(session) = session {
-        let completion = if response.status().is_success() {
-            Completion::Success
-        } else if decision == Decision::Denied || response.status() == StatusCode::FORBIDDEN {
-            Completion::Denied
-        } else if matches!(
-            response.status(),
-            StatusCode::REQUEST_TIMEOUT | StatusCode::SERVICE_UNAVAILABLE
-        ) {
-            Completion::Uncertain
-        } else {
-            Completion::Failed
-        };
+        let completion = crate::audit::completion(response.status(), decision);
         if session.finish(completion).await.is_err() {
             return error(
                 StatusCode::SERVICE_UNAVAILABLE,
