@@ -83,7 +83,34 @@ def rust_targets():
                     name = entry.get('name', '')
                     if isinstance(name, str) and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_-]{0,127}', name):
                         targets.add((package, kind, name))
-    except (OSError, ValueError, TypeError, AttributeError):
+            # Cargo also discovers integration targets without [[test]] rows.
+            # Their source filenames are public inventory, never child output.
+            if manifest.get('package', {}).get('autotests', True):
+                directory = path.parent / 'tests'
+                if not directory.resolve().is_relative_to(ROOT.resolve()):
+                    return set()
+                if directory.is_dir():
+                    with os.scandir(directory) as entries:
+                        for count, entry in enumerate(entries):
+                            if count >= 128:
+                                return set()
+                            source = Path(entry.path)
+                            if not source.resolve().is_relative_to(ROOT.resolve()):
+                                return set()
+                            if source.is_file() and source.suffix == '.rs':
+                                name = source.stem
+                            elif source.is_dir():
+                                main = source / 'main.rs'
+                                if not main.resolve().is_relative_to(ROOT.resolve()):
+                                    return set()
+                                if not main.is_file():
+                                    continue
+                                name = source.name
+                            else:
+                                continue
+                            if re.fullmatch(r'[A-Za-z_][A-Za-z0-9_-]{0,127}', name):
+                                targets.add((package, 'test', name))
+    except (OSError, RuntimeError, ValueError, TypeError, AttributeError):
         return set()
     return targets
 
