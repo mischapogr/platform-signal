@@ -400,16 +400,19 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             query_timeout,
             query_cancel.clone(),
             identity.clone(),
-            query_audit,
+            query_audit.clone(),
         ))
-        .merge(finding_api::router_with_identity(
+        .merge(finding_api::router_with_security(
             findings.clone(),
             query_auth,
             finding_limit,
             finding_bytes,
             finding_timeout,
             query_cancel.clone(),
-            identity.clone(),
+            finding_api::Security {
+                identity: identity.clone(),
+                audit: query_audit,
+            },
         ))
         .merge(ui::router());
     if let Some(coverage) = &coverage {

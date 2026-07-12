@@ -184,9 +184,18 @@ def main():
         stop(follow)
 
         # Idle piped stdin must remain cancellable while no bytes arrive.
-        idle = start_agent("idle", ["--stdin"])
-        time.sleep(0.2)
-        assert idle.poll() is None
+        idle_metrics = free_port()
+        idle = start_agent("idle", ["--stdin"], idle_metrics)
+
+        def idle_ready():
+            assert idle.poll() is None, logs[-1].read_text()
+            try:
+                # The metrics loop runs only after spool/cursor/input startup.
+                # Test idle-input cancellation, independently of startup speed.
+                return telemetry(idle_metrics).get("signal_agent_spool_events") == 0
+            except (OSError, http.client.HTTPException):
+                return False
+        wait_for(idle_ready, "idle stdin agent did not finish startup")
         stop(idle)
 
         # Crash with the server offline after durable admission, then restart both.

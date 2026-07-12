@@ -18,6 +18,15 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current native findings audit slice — 2026-10-09
+
+Selected query/findings/feed hooks share one bounded outbox/session. Findings
+slice passed_simulated: five new regressions, strict763/814, focused reviews and
+59 actual AMD64/mTLS/fsynced-peer checks. Parent SECURITY-AUDIT remains in_progress
+for coverage/ingest/runtime activation hooks, receiver/health and secrets/encryption.
+Native IdP composition and full current-revision CI/release qualification stay open.
+See [audit](45-independent-audit.md) and `findings-hooks-acceptance.json`.
+
 ## Current native audit query slice — 2026-10-09
 
 Query-only hook passed_simulated: six focused regressions, strict758/809 checks,
