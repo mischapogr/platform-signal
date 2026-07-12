@@ -109,6 +109,15 @@ Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
 Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
 `soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
 
+## Current independent receiver host — 2026-10-09
+
+Explicit isolated role and initializer passed_local with seven actual HTTP/store
+regressions,814/865strict tests and review. Finite fixed authenticated producer
+membership, distinct health credential/TLS roots, bounded original clocks/body,
+no-store exact ACK and no-disk aggregate health retain existing monolith boundary.
+Actual independent native/health-owner/permission/IdP/secrets/encryption acceptance
+remains within SECURITY-AUDIT;52 unchanged. See [audit contract](45-independent-audit.md).
+
 ## Current independent HTTP transport — 2026-10-09
 
 Generic engine passed_local: four new lease/lifetime/abort/pipeline regressions,

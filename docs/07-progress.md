@@ -7,6 +7,15 @@
 
 ## Native CI status — 2026-10-09
 
+Develop3d23787 CI run37935195529 completed with failure as observed13:33UTC.
+The complete AMD64 Rust job passes; ARM64 fails its Rust Tests step after successful
+formatting/Clippy/build. Downstream native/container/Kubernetes jobs are skipped.
+Public step metadata provides no failing target/cause. Evidence:
+`target/goal-execution-20261007/EXT-CI/receiver-transport-remote-jobs-1.json`.
+This does not supersede the older9306ce7 native pipeline diagnosis with a cause;
+each observation remains bound to its own source. No complete current CI/release
+qualification is claimed.
+
 Develop9306ce7 CI run37914398756 completed with failure as observed13:08UTC.
 Both complete native AMD64 and ARM64 Rust jobs pass, including local IdP/browser,
 object/query simulations and helper checks. Both production image builds and
@@ -78,6 +87,44 @@ Evidence: `target/goal-execution-20261007/EXT-CI/native-stage-acceptance.json`,
 This is locally accepted tooling, not the cause of earlier remote failures or a
 closed native/container/Kubernetes/supply-chain/release gate. Continue existing
 SECURITY-AUDIT hooks and source-bound remote CI evidence without scope expansion.
+
+## Independent audit receiver host — 2026-10-09
+
+An explicit `signal-server --audit-receiver --config PATH` role dispatches before
+ordinary Settings/ingest/query/rules/WAL startup. Initialization is separately
+explicit; startup opens existing history only. Two mandatory-mTLS listeners use
+non-overlapping configured peer-root documents and distinct captured credentials.
+Append authenticates a finite fixed credential-to-producer enrollment; neither
+body identity nor client root membership selects a namespace. Health credentials
+cannot append, and append credentials cannot access health. No read/admin/reset,
+ordinaryAPI/ready/metrics or plaintext-fallback routes exist.
+
+Append acquires its one HTTP operation before body retention, preserves the
+accepted connection clock, rejects oversized actualEOF and trailers, and emits
+200 only with the journal's byte-exact synced ACK. The operation lease lasts
+through actual socket exit, independently of the retained physical disk worker.
+Health uses separate bounded admission and reads aggregate atomics without disk
+or its mutex; held history is503, busy/full counters remain explicit. All handled
+responses are bounded and no-store. Shared stop callbacks close both admissions
+before cancellation and finite owned socket drain; syscall completion is not
+inferred from caller timeout.
+
+Seven compound local regressions, strict814/default and865/all-feature tests,
+both Clippy/fmt/workspace13 and renewed source review pass. A strict-profile array
+acceptance defect reproduced red and was corrected without weakening duplicate
+rejection; all negatives use otherwise-valid unique credentials. Evidence:
+`target/goal-execution-20261007/SECURITY-AUDIT/receiver-host-acceptance.json` and
+`receiver-host-shape-red/receiver-host-shape-red.json`. Logical fixtures use explicit plaintext test transport; the actual role requires
+mTLS. A separate immutable default LinuxAMD64 debug binary passed55 actual local
+process checks with distinct synthetic append/health CAs: exact interleaved ACKs,
+original journal bytes/restart retries, certificate/credential/role/header denial
+without effects, noTLS/root-overlap/reinitialization/corrupt-history refusal,
+bounded aggregate health and seven privacy-clean ordinary logs. Guards/cleanup
+passed; a case-sensitive fixture header lookup failed first and was corrected,
+with its original report retained. Evidence: `receiver-host-native/report.json`.
+This proves sameUID synthetic membership/outage mechanics; separateUID compromise
+restriction, external health ownership/monolith/IdP composition, encryption and
+cloud/nativeARM/current-image/release qualification remain separate. SECURITY-AUDIT remains in_progress; frozen52 unchanged.
 
 ## Independent audit HTTP transport — 2026-10-09
 

@@ -409,3 +409,83 @@ workspace13 and independent source review pass. Evidence:
 This is transport acceptance; authenticated receiver routes, independent health,
 permission isolation and native composition remain next. SECURITY-AUDIT remains
 in_progress and the frozen52 statuses are unchanged.
+
+## Independent receiver role configuration
+
+Use `signal-server --initialize-audit-receiver --config PATH` once against an
+existing empty current-UID0700 directory. `--audit-receiver --config PATH` only
+opens existing private history. Initialization is never reachable over HTTP and
+never replaces existing/corrupt history. Store files are regular single-link0600;
+Linux descriptor checks and exclusive lock persist through physical disk work.
+
+The role's private JSON is schema_version1 and permits these named fields only:
+`directory`, `append`, `health`, `producers`, `health_credential_env`, `max_bytes`,
+`max_records`, `request_timeout_ms`, `header_timeout_ms`,
+`connection_timeout_ms`, `shutdown_timeout_ms`. Root/listeners/producers are JSON
+objects, never positional arrays. Listener objects each contain `listen`
+(numeric SocketAddr with nonzero port), absolute `tls_config`, and
+`max_connections` (append1–64,health1–16). The1–32 enrollment objects contain
+`producer_id` (unique nonnilUUID) and `credential_env` (unique explicit env name).
+Health has a separate env name and value. Credentials are captured once, nonempty
+ASCII-graphic, at most512bytes; ordinary `SIGNAL_API_TOKEN` binding/fallback is
+forbidden. Private policy/enrollments and TLS files belong outside OSS core.
+
+Store limits:4168bytes–64MiB and1–16,384records. Request/header/shutdown clocks
+are1–30,000ms, connection lifetime1–60,000ms. Preparation has one15-second
+original budget. Each TLS path loads the strict private material described in
+[transport security](44-transport-security.md), requires verified client TLS and
+shares no byte-identical configured peer root with the other listener. This
+checks configured local root membership, not the independence of organizational
+PKI or a compromised observability principal. Absolute paths alone do not prove
+that the config/TLS credentials are restricted from that principal.
+
+Append listener: only `POST /v1/audit/records`, no query, one Authorization and one
+`Content-Type: application/json`; actualEOF cap4096, no trailers or ambiguous
+framing.200 returns exact version1ACK<=1024 only after receiver sync/readback;
+403denied,400invalid,409conflict,507capacity,503busy/history/uncertain. Health:
+only `GET /v1/audit/health`, no query/body, separate credential/root. Its version1
+aggregate<=1024 reports records/bytes/capacities, physicaldepth/rejections,
+uncertain/held, appendHTTPdepth/capacity/rejections and health rejections. Held
+returns503;200 with busy or full fields is not capacity readiness. Neither200 nor
+an empty store proves source completeness or independently current restored
+history. An external owner must validate/authenticate current health under its
+own finite clock and expire unavailable observations. All handled replies use
+Cache-Control:no-store. No records can be queried or deleted via this role.
+
+## Independent receiver host acceptance
+
+An explicit `signal-server --audit-receiver --config PATH` role dispatches before
+ordinary Settings/ingest/query/rules/WAL startup. Initialization is separately
+explicit; startup opens existing history only. Two mandatory-mTLS listeners use
+non-overlapping configured peer-root documents and distinct captured credentials.
+Append authenticates a finite fixed credential-to-producer enrollment; neither
+body identity nor client root membership selects a namespace. Health credentials
+cannot append, and append credentials cannot access health. No read/admin/reset,
+ordinaryAPI/ready/metrics or plaintext-fallback routes exist.
+
+Append acquires its one HTTP operation before body retention, preserves the
+accepted connection clock, rejects oversized actualEOF and trailers, and emits
+200 only with the journal's byte-exact synced ACK. The operation lease lasts
+through actual socket exit, independently of the retained physical disk worker.
+Health uses separate bounded admission and reads aggregate atomics without disk
+or its mutex; held history is503, busy/full counters remain explicit. All handled
+responses are bounded and no-store. Shared stop callbacks close both admissions
+before cancellation and finite owned socket drain; syscall completion is not
+inferred from caller timeout.
+
+Seven compound local regressions, strict814/default and865/all-feature tests,
+both Clippy/fmt/workspace13 and renewed source review pass. A strict-profile array
+acceptance defect reproduced red and was corrected without weakening duplicate
+rejection; all negatives use otherwise-valid unique credentials. Evidence:
+`target/goal-execution-20261007/SECURITY-AUDIT/receiver-host-acceptance.json` and
+`receiver-host-shape-red/receiver-host-shape-red.json`. Logical fixtures use explicit plaintext test transport; the actual role requires
+mTLS. A separate immutable default LinuxAMD64 debug binary passed55 actual local
+process checks with distinct synthetic append/health CAs: exact interleaved ACKs,
+original journal bytes/restart retries, certificate/credential/role/header denial
+without effects, noTLS/root-overlap/reinitialization/corrupt-history refusal,
+bounded aggregate health and seven privacy-clean ordinary logs. Guards/cleanup
+passed; a case-sensitive fixture header lookup failed first and was corrected,
+with its original report retained. Evidence: `receiver-host-native/report.json`.
+This proves sameUID synthetic membership/outage mechanics; separateUID compromise
+restriction, external health ownership/monolith/IdP composition, encryption and
+cloud/nativeARM/current-image/release qualification remain separate. SECURITY-AUDIT remains in_progress; frozen52 unchanged.
