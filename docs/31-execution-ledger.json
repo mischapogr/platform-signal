@@ -685,7 +685,7 @@
         "docs/04-implementation-plan.md",
         "docs/45-independent-audit.md"
       ],
-      "notes": "Protocol/client/outbox, six native access hooks and actual startup activations accepted. SDK independent receipt journal strict803/854/11compound/fivecrash stages accepted locally after red review fixes. Actual receiver/health host and permission isolation, native IdP composition/secrets/encryption remain; parent in_progress.",
+      "notes": "Protocol/client/outbox, six native hooks, startup activations, receipt journal and generic HTTP transport accepted locally. Actual independent receiver/health host and permission isolation, native IdP composition/secrets/encryption remain; parent in_progress.",
       "substeps": [
         {
           "id": "bounded-record-ack-protocol",
@@ -735,6 +735,10 @@
           "receiver_store_status": "passed_local",
           "receiver_store_evidence": [
             "target/goal-execution-20261007/SECURITY-AUDIT/receiver-store-acceptance.json"
+          ],
+          "receiver_transport_status": "passed_local",
+          "receiver_transport_evidence": [
+            "target/goal-execution-20261007/SECURITY-AUDIT/receiver-transport-acceptance.json"
           ]
         },
         {

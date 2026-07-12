@@ -8,13 +8,142 @@ use hyper_util::{
 use std::{
     future::Future,
     io,
-    sync::{Arc, atomic::Ordering},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
     task::Poll,
     time::Duration,
 };
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::{net::TcpListener, sync::Semaphore, task::JoinSet, time::timeout};
+use tokio_util::sync::CancellationToken;
+
+/// Connection-only metrics; independent routers report no fabricated ingest/WAL
+/// admissions. Existing ingest metric names and counter semantics are preserved.
+#[derive(Default)]
+pub struct TransportMetrics {
+    pub(crate) connections: AtomicU64,
+    pub(crate) connection_capacity: AtomicU64,
+    pub(crate) connection_timeouts: AtomicU64,
+    pub(crate) connection_errors: AtomicU64,
+}
+#[derive(Clone, Copy, Debug)]
+pub struct TransportSnapshot {
+    pub connections: u64,
+    pub capacity: u64,
+    pub timeouts: u64,
+    pub errors: u64,
+}
+impl TransportMetrics {
+    pub fn snapshot(&self) -> TransportSnapshot {
+        TransportSnapshot {
+            connections: self.connections.load(Ordering::Relaxed),
+            capacity: self.connection_capacity.load(Ordering::Relaxed),
+            timeouts: self.connection_timeouts.load(Ordering::Relaxed),
+            errors: self.connection_errors.load(Ordering::Relaxed),
+        }
+    }
+}
+#[derive(Clone)]
+pub struct TransportState {
+    metrics: Arc<TransportMetrics>,
+    stopping: CancellationToken,
+    header_timeout: Duration,
+    keep_alive: bool,
+}
+impl TransportState {
+    pub fn independent(
+        stopping: CancellationToken,
+        header_timeout: Duration,
+        keep_alive: bool,
+    ) -> Result<Self, ConfigError> {
+        if header_timeout.is_zero() || header_timeout > Duration::from_secs(3600) {
+            return Err(ConfigError::Invalid(
+                "HTTP header timeout must be positive and at most one hour",
+            ));
+        }
+        Ok(Self {
+            metrics: Arc::new(TransportMetrics::default()),
+            stopping,
+            header_timeout,
+            keep_alive,
+        })
+    }
+    pub fn metrics(&self) -> Arc<TransportMetrics> {
+        self.metrics.clone()
+    }
+    fn for_service(service: &IngestService) -> Self {
+        Self {
+            metrics: service.shared.metrics.transport.clone(),
+            stopping: service.shared.stopping.clone(),
+            header_timeout: service.shared.config.request_timeout,
+            keep_alive: true,
+        }
+    }
+}
+/// Created only by the accepted connection engine. Carries lifetime/cancellation,
+/// never actor, certificate identity or request authority. A single operation
+/// lease remains owned through actual socket/response exit (or longer if the host
+/// retains this context); it is suitable for one-request independent connections.
+#[derive(Clone)]
+pub struct ConnectionContext {
+    deadline: tokio::time::Instant,
+    cancellation: CancellationToken,
+    lease: Arc<Mutex<Option<tokio::sync::OwnedSemaphorePermit>>>,
+}
+#[derive(Clone, Copy, Debug, thiserror::Error)]
+#[error("HTTP connection operation unavailable")]
+pub struct OperationUnavailable;
+struct AdmissionGuard<S: FnOnce()> {
+    stop: Option<S>,
+    cancellation: CancellationToken,
+}
+impl<S: FnOnce()> AdmissionGuard<S> {
+    fn stop(&mut self) {
+        if let Some(stop) = self.stop.take() {
+            stop();
+        }
+        self.cancellation.cancel();
+    }
+}
+impl<S: FnOnce()> Drop for AdmissionGuard<S> {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+impl ConnectionContext {
+    pub fn deadline(&self) -> tokio::time::Instant {
+        self.deadline
+    }
+    pub fn cancellation(&self) -> CancellationToken {
+        self.cancellation.clone()
+    }
+    pub fn check(&self) -> Result<(), OperationUnavailable> {
+        if self.cancellation.is_cancelled() || tokio::time::Instant::now() >= self.deadline {
+            Err(OperationUnavailable)
+        } else {
+            Ok(())
+        }
+    }
+    pub fn try_acquire_operation(
+        &self,
+        budget: Arc<Semaphore>,
+    ) -> Result<(), OperationUnavailable> {
+        self.check()?;
+        let mut lease = self.lease.lock().map_err(|_| OperationUnavailable)?;
+        if lease.is_some() {
+            return Err(OperationUnavailable);
+        }
+        *lease = Some(
+            budget
+                .try_acquire_owned()
+                .map_err(|_| OperationUnavailable)?,
+        );
+        self.check()
+    }
+}
 
 // Tokio timeout polls the operation before its timer. Guard both the physical
 // poll and the ready handoff, so scheduling delay cannot dispatch expired HTTP
@@ -136,20 +265,52 @@ pub async fn serve_router_with_tls_budget(
     tls: Option<crate::tls::ServerTls>,
     shutdown: impl Future<Output = ()> + Send,
 ) -> Result<(), ServerError> {
+    let state = TransportState::for_service(&service);
+    serve_transport_router(
+        listener,
+        state,
+        app,
+        limits,
+        permits,
+        tls,
+        (move || service.stop_admission(), shutdown),
+    )
+    .await
+}
+
+/// One bounded HTTP engine for independently hosted routers. The synchronous
+/// host-selected stop callback must stop its admission before cancellation; no
+/// EventSink or ordinary readiness service is constructed by this entry point.
+pub async fn serve_transport_router(
+    listener: TcpListener,
+    state: TransportState,
+    app: axum::Router,
+    limits: ServerLimits,
+    permits: Arc<Semaphore>,
+    tls: Option<crate::tls::ServerTls>,
+    shutdown: (impl FnOnce() + Send, impl Future<Output = ()> + Send),
+) -> Result<(), ServerError> {
+    let (stop_admission, shutdown) = shutdown;
     limits.validate()?;
-    service
-        .shared
+    state
         .metrics
         .connection_capacity
         .store(limits.max_connections as u64, Ordering::Relaxed);
+
     let mut tasks = JoinSet::new();
+    // Created after JoinSet so cancellation/drop closes host admission before
+    // aborting connection tasks. It also owns the callback on future abort.
+    let mut admission = AdmissionGuard {
+        stop: Some(stop_admission),
+        cancellation: state.stopping.clone(),
+    };
     tokio::pin!(shutdown);
     let mut accept_error = None;
     loop {
         tokio::select! {
             biased;
             _ = &mut shutdown => break,
-            _ = service.shared.stopping.cancelled() => break,
+            _ = state.stopping.cancelled() => break,
             Some(result) = tasks.join_next(), if !tasks.is_empty() => {
                 if result.is_err() { tracing::warn!("HTTP connection task failed"); }
             },
@@ -163,12 +324,14 @@ pub async fn serve_router_with_tls_budget(
                 };
                 let app = app.clone();
                 let tls = tls.clone();
-                let cancellation = service.cancellation();
-                let header_timeout = service.shared.config.request_timeout;
-                let metrics = service.shared.metrics.clone();
+                let cancellation = state.stopping.child_token();
+                let header_timeout = state.header_timeout;
+                let metrics = state.metrics.clone();
                 metrics.connections.fetch_add(1, Ordering::Relaxed);
-                let guard = ConnectionGuard(metrics.clone());
                 let started = tokio::time::Instant::now();
+                let context=ConnectionContext{deadline:started+limits.connection_timeout,cancellation:cancellation.clone(),lease:Arc::new(Mutex::new(None))};
+                let guard = ConnectionGuard{metrics:metrics.clone(),context:context.clone()};
+                let keep_alive=state.keep_alive;
                 tasks.spawn(async move {
                     let _permit = permit;
                     let _guard = guard;
@@ -201,7 +364,8 @@ pub async fn serve_router_with_tls_budget(
                         return;
                     }
                     let mut builder = http1::Builder::new();
-                    builder.timer(TokioTimer::new()).header_read_timeout(header_timeout).max_buf_size(32_768);
+                    builder.timer(TokioTimer::new()).header_read_timeout(header_timeout).max_buf_size(32_768).keep_alive(keep_alive);
+                    let app=app.layer(axum::Extension(context));
                     let connection = builder.serve_connection(TokioIo::new(stream), TowerToHyperService::new(app));
                     tokio::pin!(connection);
                     let lifetime = async {
@@ -228,7 +392,7 @@ pub async fn serve_router_with_tls_budget(
         }
     }
     // close() serializes with sink admission before pending handlers are cancelled.
-    service.stop_admission();
+    admission.stop();
     drop(listener);
     if timeout(limits.shutdown_timeout, async {
         while tasks.join_next().await.is_some() {}
@@ -246,10 +410,14 @@ pub async fn serve_router_with_tls_budget(
     Ok(())
 }
 
-struct ConnectionGuard(Arc<crate::HttpMetrics>);
+struct ConnectionGuard {
+    metrics: Arc<TransportMetrics>,
+    context: ConnectionContext,
+}
 impl Drop for ConnectionGuard {
     fn drop(&mut self) {
-        self.0.connections.fetch_sub(1, Ordering::Relaxed);
+        self.context.cancellation.cancel();
+        self.metrics.connections.fetch_sub(1, Ordering::Relaxed);
     }
 }
 
@@ -261,6 +429,51 @@ mod deadline_tests {
         cell::Cell,
         task::{Context, Waker},
     };
+
+    #[tokio::test]
+    async fn operation_lease_checks_original_context_and_survives_expiry_until_all_owners_drop() {
+        let budget = Arc::new(Semaphore::new(1));
+        let cancellation = CancellationToken::new();
+        let deadline = tokio::time::Instant::now() + Duration::from_millis(30);
+        let context = ConnectionContext {
+            deadline,
+            cancellation: cancellation.clone(),
+            lease: Arc::new(Mutex::new(None)),
+        };
+        context.try_acquire_operation(budget.clone()).unwrap();
+        assert_eq!(budget.available_permits(), 0);
+        assert!(context.try_acquire_operation(budget.clone()).is_err());
+        let owner = context.clone();
+        assert_eq!(owner.deadline(), deadline);
+        std::thread::sleep(
+            deadline.saturating_duration_since(tokio::time::Instant::now())
+                + Duration::from_millis(5),
+        );
+        assert!(context.check().is_err());
+        assert_eq!(budget.available_permits(), 0);
+        cancellation.cancel();
+        assert!(owner.check().is_err());
+        drop(context);
+        assert_eq!(budget.available_permits(), 0);
+        drop(owner);
+        assert_eq!(budget.available_permits(), 1);
+        let context = ConnectionContext {
+            deadline: tokio::time::Instant::now(),
+            cancellation: CancellationToken::new(),
+            lease: Arc::new(Mutex::new(None)),
+        };
+        assert!(context.try_acquire_operation(budget.clone()).is_err());
+        assert_eq!(budget.available_permits(), 1);
+        let cancelled = CancellationToken::new();
+        cancelled.cancel();
+        let context = ConnectionContext {
+            deadline: tokio::time::Instant::now() + Duration::from_secs(1),
+            cancellation: cancelled,
+            lease: Arc::new(Mutex::new(None)),
+        };
+        assert!(context.try_acquire_operation(budget.clone()).is_err());
+        assert_eq!(budget.available_permits(), 1);
+    }
 
     #[tokio::test]
     async fn late_ready_handshake_handoff_never_polls_http_work() {

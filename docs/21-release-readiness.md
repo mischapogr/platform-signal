@@ -25,6 +25,17 @@ and live-vendor checks must remain separately visible, never closed by simulatio
 
 ## Native CI status — 2026-10-09
 
+Develop9306ce7 CI run37914398756 completed with failure as observed13:08UTC.
+Both complete native AMD64 and ARM64 Rust jobs pass, including local IdP/browser,
+object/query simulations and helper checks. Both production image builds and
+basic native runtime/persistence pass; both fail the parsers/pipeline/finite-soak
+step. Kubernetes, supply-chain and native candidate steps are skipped. Public
+metadata alone does not identify the failing substage or cause. Evidence:
+`target/goal-execution-20261007/EXT-CI/receiver-store-remote-jobs-1.json`.
+The separate14f8a7c local production-image diagnostic passed all seven pipeline
+profiles and two120-second soaks; its different source binding cannot replace
+9306ce7 remote qualification or identify the remote failure cause.
+
 Settled develop14f8a7c CI run37911167139 failed as observed09:47UTC.
 Complete AMD64 Rust job passes; ARM64 fails its Rust Tests step after successful
 fmt/Clippy/build. Public annotations expose generic exit1 with no target/cause.
@@ -85,6 +96,25 @@ Evidence: `target/goal-execution-20261007/EXT-CI/native-stage-acceptance.json`,
 This is locally accepted tooling, not the cause of earlier remote failures or a
 closed native/container/Kubernetes/supply-chain/release gate. Continue existing
 SECURITY-AUDIT hooks and source-bound remote CI evidence without scope expansion.
+
+## Independent audit HTTP transport — 2026-10-09
+
+The existing bounded HTTP engine now accepts a standalone router/state without
+constructing an EventSink or ordinary ingest readiness. Existing ingest wrappers,
+keepalive behavior and connection metric names retain their contracts. An accepted
+connection carries its original deadline/cancellation and one optional operation
+lease retained through actual socket/response exit. Independent hosts select one
+request per connection. Admission closes before cancellation on normal shutdown
+and when the serving future is dropped; socket tasks remain bounded and owned.
+
+Four new regressions cover original-clock lease ownership, pending response
+occupancy, pipelined-request exclusion and abort ordering. All44 ingest-focused
+tests, strict807/default and858/all-feature workspace tests, both Clippy/fmt,
+workspace13 and independent source review pass. Evidence:
+`target/goal-execution-20261007/SECURITY-AUDIT/receiver-transport-acceptance.json`.
+This is transport acceptance; authenticated receiver routes, independent health,
+permission isolation and native composition remain next. SECURITY-AUDIT remains
+in_progress and the frozen52 statuses are unchanged.
 
 ## Independent audit receipt journal — 2026-10-09
 
