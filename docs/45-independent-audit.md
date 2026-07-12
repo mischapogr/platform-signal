@@ -13,7 +13,7 @@ credentials; an observability outage must not erase independently accepted audit
 records or silence that destination's external health. Audit events are control
 records, not ordinary input events or proof that a monitored source was complete.
 
-A version1 audit record has non-nil record/producer UUIDs, positive per-producer
+A version 1 audit record has non-nil record/producer UUIDs, positive per-producer
 sequence, UTC time, typed actor and action. Actions distinguish an access decision
 from operation completion and configuration/rules activation. Granted access
 means an authorization decision, never that the operation's effect committed;
@@ -22,24 +22,24 @@ correlates decisions/completion. Configuration activation carries only a revisio
 hash, never document contents. No arbitrary attributes, token, request/response
 body, header, path, secret, raw event or free-text diagnostic is allowed.
 
-Verified actors use a domain-separated SHA256 reference computed only by the
+Verified actors use a domain-separated SHA-256 reference computed only by the
 host-verified live RequestGrant, including framed issuer/subject bytes. The
 reference is pseudonymous audit metadata; it grants no authority and does not
 prove identity independently of the host verifier. Bootstrap, anonymous, unattributed and system actors are distinct. Expired grants cannot supply a verified actor.
 Never hash an unverified forwarded subject or bearer credential into an actor.
 References and record IDs are not written to ordinary diagnostics.
 
-Strict JSON decoding checks a4KiB document cap before deserialization, schema1,
+Strict JSON decoding checks a 4 KiB document cap before deserialization, schema 1,
 unknown/duplicate/type/null/enum fields, semantic time/UUID/sequence and fixed
-lowercase SHA256 references. Serialization validates before a bounded writer;
+lowercase SHA-256 references. Serialization validates before a bounded writer;
 caller-constructed structs cannot bypass those checks. A source-provided record
 is not authority; only host-created records are emitted by native hooks.
 
 ## Acknowledgement and uncertainty
 
-A configured destination's version1 acknowledgement must bind exact record UUID,
-producer UUID, sequence and SHA256 of original transmitted bytes. ACK documents
-cap at1KiB and reject unknown/duplicate/malformed fields. A semantic ACK is a
+A configured destination's version 1 acknowledgement must bind exact record UUID,
+producer UUID, sequence and SHA-256 of original transmitted bytes. ACK documents
+cap at 1 KiB and reject unknown/duplicate/malformed fields. A semantic ACK is a
 claim by that configured destination; it cannot by itself prove fsync, encryption,
 Object Lock, source completeness or durable effects elsewhere. Local destination
 fixtures must actually persist/sync before acknowledging and exercise lost replies,
@@ -79,11 +79,34 @@ the representation; the exact strict behavior is proven by the pinned-code tests
 
 ## Protocol slice acceptance
 
-Six audit regressions plus existing protocol tests pass. Strict739default/790
-all-feature workspace tests, both Clippy, fmt/workspace13 and independent review
+Six audit regressions plus existing protocol tests pass. Strict 739 default/790
+all-feature workspace tests, both Clippy, fmt/workspace 13 and independent review
 pass. Exact complete array and large spare-capacity regressions failed before
 correction and pass afterward. The tagged-unit unexpected-field failure is also
 retained. This accepts only the bounded protocol and live-grant subject reference;
 no destination/native hook, independent failure health or encrypted storage is
 qualified. Parent remains in_progress. See
 `target/goal-execution-20261007/SECURITY-AUDIT/protocol-acceptance.json`.
+
+## Destination client acceptance
+
+The AuditSink trait supplies an original monotonic deadline and static Busy/
+Uncertain outcomes. HttpAuditSink production construction requires private mTLS
+and a dedicated audit bearer credential. Its separately named simulation
+constructor permits numeric loopback HTTP only. One physically retained worker
+owns HTTP/runtime teardown; rejected callers do not clone operation inputs. Shared
+DNS independently retains a pending kernel lookup after cancellation. No audit
+queue or implicit application retries are added. Original bytes, IDs, sequence and
+digest are preserved; status 200 alone never confirms an append.
+
+Four new regressions, 20 compound HTTP/mTLS cases, strict 743/794 workspace checks,
+both Clippy/fmt/workspace 13 and focused review pass. Shared test TLS fixtures are
+reused by receipt tests. Durable receiver, native collection, independent health
+and encryption remain unqualified. See `destination-acceptance.json` under the
+SECURITY-AUDIT evidence directory. Continue durable outbox/native hooks/receiver.
+
+Current reqwest retry/TLS policy and Tokio runtime teardown documentation were
+checked at official docs.rs after Context7 reported quota exhaustion:
+[reqwest ClientBuilder](https://docs.rs/reqwest/0.12.28/reqwest/struct.ClientBuilder.html),
+[Tokio Runtime](https://docs.rs/tokio/1.53.2/tokio/runtime/struct.Runtime.html).
+Pinned source and runtime regressions bind the selected behavior.

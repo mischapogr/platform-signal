@@ -18,6 +18,14 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current SECURITY-AUDIT destination slice — 2026-10-09
+
+Restricted client/trait passed_local with 4 regressions, 20 compound HTTP/mTLS cases,
+strict 743/794 checks and focused review. Parent stays in_progress. Continue bounded
+durable audit outbox/native hooks and independent receiver failure/replay/health
+qualification, then secrets/encrypted-storage seams. Accepted develop pushes are
+now authorized. See [audit](45-independent-audit.md).
+
 ## Current SECURITY-AUDIT slice — 2026-10-09
 
 Parent in_progress. Strict bounded control record/ACK protocol and live verified
