@@ -109,6 +109,13 @@ Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
 Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
 `soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
 
+## Current automatic target diagnostic — 2026-10-09
+
+CI public target inventory includes automatic integration tests with incremental
+bounded scanning, cycle/outside-root refusal and source-only annotations.
+15helper tests and review pass. No pastfailurecause or full native/release gate
+is inferred; EXT-CI remains external_pending,52 unchanged. Continue SECURITY-AUDIT.
+
 ## Current independent receiver composition — 2026-10-09
 
 Real monolith/receiver/separate health-owner passed37 local process checks,11

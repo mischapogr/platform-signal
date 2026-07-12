@@ -28,6 +28,27 @@ enabled. This does not diagnose the remote failure. Complete remote logs and
 workflow dispatch require GitHub authentication unavailable here. EXT-ARM64
 and EXT-CI stay open for full qualification on the reviewed revision.
 
+## Automatic Rust target diagnostics — 2026-10-09
+
+The finite public failure-target inventory now includes Cargo's automatically
+discovered `tests/*.rs` and `tests/*/main.rs`, while respecting `autotests=false`.
+It scans incrementally with128entries/package, rejects paths outside the public
+source root and symlink cycles, and retains the existing finite package/manifest/
+annotation caps. Public annotations contain only source-known package/kind/name,
+never arbitrary failure text, credentials or paths; child output stays inside
+the disabled workflow-command region. This makes automatic target failures
+visible when Cargo emits their footer, without diagnosing any earlier CI cause.
+
+Fifteen focused helper regressions pass, including an actual failing subprocess
+with an automatic public target, command-injection/redaction, scan consumption,
+external/cyclic links, manifest limits, collision and failed-prefix retention.
+Independent review identified eager directory allocation and uncaught cycle
+exceptions; both are corrected. A wrong-package fixture failed first and remains
+retained. Evidence: `target/goal-execution-20261007/EXT-CI/autotarget-acceptance.json`.
+Tooling-only scope; no Rust behavior/build inputs changed and no Cargo campaign
+was repeated. EXT-CI remains external_pending until complete matching native CI
+and downstream candidate qualification pass.
+
 ## Implemented workflow responsibilities
 
 [`ci.yml`](../.github/workflows/ci.yml) runs native Rust checks on both Linux
