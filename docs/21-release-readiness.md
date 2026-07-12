@@ -36,6 +36,27 @@ Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
 Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
 `soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
 
+## EXT-CI native failure diagnostics — 2026-10-09
+
+The native qualification harness now records a fixed public stage and emits a
+bounded final summary after report persistence/owned cleanup. The CI wrapper
+promotes only a failed final exact-schema summary with a known stage into an
+annotation after disabling workflow parsing around raw output. No path, payload
+or free-form exception enters that annotation. The first operation failure is
+preserved if cleanup also fails; missing summaries infer nothing.
+
+10 CI/19 native/5 candidate helper tests, syntax/workspace13 and review pass.
+A reproduced late interruption initially returned zero with passed metadata;
+the exception path now unconditionally fails qualification. Red/green logs and
+the prior review/campaign remain retained. Qualification validators, required
+profiles/soaks and cleanup are unchanged. Rust behavior/build inputs are unchanged.
+
+Evidence: `target/goal-execution-20261007/EXT-CI/native-stage-acceptance.json`,
+`native-stage-validation-corrected/validation.json` and `native-stage-review.json`.
+This is locally accepted tooling, not the cause of earlier remote failures or a
+closed native/container/Kubernetes/supply-chain/release gate. Continue existing
+SECURITY-AUDIT hooks and source-bound remote CI evidence without scope expansion.
+
 ## Native coverage access audit — 2026-10-09
 
 The optional selected-operation profile now accepts `read_coverage` and

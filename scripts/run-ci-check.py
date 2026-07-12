@@ -25,8 +25,8 @@ IDP_STAGES = frozenset({'prepare', 'image-prepare', 'provider-start', 'provider-
                         'server-start', 'browser-start', 'oidc-browser-flow', 'qualified'})
 
 
-def failed_idp_stage(tail):
-    """Classify only the harness's final bounded public stage, never its payload."""
+def failed_stage(tail, allowed):
+    """Classify only a final bounded public stage, never its payload."""
     lines = tail.splitlines()
     if not lines or len(lines[-1].encode('utf-8')) > 2048:
         return None
@@ -35,11 +35,19 @@ def failed_idp_stage(tail):
         value = json.loads(lines[-1])
         if (isinstance(value, dict) and set(value) == {'status', 'stage', 'report'}
                 and value['status'] == 'failed' and isinstance(value['report'], str)
-                and isinstance(value['stage'], str) and value['stage'] in IDP_STAGES):
+                and isinstance(value['stage'], str) and value['stage'] in allowed):
             return value['stage']
     except (ValueError, TypeError):
         pass
     return None
+
+
+def failed_idp_stage(tail):
+    return failed_stage(tail, IDP_STAGES)
+
+
+def failed_native_stage(tail):
+    return failed_stage(tail, gate.NATIVE_STAGES - {'qualified'})
 
 
 def rust_targets():
@@ -158,6 +166,12 @@ def main(argv=None):
                         report['failed_idp_stage'] = stage
                         if os.environ.get('GITHUB_ACTIONS') == 'true':
                             print(f'::error title=Reported IdP failure stage::{stage}', flush=True)
+                if args.name == 'native':
+                    stage = failed_native_stage(tail)
+                    if stage is not None:
+                        report['failed_native_stage'] = stage
+                        if os.environ.get('GITHUB_ACTIONS') == 'true':
+                            print(f'::error title=Reported native failure stage::{stage}', flush=True)
                 if os.environ.get('GITHUB_ACTIONS') == 'true':
                     for target in report['failed_rust_targets']:
                         label = f'{target["package"]} --{target["kind"]}'

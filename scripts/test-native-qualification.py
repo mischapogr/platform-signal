@@ -151,6 +151,90 @@ class IdentityAndReports(unittest.TestCase):
 
 
 class ResourceOwnership(unittest.TestCase):
+    def test_actual_harness_reports_first_failed_stage_after_owned_cleanup(self):
+        for stage in ('native-identity', 'binary-extraction', 'hardening', 'pipeline',
+                      'soak', 'report-finalization', 'container-cleanup', 'late-interruption'):
+            commands = []
+            def fake_run(_gate, command, **_kwargs):
+                commands.append(command)
+                if command[0] == 'docker':
+                    if command[1] == 'info':
+                        if stage == 'native-identity':
+                            raise RuntimeError('synthetic-private-diagnostic')
+                        return json.dumps({'os': 'linux', 'architecture': 'x86_64'})
+                    if command[1] == 'image':
+                        return json.dumps({'id': IMAGE, 'os': 'linux', 'architecture': 'amd64'})
+                    if command[1] == 'cp':
+                        if stage == 'binary-extraction':
+                            raise RuntimeError('synthetic-private-diagnostic')
+                        binary = Path(command[-1])
+                        binary.write_bytes(b'\x7fELF\x02\x01' + b'\0' * 12 + struct.pack('<H', 62))
+                        binary.chmod(0o755)
+                    if command[1] == 'rm' and stage in ('pipeline', 'container-cleanup'):
+                        raise RuntimeError('synthetic-private-cleanup')
+                    return ''
+                phase = ('hardening' if command[1].endswith('check-hardening.py')
+                         else 'pipeline' if command[1].endswith('pipeline.py') else 'soak')
+                if stage == phase:
+                    raise RuntimeError('synthetic-private-diagnostic')
+                if phase == 'hardening':
+                    directory = Path(command[command.index('--output-dir') + 1])
+                    directory.mkdir()
+                    (directory / 'campaign.json').write_text('{}')
+                    (directory / 'campaign.log').write_text('fixture')
+                else:
+                    Path(command[command.index('--output') + 1]).write_text('{}')
+                return ''
+            original_hash = qualification.sha256
+            def file_hash(path):
+                if stage == 'report-finalization' and path.name == 'pipeline.json':
+                    raise RuntimeError('synthetic-private-diagnostic')
+                return original_hash(path)
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as folder, \
+                    mock.patch.object(qualification.Gate, 'run', fake_run), \
+                    mock.patch.object(qualification, 'sha256', file_hash), \
+                    mock.patch.object(qualification, 'validate_hardening'), \
+                    mock.patch.object(qualification, 'validate_pipeline'), \
+                    mock.patch.object(qualification, 'validate_soak'), \
+                    mock.patch.object(qualification.platform, 'system', return_value='Linux'), \
+                    mock.patch.object(qualification.platform, 'machine', return_value='x86_64'), \
+                    mock.patch('sys.stdout', new=io.StringIO()) as output:
+                # Reproduce cancellation between preparing success metadata and
+                # finalizing it, after all mocked operation stages completed.
+                final_line = next(index for index, line in enumerate(
+                    Path(qualification.__file__).read_text().splitlines(), 1)
+                    if line.strip() == "report['stage'] = 'qualified'")
+                previous_trace = sys.gettrace()
+                def interrupt_at_success(frame, event, _arg):
+                    if (event == 'line' and frame.f_code.co_filename == qualification.__file__
+                            and frame.f_lineno == final_line):
+                        raise KeyboardInterrupt('synthetic late interruption')
+                    return interrupt_at_success
+                try:
+                    if stage == 'late-interruption':
+                        sys.settrace(interrupt_at_success)
+                    result = qualification.main(['--image', IMAGE, '--expect-architecture', 'amd64',
+                                                 '--output-root', folder, '--soak-seconds', '120'])
+                finally:
+                    sys.settrace(previous_trace)
+                report_path = next(Path(folder).glob('*/qualification.json'))
+                report = json.loads(report_path.read_text())
+                summary = json.loads(output.getvalue().splitlines()[-1])
+                self.assertEqual(result, 1)
+                self.assertFalse(report['full_qualification'])
+                expected_stage = 'report-finalization' if stage == 'late-interruption' else stage
+                self.assertEqual(report['failed_stage'], expected_stage)
+                self.assertEqual(summary, {'status': 'failed', 'stage': expected_stage,
+                                           'report': str(report_path)})
+                self.assertNotIn('synthetic-private', json.dumps(summary))
+                if stage != 'native-identity':
+                    self.assertTrue(any(c[:3] == ['docker', 'rm', '-f'] for c in commands))
+                    self.assertIn({'resource': 'owned-temporary-directory', 'status': 'removed'},
+                                  report['cleanup'])
+                if stage == 'pipeline':
+                    self.assertEqual(report['cleanup'][0]['status'], 'failed')
+                    self.assertEqual(summary['stage'], 'pipeline')
+
     def test_soak_only_preserves_scope_identity_and_skips_completed_campaigns(self):
         for failed in (False, True):
             commands = []
@@ -171,7 +255,7 @@ class ResourceOwnership(unittest.TestCase):
                         report['profiles'].pop()
                     Path(command[command.index('--output') + 1]).write_text(json.dumps(report))
                 return 'fixture'
-            with self.subTest(failed=failed), tempfile.TemporaryDirectory() as folder, mock.patch.object(qualification.Gate, 'run', fake_run), mock.patch.object(qualification.platform, 'system', return_value='Linux'), mock.patch.object(qualification.platform, 'machine', return_value='x86_64'), mock.patch('sys.stdout', new=io.StringIO()):
+            with self.subTest(failed=failed), tempfile.TemporaryDirectory() as folder, mock.patch.object(qualification.Gate, 'run', fake_run), mock.patch.object(qualification.platform, 'system', return_value='Linux'), mock.patch.object(qualification.platform, 'machine', return_value='x86_64'), mock.patch('sys.stdout', new=io.StringIO()) as output:
                 result = qualification.main(['--image', IMAGE, '--expect-architecture', 'amd64', '--output-root', folder, '--soak-only', '--soak-seconds', '120'])
                 report = json.loads(next(Path(folder).glob('*/qualification.json')).read_text())
                 self.assertEqual(result, 1 if failed else 0)
@@ -179,6 +263,9 @@ class ResourceOwnership(unittest.TestCase):
                 self.assertFalse(report['full_qualification'])
                 self.assertTrue(all(row['status'] == 'removed' for row in report['cleanup']))
                 self.assertFalse(any('--output-dir' in command or any(str(value).endswith('/pipeline.py') for value in command) for command in commands))
+                summary = json.loads(output.getvalue().splitlines()[-1])
+                self.assertEqual(summary['stage'], 'soak' if failed else 'qualified')
+                self.assertEqual(summary['status'], 'failed' if failed else 'passed')
                 if not failed:
                     self.assertIn('soak.json', report['reports_sha256'])
     def test_extraction_failure_removes_only_owned_container_and_temp(self):
