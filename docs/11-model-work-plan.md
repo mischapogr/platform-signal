@@ -18,6 +18,13 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current automatic target diagnostic — 2026-10-09
+
+CI public target inventory includes automatic integration tests with incremental
+bounded scanning, cycle/outside-root refusal and source-only annotations.
+15helper tests and review pass. No pastfailurecause or full native/release gate
+is inferred; EXT-CI remains external_pending,52 unchanged. Continue SECURITY-AUDIT.
+
 ## Current independent receiver composition — 2026-10-09
 
 Real monolith/receiver/separate health-owner passed37 local process checks,11

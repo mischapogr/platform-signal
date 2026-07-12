@@ -17,6 +17,134 @@ spec.loader.exec_module(ci)
 
 
 class RetainedDiagnostics(unittest.TestCase):
+    def test_automatic_integration_targets_follow_public_source_and_autotests(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / 'repo'
+            package = root / 'crates/fixture'
+            tests = package / 'tests'
+            (tests / 'directory_case').mkdir(parents=True)
+            (tests / 'file-case.rs').write_text('// public fixture')
+            (tests / 'directory_case/main.rs').write_text('// public fixture')
+            (tests / 'ignored.txt').write_text('synthetic-private-canary')
+            manifest = package / 'Cargo.toml'
+            manifest.write_text('[package]\nname="fixture"\n')
+            with patch.object(ci, 'ROOT', root):
+                self.assertEqual(ci.rust_targets(), {
+                    ('fixture', 'test', 'file-case'), ('fixture', 'test', 'directory_case')})
+                self.assertEqual(ci.failed_rust_targets(
+                    'error: test failed, to rerun pass `-p fixture --test file-case`'),
+                    [{'package': 'fixture', 'kind': 'test', 'name': 'file-case'}])
+            manifest.write_text('[package]\nname="fixture"\nautotests=false\n'
+                                '[[test]]\nname="explicit"\npath="tests/file-case.rs"\n')
+            with patch.object(ci, 'ROOT', root):
+                self.assertEqual(ci.rust_targets(), {('fixture', 'test', 'explicit')})
+
+    def test_automatic_inventory_refuses_external_symlinks_and_directory_capacity(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base = Path(folder)
+            root = base / 'repo'
+            package = root / 'crates/fixture'
+            tests = package / 'tests'
+            tests.mkdir(parents=True)
+            (package / 'Cargo.toml').write_text('[package]\nname="fixture"\n')
+            external = base / 'private.rs'
+            external.write_text('synthetic-private-canary')
+            link = tests / 'private-marker.rs'
+            link.symlink_to(external)
+            with patch.object(ci, 'ROOT', root):
+                self.assertEqual(ci.rust_targets(), set())
+            link.unlink()
+            directory = tests / 'nested'
+            directory.mkdir()
+            (directory / 'main.rs').symlink_to(external)
+            with patch.object(ci, 'ROOT', root):
+                self.assertEqual(ci.rust_targets(), set())
+            (directory / 'main.rs').unlink()
+            directory.rmdir()
+            for n in range(129):
+                (tests / f'case{n}.rs').write_text('// fixture')
+            with patch.object(ci, 'ROOT', root):
+                self.assertEqual(ci.rust_targets(), set())
+
+    def test_actual_automatic_target_failure_annotation_has_no_child_payload(self):
+        # This repository target has no explicit [[test]] entry.
+        footer = 'error: test failed, to rerun pass `-p signal-query --test object_query`'
+        self.assertIn(('signal-query', 'test', 'object_query'), ci.rust_targets())
+        code = f'print("Error: synthetic-private-canary"); print({footer!r}); raise SystemExit(9)'
+        with tempfile.TemporaryDirectory() as folder, \
+                patch.dict(ci.os.environ, {'GITHUB_ACTIONS': 'true'}), \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            result, report = self.run_check(folder, 'automatic-target', code)
+        self.assertEqual(result, 1)
+        captured = output.getvalue().splitlines()
+        token = re.fullmatch(r'::stop-commands::([0-9a-f]{64})', captured[0])[1]
+        resume = captured.index(f'::{token}::')
+        self.assertEqual(captured[resume + 1:],
+                         ['::error title=Rust regression::signal-query --test object_query'])
+        self.assertNotIn('synthetic-private-canary', str(report['failed_rust_targets']))
+
+    def test_automatic_scan_does_not_materialize_directory_or_overconsume_limit(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / 'repo'
+            package = root / 'crates/fixture'
+            tests = package / 'tests'
+            tests.mkdir(parents=True)
+            (package / 'Cargo.toml').write_text('[package]\nname="fixture"\n')
+            (tests / 'known.rs').write_text('// public fixture')
+            original_listdir = ci.os.listdir
+            def guarded_listdir(path):
+                self.assertNotEqual(Path(path), tests, 'automatic target scan materialized directory')
+                return original_listdir(path)
+            with patch.object(ci, 'ROOT', root), patch.object(ci.os, 'listdir', guarded_listdir):
+                self.assertEqual(ci.rust_targets(), {('fixture', 'test', 'known')})
+            for n in range(128):
+                (tests / f'case{n}.rs').write_text('// fixture')
+            original_scandir = ci.os.scandir
+            consumed = []
+            class Counted:
+                def __init__(self, path):
+                    self.path = Path(path)
+                    self.entries = original_scandir(path)
+                def __enter__(self):
+                    return self
+                def __exit__(self, *_):
+                    self.entries.close()
+                def __iter__(self):
+                    return self
+                def __next__(self):
+                    entry = next(self.entries)
+                    if self.path == tests:
+                        consumed.append(1)
+                        if len(consumed) > 129:
+                            raise AssertionError('automatic target scan exceeded capacity witness')
+                    return entry
+            with patch.object(ci, 'ROOT', root), patch.object(ci.os, 'scandir', Counted):
+                self.assertEqual(ci.rust_targets(), set())
+            self.assertEqual(len(consumed), 129)
+
+    def test_automatic_symlink_cycles_fail_closed_for_directory_source_and_main(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / 'repo'
+            package = root / 'crates/fixture'
+            package.mkdir(parents=True)
+            (package / 'Cargo.toml').write_text('[package]\nname="fixture"\n[lib]\n')
+            tests = package / 'tests'
+            tests.symlink_to('tests')
+            with patch.object(ci, 'ROOT', root):
+                self.assertEqual(ci.rust_targets(), set())
+            tests.unlink()
+            tests.mkdir()
+            source = tests / 'cycle.rs'
+            source.symlink_to('cycle.rs')
+            with patch.object(ci, 'ROOT', root):
+                self.assertEqual(ci.rust_targets(), set())
+            source.unlink()
+            nested = tests / 'nested'
+            nested.mkdir()
+            (nested / 'main.rs').symlink_to('main.rs')
+            with patch.object(ci, 'ROOT', root):
+                self.assertEqual(ci.rust_targets(), set())
+
     def test_native_stage_rejects_payloads_and_matches_source_enum(self):
         source = (ci.ROOT / 'scripts/check-native-qualification.py').read_text()
         stages = set(re.findall(r"report\['stage'\] = '([a-z-]+)'", source))
