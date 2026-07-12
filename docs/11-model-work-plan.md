@@ -18,6 +18,15 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current rules revision primitive — 2026-10-09
+
+Bounded retained-rule projection passed_local: eight regressions, strict 786/837,
+review, both Clippy/fmt/workspace13. No whole projection/tree clone or reread;
+private typed definitions feed only a caller-owned memory/hash sink under the
+original clock/cancellation and hard64MiB cap. Actual startup activation is next.
+Parent SECURITY-AUDIT stays in_progress; frozen item/counts do not change.
+See [audit contract](45-independent-audit.md) and `rules-revision-acceptance.json`.
+
 ## Current native ingest audit slice — 2026-10-09
 
 Selected ingest uses a generic consuming session and the same bounded monolith
