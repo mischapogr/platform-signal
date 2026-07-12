@@ -5,6 +5,30 @@
 
 
 
+## SECURITY-AUDIT durable control outbox — 2026-10-09
+
+The bounded Linux outbox now retains one immutable pending record, persistent
+producer identity and an exact-ACK checkpoint. Pending publication is synced before
+possible delivery; checkpoint publication is synced before reclamation. Lost replies
+replay the original bytes/identity. Private fixed inventory, complete recovery
+preflight, live temporary-control guards and one physically retained disk worker
+preserve fail-closed ownership through crashes/cancellation/original deadlines.
+No ordinary storage fallback, new dependency or service is introduced.
+
+Nine meaningful regressions, including eleven actual subprocess crash boundaries,
+strict752 default/803 all-feature workspace tests (zero failures), both Clippy,
+fmt/workspace13 and focused review pass. Three review regressions failed before
+correction and pass afterward. Interrupted/failed campaigns stay retained. The
+inherited configuration fixture now synchronizes worker start/release/completion;
+production is unchanged and the old isolated pass establishes no failure cause.
+A mistaken exact filter ran zero tests and supplies no acceptance evidence.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/outbox-acceptance.json`,
+`outbox-validation-final/validation.json`, `outbox-review.json`. Parent remains
+in_progress: native operative hooks, independent durable receiver/outage health
+and secrets/encrypted-storage seams follow. This is ordinary crash recovery, not
+independently current restored-history, encryption or production qualification.
+
 ## EXT-CI failure diagnostics — 2026-10-09
 
 Accepted develop revision880b31e ran public CI37886589245: both native AMD64 and
@@ -25,8 +49,14 @@ Rust is unchanged; existing strict743/794 acceptance remains source-applicable.
 Evidence: `target/goal-execution-20261007/EXT-CI/failure-diagnostics-acceptance.json`,
 `failure-diagnostic-validation-accepted/`, `failure-diagnostic-real-log-check-accepted.json`
 and `failure-diagnostics-review.json`. EXT-CI/EXT-ARM64 remain external_pending;
-SECURITY-AUDIT remains in_progress. Next: push this accepted diagnostic change,
-inspect actual named CI failures and continue the durable audit outbox/native hooks.
+SECURITY-AUDIT remains in_progress. Diagnostic revision57c1d1e is pushed.
+Public CI37887706801 passes both native Rust Tests steps; ARM64 also passes the
+IdP/browser and object/query simulations. The full run fails later: ARM64 fails
+the legacy local-candidate helper and AMD64 fails the IdP/browser gate. Container/
+Kubernetes jobs are skipped. Anonymous logs remain unavailable; exact remote
+causes are not inferred. A local simulated-ARM fixture reproduction identifies
+two missing host mocks in the legacy AMD64 helper tests; focused correction
+follows. Partial native success does not close either full gate.
 
 ## SECURITY-AUDIT destination client slice — 2026-10-09
 

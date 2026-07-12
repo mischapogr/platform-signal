@@ -685,7 +685,7 @@
         "docs/04-implementation-plan.md",
         "docs/45-independent-audit.md"
       ],
-      "notes": "Bounded protocol and restricted client qualified locally; durable outbox/receiver/native hooks and secrets/encryption checks remain. 20 compound client cases and strict743/794 acceptance close no operative collection/encryption/cloud gate.",
+      "notes": "Protocol, restricted client and durable control outbox passed_local; nine outbox regressions/eleven actual crash boundaries and strict752/803 acceptance. Native hooks, independent durable receiver/outage health and secrets/encryption remain. No production/encryption gate closed.",
       "substeps": [
         {
           "id": "bounded-record-ack-protocol",
@@ -703,6 +703,10 @@
           "client_status": "passed_local",
           "client_evidence": [
             "target/goal-execution-20261007/SECURITY-AUDIT/destination-acceptance.json"
+          ],
+          "outbox_status": "passed_local",
+          "outbox_evidence": [
+            "target/goal-execution-20261007/SECURITY-AUDIT/outbox-acceptance.json"
           ]
         },
         {
@@ -1260,13 +1264,14 @@
       "evidence": [
         "docs/21-release-readiness.md",
         "docs/40-oss-ci-and-cloud-qualification.md",
-        "target/goal-execution-20261007/GITHUB-OSS/public-audit.json"
+        "target/goal-execution-20261007/GITHUB-OSS/public-audit.json",
+        "target/goal-execution-20261007/EXT-CI/failure-diagnostics-remote-jobs-1.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md"
       ],
-      "notes": "2026-10-08 public run37809129533 on66a9ce7 provides partial native ARM64 Rust success; run failed and runtime/kind/supply-chain steps were skipped. Full reviewed-revision gate remains open. Revised bounded CI/candidate workflows are locally checked only."
+      "notes": "2026-10-09 pushed57c1d1e public run37887706801 passes both native Rust Tests steps; ARM also passes IdP/browser and object/query simulation. Full run fails ARM legacy-candidate helper and AMD IdP/browser; container/kind skipped. Local fake-ARM reproduction identifies two legacy test host mocks; exact remote cause not inferred. Full reviewed-revision native/runtime/CI gate remains open."
     },
     {
       "id": "EXT-AWS",
@@ -1313,13 +1318,14 @@
         "docs/40-oss-ci-and-cloud-qualification.md",
         "target/goal-execution-20261007/GITHUB-OSS/public-audit.json",
         "target/goal-execution-20261007/EXT-CI/failure-diagnostics-acceptance.json",
-        "target/goal-execution-20261007/EXT-CI/destination-remote-jobs-1.json"
+        "target/goal-execution-20261007/EXT-CI/destination-remote-jobs-1.json",
+        "target/goal-execution-20261007/EXT-CI/failure-diagnostics-remote-jobs-1.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md"
       ],
-      "notes": "2026-10-09 public runs37885218153 (3340234) and37886589245 (880b31e) failed Tests on both native AMD64/ARM64; container/kind skipped. Anonymous metadata/log restrictions prevent identifying the failing test. Bounded public target classification and command-disabled retained output qualify locally only (six regressions, five candidate helpers, two retained failure classifications). EXT-CI and EXT-ARM64 remain open; no remote cause inferred."
+      "notes": "2026-10-09 pushed57c1d1e public run37887706801 passes both native Rust Tests steps; ARM also passes IdP/browser and object/query simulation. Full run fails ARM legacy-candidate helper and AMD IdP/browser; container/kind skipped. Local fake-ARM reproduction identifies two legacy test host mocks; exact remote cause not inferred. Full reviewed-revision native/runtime/CI gate remains open."
     },
     {
       "id": "EXT-DEPENDENCY",

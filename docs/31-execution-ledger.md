@@ -56,6 +56,14 @@ Six subprocess regressions, five candidate helpers, two actual retained failure
 classifications, syntax/workspace13 and review pass. No Rust changes or remote
 failure cause is claimed; continue the durable audit outbox/native hooks.
 
+The durable control outbox mechanism is passed_local with nine regressions,
+eleven actual subprocess crash boundaries, strict752/803 checks and source review.
+SECURITY-AUDIT remains in_progress for native hooks/receiver/health/encryption.
+See `target/goal-execution-20261007/SECURITY-AUDIT/outbox-acceptance.json`.
+Pushed57c1d1e passes both native Rust Tests steps, but full CI fails the ARM legacy
+candidate helper and AMD IdP/browser gate. Partial success closes no full gate.
+Continue the reproduced fixture correction and remaining audit integration.
+
 ## Execution and evidence
 
 One coherent writer change set at a time. Verify, resolve focused review, record
