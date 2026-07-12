@@ -13,11 +13,11 @@ use std::{
     os::unix::fs::{OpenOptionsExt, PermissionsExt},
 };
 use tower::ServiceExt;
-static SERIAL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+pub(crate) static SERIAL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 type Result = std::result::Result<(), Box<dyn std::error::Error>>;
-struct SyncedDestination {
+pub(crate) struct SyncedDestination {
     root: PathBuf,
-    calls: AtomicU64,
+    pub(crate) calls: AtomicU64,
     lose_on: u64,
 }
 impl AuditSink for SyncedDestination {
@@ -67,12 +67,12 @@ fn context() -> std::result::Result<ExtensionContext, Box<dyn std::error::Error>
         Duration::from_secs(10),
     )?)
 }
-fn root() -> std::io::Result<tempfile::TempDir> {
+pub(crate) fn root() -> std::io::Result<tempfile::TempDir> {
     let root = tempfile::tempdir()?;
     fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700))?;
     Ok(root)
 }
-fn destination(root: &Path, lose_on: u64) -> Arc<SyncedDestination> {
+pub(crate) fn destination(root: &Path, lose_on: u64) -> Arc<SyncedDestination> {
     Arc::new(SyncedDestination {
         root: root.into(),
         calls: AtomicU64::new(0),
@@ -449,6 +449,14 @@ fn configuration_is_strict_scoped_bounded_and_never_prints_values() -> Result {
         serde_json::json!(["read_findings"]),
         serde_json::json!(["read_findings_feed", "query_events"]),
         serde_json::json!(["query_events", "read_findings", "read_findings_feed"]),
+        serde_json::json!(["read_coverage", "write_coverage"]),
+        serde_json::json!([
+            "query_events",
+            "read_findings",
+            "read_findings_feed",
+            "read_coverage",
+            "write_coverage"
+        ]),
     ] {
         let mut selected = original.clone();
         selected["operations"] = operations;

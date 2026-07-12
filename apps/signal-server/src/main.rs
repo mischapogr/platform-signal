@@ -370,6 +370,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
                     query_auth.request_timeout,
                     coverage_stopping.clone(),
                     identity.clone(),
+                    query_audit.clone(),
                 )
                 .await?,
         ),

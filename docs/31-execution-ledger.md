@@ -109,6 +109,14 @@ Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
 Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
 `soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
 
+## Current native coverage audit slice — 2026-10-09
+
+Selected query/findings/feed/coverage read-write hooks share one bounded control
+outbox/session. Coverage passed_simulated: strict768/819, review and
+93 actual AMD64/mTLS/fsynced-peer checks. Parent remains in_progress for
+ingest/runtime activation hooks, receiver/independent health and secrets/encryption.
+See [audit contract](45-independent-audit.md); no frozen item/count changes.
+
 ## Current native findings audit slice — 2026-10-09
 
 Selected query/findings/feed hooks share one bounded outbox/session. Findings

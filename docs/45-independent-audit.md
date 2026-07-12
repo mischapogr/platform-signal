@@ -221,3 +221,30 @@ retain failed campaigns; the idle failure cause remains unestablished. This is
 bootstrap/synthetic finite proof; enabled native IdP/audit composition and the
 production receiver/health/encryption remain unqualified. Parent stays in_progress.
 See `target/goal-execution-20261007/SECURITY-AUDIT/findings-hooks-acceptance.json`.
+
+## Selected coverage hook acceptance
+
+The optional selected-operation profile now accepts `read_coverage` and
+`write_coverage` alongside query/findings/feed, with one shared bounded session and
+outbox. Coverage authorizes once and confirms a durable decision before journal
+access, then matching completion before disclosing originals/history/aggregate or
+receipts. Existing paired scope/writer authority, original request clocks and final
+grant checks remain. A new coverage commit returns201; exact replay returns200.
+Completion uncertainty can withhold a receipt for an already committed record;
+an exact retry recovers it. A late authority denial preserves that503 uncertainty.
+Every response is no-store; control records contain no coverage body/binding/IDs.
+
+Five additional regressions, strict768/819 workspace tests, both Clippy,
+fmt/workspace13, source review and 93 actual AMD64/mTLS process
+checks pass. 54 fsynced receipts and 9 ordinary logs retain privacy proof.
+The process campaign covers original bytes/receipts, separate write decision and
+completion loss, read withholding, shared selected-route/readiness failure, exact
+stopped replay/fresh operation identity and bounded fixed-frontier pagination.
+Failed fixture campaigns and the uncertain-write red regression remain retained.
+No source/binary drift or cleanup failure. This is finite bootstrap/synthetic proof;
+IdP composition, production receiver/health/encryption and other hooks remain open.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/coverage-hooks-acceptance.json`,
+`coverage-hooks-validation/validation.json`, `coverage-hooks-review.json` and
+`coverage-hooks-native-independent/report.json`. Parent SECURITY-AUDIT stays
+in_progress; the frozen52 item inventory and status counts do not change.
