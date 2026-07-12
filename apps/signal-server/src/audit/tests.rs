@@ -1071,3 +1071,421 @@ async fn ingest_selection_and_shared_slot_never_admit_without_new_decision() -> 
     }
     Ok(())
 }
+
+#[test]
+fn activation_profile_is_optional_unique_and_has_no_api_authority() -> Result {
+    let original = serde_json::json!({"schema_version":1,"operations":["query_events"],"endpoint":"https://audit.example.invalid/v1/audit/records","tls_config":"/private/tls.json","outbox_directory":"/private/audit","connect_timeout_ms":1000});
+    assert!(
+        Wire::parse(&original.to_string())?
+            .configuration_activations
+            .is_empty()
+    );
+    for selected in [
+        serde_json::json!(["runtime"]),
+        serde_json::json!(["rules"]),
+        serde_json::json!(["rules", "runtime"]),
+    ] {
+        for operations in [
+            Some(serde_json::json!([])),
+            Some(serde_json::json!(["ingest_events"])),
+            None,
+        ] {
+            let mut value = original.clone();
+            value["configuration_activations"] = selected.clone();
+            if let Some(operations) = operations {
+                value["operations"] = operations;
+            } else {
+                value.as_object_mut().ok_or("object")?.remove("operations");
+            }
+            let wire = Wire::parse(&value.to_string())?;
+            assert!(!wire.configuration_activations.is_empty());
+        }
+    }
+    for selected in [
+        serde_json::json!(null),
+        serde_json::json!(["runtime", "runtime"]),
+        serde_json::json!(["runtime", "rules", "runtime"]),
+        serde_json::json!(["private_canary"]),
+        serde_json::json!("rules"),
+    ] {
+        let mut value = original.clone();
+        value["configuration_activations"] = selected;
+        let error = Wire::parse(&value.to_string())
+            .err()
+            .ok_or("profile must fail")?;
+        assert!(!format!("{error:?}").contains("private_canary"));
+    }
+    let mut value = original.clone();
+    value["operations"] = serde_json::json!([]);
+    value["configuration_activations"] = serde_json::json!([]);
+    assert!(Wire::parse(&value.to_string()).is_err());
+    let text=original.to_string().replacen("\"schema_version\":1","\"configuration_activations\":[\"rules\"],\"configuration_activations\":[\"runtime\"],\"schema_version\":1",1);
+    assert!(Wire::parse(&text).is_err());
+    Ok(())
+}
+
+#[tokio::test]
+async fn activation_confirms_fresh_system_records_and_never_reuses_pending_replay() -> Result {
+    let _serial = SERIAL.lock().await;
+    for lose in [0, 1, 2] {
+        let spool = root()?;
+        let archive = root()?;
+        let sink = destination(archive.path(), lose);
+        let selected = vec![ConfigurationKind::Runtime, ConfigurationKind::Rules];
+        let control = Control::open_profile(
+            spool.path(),
+            sink.clone(),
+            Vec::new(),
+            selected.clone(),
+            context()?,
+        )
+        .await?;
+        assert!(!control.selected(Operation::QueryEvents));
+        assert!(control.has_activations());
+        let first = control
+            .activate(ConfigurationKind::Runtime, "a".repeat(64), context()?)
+            .await;
+        let failed = if first.is_ok() {
+            control
+                .activate(ConfigurationKind::Rules, "b".repeat(64), context()?)
+                .await
+                .is_err()
+        } else {
+            true
+        };
+        assert_eq!(failed, lose != 0);
+        let count = if lose == 1 { 1 } else { 2 };
+        let original = fs::read(archive.path().join(count.to_string()))?;
+        let old = PreparedAudit::from_original(&original)?;
+        assert!(matches!(old.record().actor, Actor::System {}));
+        assert!(matches!(
+            old.record().action,
+            Action::ConfigurationActivation { .. }
+        ));
+        if lose != 0 {
+            assert!(control.metrics().held);
+            assert_eq!(control.metrics().incomplete, 1);
+            assert_eq!(fs::read(spool.path().join("pending"))?, original);
+        }
+        drop(control);
+        let replay = destination(archive.path(), 0);
+        let control = Control::open_profile(
+            spool.path(),
+            replay.clone(),
+            Vec::new(),
+            selected,
+            context()?,
+        )
+        .await?;
+        assert_eq!(fs::read(archive.path().join(count.to_string()))?, original);
+        assert!(!control.metrics().held);
+        // Even an identical revision requires a new record and exact confirmation.
+        control
+            .activate(ConfigurationKind::Runtime, "a".repeat(64), context()?)
+            .await?;
+        let fresh =
+            PreparedAudit::from_original(&fs::read(archive.path().join((count + 1).to_string()))?)?;
+        assert_eq!(fresh.record().sequence, old.record().sequence + 1);
+        assert_eq!(fresh.record().producer_id, old.record().producer_id);
+        assert_ne!(fresh.record().record_id, old.record().record_id);
+        assert_eq!(
+            replay.calls.load(Ordering::SeqCst),
+            if lose == 0 { 1 } else { 2 }
+        );
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn activation_shares_the_access_slot_and_original_clock_without_renewal() -> Result {
+    let _serial = SERIAL.lock().await;
+    let spool = root()?;
+    let archive = root()?;
+    let sink = destination(archive.path(), 0);
+    let control = Control::open_profile(
+        spool.path(),
+        sink.clone(),
+        vec![Operation::QueryEvents],
+        vec![ConfigurationKind::Runtime, ConfigurationKind::Rules],
+        context()?,
+    )
+    .await?;
+    let session = control
+        .begin(
+            Actor::Bootstrap {},
+            Decision::Granted,
+            Operation::QueryEvents,
+            Instant::now() + Duration::from_secs(5),
+            CancellationToken::new(),
+        )
+        .await?;
+    assert!(
+        control
+            .activate(ConfigurationKind::Runtime, "a".repeat(64), context()?)
+            .await
+            .is_err()
+    );
+    assert_eq!(sink.calls.load(Ordering::SeqCst), 1);
+    assert_eq!(control.metrics().rejected, 1);
+    session.finish(Completion::Success).await?;
+    let original = ExtensionContext::new(CancellationToken::new(), Duration::from_millis(300))?;
+    control
+        .activate(ConfigurationKind::Runtime, "a".repeat(64), original.clone())
+        .await?;
+    assert_eq!(sink.calls.load(Ordering::SeqCst), 3);
+    tokio::time::sleep_until(original.deadline()).await;
+    assert!(
+        control
+            .activate(ConfigurationKind::Rules, "b".repeat(64), original)
+            .await
+            .is_err()
+    );
+    assert_eq!(sink.calls.load(Ordering::SeqCst), 3);
+    assert_eq!(control.metrics().incomplete, 0);
+    let cancelled = context()?;
+    cancelled.cancellation().cancel();
+    assert!(
+        control
+            .activate(ConfigurationKind::Runtime, "a".repeat(64), cancelled)
+            .await
+            .is_err()
+    );
+    assert_eq!(sink.calls.load(Ordering::SeqCst), 3);
+    Ok(())
+}
+
+#[test]
+fn runtime_revision_tracks_installed_limits_and_excludes_secret_and_path_values() -> Result {
+    let mut ingest = signal_ingest::IngestConfig {
+        api_token: Some("PRIVATE_TOKEN_CANARY".into()),
+        ..Default::default()
+    };
+    let server = signal_ingest::server::ServerLimits::default();
+    let mut buffer = signal_buffer::BufferConfig::default();
+    let mut storage = StorageConfig::default();
+    let mut query = signal_query::QueryConfig::default();
+    let mut findings = signal_findings::FindingConfig::default();
+    let mut rules = signal_rules::RuleLimits::default();
+    let mut consumer = crate::pipeline::ConsumerConfig {
+        max_events: 1000,
+        max_bytes: 8_388_608,
+        operation_timeout: Duration::from_secs(5),
+        flush_interval: Duration::from_secs(1),
+    };
+    macro_rules! digest {
+        () => {
+            runtime_revision(
+                RuntimeInputs {
+                    ingest: &ingest,
+                    server: &server,
+                    buffer: &buffer,
+                    storage: &storage,
+                    query: &query,
+                    findings: &findings,
+                    rules: &rules,
+                    consumer: &consumer,
+                    rule_timeout: Duration::from_secs(5),
+                    tls: false,
+                    identity: false,
+                    coverage: false,
+                    separate_metrics: false,
+                },
+                &context()?,
+            )?
+        };
+    }
+    let baseline = digest!();
+    assert_eq!(baseline.len(), 64);
+    assert!(
+        baseline
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    );
+    ingest.api_token = Some("OTHER_PRIVATE_TOKEN".into());
+    buffer.directory = "/PRIVATE_WAL_CANARY".into();
+    storage.directory = "/PRIVATE_STORAGE_CANARY".into();
+    findings.directory = "/PRIVATE_FINDINGS_CANARY".into();
+    assert_eq!(baseline, digest!());
+    ingest.max_in_flight += 1;
+    assert_ne!(baseline, digest!());
+    ingest.max_in_flight -= 1;
+    buffer.max_events += 1;
+    assert_ne!(baseline, digest!());
+    buffer.max_events -= 1;
+    storage.max_files += 1;
+    assert_ne!(baseline, digest!());
+    storage.max_files -= 1;
+    query.max_limit += 1;
+    assert_ne!(baseline, digest!());
+    query.max_limit -= 1;
+    findings.max_findings += 1;
+    assert_ne!(baseline, digest!());
+    findings.max_findings -= 1;
+    rules.max_rules -= 1;
+    assert_ne!(baseline, digest!());
+    rules.max_rules += 1;
+    consumer.flush_interval += Duration::from_nanos(1);
+    assert_ne!(baseline, digest!());
+    consumer.flush_interval -= Duration::from_nanos(1);
+    assert_eq!(baseline, digest!());
+    let settings = Settings::for_test(
+        "schema_version: 1\ningest:\n  max_request_bytes: 4096\n",
+        &[("SIGNAL_MAX_REQUEST_BYTES", "8192")],
+    )?;
+    ingest.max_request_bytes = settings.number("SIGNAL_MAX_REQUEST_BYTES", 1_048_576)?;
+    assert_eq!(ingest.max_request_bytes, 8192);
+    assert_ne!(baseline, digest!());
+    let mut writer = HashWriter::new();
+    signal_rules::RuleSet::default().write_revision(
+        &mut writer,
+        1024,
+        &signal_rules::RuleContext::new(Duration::from_secs(5)),
+    )?;
+    assert_eq!(writer.finish().len(), 64);
+    Ok(())
+}
+
+#[tokio::test]
+async fn activation_drop_after_destination_effect_preserves_pending_and_latches_incomplete()
+-> Result {
+    let _serial = SERIAL.lock().await;
+    struct Held {
+        inner: Arc<SyncedDestination>,
+        entered: tokio::sync::Notify,
+        release: tokio::sync::Notify,
+    }
+    impl AuditSink for Held {
+        fn append<'a>(
+            &'a self,
+            record: &'a PreparedAudit,
+            deadline: std::time::Instant,
+        ) -> AppendFuture<'a> {
+            Box::pin(async move {
+                self.inner.append(record, deadline).await?;
+                self.entered.notify_one();
+                self.release.notified().await;
+                Ok(())
+            })
+        }
+        fn metrics(&self) -> AuditMetrics {
+            AuditMetrics {
+                capacity: 1,
+                ..Default::default()
+            }
+        }
+    }
+    let spool = root()?;
+    let archive = root()?;
+    let held = Arc::new(Held {
+        inner: destination(archive.path(), 0),
+        entered: tokio::sync::Notify::new(),
+        release: tokio::sync::Notify::new(),
+    });
+    let control = Control::open_profile(
+        spool.path(),
+        held.clone(),
+        Vec::new(),
+        vec![ConfigurationKind::Rules],
+        context()?,
+    )
+    .await?;
+    let worker = control.clone();
+    let task = tokio::spawn(async move {
+        worker
+            .activate(
+                ConfigurationKind::Rules,
+                "c".repeat(64),
+                context().map_err(|_| Unavailable)?,
+            )
+            .await
+    });
+    tokio::time::timeout(Duration::from_secs(2), held.entered.notified()).await?;
+    let original = fs::read(archive.path().join("1"))?;
+    assert_eq!(fs::read(spool.path().join("pending"))?, original);
+    task.abort();
+    assert!(task.await.is_err());
+    assert_eq!(control.metrics().incomplete, 1);
+    assert_eq!(control.metrics().depth, 0);
+    assert!(control.metrics().held);
+    held.release.notify_one();
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while control.metrics().disk_depth != 0 {
+        if Instant::now() >= deadline {
+            return Err("physical activation worker did not settle".into());
+        }
+        tokio::time::sleep(Duration::from_millis(2)).await;
+    }
+    drop(control);
+    drop(held);
+    let sink = destination(archive.path(), 0);
+    let control = Control::open_profile(
+        spool.path(),
+        sink.clone(),
+        Vec::new(),
+        vec![ConfigurationKind::Rules],
+        context()?,
+    )
+    .await?;
+    assert_eq!(fs::read(archive.path().join("1"))?, original);
+    assert!(!control.metrics().held);
+    control
+        .activate(ConfigurationKind::Rules, "c".repeat(64), context()?)
+        .await?;
+    let old = PreparedAudit::from_original(&original)?;
+    let fresh = PreparedAudit::from_original(&fs::read(archive.path().join("2"))?)?;
+    assert_ne!(old.record().record_id, fresh.record().record_id);
+    Ok(())
+}
+
+#[tokio::test]
+async fn selected_preparation_cannot_renew_the_clock_or_enable_after_ready_handoff() -> Result {
+    struct Owned(std::sync::Arc<std::sync::atomic::AtomicBool>);
+    impl Drop for Owned {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+    let original = ExtensionContext::new(CancellationToken::new(), Duration::from_millis(30))?;
+    let dropped = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let owned = Owned(dropped.clone());
+    let result = within_startup(&original, async move {
+        let _owned = owned;
+        std::future::pending::<std::result::Result<(), crate::AppError>>().await
+    })
+    .await;
+    assert!(matches!(result, Err(crate::AppError::Audit(_))));
+    assert!(Instant::now() >= original.deadline());
+    assert!(dropped.load(Ordering::SeqCst));
+    // Work returns a successful owned result after consuming the original clock
+    // in its one poll. The timeout's ready inner reply must not enable work.
+    let original = ExtensionContext::new(CancellationToken::new(), Duration::from_millis(30))?;
+    let dropped = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let completed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let marker = completed.clone();
+    let owner = Owned(dropped.clone());
+    let deadline = original.deadline();
+    let result = within_startup(&original, async move {
+        while Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        marker.store(true, Ordering::SeqCst);
+        Ok(owner)
+    })
+    .await;
+    assert!(matches!(result, Err(crate::AppError::Audit(_))));
+    assert!(completed.load(Ordering::SeqCst));
+    assert!(dropped.load(Ordering::SeqCst));
+    let original = context()?;
+    let cancellation = original.cancellation().clone();
+    let completed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let marker = completed.clone();
+    let result = within_startup(&original, async move {
+        cancellation.cancel();
+        marker.store(true, Ordering::SeqCst);
+        Ok(())
+    })
+    .await;
+    assert!(matches!(result, Err(crate::AppError::Audit(_))));
+    assert!(completed.load(Ordering::SeqCst));
+    Ok(())
+}

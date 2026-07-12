@@ -25,6 +25,16 @@ and live-vendor checks must remain separately visible, never closed by simulatio
 
 ## Native CI status — 2026-10-09
 
+Settled developacc11ffe CI run37906759594 is failed as observed09:13UTC.
+Both complete native Rust jobs, production images and basic container/persistence
+checks pass. Both native pipeline/finite-soak steps fail at reported stage
+`pipeline`; underlying cause remains unconfirmed. Kind/supply-chain/candidate
+stages are skipped. This is the latest pushed reviewed revision at this audit;
+full EXT-CI/EXT-ARM64 remain external_pending. No next version/date is selected.
+Evidence: `target/goal-execution-20261007/EXT-CI/rules-revision-remote-jobs-2.json`
+and `rules-revision-annotations.json`. Earlier observations below retain their
+own immutable source bindings.
+
 Settledfe5acf377 run37895779773 passes both complete native Rust jobs, production
 images and basic container/persistence checks; both native pipeline/finite-soak
 steps fail, and kind/supply-chain/candidate stages are skipped. Settled1a8ab8cb
@@ -66,6 +76,46 @@ Evidence: `target/goal-execution-20261007/EXT-CI/native-stage-acceptance.json`,
 This is locally accepted tooling, not the cause of earlier remote failures or a
 closed native/container/Kubernetes/supply-chain/release gate. Continue existing
 SECURITY-AUDIT hooks and source-bound remote CI evidence without scope expansion.
+
+## Native startup activation audit — 2026-10-09
+
+Explicit optional unique `configuration_activations: [runtime, rules]` selects
+fresh System records independently of API operations. Operations-only profiles
+retain their behavior; activation-only profiles are supported. The installed
+runtime resource revision commits named typed limits/mode bits from actual
+prepared immutable values. It excludes credential values, paths, private TLS,
+IdP/coverage policy, backend-specific object settings and logging; it is not a
+commitment to the entire configuration. Actual retained validated RuleSet feeds
+the accepted bounded revision stream into a memory hash sink without file reread.
+The existing pinned sha2 dependency moves from test-only to runtime; lock unchanged.
+
+The original60s selected startup clock bounds inactive preparation, pending replay,
+revision capture and both fresh exact confirmations. No old replay substitutes
+for a fresh record. Shared Control capacity, incomplete/drop latch, final clock
+checks and finite cleanup remain. Only after both selected confirmations may the
+consumer spawn or API/metrics transport be polled. Activation records describe
+installed state, not proof that serving began. Caller timeout/drop retains existing
+physical worker ownership; it does not prove kernel/disk work ended at timeout.
+
+Six additional compound regressions, strict 792/843 workspace tests, both Clippy,
+fmt/workspace13 and independent source review pass. Actual default AMD64 monolith
+and separate synthetic fsynced mTLS peer pass 88 checks with
+40 receipts and 14 canary-free
+ordinary logs. Normalized/changed rule digests, fresh activation-only and selected
+query startups, lost/wrong ACK, pending exact replay/new identity, no failed-start
+consumer effects and bounded SIGTERM are covered with clean cleanup/source/binary
+guards. The first fixture's held single-threaded peer prevented its own health
+request; retained failure and hold-release ordering correction are distinct from
+production acceptance. Compile/lint corrections and review's original-clock
+finding are retained; final required checks have no failures.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/activation-hooks-acceptance.json`,
+`activation-hooks-validation-final/validation.json`, `activation-hooks-review.json`,
+`activation-hooks-native-independent/report.json`, `activation-hooks-stable-build/build.json`.
+This accepts a bounded substep, not all SECURITY-AUDIT. Production receiver,
+independent health/permission isolation, native IdP+audit composition, secrets and
+encrypted storage remain. Frozen52 item statuses/counts do not change. Current
+remote-image/native/cluster/candidate/cloud gates remain separate.
 
 ## Validated rule revision primitive — 2026-10-09
 

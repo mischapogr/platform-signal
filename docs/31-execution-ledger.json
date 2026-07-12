@@ -685,7 +685,7 @@
         "docs/04-implementation-plan.md",
         "docs/45-independent-audit.md"
       ],
-      "notes": "Protocol/client/outbox and six selected native access hooks accepted in finite local scope. Ingest strict778/829 plus50 actual process checks. Retained-rule revision primitive strict786/837 accepted locally; operative runtime/rules activation, native IdP/audit composition, receiver/independent health and secrets/encryption remain.",
+      "notes": "Protocol/client/outbox, six native selected access hooks and actual runtime/rules startup activation accepted in finite local scope. Activation strict792/843 plus88 actual process checks. Independent receiver/history/health, native IdP/audit composition and secrets/encryption remain; parent in_progress.",
       "substeps": [
         {
           "id": "bounded-record-ack-protocol",
@@ -727,6 +727,10 @@
           "rules_revision_status": "passed_local",
           "rules_revision_evidence": [
             "target/goal-execution-20261007/SECURITY-AUDIT/rules-revision-acceptance.json"
+          ],
+          "activation_status": "passed_simulated",
+          "activation_evidence": [
+            "target/goal-execution-20261007/SECURITY-AUDIT/activation-hooks-acceptance.json"
           ]
         },
         {
