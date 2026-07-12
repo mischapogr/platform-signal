@@ -187,7 +187,7 @@ fn wire(path: &std::path::Path) -> TestResult<Value> {
         "limits":{"max_payloads":c.max_payloads,"max_identities":c.max_identities,"max_bindings":c.max_bindings,
             "max_ledger_bytes":c.max_ledger_bytes,"max_database_pages":c.max_database_pages,"max_journal_bytes":c.max_journal_bytes,
             "operation_capacity":c.operation_capacity,"transient_memory_bytes":c.transient_memory_bytes,"worker_memory_bytes":c.worker_memory_bytes,
-            "max_vm_steps":c.max_vm_steps,"operation_timeout_ms":1000},
+            "max_vm_steps":c.max_vm_steps,"operation_timeout_ms":c.operation_timeout.as_millis()},
         "scopes":[{"binding_json":serde_json::to_string(&f["bindings"][0]["input"])?,
             "profile_json":serde_json::to_string(&f["profiles"][0]["input"])?,"authority_revision":"fixture-authority-v1","token_env":"FIXTURE_TOKEN",
             "max_report_age_seconds":60,"max_clock_skew_seconds":2,"payload_retention_seconds":300,"identity_retention_seconds":600}]}),

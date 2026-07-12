@@ -11,6 +11,41 @@ use uuid::Uuid;
 pub const RECORD_BYTES: usize = 4096;
 pub const ACK_BYTES: usize = 1024;
 
+/// Static append classes never contain destination, credentials or record data.
+#[derive(Clone, Copy, Debug, Error, Eq, PartialEq)]
+pub enum AppendError {
+    #[error("audit append capacity is busy")]
+    Busy,
+    #[error("audit append outcome is uncertain")]
+    Uncertain,
+}
+
+/// Physical capacity and confirmed replies, without identity/record metadata.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct AuditMetrics {
+    pub depth: usize,
+    pub capacity: usize,
+    pub rejected: u64,
+    pub confirmed: u64,
+    pub uncertain: u64,
+}
+pub type AppendFuture<'a> =
+    std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), AppendError>> + Send + 'a>>;
+
+/// Restricted destination seam, independent of event/query/WAL storage.
+/// The host supplies its original monotonic deadline. Dropping the caller may
+/// leave effects uncertain; implementations retain physical worker ownership.
+/// Success requires an exact complete ACK from the configured destination and
+/// does not itself prove that destination's storage durability or encryption.
+pub trait AuditSink: Send + Sync + 'static {
+    fn append<'a>(
+        &'a self,
+        record: &'a PreparedAudit,
+        deadline: std::time::Instant,
+    ) -> AppendFuture<'a>;
+    fn metrics(&self) -> AuditMetrics;
+}
+
 #[derive(Clone, Copy, Debug, Error, Eq, PartialEq)]
 pub enum AuditError {
     #[error("invalid bounded audit record")]

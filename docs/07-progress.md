@@ -4,6 +4,44 @@
 
 
 
+
+## SECURITY-AUDIT destination client slice — 2026-10-09
+
+The runtime-independent AuditSink seam now has a restricted HTTP implementation.
+Production construction requires explicit private mTLS identity/roots and an audit
+credential; a separately named numeric-loopback HTTP constructor serves local
+simulation only. One retained physical worker owns request/runtime teardown through
+cancellation; lazy admission avoids body/credential clones for rejected callers.
+Shared DNS retains its own physical ownership. Automatic protocol retry, proxy,
+redirects and decompression are disabled; no ordinary API credential fallback.
+Original immutable bytes and complete bounded exact ACKs determine confirmation;
+missing/late replies remain uncertain and cancellation/rejection are counted.
+
+Four new regressions cover finite configuration, original clock handoff, preclone
+admission and actual HTTP/mTLS behavior (20 compound cases). Strict 743/794 default/
+all-feature workspace checks, both Clippy, fmt/workspace 13 and focused review pass.
+The failed inherited coverage fixture returned OutcomeUnknown; isolated diagnosis
+passed but establishes no cause. Its startup watchdog now uses the store default
+10 seconds instead of a test-specific one second; HTTP deadline stays one second.
+No production coverage behavior changed. The subsequent audit peer BrokenPipe
+failure is also retained: replies now require a complete bounded write before
+readiness signals; only final half-close permits a peer disconnect. Valid/partial/
+denial assertions remain unchanged; production audit transport was unchanged.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/destination-acceptance.json`,
+`destination-validation-qualified/validation.json`, `destination-review.json`. This
+accepts a client/trait. Durable receiver fsync, native hooks, independent health
+and encrypted storage remain unqualified. SECURITY-AUDIT remains in_progress;
+continue a durable bounded control outbox, native hooks and independent receiver.
+
+Develop pushes of accepted commits are now owner-authorized. Protocol revision
+3340234 is pushed. Snapshot `protocol-remote-jobs-1.json` records public CI
+run37885218153 reaching native ARM64 formatting/lint/build and an AMD64 test
+failure with generic metadata. Anonymous log access returned403; gh is not logged
+in. No failure cause or remote/native runtime qualification follows. Main, tags
+and release publication retain their existing authority boundaries.
+
+
 ## SECURITY-AUDIT protocol slice — 2026-10-09
 
 Version 1 audit control records now distinguish access decisions, operation

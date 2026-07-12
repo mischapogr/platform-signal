@@ -11,6 +11,44 @@ Phase 9 AWS collection remains post-MVP.
 
 
 
+
+## SECURITY-AUDIT destination client slice — 2026-10-09
+
+The runtime-independent AuditSink seam now has a restricted HTTP implementation.
+Production construction requires explicit private mTLS identity/roots and an audit
+credential; a separately named numeric-loopback HTTP constructor serves local
+simulation only. One retained physical worker owns request/runtime teardown through
+cancellation; lazy admission avoids body/credential clones for rejected callers.
+Shared DNS retains its own physical ownership. Automatic protocol retry, proxy,
+redirects and decompression are disabled; no ordinary API credential fallback.
+Original immutable bytes and complete bounded exact ACKs determine confirmation;
+missing/late replies remain uncertain and cancellation/rejection are counted.
+
+Four new regressions cover finite configuration, original clock handoff, preclone
+admission and actual HTTP/mTLS behavior (20 compound cases). Strict 743/794 default/
+all-feature workspace checks, both Clippy, fmt/workspace 13 and focused review pass.
+The failed inherited coverage fixture returned OutcomeUnknown; isolated diagnosis
+passed but establishes no cause. Its startup watchdog now uses the store default
+10 seconds instead of a test-specific one second; HTTP deadline stays one second.
+No production coverage behavior changed. The subsequent audit peer BrokenPipe
+failure is also retained: replies now require a complete bounded write before
+readiness signals; only final half-close permits a peer disconnect. Valid/partial/
+denial assertions remain unchanged; production audit transport was unchanged.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/destination-acceptance.json`,
+`destination-validation-qualified/validation.json`, `destination-review.json`. This
+accepts a client/trait. Durable receiver fsync, native hooks, independent health
+and encrypted storage remain unqualified. SECURITY-AUDIT remains in_progress;
+continue a durable bounded control outbox, native hooks and independent receiver.
+
+Develop pushes of accepted commits are now owner-authorized. Protocol revision
+3340234 is pushed. Snapshot `protocol-remote-jobs-1.json` records public CI
+run37885218153 reaching native ARM64 formatting/lint/build and an AMD64 test
+failure with generic metadata. Anonymous log access returned403; gh is not logged
+in. No failure cause or remote/native runtime qualification follows. Main, tags
+and release publication retain their existing authority boundaries.
+
+
 ## SECURITY-AUDIT protocol slice — 2026-10-09
 
 Version 1 audit control records now distinguish access decisions, operation
@@ -994,12 +1032,12 @@ recorded inputs/artifacts but are unsigned local evidence.
 
 | Gate | Current boundary | Completion evidence needed |
 | --- | --- | --- |
-| Native ARM64 build/runtime/container/Kubernetes and measured hardening benchmarks | Owner confirmed no ARM64 host is available. The current AMD64 image passed container, Helm, supply-chain, parser/pipeline and 120-second soak gates; its kind run is blocked before application startup. No native ARM64 execution observed | Native ARM64 runner logs and reviewed architecture-specific runtime, persistence and benchmark evidence |
+| Native ARM64 build/runtime/container/Kubernetes and measured hardening benchmarks | Native GitHub ARM64 runners are now available and execute the public workflow; full architecture-specific runtime qualification remains open. The current AMD64 image passed container, Helm, supply-chain, parser/pipeline and 120-second soak gates; its kind run is blocked before application startup. No native ARM64 execution observed | Native ARM64 runner logs and reviewed architecture-specific runtime, persistence and benchmark evidence |
 | Current local kind deployment | Three attempts timed out on the PVC; owned-cluster diagnosis records kube-proxy `too many open files` and provisioner API timeout. Prior image proof is historical | Restore host-resource preconditions and pass the current-image standard-chart persistence/restart gate |
 | EKS deployment | Deferred: no authorized EKS environment is available. The preceding kind milestone was local proof; the fresh kind gate is currently blocked by host-resource exhaustion. Neither establishes EKS or AWS storage/runtime behavior. | Actual approved cluster/namespace/storage/image/architecture evidence and persistent restart checks |
 | Remote CI | Workflow source and local checks pass; no pushed revision/job execution | Successful required native jobs and retained report artifacts for the reviewed revision |
 | Released external dependency | Private application uses separate checkout/source-path dependencies | External application build/test against the actual released version and locked dependency graph |
-| Release artifacts/publication | Owner authorized local commits on `develop`; push/publication remain unapproved. No release version was selected or bumped; `main` receives changes only when release ready | Qualified release artifacts after required gates pass and the owner-directed release workflow; ARM64, EKS, remote CI and released dependencies remain external gates |
+| Release artifacts/publication | Owner authorized local commits on `develop`; develop pushes are authorized; publication remains unapproved. No release version was selected or bumped; `main` receives changes only when release ready | Qualified release artifacts after required gates pass and the owner-directed release workflow; ARM64, EKS, remote CI and released dependencies remain external gates |
 
 ## Security and operational limits
 

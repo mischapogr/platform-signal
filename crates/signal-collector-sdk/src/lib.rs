@@ -14,6 +14,7 @@ use thiserror::Error;
 use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
+pub mod audit;
 pub mod cloudtrail;
 pub mod coverage;
 mod providers;
@@ -330,3 +331,6 @@ impl io::Write for CountingWriter<'_> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test_tls;
