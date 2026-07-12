@@ -109,6 +109,16 @@ Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
 Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
 `soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
 
+## Current startup activation slice — 2026-10-09
+
+Actual prepared runtime resource/rules startup activation passed_simulated:
+strict 792/843, six source regressions, review and 88 actual
+AMD64/mTLS/fsynced-peer checks. One original60s selected preparation/confirmation
+clock; fresh exact records before consumer/transport enable; installed state only.
+Runtime revision exclusions and receiver/health/native IdP/secrets/encryption
+follow-on are explicit in [audit contract](45-independent-audit.md). Continue the
+bounded independent receiver mechanism inside SECURITY-AUDIT; frozen52 unchanged.
+
 ## Current rules revision primitive — 2026-10-09
 
 Bounded retained-rule projection passed_local: eight regressions, strict 786/837,
