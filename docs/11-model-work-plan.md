@@ -18,6 +18,15 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current independent receipt store — 2026-10-09
+
+Bounded SDK journal passed_local:11 compound regressions, five actual crash stages,
+final strict 803/854 and review. High length-growth deletion and medium prewrite
+cancellation races reproduced red and fixed; original bytes/exact retries survive.
+Receiver host/TLS/separate health/permissions/native IdP/secrets/encryption remain
+next inside frozen SECURITY-AUDIT. Store hashes/ACK do not prove current restore
+or complete collection. See [audit contract](45-independent-audit.md);52 unchanged.
+
 ## Current startup activation slice — 2026-10-09
 
 Actual prepared runtime resource/rules startup activation passed_simulated:

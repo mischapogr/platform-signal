@@ -1,6 +1,8 @@
 //! Restricted audit transport, separate from ordinary ingest and query storage.
 #[cfg(target_os = "linux")]
 pub mod outbox;
+#[cfg(target_os = "linux")]
+pub mod receiver;
 use crate::{
     ExtensionContext,
     transport::worker::{Worker, WorkerError},
