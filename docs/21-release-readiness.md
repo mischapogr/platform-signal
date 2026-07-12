@@ -12,6 +12,29 @@ Phase 9 AWS collection remains post-MVP.
 
 
 
+## EXT-CI failure diagnostics — 2026-10-09
+
+Accepted develop revision880b31e ran public CI37886589245: both native AMD64 and
+ARM64 failed the Tests step; tooling passed and downstream container/Kubernetes
+jobs were skipped. Earlier3340234 also failed both test jobs. Anonymous metadata
+does not expose the failing test; no remote failure cause is inferred.
+
+The finite CI wrapper now records at most16 Cargo package/target failures verified
+against bounded public manifests. Free-form test names/panic data cannot become
+classification metadata. Raw output is retained with GitHub workflow commands
+disabled using a fresh unpredictable stop/resume token, then validated annotations
+are emitted. Six actual subprocess/inventory/command-injection regressions, five
+candidate-report regressions, two retained real-failure classifications, Python
+syntax/workspace13 and focused review qualify this tooling slice. Failed fixture
+lifetime and mistaken helper-path attempts remain retained; both were corrected.
+Rust is unchanged; existing strict743/794 acceptance remains source-applicable.
+
+Evidence: `target/goal-execution-20261007/EXT-CI/failure-diagnostics-acceptance.json`,
+`failure-diagnostic-validation-accepted/`, `failure-diagnostic-real-log-check-accepted.json`
+and `failure-diagnostics-review.json`. EXT-CI/EXT-ARM64 remain external_pending;
+SECURITY-AUDIT remains in_progress. Next: push this accepted diagnostic change,
+inspect actual named CI failures and continue the durable audit outbox/native hooks.
+
 ## SECURITY-AUDIT destination client slice — 2026-10-09
 
 The runtime-independent AuditSink seam now has a restricted HTTP implementation.

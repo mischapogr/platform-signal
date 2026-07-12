@@ -49,6 +49,13 @@ The restricted audit client/trait is locally accepted. SECURITY-AUDIT stays
 in_progress for durable outbox/receiver/native hooks and encryption/secrets seams.
 Develop pushes are now owner-authorized; remote CI/native runtime remain gates.
 
+EXT-CI remains external_pending. Pushed880b31e failed both native test jobs;
+container/kind were skipped. Locally accepted bounded public Cargo-target failure
+classification disables workflow-command parsing around retained raw output.
+Six subprocess regressions, five candidate helpers, two actual retained failure
+classifications, syntax/workspace13 and review pass. No Rust changes or remote
+failure cause is claimed; continue the durable audit outbox/native hooks.
+
 ## Execution and evidence
 
 One coherent writer change set at a time. Verify, resolve focused review, record
