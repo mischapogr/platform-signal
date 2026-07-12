@@ -18,6 +18,14 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current independent receiver composition — 2026-10-09
+
+Real monolith/receiver/separate health-owner passed37 local process checks,11
+actual receipts and16 current health observations. SIGKILL survival, selected
+query outage503/no private result, exact pending replay then fresh activations/
+query evidence pass. SameUID/debug/synthetic only; permission/healthSDK/IdP/
+secrets/encryption remain within SECURITY-AUDIT. Frozen52 unchanged.
+
 ## Current independent receiver host — 2026-10-09
 
 Explicit isolated role and initializer passed_local with seven actual HTTP/store
