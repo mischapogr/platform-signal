@@ -18,6 +18,22 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## EXT-CI legacy candidate fixture correction — 2026-10-09
+
+Two fake-Docker legacy candidate tests now explicitly select their intended Linux
+AMD64 fixture host. Both actual AMD64 and simulated aarch64 suites pass25/25; a
+new negative regression proves production rejects Linux/aarch64 and Darwin before
+Docker, retains the failed manifest and preserves unrelated data. The production
+legacy helper and dedicated dual-architecture CI helper are unchanged. Five CI
+candidate/six diagnostic regressions, syntax/workspace13 and focused review pass.
+Rust is unchanged; strict752/803 acceptance remains source-applicable.
+
+Evidence: `target/goal-execution-20261007/EXT-CI/arm-fixture-acceptance.json`,
+`arm-fixture-validation/validation.json`, `arm-fixture-review.json`. This corrects a
+reproduced local fixture defect; inaccessible remote logs prevent attributing the
+exact earlier remote failure. Full remote/native/container/kind gates stay open.
+Continue the AMD IdP diagnostics and native audit hooks without a routine stop.
+
 ## Current SECURITY-AUDIT outbox slice — 2026-10-09
 
 Durable bounded outbox mechanism passed_local: nine regressions, eleven actual
