@@ -106,6 +106,33 @@ This is locally accepted tooling, not the cause of earlier remote failures or a
 closed native/container/Kubernetes/supply-chain/release gate. Continue existing
 SECURITY-AUDIT hooks and source-bound remote CI evidence without scope expansion.
 
+## Independent receiver composition — 2026-10-09
+
+The real local receiver, actual monolith HttpAuditSink/outbox and a separate
+finite authenticated health-owner process passed37 checks, with11 synced audit
+receipts and16 health observations. Trusted setup obtains the actual generated
+outbox UUID after quiescent operations-only/no-protected-call onboarding, then
+fixes receiver enrollment before publication. No request/body enrolls a producer.
+Runtime/rules receipts are observed before readiness is requested; source/earlier
+startup barrier regressions cover fail-closed activation ordering.
+
+A selected query produces its real persisted result and audit pair. SIGKILL of
+the monolith preserves receiver records and timely independently owned health.
+A real receiver outage withholds selected query data and readiness with503.
+Stopped recovery replays original pending sequence7 before fresh activations8/9
+and the new query10/11; old ACKs cannot replace new operation evidence. Eight
+ordinary logs are privacy-clean; all processes retire, guards/cleanup pass.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/receiver-composition-native/report.json`.
+The37-check successor supersedes the retained34-check positive predecessor; two
+fixture failures (exclusive observation-file collision and pre-request timing
+assumption) remain retained. Readiness checking starts after receipts are observed,
+so this fixture does not independently prove no earlier ready response existed.
+The immutable default LinuxAMD64 debug binary is SHA2567233cb7a23b18f7de6b7436b44ce1f16fd839c84749c05345a6c7ce363677f96.
+This is sameUID synthetic outage/composition proof, not compromise-resistant
+permissions, production/liveIdP/encryption/cloud/nativeARM/current-image/release
+qualification. SECURITY-AUDIT stays in_progress and frozen52 counts unchanged.
+
 ## Independent audit receiver host — 2026-10-09
 
 An explicit `signal-server --audit-receiver --config PATH` role dispatches before

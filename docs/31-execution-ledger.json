@@ -685,7 +685,7 @@
         "docs/04-implementation-plan.md",
         "docs/45-independent-audit.md"
       ],
-      "notes": "Protocol/client/outbox, native hooks/startup, receipt journal, generic transport and explicit receiver/health HTTP host accepted locally. Independent native composition/health owner/permission isolation, native IdP composition/secrets/encryption remain; parent in_progress.",
+      "notes": "Protocol/client/outbox, native hooks/startup, receipt journal, transport/host and actual receiver/monolith/health-owner outage composition accepted locally. SameUID cannot prove compromise restriction. Permission isolation, reusable bounded health probe, native IdP/secrets/encryption remain; parent in_progress.",
       "substeps": [
         {
           "id": "bounded-record-ack-protocol",
@@ -747,6 +747,10 @@
           "receiver_host_native_status": "passed_simulated",
           "receiver_host_native_evidence": [
             "target/goal-execution-20261007/SECURITY-AUDIT/receiver-host-native/report.json"
+          ],
+          "receiver_composition_status": "passed_simulated",
+          "receiver_composition_evidence": [
+            "target/goal-execution-20261007/SECURITY-AUDIT/receiver-composition-native/report.json"
           ]
         },
         {
