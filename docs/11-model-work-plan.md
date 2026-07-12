@@ -18,13 +18,24 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current SECURITY-AUDIT outbox slice — 2026-10-09
+
+Durable bounded outbox mechanism passed_local: nine regressions, eleven actual
+crash boundaries, strict752/803 checks, both Clippy/fmt/workspace13 and focused
+review. Parent remains in_progress for operative native hooks, durable independent
+receiver/outage health and secrets/encryption seams. First correct the reproduced
+ARM legacy-helper fixture without weakening its production host guard; continue
+native hooks independently of remote CI. See [audit](45-independent-audit.md).
+
 ## Current EXT-CI diagnostic slice — 2026-10-09
 
 Both native jobs failed Tests on pushed880b31e; container/kind were skipped. The
 bounded public target classifier and command-disabled raw log emission pass six
 subprocess regressions, five candidate helpers and focused review; Rust unchanged.
-Push accepted tooling, use actual named failures for focused correction, and
-continue SECURITY-AUDIT durable outbox/native hooks independently. No remote/native
+Pushed57c1d1e passes both native Rust Tests steps, but its full run fails the
+ARM legacy-candidate helper and AMD IdP/browser gate; container/kind remain skipped.
+Correct the reproduced ARM test fixture, preserve the production AMD64 guard,
+then continue SECURITY-AUDIT native hooks independently. No remote/native
 runtime gate closes. Evidence: `target/goal-execution-20261007/EXT-CI/failure-diagnostics-acceptance.json`.
 
 ## Current SECURITY-AUDIT destination slice — 2026-10-09

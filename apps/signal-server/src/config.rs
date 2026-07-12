@@ -1165,15 +1165,41 @@ telemetry:
         // Complete physical work, then resume its caller after the deadline.
         // timeout_at can observe a ready reply before its elapsed timer.
         use std::{future::Future, task::Poll};
-        let deadline = Instant::now() + Duration::from_millis(200);
+        let deadline = Instant::now() + Duration::from_secs(2);
         let cancel = CancellationToken::new();
-        let mut late = Box::pin(run_worker(deadline, &cancel, || Ok(7u8)));
+        let (started, ready) = oneshot::channel();
+        let (release, wait) = std::sync::mpsc::sync_channel(1);
+        let mut late = Box::pin(run_worker(deadline, &cancel, move || {
+            let _ = started.send(());
+            wait.recv_timeout(Duration::from_secs(3))
+                .map_err(|_| ConfigError::Timeout)?;
+            Ok(7u8)
+        }));
         std::future::poll_fn(|context| {
+            // Physical work cannot finish until the test releases it; Pending
+            // is now a proved state rather than a scheduling assumption.
             assert!(late.as_mut().poll(context).is_pending());
             Poll::Ready(())
         })
         .await;
-        tokio::time::sleep_until(deadline + Duration::from_millis(10)).await;
+        tokio::time::timeout_at(deadline, ready).await??;
+        release.send(())?;
+        while WORKER
+            .lock()
+            .map_err(|_| "fixture worker state poisoned")?
+            .as_ref()
+            .is_some_and(|worker| !worker.is_finished())
+        {
+            assert!(
+                Instant::now() < deadline,
+                "physical reply must finish before its deadline"
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(
+            deadline.saturating_duration_since(Instant::now()) + Duration::from_millis(10),
+        );
         assert!(matches!(late.await, Err(ConfigError::Timeout)));
         let path = temp.path().join("bounded-private.json");
         fs::write(&path, vec![b'x'; MAX_BYTES + 1])?;
