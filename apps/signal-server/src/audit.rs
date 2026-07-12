@@ -62,7 +62,7 @@ impl Wire {
 }
 fn valid_operations(operations: &[Operation]) -> bool {
     !operations.is_empty()
-        && operations.len() <= 5
+        && operations.len() <= 6
         && operations.iter().enumerate().all(|(index, operation)| {
             matches!(
                 operation,
@@ -71,6 +71,7 @@ fn valid_operations(operations: &[Operation]) -> bool {
                     | Operation::ReadFindingsFeed
                     | Operation::ReadCoverage
                     | Operation::WriteCoverage
+                    | Operation::IngestEvents
             ) && !operations[..index].contains(operation)
         })
 }
@@ -189,6 +190,13 @@ impl Control {
     pub fn selected(&self, operation: Operation) -> bool {
         self.operations.contains(&operation)
     }
+    pub fn ingest_auditor(
+        self: &Arc<Self>,
+    ) -> Option<Arc<dyn signal_ingest::control::IngestAudit>> {
+        self.selected(Operation::IngestEvents).then(|| {
+            Arc::new(IngestAuditor(self.clone())) as Arc<dyn signal_ingest::control::IngestAudit>
+        })
+    }
     pub fn metrics(&self) -> AuditControlMetrics {
         let disk = self.outbox.metrics();
         let destination = self.destination.metrics();
@@ -263,6 +271,43 @@ pub struct Session {
     operation_id: Uuid,
     context: ExtensionContext,
     completed: bool,
+}
+struct IngestAuditor(Arc<Control>);
+impl signal_ingest::control::IngestAudit for IngestAuditor {
+    fn begin(
+        &self,
+        actor: Actor,
+        decision: Decision,
+        context: signal_ingest::control::AuditContext,
+    ) -> signal_ingest::control::AuditFuture<'_, Box<dyn signal_ingest::control::IngestAuditSession>>
+    {
+        Box::pin(async move {
+            let session = self
+                .0
+                .begin(
+                    actor,
+                    decision,
+                    Operation::IngestEvents,
+                    context.deadline,
+                    context.cancellation,
+                )
+                .await
+                .map_err(|_| signal_ingest::control::AuditUnavailable)?;
+            Ok(Box::new(session) as Box<dyn signal_ingest::control::IngestAuditSession>)
+        })
+    }
+}
+impl signal_ingest::control::IngestAuditSession for Session {
+    fn finish(
+        self: Box<Self>,
+        completion: Completion,
+    ) -> signal_ingest::control::AuditFuture<'static, ()> {
+        Box::pin(async move {
+            Session::finish(*self, completion)
+                .await
+                .map_err(|_| signal_ingest::control::AuditUnavailable)
+        })
+    }
 }
 impl Session {
     async fn publish(&self, action: Action) -> Result<(), Unavailable> {

@@ -1,4 +1,5 @@
 //! Validated, bounded HTTP ingestion through a storage-independent EventSink.
+pub mod control;
 pub mod identity;
 pub mod memory;
 pub mod server;
@@ -13,10 +14,12 @@ use axum::{
     routing::{get, post},
 };
 use chrono::Utc;
+use control::{AuditContext, IngestAudit};
 use identity::{IdentityBackend, IdentityContext, IdentityError};
 use serde_json::Value;
 use signal_event::{IngestEvent, ValidationError};
 use signal_protocol::access::{Operation, RequestGrant, ScopeFacts};
+use signal_protocol::audit::{Actor, Completion, Decision};
 use signal_protocol::{
     API_SCHEMA_VERSION, AdmissionError, ApiError, BatchInput, ErrorCode, EventSink, IngestResponse,
 };
@@ -121,6 +124,7 @@ struct HttpMetrics {
 struct Shared {
     config: IngestConfig,
     identity: Option<IdentityBackend>,
+    audit: Option<Arc<dyn IngestAudit>>,
     sink: Arc<dyn EventSink>,
     permits: Semaphore,
     stopping: CancellationToken,
@@ -134,7 +138,7 @@ pub struct IngestService {
 
 impl IngestService {
     pub fn new(config: IngestConfig, sink: Arc<dyn EventSink>) -> Result<Self, ConfigError> {
-        Self::build(config, sink, None)
+        Self::new_with_security(config, sink, None, None)
     }
 
     pub fn new_with_identity(
@@ -142,25 +146,28 @@ impl IngestService {
         sink: Arc<dyn EventSink>,
         identity: IdentityBackend,
     ) -> Result<Self, ConfigError> {
-        if config.api_token.is_some() {
+        Self::new_with_security(config, sink, Some(identity), None)
+    }
+
+    /// Optional host control recording never substitutes for authorization.
+    pub fn new_with_security(
+        config: IngestConfig,
+        sink: Arc<dyn EventSink>,
+        identity: Option<IdentityBackend>,
+        audit: Option<Arc<dyn IngestAudit>>,
+    ) -> Result<Self, ConfigError> {
+        if identity.is_some() && config.api_token.is_some() {
             return Err(ConfigError::Invalid(
                 "identity and shared token are mutually exclusive",
             ));
         }
-        Self::build(config, sink, Some(identity))
-    }
-
-    fn build(
-        config: IngestConfig,
-        sink: Arc<dyn EventSink>,
-        identity: Option<IdentityBackend>,
-    ) -> Result<Self, ConfigError> {
         config.validate()?;
         let permits = Semaphore::new(config.max_in_flight);
         Ok(Self {
             shared: Arc::new(Shared {
                 config,
                 identity,
+                audit,
                 sink,
                 permits,
                 stopping: CancellationToken::new(),
@@ -249,6 +256,10 @@ impl Attempt {
             "ingest completed"
         );
         let mut response = (status, Json(body)).into_response();
+        response.headers_mut().insert(
+            header::CACHE_CONTROL,
+            header::HeaderValue::from_static("no-store"),
+        );
         if status == StatusCode::UNAUTHORIZED {
             response.headers_mut().insert(
                 header::WWW_AUTHENTICATE,
@@ -260,6 +271,31 @@ impl Attempt {
                 .headers_mut()
                 .insert(header::RETRY_AFTER, header::HeaderValue::from_static("1"));
         }
+        response
+    }
+    fn uncertain_response(&mut self) -> Response {
+        // Withhold all receipt IDs/prefix information after audit uncertainty.
+        // Keep actual total/accepted accounting unchanged: effects may exist.
+        self.failed = true;
+        let mut response = (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(IngestResponse {
+                schema_version: API_SCHEMA_VERSION,
+                accepted: 0,
+                rejected: 0,
+                event_ids: Vec::new(),
+                error: Some(ApiError {
+                    code: ErrorCode::Unavailable,
+                    message: "admission outcome is uncertain".into(),
+                    index: None,
+                }),
+            }),
+        )
+            .into_response();
+        response.headers_mut().insert(
+            header::CACHE_CONTROL,
+            header::HeaderValue::from_static("no-store"),
+        );
         response
     }
     fn error(
@@ -319,25 +355,32 @@ async fn ingest(service: IngestService, request: Request, is_batch: bool) -> Res
             None,
         );
     }
+    let cancellation = shared.stopping.child_token();
+    let _cancel_on_drop = cancellation.clone().drop_guard();
+    let mut actor = Actor::Unattributed {};
+    let mut rejected = None;
     let grant = if let Some(identity) = &shared.identity {
-        let result = identity
+        match identity
             .authenticate_headers(
                 request.headers(),
                 IdentityContext {
                     deadline,
-                    cancellation: shared.stopping.child_token(),
+                    cancellation: cancellation.clone(),
                 },
             )
-            .await;
-        match result {
+            .await
+        {
             Ok(grant) => {
+                actor = authorization_time()
+                    .and_then(|at| grant.audit_subject_key(at))
+                    .map_or(Actor::Unattributed {}, |key| Actor::VerifiedSubject { key });
                 if !has_ingest_authority(&grant, authorization_time()) {
-                    return attempt.error(
+                    rejected = Some(attempt.error(
                         StatusCode::FORBIDDEN,
                         ErrorCode::Forbidden,
                         "event admission access denied",
                         None,
-                    );
+                    ));
                 }
                 Some(grant)
             }
@@ -346,19 +389,114 @@ async fn ingest(service: IngestService, request: Request, is_batch: bool) -> Res
                     shared.metrics.timed_out.fetch_add(1, Ordering::Relaxed);
                 }
                 let (status, code, message) = identity_error(error);
-                return attempt.error(status, code, message, None);
+                rejected = Some(attempt.error(status, code, message, None));
+                None
             }
         }
     } else if !authorized(&shared.config, request.headers()) {
-        return attempt.error(
+        rejected = Some(attempt.error(
             StatusCode::UNAUTHORIZED,
             ErrorCode::Unauthorized,
             "Bearer authentication required",
             None,
-        );
+        ));
+        None
     } else {
+        actor = if shared.config.api_token.is_some() {
+            Actor::Bootstrap {}
+        } else {
+            Actor::Anonymous {}
+        };
         None
     };
+    let decision = match rejected.as_ref().map(Response::status) {
+        None => Decision::Granted,
+        Some(StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN) => Decision::Denied,
+        Some(_) => Decision::Unavailable,
+    };
+    let session = match &shared.audit {
+        Some(audit) => {
+            let context = AuditContext {
+                deadline,
+                cancellation: cancellation.clone(),
+            };
+            let result = tokio::select! {
+                biased;
+                _ = cancellation.cancelled() => return attempt.uncertain_response(),
+                result = timeout_at(deadline, audit.begin(actor, decision, context)) => result,
+            };
+            match result {
+                Ok(Ok(session)) => Some(session),
+                _ => return attempt.uncertain_response(),
+            }
+        }
+        None => None,
+    };
+    let response = match rejected {
+        Some(response) => response,
+        None => {
+            authenticated_ingest(
+                shared,
+                request,
+                is_batch,
+                &mut attempt,
+                grant.as_ref(),
+                deadline,
+                &cancellation,
+            )
+            .await
+        }
+    };
+    if let Some(session) = session {
+        // Response preparation is not completed audited disclosure. Aborting
+        // while confirmation runs must retain failure accounting.
+        attempt.failed = true;
+        let completion =
+            if decision == Decision::Denied || response.status() == StatusCode::FORBIDDEN {
+                Completion::Denied
+            } else if response.status().is_success() {
+                Completion::Success
+            } else if matches!(
+                response.status(),
+                StatusCode::REQUEST_TIMEOUT | StatusCode::SERVICE_UNAVAILABLE
+            ) {
+                Completion::Uncertain
+            } else {
+                Completion::Failed
+            };
+        let result = tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => return attempt.uncertain_response(),
+            result = timeout_at(deadline, session.finish(completion)) => result,
+        };
+        if !matches!(result, Ok(Ok(()))) {
+            return attempt.uncertain_response();
+        }
+        // A prepared response is not permission to disclose a receipt after
+        // its original clock or live authority ended. Effects cannot roll back.
+        if (response.status().is_success() || attempt.accepted != 0)
+            && (Instant::now() >= deadline
+                || cancellation.is_cancelled()
+                || grant
+                    .as_ref()
+                    .is_some_and(|grant| !has_ingest_authority(grant, authorization_time())))
+        {
+            return attempt.uncertain_response();
+        }
+        attempt.failed = !response.status().is_success();
+    }
+    response
+}
+
+async fn authenticated_ingest(
+    shared: &Shared,
+    request: Request,
+    is_batch: bool,
+    attempt: &mut Attempt,
+    grant: Option<&RequestGrant>,
+    deadline: Instant,
+    cancellation: &CancellationToken,
+) -> Response {
     if !request
         .headers()
         .get(header::CONTENT_TYPE)
@@ -378,7 +516,7 @@ async fn ingest(service: IngestService, request: Request, is_batch: bool) -> Res
     }
     let bytes = tokio::select! {
         biased;
-        _ = shared.stopping.cancelled() => return attempt.error(StatusCode::SERVICE_UNAVAILABLE, ErrorCode::Stopping, "admission is stopped", None),
+        _ = cancellation.cancelled() => return attempt.error(StatusCode::SERVICE_UNAVAILABLE, ErrorCode::Stopping, "admission is stopped", None),
         result = timeout_at(deadline, to_bytes(request.into_body(), shared.config.max_request_bytes)) => match result {
             Err(_) => { shared.metrics.timed_out.fetch_add(1, Ordering::Relaxed); return attempt.error(StatusCode::REQUEST_TIMEOUT, ErrorCode::RequestTimeout, "request deadline exceeded", None); }
             Ok(Err(error)) => {
@@ -486,7 +624,7 @@ async fn ingest(service: IngestService, request: Request, is_batch: bool) -> Res
                 Some(index),
             );
         }
-        if !admission_allowed(grant.as_ref(), &event, at) {
+        if !admission_allowed(grant, &event, at) {
             return attempt.error(
                 StatusCode::FORBIDDEN,
                 ErrorCode::Forbidden,
@@ -497,7 +635,7 @@ async fn ingest(service: IngestService, request: Request, is_batch: bool) -> Res
         events.push(event);
     }
     for (index, event) in events.into_iter().enumerate() {
-        if !admission_allowed(grant.as_ref(), &event, authorization_time()) {
+        if !admission_allowed(grant, &event, authorization_time()) {
             // Whole-batch scopes already passed. Only the immutable request
             // authority's time lease can now have ended. Preserve prefix/retry.
             shared.metrics.timed_out.fetch_add(1, Ordering::Relaxed);
@@ -520,7 +658,7 @@ async fn ingest(service: IngestService, request: Request, is_batch: bool) -> Res
         let id = event.id;
         let result = tokio::select! {
             biased;
-            _ = shared.stopping.cancelled() => Err((StatusCode::SERVICE_UNAVAILABLE, ErrorCode::Stopping, "admission is stopped")),
+            _ = cancellation.cancelled() => Err((StatusCode::SERVICE_UNAVAILABLE, ErrorCode::Stopping, "admission is stopped")),
             result = timeout_at(deadline, shared.sink.admit(event)) => match result {
                 Err(_) => { shared.metrics.timed_out.fetch_add(1, Ordering::Relaxed); Err((StatusCode::REQUEST_TIMEOUT, ErrorCode::RequestTimeout, "request deadline exceeded")) }
                 Ok(Err(AdmissionError::Full)) => Err((StatusCode::TOO_MANY_REQUESTS, ErrorCode::Full, "admission capacity is full")),
