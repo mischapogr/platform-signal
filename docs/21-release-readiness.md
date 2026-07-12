@@ -25,16 +25,23 @@ and live-vendor checks must remain separately visible, never closed by simulatio
 
 ## Native CI status — 2026-10-09
 
-Run37892977827 on3b172b70 passes both complete native Rust jobs, both production
-image builds and basic container runtime/persistence. Both native parser/pipeline/
-finite-soak steps fail; kind/supply-chain/candidate stages are skipped. Public
-annotations expose only exit1, and anonymous detailed logs return403. The exact
-failure cause is unconfirmed. One current-debug AMD64 quick profile passes488
-admissions/durable events and20 queries; it cannot qualify either remote image.
-Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
-07:08UTC. Complete reviewed-revision EXT-CI/EXT-ARM64 remain external_pending.
-Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
-`soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
+Settledfe5acf377 run37895779773 passes both complete native Rust jobs, production
+images and basic container/persistence checks; both native pipeline/finite-soak
+steps fail, and kind/supply-chain/candidate stages are skipped. Settled1a8ab8cb
+run37899784130 passes the complete ARM64 Rust job; AMD64 Rust Tests fails.
+Annotations expose exit1 without a Rust target/cause; container/kind are skipped.
+Anonymous detailed logs remain inaccessible. The local full seven-profile debug
+pipeline passes140 queries with2417 confirmed admissions and2421 durable records
+within the original admission uncertainty bound; it does not reproduce or explain
+either remote failure and is not remote-image/native ARM64 qualification.
+
+Develop7761c586 CI run37903398196 is in_progress as observed08:23UTC, with tooling
+passed and both native Rust jobs running. Fixed public failure-stage diagnostics
+are included in this pushed revision. Complete reviewed-revision EXT-CI/EXT-ARM64
+remain external_pending. No release version/date or publication is selected.
+Evidence: `target/goal-execution-20261007/EXT-CI/query-hooks-remote-jobs-2.json`,
+`findings-hooks-remote-jobs-2.json`, `findings-hooks-amd64-annotations.json`,
+`local-full-pipeline-diagnostic/report.json` and `native-stage-remote-jobs-1.json`.
 
 ## EXT-CI native failure diagnostics — 2026-10-09
 
@@ -56,6 +63,38 @@ Evidence: `target/goal-execution-20261007/EXT-CI/native-stage-acceptance.json`,
 This is locally accepted tooling, not the cause of earlier remote failures or a
 closed native/container/Kubernetes/supply-chain/release gate. Continue existing
 SECURITY-AUDIT hooks and source-bound remote CI evidence without scope expansion.
+
+## Native ingest control audit — 2026-10-09
+
+The optional generic ingest seam now confirms a new decision before reading the
+body or admitting WAL records, then matching completion before any prefix/ID
+receipt disclosure. The monolith selects `ingest_events` alongside five existing
+access operations and shares one bounded Control/outbox. Authentication runs once;
+a live actor is captured while whole-batch canonical scope preflight remains before
+first admission. Granted decision means request-processing capability, not approval
+of an unexamined event. Original request clock/cancellation and live-grant checks
+remain effective through the final reply. Every handled response is no-store.
+
+Lost completion or late disclosure authority withholds all prefix/IDs through a
+verifier-valid503 unknown-total retry response. Actual partial/full WAL effects and
+admission counters remain truthful; retry may duplicate immutable IDs. Uncertainty
+cannot become a permanent403 or an invalid full-prefix503. Dropped completions
+count incomplete/failed requests without inventing rollback or detached completion.
+
+Ten additional regressions, strict 778/829 tests, both Clippy/fmt/workspace13,
+source review and 50 actual AMD64/mTLS process checks pass. The
+native campaign retains 28 fsynced receipts and 6 clean ordinary logs, confirming
+full/partial WAL effects, lost decision/completion, exact restart replay/fresh IDs
+and shared selected-route/readiness failure. Actual queued-success late handoff and
+native HTTPS grant expiry have separate source fixtures. Failed fixture campaigns
+remain retained; no source/binary drift or cleanup errors. Native IdP plus actual
+monolith auditing, production receiver/independent health/encryption and runtime/
+rule activation remain unfinished. Parent SECURITY-AUDIT stays in_progress.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/ingest-hooks-acceptance.json`,
+`ingest-hooks-validation/validation.json`, `ingest-hooks-review.json` and
+`ingest-hooks-native-independent/report.json`. The frozen52 inventory/status counts
+are unchanged; this is a bounded substep, not whole-item or release qualification.
 
 ## Native coverage access audit — 2026-10-09
 

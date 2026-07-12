@@ -18,6 +18,15 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current native ingest audit slice — 2026-10-09
+
+Selected ingest uses a generic consuming session and the same bounded monolith
+Control/outbox. Strict 778/829, review and 50 actual AMD64/mTLS process
+checks pass. Lost/late replies withhold receipts through retry uncertainty while
+actual WAL effects/counters survive; no rollback. Parent remains in_progress for
+runtime/rule activation, IdP/audit composition, receiver/health/secrets-encryption.
+See [audit contract](45-independent-audit.md); frozen item/counts stay unchanged.
+
 ## Current native CI diagnostic slice — 2026-10-09
 
 Fixed native stages are reported after cleanup and allowlisted after disabled raw

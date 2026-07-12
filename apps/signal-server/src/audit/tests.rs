@@ -450,12 +450,14 @@ fn configuration_is_strict_scoped_bounded_and_never_prints_values() -> Result {
         serde_json::json!(["read_findings_feed", "query_events"]),
         serde_json::json!(["query_events", "read_findings", "read_findings_feed"]),
         serde_json::json!(["read_coverage", "write_coverage"]),
+        serde_json::json!(["ingest_events"]),
         serde_json::json!([
             "query_events",
             "read_findings",
             "read_findings_feed",
             "read_coverage",
-            "write_coverage"
+            "write_coverage",
+            "ingest_events"
         ]),
     ] {
         let mut selected = original.clone();
@@ -464,7 +466,7 @@ fn configuration_is_strict_scoped_bounded_and_never_prints_values() -> Result {
     }
     for (key, value) in [
         ("schema_version", serde_json::json!(2)),
-        ("operations", serde_json::json!(["ingest_events"])),
+        ("operations", serde_json::json!(["manage_rules"])),
         ("operations", serde_json::json!([])),
         (
             "operations",
@@ -874,4 +876,198 @@ async fn explicit_read_selection_does_not_silently_enable_other_paths() -> Resul
     drop(control);
     finding_shutdown(store).await?;
     stopped(query_store, query_engine).await
+}
+
+fn ingest_batch_request(valid: bool) -> std::result::Result<Request<Body>, axum::http::Error> {
+    let body = if valid {
+        serde_json::json!({"schema_version":1,"events":[
+            {"id":Uuid::from_u128(101),"timestamp":"2026-10-01T00:00:00Z","source":{"type":"application"},"message":"synthetic-private-ingest-body"},
+            {"id":Uuid::from_u128(102),"timestamp":"2026-10-01T00:00:00Z","source":{"type":"application"},"message":"synthetic-private-ingest-body"}
+        ]}).to_string()
+    } else {
+        "{malformed".into()
+    };
+    Request::post("/v1/events/batch")
+        .header("content-type", "application/json")
+        .header("authorization", "Bearer ordinary-test-secret")
+        .body(Body::from(body))
+}
+fn ingest_service(
+    buffer: Arc<signal_buffer::DurableBuffer>,
+    control: &Arc<Control>,
+) -> std::result::Result<signal_ingest::IngestService, signal_ingest::ConfigError> {
+    signal_ingest::IngestService::new_with_security(
+        signal_ingest::IngestConfig {
+            api_token: Some("ordinary-test-secret".into()),
+            ..Default::default()
+        },
+        buffer,
+        None,
+        control.ingest_auditor(),
+    )
+}
+#[tokio::test]
+async fn ingest_audit_ack_loss_preserves_real_wal_effects_and_exact_replay_before_fresh_operation()
+-> Result {
+    let _serial = SERIAL.lock().await;
+    for lose_on in [1, 2] {
+        for capacity in [1, 2] {
+            let spool = root()?;
+            let archive = root()?;
+            let data = root()?;
+            let config = signal_buffer::BufferConfig {
+                directory: data.path().join("wal"),
+                max_events: capacity,
+                ..Default::default()
+            };
+            let buffer = Arc::new(signal_buffer::DurableBuffer::open(config.clone()).await?);
+            let sink = destination(archive.path(), lose_on);
+            let control = Control::open(
+                spool.path(),
+                sink.clone(),
+                vec![Operation::IngestEvents],
+                context()?,
+            )
+            .await?;
+            let service = ingest_service(buffer.clone(), &control)?;
+            let response = service
+                .router()
+                .oneshot(ingest_batch_request(true)?)
+                .await?;
+            assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+            assert_eq!(response.headers()["cache-control"], "no-store");
+            let body = axum::body::to_bytes(response.into_body(), 65536).await?;
+            let receipt: signal_protocol::IngestResponse = serde_json::from_slice(&body)?;
+            assert_eq!((receipt.accepted, receipt.rejected), (0, 0));
+            assert!(receipt.event_ids.is_empty());
+            let outcome = signal_protocol::verify_admission_response(
+                503,
+                receipt,
+                &[Uuid::from_u128(101), Uuid::from_u128(102)],
+            )?;
+            assert_eq!(
+                outcome.disposition,
+                signal_protocol::AdmissionDisposition::Retry
+            );
+            let effects = if lose_on == 1 { 0 } else { capacity };
+            assert_eq!(buffer.snapshot().last_sequence, effects as u64);
+            assert_eq!(buffer.read_batch(capacity, 65536).await?.len(), effects);
+            assert!(control.metrics().held);
+            let original = fs::read(archive.path().join(lose_on.to_string()))?;
+            assert_eq!(fs::read(spool.path().join("pending"))?, original);
+            drop(service);
+            drop(control);
+            buffer.shutdown().await?;
+            drop(buffer);
+            let buffer = Arc::new(signal_buffer::DurableBuffer::open(config).await?);
+            let control = Control::open(
+                spool.path(),
+                sink.clone(),
+                vec![Operation::IngestEvents],
+                context()?,
+            )
+            .await?;
+            assert_eq!(
+                fs::read(archive.path().join(lose_on.to_string()))?,
+                original
+            );
+            assert_eq!(buffer.read_batch(capacity, 65536).await?.len(), effects);
+            let service = ingest_service(buffer.clone(), &control)?;
+            let response = service
+                .router()
+                .oneshot(ingest_batch_request(false)?)
+                .await?;
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+            let old = PreparedAudit::from_original(&original)?;
+            let fresh = PreparedAudit::from_original(&fs::read(
+                archive.path().join((lose_on + 1).to_string()),
+            )?)?;
+            let old_id = match old.record().action {
+                Action::AccessDecision { operation_id, .. }
+                | Action::OperationCompletion { operation_id, .. } => operation_id,
+                _ => panic!("expected ingest operation"),
+            };
+            let Action::AccessDecision {
+                operation: Operation::IngestEvents,
+                operation_id: fresh_id,
+                ..
+            } = fresh.record().action
+            else {
+                panic!("fresh ingest decision")
+            };
+            assert_ne!(old_id, fresh_id);
+            assert_eq!(buffer.snapshot().last_sequence, effects as u64);
+            for sequence in 1..=lose_on + 2 {
+                let bytes = fs::read(archive.path().join(sequence.to_string()))?;
+                let text = std::str::from_utf8(&bytes)?;
+                assert!(!text.contains("synthetic-private-ingest-body"));
+                assert!(!text.contains("ordinary-test-secret"));
+                assert!(!text.contains(&Uuid::from_u128(101).to_string()));
+                let record = PreparedAudit::from_original(&bytes)?;
+                assert!(matches!(record.record().actor, Actor::Bootstrap {}));
+            }
+            drop(service);
+            drop(control);
+            buffer.shutdown().await?;
+        }
+    }
+    Ok(())
+}
+#[tokio::test]
+async fn ingest_selection_and_shared_slot_never_admit_without_new_decision() -> Result {
+    let _serial = SERIAL.lock().await;
+    for selected in [false, true] {
+        let spool = root()?;
+        let archive = root()?;
+        let data = root()?;
+        let sink = destination(archive.path(), 0);
+        let operations = if selected {
+            vec![Operation::QueryEvents, Operation::IngestEvents]
+        } else {
+            vec![Operation::QueryEvents]
+        };
+        let control = Control::open(spool.path(), sink.clone(), operations, context()?).await?;
+        let buffer = Arc::new(
+            signal_buffer::DurableBuffer::open(signal_buffer::BufferConfig {
+                directory: data.path().join("wal"),
+                ..Default::default()
+            })
+            .await?,
+        );
+        let service = ingest_service(buffer.clone(), &control)?;
+        if selected {
+            let held = control
+                .begin(
+                    Actor::Bootstrap {},
+                    Decision::Granted,
+                    Operation::QueryEvents,
+                    Instant::now() + Duration::from_secs(10),
+                    CancellationToken::new(),
+                )
+                .await?;
+            let response = service
+                .router()
+                .oneshot(ingest_batch_request(true)?)
+                .await?;
+            assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+            assert_eq!(buffer.snapshot().last_sequence, 0);
+            assert_eq!(sink.calls.load(Ordering::Relaxed), 1);
+            assert_eq!(control.metrics().capacity, 1);
+            held.finish(Completion::Success).await?;
+        }
+        let response = service
+            .router()
+            .oneshot(ingest_batch_request(true)?)
+            .await?;
+        assert_eq!(response.status(), StatusCode::ACCEPTED);
+        assert_eq!(buffer.snapshot().last_sequence, 2);
+        assert_eq!(
+            sink.calls.load(Ordering::Relaxed),
+            if selected { 4 } else { 0 }
+        );
+        drop(service);
+        drop(control);
+        buffer.shutdown().await?;
+    }
+    Ok(())
 }

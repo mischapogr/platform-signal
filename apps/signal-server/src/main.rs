@@ -385,12 +385,14 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
         logging: Some(logger.writer()),
         coverage: coverage.as_ref().map(|state| state.store.clone()),
     });
-    let service = match &identity {
-        Some(identity) => {
-            IngestService::new_with_identity(config, pipeline.clone(), identity.clone())?
-        }
-        None => IngestService::new(config, pipeline.clone())?,
-    };
+    let service = IngestService::new_with_security(
+        config,
+        pipeline.clone(),
+        identity.clone(),
+        query_audit
+            .as_ref()
+            .and_then(|control| control.ingest_auditor()),
+    )?;
     let query_cancel = service.cancellation();
     let mut router = service
         .router()
