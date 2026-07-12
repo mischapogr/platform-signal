@@ -17,6 +17,45 @@ spec.loader.exec_module(ci)
 
 
 class RetainedDiagnostics(unittest.TestCase):
+    def test_reported_idp_stage_matches_source_and_rejects_unbounded_payloads(self):
+        source = (ci.ROOT / 'scripts/check-access-idp.py').read_text()
+        self.assertEqual(ci.IDP_STAGES, set(re.findall(r"self.stage = '([a-z-]+)'", source)))
+        for stage in ci.IDP_STAGES:
+            self.assertEqual(ci.failed_idp_stage(json.dumps(
+                {'status': 'failed', 'stage': stage, 'report': 'private-path'})), stage)
+        for value in [[], None, {'status': 'passed', 'stage': 'prepare', 'report': 'private-path'},
+                      {'status': 'failed', 'stage': 'synthetic-secret', 'report': 'private-path'},
+                      {'status': 'failed', 'stage': [], 'report': 'private-path'},
+                      {'status': 'failed', 'stage': 'prepare', 'report': 'x' * 2048},
+                      {'status': 'failed', 'stage': 'prepare', 'report': 'private-path',
+                       'error': 'synthetic-secret'}]:
+            self.assertIsNone(ci.failed_idp_stage(json.dumps(value)))
+        self.assertIsNone(ci.failed_idp_stage('{malformed'))
+        self.assertIsNone(ci.failed_idp_stage(''))
+        unicode_line = json.dumps({'status': 'failed', 'stage': 'prepare',
+                                   'report': 'é' * 1000}, ensure_ascii=False)
+        self.assertLess(len(unicode_line), 2048)
+        self.assertGreater(len(unicode_line.encode('utf-8')), 2048)
+        self.assertIsNone(ci.failed_idp_stage(unicode_line))
+
+    def test_actual_failed_idp_child_emits_only_allowlisted_stage_after_resume(self):
+        line = json.dumps({'status': 'failed', 'stage': 'oidc-browser-flow',
+                           'report': 'synthetic-secret-path'})
+        with tempfile.TemporaryDirectory() as folder, \
+                patch.dict(ci.os.environ, {'GITHUB_ACTIONS': 'true'}), \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            result, report = self.run_check(folder, 'idp-browser', f'print({line!r}); raise SystemExit(7)')
+            self.assertIn('synthetic-secret-path', (Path(folder) / 'idp-browser.log').read_text())
+        self.assertEqual(result, 1)
+        captured = output.getvalue().splitlines()
+        token = re.fullmatch(r'::stop-commands::([0-9a-f]{64})', captured[0])[1]
+        resume = captured.index(f'::{token}::')
+        self.assertIn(line, captured[1:resume])
+        self.assertEqual(captured[resume + 1:],
+                         ['::error title=Reported IdP failure stage::oidc-browser-flow'])
+        self.assertEqual(report['failed_idp_stage'], 'oidc-browser-flow')
+        self.assertNotIn('synthetic-secret-path', '\n'.join(captured[resume + 1:]))
+
     def test_actual_child_workflow_commands_stay_inside_disabled_region(self):
         lines = ['::error title=synthetic-secret::synthetic-secret-token',
                  '::set-output name=unsafe::synthetic-secret-token',

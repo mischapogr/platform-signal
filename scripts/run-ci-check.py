@@ -21,6 +21,25 @@ gate = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gate)
 # Cargo/build diagnostics have a larger, still finite budget than a load report.
 gate.LOG_CAP = 8 * 1024 * 1024
+IDP_STAGES = frozenset({'prepare', 'image-prepare', 'provider-start', 'provider-ready',
+                        'server-start', 'browser-start', 'oidc-browser-flow', 'qualified'})
+
+
+def failed_idp_stage(tail):
+    """Classify only the harness's final bounded public stage, never its payload."""
+    lines = tail.splitlines()
+    if not lines or len(lines[-1].encode('utf-8')) > 2048:
+        return None
+    try:
+        # This is diagnostic child output, not an authenticated outcome proof.
+        value = json.loads(lines[-1])
+        if (isinstance(value, dict) and set(value) == {'status', 'stage', 'report'}
+                and value['status'] == 'failed' and isinstance(value['report'], str)
+                and isinstance(value['stage'], str) and value['stage'] in IDP_STAGES):
+            return value['stage']
+    except (ValueError, TypeError):
+        pass
+    return None
 
 
 def rust_targets():
@@ -133,6 +152,12 @@ def main(argv=None):
                     print(tail, flush=True)
             if report['status'] == 'failed':
                 report['failed_rust_targets'] = failed_rust_targets(tail)
+                if args.name == 'idp-browser':
+                    stage = failed_idp_stage(tail)
+                    if stage is not None:
+                        report['failed_idp_stage'] = stage
+                        if os.environ.get('GITHUB_ACTIONS') == 'true':
+                            print(f'::error title=Reported IdP failure stage::{stage}', flush=True)
                 if os.environ.get('GITHUB_ACTIONS') == 'true':
                     for target in report['failed_rust_targets']:
                         label = f'{target["package"]} --{target["kind"]}'
