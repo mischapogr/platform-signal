@@ -109,6 +109,15 @@ Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
 Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
 `soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
 
+## Current rules revision primitive — 2026-10-09
+
+Bounded retained-rule projection passed_local: eight regressions, strict 786/837,
+review, both Clippy/fmt/workspace13. No whole projection/tree clone or reread;
+private typed definitions feed only a caller-owned memory/hash sink under the
+original clock/cancellation and hard64MiB cap. Actual startup activation is next.
+Parent SECURITY-AUDIT stays in_progress; frozen item/counts do not change.
+See [audit contract](45-independent-audit.md) and `rules-revision-acceptance.json`.
+
 ## Current native ingest audit slice — 2026-10-09
 
 Selected ingest uses a generic consuming session and the same bounded monolith
