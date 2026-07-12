@@ -109,6 +109,15 @@ Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
 Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
 `soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
 
+## Current native ingest audit slice — 2026-10-09
+
+Selected ingest uses a generic consuming session and the same bounded monolith
+Control/outbox. Strict 778/829, review and 50 actual AMD64/mTLS process
+checks pass. Lost/late replies withhold receipts through retry uncertainty while
+actual WAL effects/counters survive; no rollback. Parent remains in_progress for
+runtime/rule activation, IdP/audit composition, receiver/health/secrets-encryption.
+See [audit contract](45-independent-audit.md); frozen item/counts stay unchanged.
+
 ## Current native CI diagnostic slice — 2026-10-09
 
 Fixed native stages are reported after cleanup and allowlisted after disabled raw

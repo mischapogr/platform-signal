@@ -1,13 +1,132 @@
 //! Real Axum admission routes against the finite authenticated TLS provider.
 use super::*;
+use crate::control::{AuditContext, AuditFuture, IngestAudit, IngestAuditSession};
 use crate::{IngestConfig, IngestService, memory::MemorySink};
 use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode},
 };
 use serde_json::{Value, json};
+use signal_protocol::audit::{Actor, Completion, Decision};
 use signal_protocol::{AdmissionDisposition, EventSink, IngestResponse, verify_admission_response};
 use tower::ServiceExt;
+
+#[derive(Default)]
+struct NativeAudit {
+    decisions: Arc<AtomicUsize>,
+    completions: Arc<AtomicUsize>,
+    denied: Arc<AtomicUsize>,
+    hold: bool,
+    entered: Arc<tokio::sync::Notify>,
+    release: Arc<tokio::sync::Notify>,
+}
+struct NativeAuditSession {
+    completions: Arc<AtomicUsize>,
+    denied: Arc<AtomicUsize>,
+    hold: bool,
+    entered: Arc<tokio::sync::Notify>,
+    release: Arc<tokio::sync::Notify>,
+}
+impl IngestAudit for NativeAudit {
+    fn begin(
+        &self,
+        actor: Actor,
+        decision: Decision,
+        _context: AuditContext,
+    ) -> AuditFuture<'_, Box<dyn IngestAuditSession>> {
+        Box::pin(async move {
+            assert!(matches!(actor, Actor::VerifiedSubject { .. }));
+            assert!(decision == Decision::Granted);
+            self.decisions.fetch_add(1, Ordering::Relaxed);
+            Ok(Box::new(NativeAuditSession {
+                completions: self.completions.clone(),
+                denied: self.denied.clone(),
+                hold: self.hold,
+                entered: self.entered.clone(),
+                release: self.release.clone(),
+            }) as Box<dyn IngestAuditSession>)
+        })
+    }
+}
+impl IngestAuditSession for NativeAuditSession {
+    fn finish(self: Box<Self>, completion: Completion) -> AuditFuture<'static, ()> {
+        Box::pin(async move {
+            if self.hold {
+                self.entered.notify_one();
+                self.release.notified().await;
+            }
+            if completion == Completion::Denied {
+                self.denied.fetch_add(1, Ordering::Relaxed);
+            } else {
+                assert!(completion == Completion::Success);
+            }
+            self.completions.fetch_add(1, Ordering::Relaxed);
+            Ok(())
+        })
+    }
+}
+
+#[tokio::test]
+async fn successful_audit_completion_after_native_grant_expiry_withholds_admitted_receipt() {
+    let provider = fixture::Fixture::new(
+        vec![fixture::json_reply(&fixture::valid_body())],
+        "127.0.0.1",
+        "1",
+    )
+    .await;
+    let backend = IdentityBackend::new(
+        provider.config(),
+        IntrospectionProfile::new(
+            "https://identity.example.test".into(),
+            "synthetic-signal".into(),
+            2,
+        )
+        .unwrap(),
+        producer_policy(),
+        tokio::runtime::Handle::current(),
+    )
+    .unwrap();
+    let sink = Arc::new(MemorySink::new(8, 65536).unwrap());
+    let audit = Arc::new(NativeAudit {
+        hold: true,
+        ..Default::default()
+    });
+    let service = IngestService::new_with_security(
+        IngestConfig {
+            request_timeout: Duration::from_secs(10),
+            ..Default::default()
+        },
+        sink.clone(),
+        Some(backend.clone()),
+        Some(audit.clone()),
+    )
+    .unwrap();
+    let original_clock_still_live = Instant::now() + Duration::from_secs(10);
+    let request = post(&service, vec![event(51, "a")], Some("Bearer opaque"));
+    tokio::pin!(request);
+    tokio::select! { biased; _ = &mut request => panic!("completion must wait"),
+    _ = audit.entered.notified() => {} }
+    assert_eq!(sink.metrics().accepted, 1);
+    tokio::time::sleep(Duration::from_millis(2100)).await;
+    assert!(Instant::now() < original_clock_still_live);
+    audit.release.notify_one();
+    let (status, response) = request.await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    let outcome =
+        verify_admission_response(status.as_u16(), response, &[uuid::Uuid::from_u128(51)]).unwrap();
+    assert_eq!(outcome.accepted, 0);
+    assert_eq!(outcome.disposition, AdmissionDisposition::Retry);
+    assert_eq!(sink.metrics().accepted, 1);
+    assert_eq!(provider.requests.load(Ordering::Acquire), 1);
+    assert_eq!(audit.decisions.load(Ordering::Relaxed), 1);
+    assert_eq!(audit.completions.load(Ordering::Relaxed), 1);
+    assert_eq!(audit.denied.load(Ordering::Relaxed), 0);
+    backend
+        .shutdown(Instant::now() + Duration::from_secs(1))
+        .await
+        .unwrap();
+    provider.finish().await;
+}
 
 fn producer_policy() -> Arc<CompiledPolicy> {
     signal_protocol::access::AccessPolicy::from_json(br#"{"schema_version":1,"roles":[{"id":"producer","permissions":[{"operation":"ingest_events","scope":{"sources":{"mode":"only","values":["audit"]},"accounts":{"mode":"only","values":["a"]},"resources":{"mode":"only","values":["host-a"]}}}]}],"bindings":[{"issuer":"https://identity.example.test","subject":"reader","roles":["producer"]}]}"#).unwrap().compile().unwrap()
@@ -61,9 +180,14 @@ async fn mixed_unauthorized_batch_commits_nothing_then_fresh_allowed_request_suc
     )
     .unwrap();
     let sink = Arc::new(MemorySink::new(8, 65536).unwrap());
-    let service =
-        IngestService::new_with_identity(IngestConfig::default(), sink.clone(), backend.clone())
-            .unwrap();
+    let audit = Arc::new(NativeAudit::default());
+    let service = IngestService::new_with_security(
+        IngestConfig::default(),
+        sink.clone(),
+        Some(backend.clone()),
+        Some(audit.clone()),
+    )
+    .unwrap();
     let (status, response) = post(
         &service,
         vec![event(1, "a"), event(2, "b")],
@@ -89,6 +213,9 @@ async fn mixed_unauthorized_batch_commits_nothing_then_fresh_allowed_request_suc
     assert_eq!(response.event_ids, vec![uuid::Uuid::from_u128(3)]);
     assert_eq!(sink.metrics().accepted, 1);
     assert_eq!(provider.requests.load(Ordering::Acquire), 2);
+    assert_eq!(audit.decisions.load(Ordering::Relaxed), 2);
+    assert_eq!(audit.completions.load(Ordering::Relaxed), 2);
+    assert_eq!(audit.denied.load(Ordering::Relaxed), 1);
     backend
         .shutdown(Instant::now() + Duration::from_secs(1))
         .await

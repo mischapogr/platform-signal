@@ -248,3 +248,35 @@ Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/coverage-hooks-acceptan
 `coverage-hooks-validation/validation.json`, `coverage-hooks-review.json` and
 `coverage-hooks-native-independent/report.json`. Parent SECURITY-AUDIT stays
 in_progress; the frozen52 item inventory and status counts do not change.
+
+## Selected ingest hook acceptance
+
+The optional generic ingest seam now confirms a new decision before reading the
+body or admitting WAL records, then matching completion before any prefix/ID
+receipt disclosure. The monolith selects `ingest_events` alongside five existing
+access operations and shares one bounded Control/outbox. Authentication runs once;
+a live actor is captured while whole-batch canonical scope preflight remains before
+first admission. Granted decision means request-processing capability, not approval
+of an unexamined event. Original request clock/cancellation and live-grant checks
+remain effective through the final reply. Every handled response is no-store.
+
+Lost completion or late disclosure authority withholds all prefix/IDs through a
+verifier-valid503 unknown-total retry response. Actual partial/full WAL effects and
+admission counters remain truthful; retry may duplicate immutable IDs. Uncertainty
+cannot become a permanent403 or an invalid full-prefix503. Dropped completions
+count incomplete/failed requests without inventing rollback or detached completion.
+
+Ten additional regressions, strict 778/829 tests, both Clippy/fmt/workspace13,
+source review and 50 actual AMD64/mTLS process checks pass. The
+native campaign retains 28 fsynced receipts and 6 clean ordinary logs, confirming
+full/partial WAL effects, lost decision/completion, exact restart replay/fresh IDs
+and shared selected-route/readiness failure. Actual queued-success late handoff and
+native HTTPS grant expiry have separate source fixtures. Failed fixture campaigns
+remain retained; no source/binary drift or cleanup errors. Native IdP plus actual
+monolith auditing, production receiver/independent health/encryption and runtime/
+rule activation remain unfinished. Parent SECURITY-AUDIT stays in_progress.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/ingest-hooks-acceptance.json`,
+`ingest-hooks-validation/validation.json`, `ingest-hooks-review.json` and
+`ingest-hooks-native-independent/report.json`. The frozen52 inventory/status counts
+are unchanged; this is a bounded substep, not whole-item or release qualification.
