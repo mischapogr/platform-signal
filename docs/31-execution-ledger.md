@@ -80,6 +80,22 @@ reproduced local fixture defect; inaccessible remote logs prevent attributing th
 exact earlier remote failure. Full remote/native/container/kind gates stay open.
 Continue the AMD IdP diagnostics and native audit hooks without a routine stop.
 
+## EXT-CI reported IdP failure stages — 2026-10-09
+
+The CI wrapper now promotes only a fixed public stage enum from a failed IdP
+harness's final bounded diagnostic line. It emits the reported stage after the
+command-disabled raw output resumes; report paths/free-form payloads are excluded.
+This is a reported diagnostic, not authenticated outcome or root-cause evidence.
+Eight actual diagnostic regressions, five candidate helpers, syntax/workspace13
+and focused review pass. A Unicode character-versus-byte cap review finding was
+reproduced, fixed with a UTF-8 byte guard, and passes the final campaign. No Rust,
+workflow or IdP behavior changed; strict752/803 acceptance remains applicable.
+
+Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-acceptance.json`,
+`idp-stage-validation-reviewed/validation.json`, `idp-stage-review.json` and
+`idp-stage-byte-red/validation.json`. Full remote/native gates remain open.
+Continue actual CI inspection and native audit integration.
+
 ## Execution and evidence
 
 One coherent writer change set at a time. Verify, resolve focused review, record
