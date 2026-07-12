@@ -18,6 +18,8 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
+mod revision;
+
 #[derive(Clone, Debug)]
 pub struct RuleLimits {
     pub max_rules: usize,

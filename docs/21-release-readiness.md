@@ -35,13 +35,16 @@ pipeline passes140 queries with2417 confirmed admissions and2421 durable records
 within the original admission uncertainty bound; it does not reproduce or explain
 either remote failure and is not remote-image/native ARM64 qualification.
 
-Develop7761c586 CI run37903398196 is in_progress as observed08:23UTC, with tooling
-passed and both native Rust jobs running. Fixed public failure-stage diagnostics
-are included in this pushed revision. Complete reviewed-revision EXT-CI/EXT-ARM64
-remain external_pending. No release version/date or publication is selected.
+Settled develop7761c586 CI run37903398196 is failed as observed08:41UTC.
+Both full native Rust jobs, production images and basic container/persistence
+checks pass. Both native pipeline/finite-soak steps fail with the fixed public
+reported stage `pipeline`; this identifies the stage, not the underlying cause.
+Kind/supply-chain/candidate stages are skipped. Complete reviewed-revision
+EXT-CI/EXT-ARM64 remain external_pending. No release version/date is selected.
 Evidence: `target/goal-execution-20261007/EXT-CI/query-hooks-remote-jobs-2.json`,
 `findings-hooks-remote-jobs-2.json`, `findings-hooks-amd64-annotations.json`,
-`local-full-pipeline-diagnostic/report.json` and `native-stage-remote-jobs-1.json`.
+`local-full-pipeline-diagnostic/report.json`, `native-stage-remote-jobs-4.json`
+and `native-stage-annotations.json`.
 
 ## EXT-CI native failure diagnostics — 2026-10-09
 
@@ -63,6 +66,33 @@ Evidence: `target/goal-execution-20261007/EXT-CI/native-stage-acceptance.json`,
 This is locally accepted tooling, not the cause of earlier remote failures or a
 closed native/container/Kubernetes/supply-chain/release gate. Continue existing
 SECURITY-AUDIT hooks and source-bound remote CI evidence without scope expansion.
+
+## Validated rule revision primitive — 2026-10-09
+
+`RuleSet::write_revision` streams a domain-framed version1 commitment input from
+immutable retained validated definitions. Unique rule IDs and nested object keys
+have deterministic order; metadata, output/severity, group presence, operators,
+nulls, typed values and array order are included. No file/environment reread,
+whole projection allocation, rule-tree clone or dependency is added. A caller
+supplies a nonblocking in-memory sink, an original RuleContext and a finite byte
+cap (hard64MiB). Deadline/cancellation is checked before and after sink handoff;
+partial output must be discarded after failure. Projection contents are private
+hash input and must stay out of ordinary logs; this is not a public rule format.
+
+Eight meaningful regressions, strict 786/837 workspace tests, both Clippy/fmt/
+workspace13 and independent review pass. Actual loaded definitions keep their
+projection and evaluation after source rewrite/deletion. Deep escaped-value
+counting-sink, exact cap, partial/error writer and late/cancelled handoff cases pass.
+The restricted campaign's seven existing TCP/subprocess permission failures and
+initial fixture/compile corrections remain retained. Static successes are reused
+only with matching hashes; runtime permission-enabled acceptance is separate.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/rules-revision-acceptance.json`,
+`rules-revision-validation/validation.json`,
+`rules-revision-validation-runtime/validation.json`, `rules-revision-review.json`.
+This accepts only the revision primitive. Actual runtime/rules activation records,
+original startup clocks/fresh confirmation, IdP/audit composition, receiver/health/
+secrets-encryption remain. Parent SECURITY-AUDIT and frozen52 counts do not change.
 
 ## Native ingest control audit — 2026-10-09
 

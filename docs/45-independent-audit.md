@@ -280,3 +280,30 @@ Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/ingest-hooks-acceptance
 `ingest-hooks-validation/validation.json`, `ingest-hooks-review.json` and
 `ingest-hooks-native-independent/report.json`. The frozen52 inventory/status counts
 are unchanged; this is a bounded substep, not whole-item or release qualification.
+
+## Retained rule revision acceptance
+
+`RuleSet::write_revision` streams a domain-framed version1 commitment input from
+immutable retained validated definitions. Unique rule IDs and nested object keys
+have deterministic order; metadata, output/severity, group presence, operators,
+nulls, typed values and array order are included. No file/environment reread,
+whole projection allocation, rule-tree clone or dependency is added. A caller
+supplies a nonblocking in-memory sink, an original RuleContext and a finite byte
+cap (hard64MiB). Deadline/cancellation is checked before and after sink handoff;
+partial output must be discarded after failure. Projection contents are private
+hash input and must stay out of ordinary logs; this is not a public rule format.
+
+Eight meaningful regressions, strict 786/837 workspace tests, both Clippy/fmt/
+workspace13 and independent review pass. Actual loaded definitions keep their
+projection and evaluation after source rewrite/deletion. Deep escaped-value
+counting-sink, exact cap, partial/error writer and late/cancelled handoff cases pass.
+The restricted campaign's seven existing TCP/subprocess permission failures and
+initial fixture/compile corrections remain retained. Static successes are reused
+only with matching hashes; runtime permission-enabled acceptance is separate.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/rules-revision-acceptance.json`,
+`rules-revision-validation/validation.json`,
+`rules-revision-validation-runtime/validation.json`, `rules-revision-review.json`.
+This accepts only the revision primitive. Actual runtime/rules activation records,
+original startup clocks/fresh confirmation, IdP/audit composition, receiver/health/
+secrets-encryption remain. Parent SECURITY-AUDIT and frozen52 counts do not change.
