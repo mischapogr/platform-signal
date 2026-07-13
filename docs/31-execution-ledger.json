@@ -803,7 +803,7 @@
     {
       "id": "SMALL-PILOT",
       "title": "Small source\u2192evidence\u2192finding\u2192notification simulation",
-      "status": "pending",
+      "status": "passed_simulated",
       "dependencies": [
         "AWS-DELIVERY",
         "COVERAGE-OBSERVERS",
@@ -816,12 +816,15 @@
         "One reproducible installation and full replay/restart/denial/outage run with preserved evidence and actual counts."
       ],
       "evidence": [
-        "target/goal-execution-20261007/SMALL-PILOT/"
+        "target/goal-execution-20261007/SMALL-PILOT/",
+        "docs/46-small-pilot.md",
+        "target/goal-execution-20261007/SMALL-PILOT/acceptance.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md"
-      ]
+      ],
+      "notes": "Accepted bounded sameUID/nativeAMD64 composed simulation: actual protected source/original receipt/signed custody/Unknown coverage\u2192S3 monolith linked finding/feed\u2192private durable notification, lost reply/reopen/throttle/success, crashes and fresh ACK. No production Small capacity/HA/cloud/native/current-image inference. Next SHARED-CONTRACT."
     },
     {
       "id": "SHARED-CONTRACT",

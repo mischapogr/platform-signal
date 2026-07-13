@@ -109,6 +109,15 @@ Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
 Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
 `soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
 
+## SMALL-PILOT accepted — 2026-10-09
+
+Actual one-record protected/S3/finding-feed/private-notification composition passes
+in20.196s with two objects, one finding/page/delivery, three attempts and final
+checkpoint1/drop0. Private77 strict tests,12 helper regressions, workspace13 and
+independent retained-witness/source review pass. Source coverage remains Unknown;
+cloud/native/image/capacity/shared/release gates stay separate. Continue the frozen
+SHARED-CONTRACT; no new services or public policy. See [46](46-small-pilot.md).
+
 ## SECURITY-AUDIT local closeout — 2026-10-09
 
 Restricted actual four-UID receiver/monolith/producer/health composition passes
