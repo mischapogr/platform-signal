@@ -685,7 +685,7 @@
         "docs/04-implementation-plan.md",
         "docs/45-independent-audit.md"
       ],
-      "notes": "Protocol/client/outbox/native hooks/startup, receipt journal, transport/host, actual receiver/monolith outage composition and reusable bounded authenticated health probe accepted locally. Restricted-UID permission, native IdP/audit composition and secrets/encryption remain; parent in_progress.",
+      "notes": "Protocol/client/outbox/native hooks/receiver/health accepted; restricted-UID DAC partial proof accepted. Actual distinct-UID role composition, native IdP/audit closeout and secrets/encryption remain; parent in_progress.",
       "substeps": [
         {
           "id": "bounded-record-ack-protocol",
@@ -755,7 +755,12 @@
           "health_probe_status": "passed_local",
           "health_probe_evidence": [
             "target/goal-execution-20261007/SECURITY-AUDIT/health-probe-acceptance.json"
-          ]
+          ],
+          "receiver_dac_status": "passed_simulated",
+          "receiver_dac_evidence": [
+            "target/goal-execution-20261007/SECURITY-AUDIT/receiver-permissions-report-guard-corrected.json"
+          ],
+          "receiver_dac_limit": "Other UID roles are DAC probes only; actual networked role composition remains."
         },
         {
           "id": "secrets-encrypted-storage-seams",
@@ -1397,7 +1402,10 @@
       "automatic_target_diagnostics": {
         "status": "passed_local",
         "evidence": "target/goal-execution-20261007/EXT-CI/autotarget-acceptance.json"
-      }
+      },
+      "latest_settled_revision": "4cc1190db4711a6236a39314c0c0b51568a3469d",
+      "latest_settled_evidence": "target/goal-execution-20261007/EXT-CI/autotarget-remote-jobs-6.json",
+      "latest_settled_result": "Complete AMD64 and ARM64 Rust jobs, image builds and basic native runtime/persistence pass; both native pipeline jobs fail, downstream kind/supply-chain/candidate skipped. Cause unconfirmed."
     },
     {
       "id": "EXT-DEPENDENCY",
