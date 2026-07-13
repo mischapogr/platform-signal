@@ -18,6 +18,15 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current reusable receiver health probe — 2026-10-09
+
+Strict unchanged version1 aggregate and separately authenticated bounded SDK probe
+passed_local with five new compound HTTP/mTLS/protocol/clock regressions,
+819/870strict tests and review. Original physical receipt time, independent probe
+worker, held503 observation and failed-probe nonrenewal retain private owner's
+assessment/expiry boundary. Permission/IdP/secrets/encryption checks remain inside
+SECURITY-AUDIT;52 unchanged. See [audit contract](45-independent-audit.md).
+
 ## Current automatic target diagnostic — 2026-10-09
 
 CI public target inventory includes automatic integration tests with incremental

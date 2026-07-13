@@ -685,7 +685,7 @@
         "docs/04-implementation-plan.md",
         "docs/45-independent-audit.md"
       ],
-      "notes": "Protocol/client/outbox, native hooks/startup, receipt journal, transport/host and actual receiver/monolith/health-owner outage composition accepted locally. SameUID cannot prove compromise restriction. Permission isolation, reusable bounded health probe, native IdP/secrets/encryption remain; parent in_progress.",
+      "notes": "Protocol/client/outbox/native hooks/startup, receipt journal, transport/host, actual receiver/monolith outage composition and reusable bounded authenticated health probe accepted locally. Restricted-UID permission, native IdP/audit composition and secrets/encryption remain; parent in_progress.",
       "substeps": [
         {
           "id": "bounded-record-ack-protocol",
@@ -751,6 +751,10 @@
           "receiver_composition_status": "passed_simulated",
           "receiver_composition_evidence": [
             "target/goal-execution-20261007/SECURITY-AUDIT/receiver-composition-native/report.json"
+          ],
+          "health_probe_status": "passed_local",
+          "health_probe_evidence": [
+            "target/goal-execution-20261007/SECURITY-AUDIT/health-probe-acceptance.json"
           ]
         },
         {

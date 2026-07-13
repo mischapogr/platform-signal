@@ -10,6 +10,67 @@ use uuid::Uuid;
 
 pub const RECORD_BYTES: usize = 4096;
 pub const ACK_BYTES: usize = 1024;
+pub const HEALTH_BYTES: usize = 1024;
+
+/// Aggregate receiver state, never source completeness, restore freshness or
+/// permission proof. Fields preserve the independent receiver's version1 wire.
+/// The private health owner decides assessment, polling and observation expiry.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuditReceiverHealth {
+    pub schema_version: u16,
+    pub held: bool,
+    pub records: usize,
+    pub bytes: u64,
+    pub record_capacity: usize,
+    pub byte_capacity: u64,
+    pub physical_depth: usize,
+    pub physical_capacity: usize,
+    pub physical_rejected: u64,
+    pub rejected: u64,
+    pub uncertain: u64,
+    pub append_http_depth: usize,
+    pub append_http_capacity: usize,
+    pub append_http_rejected: u64,
+    pub health_http_rejected: u64,
+}
+#[derive(Clone, Copy, Debug, Error, Eq, PartialEq)]
+#[error("invalid bounded audit receiver health")]
+pub struct InvalidReceiverHealth;
+impl AuditReceiverHealth {
+    fn validate(&self) -> Result<(), InvalidReceiverHealth> {
+        if self.schema_version != 1
+            || !(1..=16_384).contains(&self.record_capacity)
+            || !(4168..=64 * 1024 * 1024).contains(&self.byte_capacity)
+            || self.records > self.record_capacity
+            || self.bytes > self.byte_capacity
+            || self.physical_capacity != 1
+            || self.physical_depth > 1
+            || self.append_http_capacity != 1
+            || self.append_http_depth > 1
+        {
+            return Err(InvalidReceiverHealth);
+        }
+        // Independently read atomics need not form a transactional record/byte
+        // pair. Reject impossible individual bounds, not a transient live pair.
+        Ok(())
+    }
+    pub fn from_json(bytes: &[u8]) -> Result<Self, InvalidReceiverHealth> {
+        if bytes.is_empty()
+            || bytes.len() > HEALTH_BYTES
+            || bytes.iter().find(|b| !b.is_ascii_whitespace()) != Some(&b'{')
+        {
+            return Err(InvalidReceiverHealth);
+        }
+        let value: Self = serde_json::from_slice(bytes).map_err(|_| InvalidReceiverHealth)?;
+        value.validate()?;
+        Ok(value)
+    }
+    pub fn to_json(&self) -> Result<Vec<u8>, InvalidReceiverHealth> {
+        self.validate()?;
+        bounded_json(self, HEALTH_BYTES).map_err(|_| InvalidReceiverHealth)
+    }
+}
 
 /// Static append classes never contain destination, credentials or record data.
 #[derive(Clone, Copy, Debug, Error, Eq, PartialEq)]
