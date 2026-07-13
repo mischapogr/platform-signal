@@ -18,6 +18,14 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current fixed pipeline diagnostics — 2026-10-09
+
+Fixed profile/check/kind sidecar plus native/CI propagation passes5/19/16/5 helper
+tests, independent FIFO-guard review and workflow wiring with11/24 audit helpers.
+Qualification assertions/limits stay intact; reported phase is not remote cause.
+315 ARM failure target is signal-agent --test process, inner assertion unknown.
+EXT-CI remains external_pending; continue SECURITY-AUDIT;52 unchanged.
+
 ## Current explicit S3 KMS request selection — 2026-10-09
 
 Optional bounded explicit key/bucket-key selection passes four new feature

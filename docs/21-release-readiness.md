@@ -23,6 +23,30 @@ and live-vendor checks must remain separately visible, never closed by simulatio
 
 
 
+## Fixed pipeline failure diagnostics — 2026-10-09
+
+The native benchmark now retains a fresh bounded2KiB sidecar containing only
+source-known profile/check/kind labels. Asserted failures differ from the last
+successfully retained phase; interruption/missing diagnostics do not identify an
+assertion. Original failures survive secondary sampler/server cleanup errors.
+Native report validation remains distinct from child progress. CI emits only
+allowlisted labels after closing its command-disabled raw-output region.
+
+All existing load/query/accounting/drain/shutdown assertions, seven profiles,
+timeouts and capacities are preserved. Five benchmark,19 native,16 CI and five
+candidate helper tests pass. Independent review corrected a FIFO-open guard;
+red evidence, actual FIFO/duplicate/type/alias/oversize negatives and earlier
+sandbox-boundary evidence remain retained. Three bounded helper steps now run
+in both native Rust CI jobs: benchmark diagnostics and accepted audit IdP/DAC
+oracle tests. Workflow structure/runner/security checks and11/24 newly wired
+audit helper tests pass. Evidence:
+`target/goal-execution-20261007/EXT-CI/pipeline-diagnostic-acceptance.json`.
+
+This is tooling-only acceptance. No performance/image/Cargo campaign was repeated;
+current Rust819/874 acceptance remains source-applicable. Reported labels do not
+establish a past CI cause or close EXT-CI/ARM/container/Kubernetes/release gates.
+Frozen52 statuses remain unchanged.
+
 ## Explicit S3 SSE-KMS request selection — 2026-10-09
 
 The optional S3 adapter now selects a bounded explicit KMS key and bucket-key
@@ -143,6 +167,15 @@ was repeated. EXT-CI remains external_pending until complete matching native CI
 and downstream candidate qualification pass.
 
 ## Native CI status — 2026-10-09
+
+Develop315ae8c CI run37948496915 completed with failure, observed15:23UTC.
+Complete AMD64 Rust passes. ARM64 fails its Tests step; the source-known public
+annotation identifies `signal-agent --test process`, whose inner agent/server
+versus offline-restore assertion remains unknown. Native downstream jobs are
+skipped. Evidence: `target/goal-execution-20261007/EXT-CI/health-probe-remote-jobs-3.json`
+and `health-probe-arm64-annotations.json`. Accepted153dafd is pushed for its own
+qualification. This target differs from earlier native pipeline-stage failures;
+no shared cause or full native/release qualification is inferred.
 
 Develop4cc1190 CI run37942052354 completed with failure, observed14:54UTC.
 Both complete AMD64/ARM64 Rust jobs, production image builds and basic native

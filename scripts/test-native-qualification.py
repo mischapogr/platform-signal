@@ -111,8 +111,9 @@ class IdentityAndReports(unittest.TestCase):
     def test_partial_pipeline_never_passes_full(self):
         qualification.validate_pipeline(pipeline(), 'amd64', IMAGE, 'hash', False)
         for report in [pipeline(True), dict(pipeline(), binary_sha256='other'), dict(pipeline(), profiles=[])]:
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(qualification.pipeline_diagnostics.PipelineAssertion) as error:
                 qualification.validate_pipeline(report, 'amd64', IMAGE, 'hash', False)
+            self.assertIn(error.exception.check, {'report-identity', 'report-profiles'})
         report = pipeline()
         report['profiles'][-1]['shutdown_exit_code'] = None
         with self.assertRaises(RuntimeError):
@@ -176,6 +177,10 @@ class ResourceOwnership(unittest.TestCase):
                 phase = ('hardening' if command[1].endswith('check-hardening.py')
                          else 'pipeline' if command[1].endswith('pipeline.py') else 'soak')
                 if stage == phase:
+                    if phase == 'pipeline':
+                        Path(command[command.index('--diagnostic-output') + 1]).write_text(json.dumps({
+                            'schema_version': 1, 'profile': '1k-1000', 'check': 'wal-accounting',
+                            'kind': 'assertion-failed'}))
                     raise RuntimeError('synthetic-private-diagnostic')
                 if phase == 'hardening':
                     directory = Path(command[command.index('--output-dir') + 1])
@@ -224,8 +229,12 @@ class ResourceOwnership(unittest.TestCase):
                 self.assertFalse(report['full_qualification'])
                 expected_stage = 'report-finalization' if stage == 'late-interruption' else stage
                 self.assertEqual(report['failed_stage'], expected_stage)
-                self.assertEqual(summary, {'status': 'failed', 'stage': expected_stage,
-                                           'report': str(report_path)})
+                expected = {'status': 'failed', 'stage': expected_stage, 'report': str(report_path)}
+                if stage == 'pipeline':
+                    expected['pipeline'] = {'schema_version': 1, 'profile': '1k-1000',
+                        'check': 'wal-accounting', 'kind': 'assertion-failed'}
+                    self.assertEqual(report['error'], 'synthetic-private-diagnostic')
+                self.assertEqual(summary, expected)
                 self.assertNotIn('synthetic-private', json.dumps(summary))
                 if stage != 'native-identity':
                     self.assertTrue(any(c[:3] == ['docker', 'rm', '-f'] for c in commands))
@@ -327,6 +336,11 @@ class ResourceOwnership(unittest.TestCase):
                 self.assertEqual(report['scope'], 'smoke')
                 self.assertFalse(report['full_qualification'])
                 self.assertTrue(all(row['status'] == 'removed' for row in report['cleanup']))
+                if missing:
+                    self.assertEqual(report['pipeline_diagnostic'], {'schema_version': 1,
+                        'profile': 'report', 'check': 'report-validation', 'kind': 'last-entered'})
+                else:
+                    self.assertNotIn('pipeline_diagnostic', report)
 
     @unittest.skipUnless(sys.platform == 'linux', 'native gate targets Linux')
     def test_timeout_stops_owned_descendant_preserves_unrelated(self):
@@ -396,7 +410,8 @@ sys.argv = sys.argv[1:]
 runpy.run_path(sys.argv[0], run_name='__main__')
 '''
                     command = [sys.executable, '-c', wrapper, str(qualification.ROOT / 'benchmarks/pipeline.py'),
-                               '--server', str(executable), '--output', str(directory / 'pipeline.json'), '--quick']
+                               '--server', str(executable), '--output', str(directory / 'pipeline.json'), '--quick',
+                               '--diagnostic-output', str(directory / 'pipeline-diagnostic.json')]
                 else:
                     # Alter only this process's PATH to provide a finite fake
                     # Cargo executable; actual property campaigns are unchanged.
@@ -408,6 +423,10 @@ runpy.run_path(sys.argv[0], run_name='__main__')
                         qualification.run_bounded(command, stream, timeout=0.5, grace=3)
                 self.assertRegex(str(interrupted.exception), 'deadline',
                                  msg=(directory / 'log').read_text())
+                if harness == 'pipeline':
+                    point = qualification.pipeline_diagnostics.read_diagnostic(directory / 'pipeline-diagnostic.json')
+                    self.assertEqual(point, {'schema_version': 1, 'profile': '1k-100',
+                        'check': 'readiness', 'kind': 'last-entered'})
                 self.assertTrue(pids.exists(), 'nested process must start before cancellation')
                 child = int(pids.read_text())
                 self.assertFalse(Path(f'/proc/{child}').exists(), 'nested harness session survived outer timeout')

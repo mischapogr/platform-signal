@@ -4,6 +4,7 @@ import argparse
 import contextlib
 import datetime
 import hashlib
+import importlib.util
 import json
 import math
 import os
@@ -20,6 +21,9 @@ import time
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
+_pipeline_spec = importlib.util.spec_from_file_location('pipeline_diagnostics', ROOT / 'benchmarks/pipeline.py')
+pipeline_diagnostics = importlib.util.module_from_spec(_pipeline_spec)
+_pipeline_spec.loader.exec_module(pipeline_diagnostics)
 LOG_CAP = 1024 * 1024
 TOTAL_CAP = 64 * 1024 * 1024
 REPORT_CAP = 2 * 1024 * 1024
@@ -176,15 +180,15 @@ def verify_binary(binary, architecture):
 def validate_pipeline(report, architecture, image_id, binary_hash, quick):
     expected = [(1024, 100, False)] if quick else [(size, rate, False) for size in (1024, 4096) for rate in (100, 1000, 10000)] + [(4096, 20000, True)]
     if report.get('schema_version') != 1 or report.get('architecture') != ARCHITECTURES[architecture][0] or report.get('image_id') != image_id or report.get('binary_sha256') != binary_hash:
-        raise RuntimeError('pipeline report identity mismatch')
+        raise pipeline_diagnostics.PipelineAssertion('report-identity', 'pipeline report identity mismatch')
     profiles = report.get('profiles', [])
     if [(row.get('event_bytes'), row.get('target_eps'), row.get('saturation')) for row in profiles] != expected:
-        raise RuntimeError('pipeline report missing required completed profiles')
+        raise pipeline_diagnostics.PipelineAssertion('report-profiles', 'pipeline report missing required completed profiles')
     for row in profiles:
         if row.get('shutdown_exit_code') != 0 or row.get('sample_count', 0) <= 0 or row.get('query_samples') != 20:
-            raise RuntimeError('pipeline report has incomplete measurements or shutdown')
+            raise pipeline_diagnostics.PipelineAssertion('report-measurements', 'pipeline report has incomplete measurements or shutdown')
         if row.get('attempted', 0) <= 0 or row.get('attempted') != sum(row.get(key, -1) for key in ('accepted', 'rejected', 'transport_uncertain')):
-            raise RuntimeError('pipeline report event accounting mismatch')
+            raise pipeline_diagnostics.PipelineAssertion('report-accounting', 'pipeline report event accounting mismatch')
 
 
 def validate_hardening(report, log):
@@ -300,6 +304,8 @@ def main(argv=None):
     # The random name is exclusively ours, including ambiguous create responses.
     owns_container = False
     temp = None
+    pipeline_diagnostic = None
+    pipeline_command_completed = False
     try:
         sources = ['scripts/check-native-qualification.py', 'scripts/check-hardening.py', 'benchmarks/pipeline.py', 'benchmarks/soak.py', 'Cargo.lock'] + [str(path.relative_to(ROOT)) for path in sorted((ROOT / 'rules/examples').rglob('*')) if path.is_file()]
         for source in sources:
@@ -336,10 +342,12 @@ def main(argv=None):
             report['hardening_directory'] = 'hardening'
             report['stage'] = 'pipeline'
             pipeline = output / 'pipeline.json'
-            command = [sys.executable, str(ROOT / 'benchmarks/pipeline.py'), '--server', str(binary), '--output', str(pipeline), '--image-id', image['id']]
+            pipeline_diagnostic = output / 'pipeline-diagnostic.json'
+            command = [sys.executable, str(ROOT / 'benchmarks/pipeline.py'), '--server', str(binary), '--output', str(pipeline), '--image-id', image['id'], '--diagnostic-output', str(pipeline_diagnostic)]
             if args.quick:
                 command.append('--quick')
-            gate.run(command, timeout=120 if args.quick else 600, files=lambda: [(pipeline, REPORT_CAP)])
+            gate.run(command, timeout=120 if args.quick else 600, files=lambda: [(pipeline, REPORT_CAP), (pipeline_diagnostic, pipeline_diagnostics.DIAGNOSTIC_BYTES)])
+            pipeline_command_completed = True
             validate_pipeline(bounded_json(pipeline), args.expect_architecture, image['id'], binary_hash, args.quick)
             retained.extend(('hardening/campaign.json', 'hardening/campaign.log', 'pipeline.json'))
         if args.soak_seconds:
@@ -362,6 +370,17 @@ def main(argv=None):
         report.update(status='failed', full_qualification=False)
         report['error'] = str(error)
         report['failed_stage'] = report['stage']
+        if report['stage'] == 'pipeline':
+            if isinstance(error, pipeline_diagnostics.PipelineAssertion):
+                report['pipeline_diagnostic'] = {'schema_version': 1, 'profile': 'report',
+                    'check': error.check, 'kind': 'assertion-failed'}
+            elif pipeline_command_completed:
+                report['pipeline_diagnostic'] = {'schema_version': 1, 'profile': 'report',
+                    'check': 'report-validation', 'kind': 'last-entered'}
+            elif pipeline_diagnostic is not None:
+                point = pipeline_diagnostics.read_diagnostic(pipeline_diagnostic)
+                if point is not None:
+                    report['pipeline_diagnostic'] = point
     finally:
         cleanup = []
         if owns_container:
@@ -371,7 +390,8 @@ def main(argv=None):
             except BaseException as error:
                 cleanup.append({'resource': 'owned-container', 'status': 'failed', 'error': str(error)})
                 report.setdefault('failed_stage', 'container-cleanup')
-                report.update(status='failed', full_qualification=False, error='owned container cleanup failed')
+                report.update(status='failed', full_qualification=False)
+                report.setdefault('error', 'owned container cleanup failed')
         if temp is not None:
             try:
                 temp.cleanup()
@@ -379,15 +399,18 @@ def main(argv=None):
             except BaseException as error:
                 cleanup.append({'resource': 'owned-temporary-directory', 'status': 'failed', 'error': str(error)})
                 report.setdefault('failed_stage', 'temporary-cleanup')
-                report.update(status='failed', full_qualification=False, error='owned temporary directory cleanup failed')
+                report.update(status='failed', full_qualification=False)
+                report.setdefault('error', 'owned temporary directory cleanup failed')
         report['cleanup'] = cleanup
         (output / 'qualification.json').write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
         print(f'Reports: {output}', flush=True)
         # A fixed public diagnostic, never an authenticated outcome or a cause.
         # Preserve the first failed stage even when owned cleanup also fails.
-        print(json.dumps({'status': report['status'],
-                          'stage': report.get('failed_stage', report['stage']),
-                          'report': str(output / 'qualification.json')}), flush=True)
+        summary = {'status': report['status'], 'stage': report.get('failed_stage', report['stage']),
+                   'report': str(output / 'qualification.json')}
+        if summary['status'] == 'failed' and summary['stage'] == 'pipeline' and 'pipeline_diagnostic' in report:
+            summary['pipeline'] = report['pipeline_diagnostic']
+        print(json.dumps(summary), flush=True)
     return 0 if report['status'] == 'passed' else 1
 
 

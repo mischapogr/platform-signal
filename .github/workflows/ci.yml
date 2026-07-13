@@ -46,6 +46,10 @@ jobs:
         run: python3 scripts/run-ci-check.py --name tests --timeout 1200 -- cargo test --workspace --all-features --locked
       - name: Established IdP harness failure regressions
         run: python3 scripts/run-ci-check.py --name idp-helpers --timeout 60 -- python3 scripts/test-access-idp.py
+      - name: Independent audit fixture oracle regressions
+        run: python3 scripts/run-ci-check.py --name audit-idp-helpers --timeout 60 -- python3 scripts/test-audit-idp-composition.py
+      - name: Restricted receiver permission fixture guards
+        run: python3 scripts/run-ci-check.py --name audit-permission-helpers --timeout 60 -- python3 scripts/test-audit-receiver-permissions.py
       - name: Install locked optional identity qualification tools
         run: python3 scripts/run-ci-check.py --name idp-tools --timeout 180 -- npm ci --prefix tools/identity --engine-strict --ignore-scripts --no-audit --no-fund --fetch-retries=1 --fetch-timeout=15000 --cache target/idp-npm-cache
       - name: Install locked Chromium and runner dependencies
@@ -78,6 +82,8 @@ jobs:
         run: python3 scripts/run-ci-check.py --name helper-kubernetes-gate --timeout 120 -- python3 scripts/test-kubernetes-gate.py
       - name: test-hardening.py
         run: python3 scripts/run-ci-check.py --name helper-hardening --timeout 120 -- python3 scripts/test-hardening.py
+      - name: Pipeline diagnostic failure regressions
+        run: python3 scripts/run-ci-check.py --name helper-pipeline-diagnostics --timeout 60 -- python3 scripts/test-pipeline-diagnostics.py
       - name: test-native-qualification.py
         run: python3 scripts/run-ci-check.py --name helper-native-qualification --timeout 120 -- python3 scripts/test-native-qualification.py
       - name: test-soak.py
