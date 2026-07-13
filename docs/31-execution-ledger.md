@@ -109,6 +109,15 @@ Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
 Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
 `soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
 
+## Current audit rotation and recovery seam — 2026-10-09
+
+Actual explicit-host credential capture/revocation/current-authority restore passes
+45checks/six original receipts,10 helper tests and review. Exact pending replay,
+fresh query pair and complete witness checks pass; provenance guards were corrected.
+No actual cloud secret provider, encryption or independently fresh restore claim.
+Continue networked distinct-UID qualification inside SECURITY-AUDIT;52 unchanged.
+See [audit contract](45-independent-audit.md).
+
 ## Current fixed pipeline diagnostics — 2026-10-09
 
 Fixed profile/check/kind sidecar plus native/CI propagation passes5/19/16/5 helper
