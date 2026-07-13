@@ -80,6 +80,7 @@ impl Backend {
         let object_bytes = settings
             .number("SIGNAL_S3_OBJECT_BYTES", 64 * 1024 * 1024)
             .map_err(setting_error)?;
+        let encryption = kms_selection(settings)?;
         let credentials = S3Credentials {
             access_key: settings
                 .secret_environment("SIGNAL_S3_ACCESS_KEY")
@@ -119,7 +120,7 @@ impl Backend {
         };
         // Validate all finite policy before acquiring an owner or making a request.
         publication.validate()?;
-        let (remote, _) = object_s3::build(&s3_config, &credentials)
+        let (remote, _) = object_s3::build_with_kms(&s3_config, &credentials, encryption.as_ref())
             .map_err(|_| StorageError::Config("bounded S3 adapter"))?;
         let context = OperationContext::new(config.operation_timeout);
         let io = ObjectIo::open_small_remote(
@@ -243,7 +244,37 @@ const OBJECT_SETTINGS: &[&str] = &[
     "SIGNAL_S3_INVENTORY_OBJECTS",
     "SIGNAL_S3_CATALOG_BYTES",
     "SIGNAL_S3_ALLOW_LOOPBACK_HTTP",
+    "SIGNAL_S3_KMS_KEY_ID",
+    "SIGNAL_S3_BUCKET_KEY",
 ];
+#[cfg(feature = "s3-query")]
+fn kms_selection(
+    settings: &Settings,
+) -> Result<Option<signal_storage::object_s3::S3KmsEncryption>, StorageError> {
+    use signal_storage::object_s3::S3KmsEncryption;
+    let key = settings
+        .optional("SIGNAL_S3_KMS_KEY_ID")
+        .map_err(setting_error)?;
+    let bucket_key = settings
+        .optional("SIGNAL_S3_BUCKET_KEY")
+        .map_err(setting_error)?;
+    let Some(key_id) = key else {
+        if bucket_key.is_some() {
+            return Err(StorageError::Config("S3 bucket key requires KMS selection"));
+        }
+        return Ok(None);
+    };
+    let bucket_key = match bucket_key.as_deref() {
+        None | Some("false") => false,
+        Some("true") => true,
+        _ => return Err(StorageError::Config("S3 bucket key setting")),
+    };
+    let selected = S3KmsEncryption { key_id, bucket_key };
+    selected
+        .validate()
+        .map_err(|_| StorageError::Config("S3 KMS selection"))?;
+    Ok(Some(selected))
+}
 fn setting_error(_: ConfigError) -> StorageError {
     StorageError::Config("storage setting")
 }
@@ -262,6 +293,8 @@ mod tests {
         for yaml in [
             "schema_version: 1\nstorage:\n  type: parquet\n  s3_endpoint: https://example.invalid\n",
             "schema_version: 1\nstorage:\n  type: s3\n",
+            "schema_version: 1\nstorage:\n  s3_kms_key_id: alias/synthetic\n",
+            "schema_version: 1\nstorage:\n  s3_bucket_key: 'false'\n",
         ] {
             let settings = Settings::for_test(yaml, &[])?;
             assert!(matches!(
@@ -278,6 +311,46 @@ mod tests {
             Backend::open(&settings, config, Uuid::new_v4()).await,
             Err(StorageError::Config(_))
         ));
+        Ok(())
+    }
+    #[cfg(feature = "s3-query")]
+    #[test]
+    fn explicit_kms_selection_validates_before_provider_access() -> Result {
+        let none = Settings::for_test("schema_version: 1\n", &[])?;
+        assert!(kms_selection(&none)?.is_none());
+        let selected = Settings::for_test(
+            "schema_version: 1\nstorage:\n  s3_kms_key_id: alias/yaml\n  s3_bucket_key: 'false'\n",
+            &[
+                ("SIGNAL_S3_KMS_KEY_ID", "alias/environment"),
+                ("SIGNAL_S3_BUCKET_KEY", "true"),
+            ],
+        )?;
+        let policy = kms_selection(&selected)?.ok_or("selected policy missing")?;
+        assert_eq!(policy.key_id, "alias/environment");
+        assert!(policy.bucket_key);
+        for environment in [
+            vec![("SIGNAL_S3_BUCKET_KEY", "false")],
+            vec![("SIGNAL_S3_KMS_KEY_ID", "")],
+            vec![
+                ("SIGNAL_S3_KMS_KEY_ID", "alias/new"),
+                ("SIGNAL_S3_BUCKET_KEY", "TRUE"),
+            ],
+            vec![
+                ("SIGNAL_S3_KMS_KEY_ID", "alias/new"),
+                ("SIGNAL_S3_BUCKET_KEY", ""),
+            ],
+            vec![("SIGNAL_S3_KMS_KEY_ID", "alias/with space")],
+        ] {
+            let settings = Settings::for_test("schema_version: 1\n", &environment)?;
+            assert!(kms_selection(&settings).is_err());
+        }
+        for yaml in [
+            "schema_version: 1\nstorage:\n  s3_kms_key_id: null\n",
+            "schema_version: 1\nstorage:\n  s3_bucket_key: true\n",
+            "schema_version: 1\nstorage:\n  s3_kms_key_id: alias/a\n  s3_kms_key_id: alias/b\n",
+        ] {
+            assert!(Settings::for_test(yaml, &[]).is_err());
+        }
         Ok(())
     }
     #[test]

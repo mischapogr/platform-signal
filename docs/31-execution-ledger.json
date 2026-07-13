@@ -685,7 +685,7 @@
         "docs/04-implementation-plan.md",
         "docs/45-independent-audit.md"
       ],
-      "notes": "Protocol/client/outbox/native hooks/receiver/health, actual local verified IdP/audit outage composition and restricted-UID DAC partial proof accepted. Actual distinct-UID role composition and secrets/encryption remain; parent in_progress.",
+      "notes": "Audit protocol/client/outbox/hooks/receiver/health, actual IdP/audit and partial restricted-UID DAC accepted. Explicit S3 KMS request policy accepted819/874; actual distinct-UID role composition and dedicated secret rotation/current-authority recovery remain; parent in_progress.",
       "substeps": [
         {
           "id": "bounded-record-ack-protocol",
@@ -769,10 +769,15 @@
         },
         {
           "id": "secrets-encrypted-storage-seams",
-          "status": "pending",
+          "status": "in_progress",
           "acceptance": [
             "Explicit private provider/secret/rotation/recovery and encrypted-storage settings checks; never imply configured storage is actually encrypted without real-environment proof."
-          ]
+          ],
+          "s3_kms_request_policy_status": "passed_local",
+          "s3_kms_request_policy_evidence": [
+            "target/goal-execution-20261007/SECURITY-AUDIT/sse-kms-acceptance.json"
+          ],
+          "remaining": "Dedicated credential delivery/rotation/current-authority restored-data checks; external provider/IAM/KMS/media exceptions remain separate."
         }
       ]
     },

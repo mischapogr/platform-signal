@@ -109,6 +109,14 @@ Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
 Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
 `soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
 
+## Current explicit S3 KMS request selection — 2026-10-09
+
+Optional bounded explicit key/bucket-key selection passes four new feature
+regressions,819/874 strict checks and review. Signed write policy, pinned older
+reads and denied-write nonfallback are local facts, not encrypted-media proof.
+Dedicated secret rotation/current-authority restore and role composition remain
+inside SECURITY-AUDIT. See [audit contract](45-independent-audit.md);52 unchanged.
+
 ## Current verified identity/audit composition — 2026-10-09
 
 Actual local Keycloak/native ingest-query/independent receiver composition passes

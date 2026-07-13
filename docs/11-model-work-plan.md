@@ -18,6 +18,14 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current explicit S3 KMS request selection — 2026-10-09
+
+Optional bounded explicit key/bucket-key selection passes four new feature
+regressions,819/874 strict checks and review. Signed write policy, pinned older
+reads and denied-write nonfallback are local facts, not encrypted-media proof.
+Dedicated secret rotation/current-authority restore and role composition remain
+inside SECURITY-AUDIT. See [audit contract](45-independent-audit.md);52 unchanged.
+
 ## Current verified identity/audit composition — 2026-10-09
 
 Actual local Keycloak/native ingest-query/independent receiver composition passes

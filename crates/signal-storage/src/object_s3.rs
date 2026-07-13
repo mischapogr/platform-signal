@@ -42,6 +42,32 @@ pub struct S3Config {
     /// Only explicit literal loopback addresses may use HTTP for local fixtures.
     pub allow_loopback_http: bool,
 }
+/// Explicit request policy for new S3 writes, not proof of encrypted media.
+/// Key identifiers and bucket-key selection belong to the caller's deployment.
+/// This is a programmatic builder input, not a serialized event/wire contract.
+#[derive(Clone)]
+pub struct S3KmsEncryption {
+    pub key_id: String,
+    pub bucket_key: bool,
+}
+impl std::fmt::Debug for S3KmsEncryption {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("S3KmsEncryption([redacted])")
+    }
+}
+impl S3KmsEncryption {
+    pub fn validate(&self) -> Result<(), S3Error> {
+        // AWS accepts key IDs, ARNs and aliases. Bound header input without
+        // inventing an account/region policy or allowing control/whitespace.
+        if self.key_id.is_empty()
+            || self.key_id.len() > 2048
+            || !self.key_id.bytes().all(|b| b.is_ascii_graphic())
+        {
+            return Err(S3Error::Config);
+        }
+        Ok(())
+    }
+}
 /// Never serialize or debug-print secret values, including the access key ID.
 pub struct S3Credentials {
     pub access_key: String,
@@ -141,7 +167,20 @@ pub fn build(
     config: &S3Config,
     credentials: &S3Credentials,
 ) -> Result<(AmazonS3, S3HttpObserver), S3Error> {
+    build_with_kms(config, credentials, None)
+}
+/// Select SSE-KMS on all new writes through the established S3 library.
+/// Existing objects remain readable using their pinned references. A provider
+/// denial fails the operation; there is no unencrypted retry/fallback.
+pub fn build_with_kms(
+    config: &S3Config,
+    credentials: &S3Credentials,
+    encryption: Option<&S3KmsEncryption>,
+) -> Result<(AmazonS3, S3HttpObserver), S3Error> {
     let endpoint = validate(config, credentials)?;
+    if let Some(encryption) = encryption {
+        encryption.validate()?;
+    }
     let roots = rustls::RootCertStore {
         roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
     };
@@ -165,7 +204,7 @@ pub fn build(
         secret_key: credentials.secret_key.clone(),
         token: credentials.session_token.clone(),
     }));
-    let store = AmazonS3Builder::new()
+    let mut builder = AmazonS3Builder::new()
         .with_endpoint(&config.endpoint)
         .with_region(&config.region)
         .with_bucket_name(&config.bucket)
@@ -178,9 +217,13 @@ pub fn build(
         .with_retry(RetryConfig {
             max_retries: 0,
             ..Default::default()
-        })
-        .build()
-        .map_err(|_| S3Error::Initialize)?;
+        });
+    if let Some(encryption) = encryption {
+        builder = builder
+            .with_sse_kms_encryption(&encryption.key_id)
+            .with_bucket_key(encryption.bucket_key);
+    }
+    let store = builder.build().map_err(|_| S3Error::Initialize)?;
     Ok((store, S3HttpObserver(state)))
 }
 fn validate(config: &S3Config, credentials: &S3Credentials) -> Result<Url, S3Error> {
