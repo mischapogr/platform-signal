@@ -594,3 +594,27 @@ roles execute permission probes with networking disabled, not the monolith,
 producer or health applications. Actual distinct-UID TLS/credential/outage/replay
 composition remains next. No current image, ARM/cloud, encryption or production
 qualification follows. SECURITY-AUDIT remains in_progress; frozen52 unchanged.
+
+## Local verified identity and independent audit composition — 2026-10-09
+
+A finite fixture composes the established local Keycloak/browser SDK login with
+actual native ingest/query hooks, durable independent receiver and separate mTLS
+health owner. Thirty-two checks pass with17 synced original receipts and102
+bounded health observations in63.3seconds. Real verified allowed/denied actors,
+ID-token/spoof rejection, provider outage, receiver outage/no disclosure, exact
+pending replay before fresh operation evidence and receiver/health survival after
+monolith SIGKILL pass. Owned cleanup and184 guarded inputs remain stable.
+
+Eleven focused new regressions plus eight existing IdP helper regressions pass.
+Source review corrected incremental inventory bounds, strict health scalar/status/
+capacity checks and integer frame validation. Original control and complete framed
+journal witnesses are retained; checksum is not a signature. Earlier attempts,
+including pre-correction passes, remain source-bound. Evidence:
+`target/goal-execution-20261007/SECURITY-AUDIT/idp-audit-composition-acceptance.json`.
+
+This uses the accepted315 default debug binary with synthetic local identities
+under the same UID. Health is an independent Python mTLS observer, not SDK client
+integration or an automatic readiness/completeness assessment. Only ingest/query
+hooks are selected. Distinct-UID role composition, secret/rotation/recovery and
+encrypted-storage checks remain; real tenants/cloud/ARM/current release image
+qualification remain separate. SECURITY-AUDIT stays in_progress;52 unchanged.

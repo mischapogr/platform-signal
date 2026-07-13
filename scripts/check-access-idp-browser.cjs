@@ -43,6 +43,7 @@ async function main() {
   const configBytes = fs.readFileSync(process.argv[3]);
   assert.ok(configBytes.length <= 65536);
   const wire = JSON.parse(configBytes);
+  if (wire.mode !== undefined) assert.equal(wire.mode, 'audit-composition');
   const issuerOrigin = localOrigin(wire.issuer, 'https:');
   const callbackOrigin = localOrigin(wire.callback, 'https:');
   const serverOrigin = localOrigin(wire.server_origin, 'http:');
@@ -143,6 +144,76 @@ async function main() {
     }
   }
 
+
+  async function compositionPhase(name, result = {}) {
+    assert.ok(['login', 'ingested', 'granted', 'denied', 'unverified', 'provider-pause',
+      'provider-denied', 'provider-recovered', 'receiver-stop', 'receiver-denied',
+      'recovered', 'observability-stop', 'final'].includes(name));
+    const index = compositionIndex++;
+    assert.ok(index < 16);
+    const prefix = path.join(wire.scratch, 'composition-' + index);
+    fs.writeFileSync(prefix + '.request.tmp', JSON.stringify({generation: wire.generation, index, phase: name, result}),
+      {flag: 'wx', mode: 0o600});
+    fs.renameSync(prefix + '.request.tmp', prefix + '.request');
+    const until = Date.now() + 20000;
+    while (!fs.existsSync(prefix + '.ack')) {
+      assert.ok(Date.now() < until, 'finite composition phase');
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    assert.ok(fs.statSync(prefix + '.ack').size <= 1024);
+    assert.deepEqual(JSON.parse(fs.readFileSync(prefix + '.ack')),
+      {generation: wire.generation, index, phase: name});
+  }
+  let compositionIndex = 0;
+  async function composition() {
+    stage = 'composition-login';
+    const config = await sdk('signal-fixture');
+    const a = await login(config, 'a'), admin = await login(config, 'admin');
+    // Secrets stay in this child. Only digests are used by the parent's log scanner.
+    const sensitive = [a.tokens.access_token, a.tokens.refresh_token, a.tokens.id_token,
+      admin.tokens.access_token, admin.tokens.refresh_token, admin.tokens.id_token];
+    await compositionPhase('login', {secret_digests: sensitive.map(v => crypto.createHash('sha256').update(v).digest('hex'))});
+    const event = wire.event;
+    stage = 'composition-ingest';
+    let response = await api('POST', '/v1/events/batch', a.tokens.access_token, {events: [event]});
+    assert.equal(response.status, 202); assert.equal(response.body.accepted, 1);
+    assert.equal(response.body.schema_version, 1); assert.equal(response.body.rejected, 0);
+    assert.deepEqual(response.body.event_ids, [event.id]); assert.equal(response.body.error, undefined);
+    await compositionPhase('ingested', {status: response.status});
+    async function query(token = a.tokens.access_token) {
+      const res = await api('GET', '/v1/events', token);
+      assert.equal(res.status, 200); assert.deepEqual(res.body.events, [event]);
+      return {status: res.status};
+    }
+    stage = 'composition-granted'; await compositionPhase('granted', await query());
+    stage = 'composition-denied'; response = await api('GET', '/v1/events', admin.tokens.access_token);
+    assert.equal(response.status, 403); assert.ok(!response.body.events);
+    await compositionPhase('denied', {status: response.status});
+    stage = 'composition-unverified'; response = await api('GET', '/v1/events', a.tokens.id_token,
+      undefined, {'x-forwarded-user': wire.subjects.a});
+    assert.equal(response.status, 403); assert.ok(!response.body.events);
+    await compositionPhase('unverified', {status: response.status});
+    stage = 'composition-provider-outage'; await compositionPhase('provider-pause');
+    const began = Date.now(); response = await api('GET', '/v1/events', a.tokens.access_token);
+    assert.equal(response.status, 408); assert.ok(!response.body.events); assert.ok(Date.now() - began < 3000);
+    await compositionPhase('provider-denied', {status: response.status});
+    stage = 'composition-provider-recovered'; await compositionPhase('provider-recovered', await query());
+    stage = 'composition-receiver-outage'; await compositionPhase('receiver-stop');
+    response = await api('GET', '/v1/events', a.tokens.access_token);
+    assert.equal(response.status, 503); assert.ok(!response.body.events);
+    await compositionPhase('receiver-denied', {status: response.status});
+    stage = 'composition-exact-recovery'; await compositionPhase('recovered', await query());
+    await compositionPhase('observability-stop');
+    stage = 'composition-final'; await compositionPhase('final', await query());
+    // Check log exposure inside the secret-owning child; no tokens leave memory.
+    assert.ok(fs.statSync(wire.log_scan).size <= 8 * 1024 * 1024);
+    const logText = fs.readFileSync(wire.log_scan, 'utf8');
+    assert.ok(!sensitive.some(v => logText.includes(v)));
+    fs.writeFileSync(wire.report, JSON.stringify({schema_version: 1, status: 'passed_simulated',
+      mode: 'audit-composition', phases: compositionIndex, browser: browser.version(),
+      protocol_client: 'openid-client 6.8.8', network_calls: networkCalls}), {flag: 'wx', mode: 0o600});
+  }
+
   try {
     callbackServer = https.createServer({key: fs.readFileSync(path.join(wire.certs, 'leaf.key')),
       cert: fs.readFileSync(path.join(wire.certs, 'leaf.pem')), maxHeaderSize: 8192,
@@ -173,6 +244,7 @@ async function main() {
       callbackServer.listen(Number(new URL(wire.callback).port), '127.0.0.1', resolve);
     });
     browser = await chromium.connectOverCDP(wire.debug_url, {timeout: 10000});
+    if (wire.mode === 'audit-composition') { await composition(); return; }
     stage = 'malformed-callback';
     await new Promise((resolve, reject) => {
       const socket = tls.connect({host: '127.0.0.1', port: Number(new URL(wire.callback).port), ca});

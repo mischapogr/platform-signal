@@ -291,7 +291,7 @@ class Run:
             except Exception as exc:
                 self.cleanup_errors.append('test image cleanup: ' + type(exc).__name__)
 
-    def execute(self, args, scratch):
+    def prepare_provider(self, scratch):
         port, callback_port = free_port(), free_port()
         origin = 'https://127.0.0.1:' + str(port)
         issuer = origin + '/realms/signal-fixture'
@@ -360,6 +360,14 @@ class Run:
         else:
             raise TimeoutError('provider discovery deadline')
         self.stage = 'provider-ready'
+        return {'issuer': issuer, 'callback': callback, 'secrets': secrets,
+                'certs': certs, 'provider_image': image, 'provider_prepared_image_id': prepared}
+
+    def execute(self, args, scratch):
+        provider = self.prepare_provider(scratch)
+        issuer, callback, secrets, certs, image, prepared = (
+            provider[k] for k in ('issuer', 'callback', 'secrets', 'certs',
+                                 'provider_image', 'provider_prepared_image_id'))
         if args.provider_only:
             return {'checks': ['established-provider-https-discovery'], 'provider_image': image,
                     'provider_prepared_image_id': prepared, 'issuer': issuer}
