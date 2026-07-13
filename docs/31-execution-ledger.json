@@ -685,7 +685,7 @@
         "docs/04-implementation-plan.md",
         "docs/45-independent-audit.md"
       ],
-      "notes": "Protocol/client/outbox/native hooks/receiver/health accepted; restricted-UID DAC partial proof accepted. Actual distinct-UID role composition, native IdP/audit closeout and secrets/encryption remain; parent in_progress.",
+      "notes": "Protocol/client/outbox/native hooks/receiver/health, actual local verified IdP/audit outage composition and restricted-UID DAC partial proof accepted. Actual distinct-UID role composition and secrets/encryption remain; parent in_progress.",
       "substeps": [
         {
           "id": "bounded-record-ack-protocol",
@@ -760,7 +760,12 @@
           "receiver_dac_evidence": [
             "target/goal-execution-20261007/SECURITY-AUDIT/receiver-permissions-report-guard-corrected.json"
           ],
-          "receiver_dac_limit": "Other UID roles are DAC probes only; actual networked role composition remains."
+          "receiver_dac_limit": "Other UID roles are DAC probes only; actual networked role composition remains.",
+          "idp_audit_composition_status": "passed_simulated",
+          "idp_audit_composition_evidence": [
+            "target/goal-execution-20261007/SECURITY-AUDIT/idp-audit-composition-acceptance.json"
+          ],
+          "idp_audit_composition_limit": "SameUID315 debug/native ingest-query only; manual independent mTLS health owner."
         },
         {
           "id": "secrets-encrypted-storage-seams",

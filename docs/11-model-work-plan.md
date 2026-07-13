@@ -18,6 +18,13 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current verified identity/audit composition — 2026-10-09
+
+Actual local Keycloak/native ingest-query/independent receiver composition passes
+32checks,17 synced receipts,102 health observations,11 new/eight existing helpers
+and review. SameUID/debug/manual health scope; distinct-UID role composition and
+secrets/encryption remain. See [audit contract](45-independent-audit.md);52 unchanged.
+
 ## Current restricted receiver file-access proof — 2026-10-09
 
 Twenty-seven native checks,36 actual EACCES denials,24 guard regressions and
