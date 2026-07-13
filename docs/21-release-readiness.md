@@ -23,6 +23,30 @@ and live-vendor checks must remain separately visible, never closed by simulatio
 
 
 
+## Small composed pilot accepted locally — 2026-10-09
+
+The private parent-managed pilot carries one actual protected source through
+original bytes/receipt/native custody, the current S3 monolith and a real linked
+finding/feed into the private durable notification outbox. Original bytes,
+archive/version/retention/custody/Unknown coverage, normalized evidence reference,
+committed S3 manifest/Parquet, raw feed, payload and final WAL witness are retained.
+
+The complete20.196second run passes: two objects/one commit, one physical event
+and finding, one page/delivery, three actual notification attempts (lost reply,
+429,200), server/source SIGKILL and fresh source ACK, actual outage query503 and
+checkpoint1 with zero drops. Four transient query429s were boundedly retried inside
+the original wait. Private77 strict tests/fmt/Clippy,12 evidence helpers, workspace13
+and independent review pass; cleanup and263 source hashes/18 artifact hashes hold.
+
+Evidence: `target/goal-execution-20261007/SMALL-PILOT/acceptance.json` and
+[Small pilot contract](46-small-pilot.md). SMALL-PILOT is passed_simulated.
+The frozen ledger remains52 items:9 passed_local,10 passed_simulated,27 pending
+and6 external_pending. Source completeness, production Small installation/capacity,
+real cloud/vendor custody/IAM/KMS/encryption, current image/full-native CI/cluster,
+shared runtime and publication gates remain separate. Continue SHARED-CONTRACT.
+Latest pushed3be complete AMD64 and ARM64 Rust jobs pass; both native container/
+Kubernetes jobs were still running at16:30UTC. No full-CI gate closure is inferred.
+
 ## Restricted-role audit composition and local closeout — 2026-10-09
 
 The accepted native receiver and monolith now run with a separately enrolled
