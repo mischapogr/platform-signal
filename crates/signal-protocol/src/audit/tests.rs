@@ -5,6 +5,80 @@ use crate::access::{
 };
 use serde_json::{Value, json};
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+fn health() -> AuditReceiverHealth {
+    AuditReceiverHealth {
+        schema_version: 1,
+        held: false,
+        records: 1,
+        bytes: 400,
+        record_capacity: 8,
+        byte_capacity: 65_536,
+        physical_depth: 0,
+        physical_capacity: 1,
+        physical_rejected: 0,
+        rejected: 0,
+        uncertain: 0,
+        append_http_depth: 0,
+        append_http_capacity: 1,
+        append_http_rejected: 0,
+        health_http_rejected: 0,
+    }
+}
+#[test]
+fn health_wire_preserves_aggregate_and_rejects_shapes_fields_and_impossible_bounds() -> Result {
+    let h = health();
+    let bytes = h.to_json()?;
+    assert_eq!(AuditReceiverHealth::from_json(&bytes)?, h);
+    assert!(bytes.len() <= HEALTH_BYTES);
+    let original: Value = serde_json::from_slice(&bytes)?;
+    let mut bad = vec![
+        "null".to_owned(),
+        "[]".to_owned(),
+        String::from_utf8(bytes.clone())?.replacen(
+            "\"schema_version\":1",
+            "\"schema_version\":1,\"schema_version\":1",
+            1,
+        ),
+    ];
+    for (key, value) in [
+        ("schema_version", json!(2)),
+        ("held", json!(null)),
+        ("records", json!(-1)),
+        ("records", json!(9)),
+        ("bytes", json!(65_537)),
+        ("record_capacity", json!(0)),
+        ("byte_capacity", json!(1)),
+        ("physical_depth", json!(2)),
+        ("physical_capacity", json!(2)),
+        ("append_http_depth", json!(2)),
+        ("append_http_capacity", json!(0)),
+        ("actor", json!("private-canary")),
+    ] {
+        let mut changed = original.clone();
+        changed[key] = value;
+        bad.push(changed.to_string());
+    }
+    for bytes in bad {
+        let error = match AuditReceiverHealth::from_json(bytes.as_bytes()) {
+            Err(error) => error,
+            Ok(_) => return Err("malformed health accepted".into()),
+        };
+        assert!(!format!("{error:?} {error}").contains("private-canary"));
+    }
+    assert!(AuditReceiverHealth::from_json(&vec![b' '; HEALTH_BYTES + 1]).is_err());
+    let mut invalid = h;
+    invalid.records = usize::MAX;
+    assert!(invalid.to_json().is_err());
+    let mut held = h;
+    held.held = true;
+    held.physical_depth = 1;
+    held.append_http_depth = 1;
+    assert_eq!(AuditReceiverHealth::from_json(&held.to_json()?)?, held);
+    // Independent atomic loads need not form a transactional record/byte pair.
+    held.bytes = 0;
+    assert!(held.to_json().is_ok());
+    Ok(())
+}
 fn record() -> Result<AuditRecord> {
     Ok(AuditRecord {
         schema_version: 1,

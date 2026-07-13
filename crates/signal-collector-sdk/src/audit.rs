@@ -1,4 +1,5 @@
 //! Restricted audit transport, separate from ordinary ingest and query storage.
+pub mod health;
 #[cfg(target_os = "linux")]
 pub mod outbox;
 #[cfg(target_os = "linux")]
@@ -78,6 +79,21 @@ fn configuration(
     connect_timeout: Duration,
     simulation: bool,
 ) -> Result<(Url, header::HeaderValue), ConfigurationError> {
+    configuration_at(
+        endpoint,
+        credential,
+        connect_timeout,
+        simulation,
+        "/v1/audit/records",
+    )
+}
+fn configuration_at(
+    endpoint: &str,
+    credential: &str,
+    connect_timeout: Duration,
+    simulation: bool,
+    path: &'static str,
+) -> Result<(Url, header::HeaderValue), ConfigurationError> {
     if endpoint.is_empty()
         || endpoint.len() > 2048
         || credential.is_empty()
@@ -111,7 +127,8 @@ fn configuration(
         }
     }
     match url.path() {
-        "" | "/" | "/v1/audit/records" => url.set_path("/v1/audit/records"),
+        "" | "/" => url.set_path(path),
+        actual if actual == path => {}
         _ => return Err(ConfigurationError),
     }
     let mut value = header::HeaderValue::from_str(&format!("Bearer {credential}"))
