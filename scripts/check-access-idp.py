@@ -15,6 +15,7 @@ from pathlib import Path
 import signal
 import socket
 import ssl
+import stat
 import subprocess
 import shutil
 import tempfile
@@ -45,6 +46,94 @@ def private_json(path, value):
     with path.open('x') as stream:
         os.chmod(path, 0o600)
         json.dump(value, stream)
+
+
+BROWSER_PORT_BYTES = 1024
+
+
+def browser_port_bytes(raw):
+    """Chromium's decimal port and canonical browser UUID, with optional final LF."""
+    if len(raw) > BROWSER_PORT_BYTES:
+        raise ValueError('invalid browser port file')
+    try:
+        text = raw.decode('ascii')
+    except UnicodeError as error:
+        raise ValueError('invalid browser port file') from error
+    lines = text.split('\n')
+    if len(lines) > 3 or (len(lines) == 3 and lines[2] != ''):
+        raise ValueError('invalid browser port file')
+    port = lines[0]
+    if not port:
+        if text:
+            raise ValueError('invalid browser port file')
+        return None
+    if (len(port) > 5 or any(c not in '0123456789' for c in port)
+            or port.startswith('0') or not 1 <= int(port) <= 65535):
+        raise ValueError('invalid browser port file')
+    if len(lines) == 1:
+        return None
+    path = lines[1]
+    prefix = '/devtools/browser/'
+    if len(path) < len(prefix):
+        if not prefix.startswith(path) or len(lines) == 3:
+            raise ValueError('invalid browser port file')
+        return None
+    if not path.startswith(prefix):
+        raise ValueError('invalid browser port file')
+    identifier = path[len(prefix):]
+    template = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+    if (len(identifier) > len(template) or any(
+            c != '-' if template[index] == '-' else c not in '0123456789abcdef'
+            for index, c in enumerate(identifier))):
+        raise ValueError('invalid browser port file')
+    if len(identifier) != len(template):
+        if len(lines) == 3:
+            raise ValueError('invalid browser port file')
+        return None
+    return int(port)
+
+
+def read_browser_port(path):
+    try:
+        initial = path.lstat()
+        if (not stat.S_ISREG(initial.st_mode) or initial.st_nlink != 1
+                or initial.st_size > BROWSER_PORT_BYTES):
+            raise ValueError('invalid browser port file')
+        fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, 'rb') as stream:
+            before = os.fstat(stream.fileno())
+            if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+                    or before.st_size > BROWSER_PORT_BYTES):
+                raise ValueError('invalid browser port file')
+            raw = stream.read(BROWSER_PORT_BYTES + 1)
+            after = os.fstat(stream.fileno())
+        current = path.lstat()
+    except FileNotFoundError:
+        return None
+    if (not stat.S_ISREG(current.st_mode) or current.st_nlink != 1
+            or current.st_size > BROWSER_PORT_BYTES or len(raw) > BROWSER_PORT_BYTES):
+        raise ValueError('invalid browser port file')
+    def identity(value):
+        return value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns
+    if (identity(initial) != identity(before) or identity(before) != identity(after)
+            or identity(after) != identity(current) or len(raw) != after.st_size):
+        return None  # The bounded ordinary file was still being written.
+    return browser_port_bytes(raw)
+
+
+def wait_browser_port(owner, browser, profile, deadline):
+    # The caller supplies its original clock; incomplete input cannot renew it.
+    while True:
+        owner.check()
+        if owner.exited(browser) is not None or time.monotonic() >= deadline:
+            raise RuntimeError('owned browser startup failed')
+        port = read_browser_port(profile / 'DevToolsActivePort')
+        if port is not None:
+            owner.check()
+            if owner.exited(browser) is not None or time.monotonic() >= deadline:
+                raise RuntimeError('owned browser startup failed')
+            return port
+        time.sleep(0.02)
 
 
 def discovery(opener, url, budget):
@@ -435,12 +524,7 @@ class Run:
             '--ignore-certificate-errors-spki-list=' + spki, '--user-data-dir=' + str(profile), 'about:blank'],
             environment, 'browser')
         deadline = time.monotonic() + 10
-        while not (profile / 'DevToolsActivePort').exists():
-            self.owner.check()
-            if self.owner.exited(browser) is not None or time.monotonic() >= deadline:
-                raise RuntimeError('owned browser startup failed')
-            time.sleep(0.02)
-        debug_port = int((profile / 'DevToolsActivePort').read_text().splitlines()[0])
+        debug_port = wait_browser_port(self.owner, browser, profile, deadline)
         config = scratch / 'browser-config.json'
         browser_report = scratch / 'browser-report.json'
         private_json(config, {'issuer': issuer, 'callback': callback, 'server_origin': server_origin,
