@@ -17,6 +17,38 @@ spec.loader.exec_module(ci)
 
 
 class RetainedDiagnostics(unittest.TestCase):
+    def test_pipeline_summary_strict_schema_and_actual_safe_annotation(self):
+        point = {'schema_version': 1, 'profile': '4k-10000', 'check': 'event-query-count',
+                 'kind': 'assertion-failed'}
+        summary = {'status': 'failed', 'stage': 'pipeline', 'report': '/synthetic/private', 'pipeline': point}
+        self.assertEqual(ci.failed_native_pipeline(json.dumps(summary)), point)
+        self.assertEqual(ci.failed_native_stage(json.dumps(summary)), 'pipeline')
+        invalid = [
+            {**summary, 'pipeline': {**point, 'schema_version': True}},
+            {**summary, 'pipeline': {**point, 'profile': 'synthetic-private'}},
+            {**summary, 'pipeline': {**point, 'check': 'private%0A::error'}},
+            {**summary, 'pipeline': {**point, 'kind': 'cause'}},
+            {**summary, 'pipeline': {**point, 'secret': 'private'}},
+            {**summary, 'stage': 'hardening'}, {**summary, 'status': 'passed'}]
+        for value in invalid:
+            self.assertIsNone(ci.failed_native_pipeline(json.dumps(value)))
+        duplicate = json.dumps(summary).replace('"check": "event-query-count"',
+            '"check": "event-query-count", "check": "event-query-count"')
+        self.assertIsNone(ci.failed_native_pipeline(duplicate))
+        self.assertIsNone(ci.failed_native_pipeline(json.dumps({**summary, 'report': 'é' * 1024}, ensure_ascii=False)))
+        code = f'print({json.dumps(summary)!r}, flush=True); raise SystemExit(9)'
+        with tempfile.TemporaryDirectory() as folder, patch.dict(ci.os.environ, {'GITHUB_ACTIONS': 'true'}), \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            result, report = self.run_check(folder, 'native', code)
+        self.assertEqual(result, 1)
+        self.assertEqual(report['failed_native_pipeline'], point)
+        lines = output.getvalue().splitlines()
+        token = re.fullmatch(r'::stop-commands::([0-9a-f]{64})', lines[0])[1]
+        after = lines[lines.index(f'::{token}::') + 1:]
+        self.assertEqual(after, ['::error title=Reported native failure stage::pipeline',
+            '::error title=Reported pipeline diagnostic::4k-10000 / event-query-count / assertion-failed'])
+        self.assertNotIn('synthetic', '\n'.join(after))
+
     def test_automatic_integration_targets_follow_public_source_and_autotests(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder) / 'repo'

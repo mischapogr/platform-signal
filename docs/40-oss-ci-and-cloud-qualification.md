@@ -148,3 +148,27 @@ Attestations prove origin, not runtime correctness. Signing/OIDC and release
 write permissions belong only in the eventual protected publication job, after
 authorization/readiness; they are absent from preparation. Configure protected
 branches/environments/tags through owner administration before publication.
+
+## Fixed pipeline failure diagnostics — 2026-10-09
+
+The native benchmark now retains a fresh bounded2KiB sidecar containing only
+source-known profile/check/kind labels. Asserted failures differ from the last
+successfully retained phase; interruption/missing diagnostics do not identify an
+assertion. Original failures survive secondary sampler/server cleanup errors.
+Native report validation remains distinct from child progress. CI emits only
+allowlisted labels after closing its command-disabled raw-output region.
+
+All existing load/query/accounting/drain/shutdown assertions, seven profiles,
+timeouts and capacities are preserved. Five benchmark,19 native,16 CI and five
+candidate helper tests pass. Independent review corrected a FIFO-open guard;
+red evidence, actual FIFO/duplicate/type/alias/oversize negatives and earlier
+sandbox-boundary evidence remain retained. Three bounded helper steps now run
+in both native Rust CI jobs: benchmark diagnostics and accepted audit IdP/DAC
+oracle tests. Workflow structure/runner/security checks and11/24 newly wired
+audit helper tests pass. Evidence:
+`target/goal-execution-20261007/EXT-CI/pipeline-diagnostic-acceptance.json`.
+
+This is tooling-only acceptance. No performance/image/Cargo campaign was repeated;
+current Rust819/874 acceptance remains source-applicable. Reported labels do not
+establish a past CI cause or close EXT-CI/ARM/container/Kubernetes/release gates.
+Frozen52 statuses remain unchanged.

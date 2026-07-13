@@ -25,20 +25,38 @@ IDP_STAGES = frozenset({'prepare', 'image-prepare', 'provider-start', 'provider-
                         'server-start', 'browser-start', 'oidc-browser-flow', 'qualified'})
 
 
-def failed_stage(tail, allowed):
+def failed_summary(tail):
     """Classify only a final bounded public stage, never its payload."""
     lines = tail.splitlines()
     if not lines or len(lines[-1].encode('utf-8')) > 2048:
         return None
     try:
-        # This is diagnostic child output, not an authenticated outcome proof.
-        value = json.loads(lines[-1])
-        if (isinstance(value, dict) and set(value) == {'status', 'stage', 'report'}
-                and value['status'] == 'failed' and isinstance(value['report'], str)
-                and isinstance(value['stage'], str) and value['stage'] in allowed):
-            return value['stage']
-    except (ValueError, TypeError):
-        pass
+        value = json.loads(lines[-1], object_pairs_hook=gate.pipeline_diagnostics.unique_object)
+        if (not isinstance(value, dict) or set(value) not in (
+                {'status', 'stage', 'report'}, {'status', 'stage', 'report', 'pipeline'})
+                or value['status'] != 'failed' or not isinstance(value['report'], str)
+                or not isinstance(value['stage'], str)):
+            return None
+        if 'pipeline' in value:
+            if value['stage'] != 'pipeline':
+                return None
+            gate.pipeline_diagnostics.validate_diagnostic(value['pipeline'])
+        return value
+    except (ValueError, TypeError, RecursionError):
+        return None
+
+
+def failed_stage(tail, allowed):
+    value = failed_summary(tail)
+    if value is not None and value['stage'] in allowed:
+        return value['stage']
+    return None
+
+
+def failed_native_pipeline(tail):
+    value = failed_summary(tail)
+    if value is not None and value['stage'] == 'pipeline':
+        return value.get('pipeline')
     return None
 
 
@@ -197,8 +215,14 @@ def main(argv=None):
                     stage = failed_native_stage(tail)
                     if stage is not None:
                         report['failed_native_stage'] = stage
+                        point = failed_native_pipeline(tail)
+                        if point is not None:
+                            report['failed_native_pipeline'] = point
                         if os.environ.get('GITHUB_ACTIONS') == 'true':
                             print(f'::error title=Reported native failure stage::{stage}', flush=True)
+                            if point is not None:
+                                label = f'{point["profile"]} / {point["check"]} / {point["kind"]}'
+                                print(f'::error title=Reported pipeline diagnostic::{label}', flush=True)
                 if os.environ.get('GITHUB_ACTIONS') == 'true':
                     for target in report['failed_rust_targets']:
                         label = f'{target["package"]} --{target["kind"]}'
