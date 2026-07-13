@@ -1413,9 +1413,13 @@
         "status": "passed_local",
         "evidence": "target/goal-execution-20261007/EXT-CI/autotarget-acceptance.json"
       },
-      "latest_settled_revision": "4cc1190db4711a6236a39314c0c0b51568a3469d",
-      "latest_settled_evidence": "target/goal-execution-20261007/EXT-CI/autotarget-remote-jobs-6.json",
-      "latest_settled_result": "Complete AMD64 and ARM64 Rust jobs, image builds and basic native runtime/persistence pass; both native pipeline jobs fail, downstream kind/supply-chain/candidate skipped. Cause unconfirmed."
+      "latest_settled_revision": "315ae8c148e55308eaf84802a9d8a02733375a4c",
+      "latest_settled_evidence": "target/goal-execution-20261007/EXT-CI/health-probe-remote-jobs-3.json",
+      "latest_settled_result": "Complete AMD64 Rust passes; ARM Tests fails with source-known signal-agent --test process annotation; inner assertion unknown. Native jobs skipped.",
+      "pipeline_fixed_diagnostics": {
+        "status": "passed_local",
+        "evidence": "target/goal-execution-20261007/EXT-CI/pipeline-diagnostic-acceptance.json"
+      }
     },
     {
       "id": "EXT-DEPENDENCY",

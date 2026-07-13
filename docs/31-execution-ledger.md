@@ -109,6 +109,14 @@ Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
 Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
 `soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
 
+## Current fixed pipeline diagnostics — 2026-10-09
+
+Fixed profile/check/kind sidecar plus native/CI propagation passes5/19/16/5 helper
+tests, independent FIFO-guard review and workflow wiring with11/24 audit helpers.
+Qualification assertions/limits stay intact; reported phase is not remote cause.
+315 ARM failure target is signal-agent --test process, inner assertion unknown.
+EXT-CI remains external_pending; continue SECURITY-AUDIT;52 unchanged.
+
 ## Current explicit S3 KMS request selection — 2026-10-09
 
 Optional bounded explicit key/bucket-key selection passes four new feature
