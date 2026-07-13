@@ -312,6 +312,12 @@ class Run:
             time.sleep(0.02)
         raise TimeoutError('bounded fixture readiness')
 
+    def browser_port(self, browser, profile):
+        self.roles.check()
+        port = IDP.wait_browser_port(self.idp.owner, browser, profile, time.monotonic() + 10)
+        self.roles.check()
+        return port
+
     def stop_monolith(self, kill=False):
         if kill:
             os.killpg(self.monolith.pid, signal.SIGKILL)
@@ -464,8 +470,7 @@ class Run:
         browser = self.idp.owner.spawn([str(browser_path), '--headless', '--no-sandbox', '--disable-background-networking',
             '--disable-breakpad', '--disable-crash-reporter', '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0',
             '--ignore-certificate-errors-spki-list=' + spki, '--user-data-dir=' + str(profile), 'about:blank'], self.tls.environment, 'browser')
-        self.wait(lambda: (profile / 'DevToolsActivePort').exists(), 10)
-        debug_port = int(bounded_read(profile / 'DevToolsActivePort', 1024).splitlines()[0])
+        debug_port = self.browser_port(browser, profile)
         event = {'schema_version': 1, 'id': str(uuid.uuid4()), 'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z'),
             'observed_at': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z'),
             'source': {'type': 'synthetic-idp'}, 'severity': 'info', 'message': 'synthetic-private-idp-audit-event',

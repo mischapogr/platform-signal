@@ -190,5 +190,132 @@ class IdpFailures(unittest.TestCase):
                 self.assertFalse(thread.is_alive())
 
 
+
+class BrowserReadiness(unittest.TestCase):
+    valid = b'12345\n/devtools/browser/00000000-0000-4000-8000-000000000001'
+
+    def wait_created(self, owner, child, path):
+        deadline = time.monotonic() + 2
+        while not path.exists():
+            owner.check()
+            self.assertIsNone(owner.exited(child))
+            if time.monotonic() >= deadline:
+                self.fail('owned fixture child did not create port file')
+            time.sleep(0.005)
+
+    def test_actual_empty_then_complete_owned_child_is_not_false_start_failure(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); profile = root / 'browser'; profile.mkdir()
+            owner = GATE.OwnedGroups(root)
+            code = r"""import pathlib,sys,time
+p=pathlib.Path(sys.argv[1]); f=p.open('x'); pathlib.Path(sys.argv[2]).write_bytes(b'')
+end=time.monotonic()+3
+while not pathlib.Path(sys.argv[3]).exists():
+    if time.monotonic()>=end: raise SystemExit(2)
+    time.sleep(.005)
+f.write('12345\n/devtools/browser/00000000-0000');f.flush();time.sleep(.1)
+f.write('-4000-8000-000000000001');f.flush();time.sleep(30)
+"""
+            port_file = profile / 'DevToolsActivePort'; created = root / 'created'; release = root / 'release'
+            child = owner.spawn([sys.executable, '-c', code, str(port_file), str(created), str(release)],
+                                dict(os.environ), 'browser')
+            try:
+                self.wait_created(owner, child, created)
+                self.assertEqual(port_file.read_bytes(), b'')
+                self.assertIsNone(GATE.read_browser_port(port_file))
+                release.write_bytes(b'')
+                self.assertEqual(GATE.wait_browser_port(owner, child, profile, time.monotonic() + 2), 12345)
+                self.assertEqual(port_file.read_bytes(), self.valid)
+                self.assertIsNone(owner.exited(child))
+            finally:
+                self.assertEqual(owner.cleanup(), [])
+            self.assertFalse(owner.children)
+            self.assertFalse(owner.drains)
+
+    def test_exited_owned_child_with_stale_valid_port_never_becomes_ready(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); profile = root / 'browser'; profile.mkdir()
+            (profile / 'DevToolsActivePort').write_bytes(self.valid)
+            owner = GATE.OwnedGroups(root)
+            child = owner.spawn([sys.executable, '-c', 'pass'], dict(os.environ), 'browser')
+            try:
+                deadline = time.monotonic() + 2
+                while owner.exited(child) is None:
+                    if time.monotonic() >= deadline:self.fail('fixture child failed to exit')
+                    time.sleep(.005)
+                with self.assertRaisesRegex(RuntimeError, 'owned browser startup failed'):
+                    GATE.wait_browser_port(owner, child, profile, time.monotonic() + 10)
+            finally:
+                self.assertEqual(owner.cleanup(), [])
+            self.assertFalse(owner.children)
+
+    def test_complete_shape_and_transient_prefixes_are_distinct(self):
+        for raw in (b'', b'123', b'12345\n', b'12345\n/devt', self.valid[:-4]):
+            self.assertIsNone(GATE.browser_port_bytes(raw))
+        self.assertEqual(GATE.browser_port_bytes(self.valid), 12345)
+        self.assertEqual(GATE.browser_port_bytes(self.valid + b'\n'), 12345)
+        for raw in (b'0\n', b'65536\n', b'-1\n', b'0123\n', b' 123\n',
+                    b'12345\r\n', b'12345\n/foreign/browser/id',
+                    b'12345\n/devtools/browser/short\n', self.valid + b'\nextra',
+                    self.valid + b'\n\n', self.valid[:-1] + b'g', self.valid[:-1] + b'/',
+                    b'12345\nhttps://foreign.example/devtools/browser/id', b'12345\n\xff'):
+            with self.subTest(raw=raw), self.assertRaises(ValueError):
+                GATE.browser_port_bytes(raw)
+
+    def test_ordinary_bounded_file_rejects_oversize_fifo_symlink_and_hardlink(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); path = root / 'DevToolsActivePort'
+            self.assertIsNone(GATE.read_browser_port(path))
+            path.write_bytes(b'x' * 1025)
+            with self.assertRaises(ValueError):GATE.read_browser_port(path)
+            path.unlink(); os.mkfifo(path)
+            with mock.patch.object(GATE.os, 'open', side_effect=AssertionError('special file opened')):
+                with self.assertRaises(ValueError):GATE.read_browser_port(path)
+            path.unlink(); external = root / 'external'; external.write_bytes(self.valid)
+            path.symlink_to(external)
+            with self.assertRaises(ValueError):GATE.read_browser_port(path)
+            path.unlink(); path.hardlink_to(external)
+            with self.assertRaises(ValueError):GATE.read_browser_port(path)
+            path.unlink(); path.mkdir()
+            with self.assertRaises(ValueError):GATE.read_browser_port(path)
+
+    def test_replaced_fifo_and_concurrent_write_cannot_be_disclosed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'DevToolsActivePort'; path.write_bytes(self.valid)
+            original_open = GATE.os.open
+            def replace_with_fifo(*args):
+                path.unlink();os.mkfifo(path)
+                self.assertTrue(args[1] & os.O_NOFOLLOW)
+                self.assertTrue(args[1] & os.O_NONBLOCK)
+                return original_open(*args)
+            with mock.patch.object(GATE.os, 'open', side_effect=replace_with_fifo):
+                with self.assertRaises(ValueError):GATE.read_browser_port(path)
+            path.unlink();path.write_bytes(self.valid)
+            original_stat = GATE.os.fstat; calls = 0
+            def modified(fd):
+                nonlocal calls
+                calls += 1
+                if calls == 2:
+                    path.write_bytes(self.valid.replace(b'12345', b'12346'))
+                    os.utime(path, ns=(1, 1))
+                return original_stat(fd)
+            with mock.patch.object(GATE.os, 'fstat', side_effect=modified):
+                self.assertIsNone(GATE.read_browser_port(path))
+            self.assertEqual(GATE.read_browser_port(path), 12346)
+
+    def test_original_deadline_rechecked_before_ready_port_handoff(self):
+        with tempfile.TemporaryDirectory() as folder:
+            profile = Path(folder); (profile / 'DevToolsActivePort').write_bytes(self.valid)
+            owner = mock.Mock(); owner.exited.return_value = None
+            with self.assertRaisesRegex(RuntimeError, 'owned browser startup failed'):
+                GATE.wait_browser_port(owner, object(), profile, time.monotonic() - 1)
+            deadline = time.monotonic() + .02
+            def late_ready(_path):
+                time.sleep(.04)
+                return 12345
+            with mock.patch.object(GATE, 'read_browser_port', side_effect=late_ready):
+                with self.assertRaisesRegex(RuntimeError, 'owned browser startup failed'):
+                    GATE.wait_browser_port(owner, object(), profile, deadline)
+
 if __name__ == '__main__':
     unittest.main()

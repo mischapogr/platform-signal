@@ -23,6 +23,27 @@ and live-vendor checks must remain separately visible, never closed by simulatio
 
 
 
+## Bounded browser readiness correction — 2026-10-09
+
+An actual owned child reproduced an empty DevToolsActivePort race before the
+existing10second startup deadline. The harness now waits for a complete valid
+port/browser-path in a stable regular1024byte file, with nofollow/nonblock guards,
+owned-child checks and the same original deadline. Malformed/special files fail;
+incomplete valid prefixes can finish. Audit composition reuses the same reader.
+
+Fourteen IdP and12 audit-composition helper tests pass. One necessary actual
+current-binary local browser/IdP run passes11 compound checks in74.68seconds with
+clean cleanup,185 stable source inputs and unchanged binary. Independent review
+passes. Evidence: `target/goal-execution-20261007/EXT-CI/idp-browser-start-acceptance.json`.
+No Rust qualification campaign was repeated;819/874 evidence remains applicable.
+The previous32-check composed audit run remains tied to its earlier source.
+
+Latest settled run37951427778 on153dafd passes the complete native ARM64 Rust job.
+AMD64 Rust tests pass, but its full job fails at reported IdP browser-start;
+downstream native container/Kubernetes jobs are skipped. The reproduced fixture
+race is corrected locally, but the exact remote cause remains unconfirmed. Full
+matching CI/image/Kubernetes/release gates remain open; frozen52 unchanged.
+
 ## Audit credential rotation and restored-data authority — 2026-10-09
 
 A finite native fixture captures explicitly delivered append/health credentials,
