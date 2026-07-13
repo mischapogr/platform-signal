@@ -36,6 +36,27 @@ def frame(control, row):
 
 
 class CompositionFailures(unittest.TestCase):
+    def test_browser_readiness_reuses_owned_original_clock_and_both_role_checks(self):
+        run = GATE.Run.__new__(GATE.Run)
+        run.roles = mock.Mock(); run.idp = mock.Mock()
+        browser = object(); profile = Path('/synthetic/browser-profile')
+        before = time.monotonic()
+        with mock.patch.object(GATE.IDP, 'wait_browser_port', return_value=12345) as wait:
+            self.assertEqual(run.browser_port(browser, profile), 12345)
+        args = wait.call_args.args
+        self.assertEqual(args[:3], (run.idp.owner, browser, profile))
+        self.assertGreaterEqual(args[3], before + 10)
+        self.assertLessEqual(args[3], time.monotonic() + 10)
+        self.assertEqual(run.roles.check.call_count, 2)
+        for failing_check in (1, 2):
+            run.roles.reset_mock()
+            run.roles.check.side_effect = ([RuntimeError('role failed')] if failing_check == 1
+                else [None, RuntimeError('role failed')])
+            with mock.patch.object(GATE.IDP, 'wait_browser_port', return_value=12345) as wait:
+                with self.assertRaisesRegex(RuntimeError, 'role failed'):
+                    run.browser_port(browser, profile)
+                self.assertEqual(wait.call_count, 0 if failing_check == 1 else 1)
+
     def test_actor_oracle_frames_distinct_issuer_subject_pairs(self):
         self.assertNotEqual(GATE.actor_key('ab', 'c'), GATE.actor_key('a', 'bc'))
         self.assertEqual(GATE.actor_key('issuer', 'subject'), hashlib.sha256(

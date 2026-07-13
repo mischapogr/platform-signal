@@ -18,6 +18,14 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current browser readiness and native CI — 2026-10-09
+
+The reproduced partial port-file race is corrected within the same10s clock;
+14/12 helper tests,11 actual current-binary local browser/IdP checks and review
+pass. Latest153dafd complete ARM64 Rust job passes; AMD64 tests pass but full job
+fails reported browser-start, native downstream skipped. No remote cause claim.
+See [CI contract](40-oss-ci-and-cloud-qualification.md);52 unchanged.
+
 ## Current audit rotation and recovery seam — 2026-10-09
 
 Actual explicit-host credential capture/revocation/current-authority restore passes

@@ -1423,7 +1423,12 @@
       "pipeline_fixed_diagnostics": {
         "status": "passed_local",
         "evidence": "target/goal-execution-20261007/EXT-CI/pipeline-diagnostic-acceptance.json"
-      }
+      },
+      "latest_observation": "target/goal-execution-20261007/EXT-CI/sse-kms-remote-jobs-2.json",
+      "latest_notes": "153dafd ARM complete Rust success; AMD tests pass but IdP browser-start fails; native downstream skipped. Reproduced port-file race corrected locally26 helpers+11 actual local checks, no exact remote attribution.",
+      "browser_readiness_evidence": [
+        "target/goal-execution-20261007/EXT-CI/idp-browser-start-acceptance.json"
+      ]
     },
     {
       "id": "EXT-DEPENDENCY",
