@@ -109,6 +109,15 @@ Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
 Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
 `soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
 
+## SHARED-CONTRACT accepted — 2026-10-09
+
+Bounded Standard schema/transaction/fencing/migration/current-authority restore
+contract passes28 negative checks, seven actual isolated PostgreSQL schema checks,
+workspace13 and independent review. Exact feed prefix/global deduplication and
+zero-prepared receipt semantics remain compatible. Two bounded checks are added
+to the existing native CI matrix. This is passed_local design only; continue
+SHARED-RUNTIME without enabling replicas or claiming HA. See [47](47-shared-control-contract.md).
+
 ## SMALL-PILOT accepted — 2026-10-09
 
 Actual one-record protected/S3/finding-feed/private-notification composition passes

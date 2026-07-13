@@ -23,6 +23,31 @@ and live-vendor checks must remain separately visible, never closed by simulatio
 
 
 
+## Standard shared-control contract accepted — 2026-10-09
+
+The bounded PostgreSQL contract freezes trusted store/generation/tenant/stream/
+partition ownership, monotonic epochs and atomic manifest/checkpoint/revision-pinned
+state/findings/feed/outbox/receipt progress. It preserves the existing cursor's
+exact byte-based prefix digest, global finding deduplication and zero-prepared
+quarantined receipt metadata without fabricating event sequences. Migration and
+restore are explicit, checksummed and require current external authority; old
+attempt evidence remains retained while a new generation revokes its authority.
+
+Twenty-eight negative contract tests and workspace13 pass. The exact migration
+loads nine tables in an isolated cached PostgreSQL17 container; seven actual
+schema checks prove no PUBLIC table grants, a zero-prepared receipt, partial-owner
+rejection and repeated migration refusal without reset. Cleanup passes within
+24commands/6.919seconds. Two bounded contract/guard steps enter the existing native
+Rust CI matrix; workflow jobs/runners/permissions remain unchanged. Independent
+review closed three design blockers, two clarifications and five checker omissions.
+
+Evidence: `target/goal-execution-20261007/SHARED-CONTRACT/acceptance.json` and
+[shared-control contract](47-shared-control-contract.md). SHARED-CONTRACT is
+passed_local for design only. The52 frozen items now include10 passed_local,
+10 passed_simulated,26 pending and6 external_pending. Shared Rust runtime, real
+transactions/concurrency/cancellation, production custody, HA, current images,
+cloud/native/full-CI/cluster and release remain separate. Continue SHARED-RUNTIME.
+
 ## Small composed pilot accepted locally — 2026-10-09
 
 The private parent-managed pilot carries one actual protected source through

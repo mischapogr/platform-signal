@@ -54,6 +54,10 @@ jobs:
         run: python3 scripts/run-ci-check.py --name audit-role-helpers --timeout 60 -- python3 scripts/test-audit-role-composition.py
       - name: Audit credential rotation fixture guards
         run: python3 scripts/run-ci-check.py --name audit-rotation-helpers --timeout 60 -- python3 scripts/test-audit-secret-rotation.py
+      - name: Shared control contract
+        run: python3 scripts/run-ci-check.py --name shared-contract --timeout 60 -- python3 scripts/check-shared-contract.py --output target/ci/shared-contract/validation.json
+      - name: Shared control contract guards
+        run: python3 scripts/run-ci-check.py --name shared-contract-helpers --timeout 60 -- python3 scripts/test-shared-contract.py
       - name: Install locked optional identity qualification tools
         run: python3 scripts/run-ci-check.py --name idp-tools --timeout 180 -- npm ci --prefix tools/identity --engine-strict --ignore-scripts --no-audit --no-fund --fetch-retries=1 --fetch-timeout=15000 --cache target/idp-npm-cache
       - name: Install locked Chromium and runner dependencies

@@ -1,0 +1,280 @@
+{
+  "schema_version": 1,
+  "item": "SHARED-CONTRACT",
+  "backend": "postgresql",
+  "minimum_major": 17,
+  "scope": "trusted tenant, stream and partition; public mechanisms, private policy and credentials external",
+  "schema_sql_sha256": "d0abe90a8a38c7b79f6ced20e3be8ccc882822ec1185a80f78e94f02bc4f734d",
+  "schema_tables": [
+    "store",
+    "partitions",
+    "commits",
+    "receipts",
+    "state",
+    "findings",
+    "outbox",
+    "snapshots",
+    "tombstones"
+  ],
+  "limits": {
+    "request_bytes": 1048576,
+    "reply_bytes": 1048576,
+    "pool_connections": 4,
+    "queued_commands": 32,
+    "partitions": 128,
+    "rows": 65536,
+    "metadata_bytes": 67108864,
+    "transaction_ms": 2000,
+    "lock_ms": 500,
+    "operation_ms": 5000,
+    "lease_ms": 15000,
+    "lease_max_ms": 60000,
+    "batch_records": 4096,
+    "batch_findings": 128,
+    "batch_state": 128,
+    "batch_deliveries": 128,
+    "manifest_bytes": 262144,
+    "state_bytes": 65536,
+    "finding_bytes": 65536,
+    "plan_bytes": 65536,
+    "reference_bytes": 65536,
+    "snapshot_objects": 128,
+    "snapshot_ms": 5000,
+    "attempts": 10,
+    "retry_rounds": 3
+  },
+  "token_fields": [
+    "store_id",
+    "generation",
+    "tenant",
+    "stream",
+    "partition_id",
+    "owner",
+    "epoch"
+  ],
+  "operations": {
+    "initialize": {
+      "actor": "administrator",
+      "fence": "explicit_empty_schema",
+      "atomic": [
+        "identity",
+        "generation",
+        "schema_revision",
+        "capacity"
+      ],
+      "network": false
+    },
+    "acquire": {
+      "actor": "runtime",
+      "fence": "generation_and_expired_owner",
+      "atomic": [
+        "epoch_increment",
+        "owner",
+        "lease"
+      ],
+      "network": false
+    },
+    "renew": {
+      "actor": "runtime",
+      "fence": "generation_owner_epoch_unexpired",
+      "atomic": [
+        "lease"
+      ],
+      "network": false
+    },
+    "commit": {
+      "actor": "runtime",
+      "fence": "generation_owner_epoch_unexpired",
+      "atomic": [
+        "manifest",
+        "checkpoint",
+        "rule_state",
+        "findings",
+        "feed_position",
+        "outbox",
+        "receipt_progress",
+        "capacity"
+      ],
+      "network": false
+    },
+    "read_snapshot": {
+      "actor": "runtime",
+      "fence": "trusted_scope_and_generation",
+      "atomic": [
+        "bounded_snapshot_pin"
+      ],
+      "network": false
+    },
+    "claim_notification": {
+      "actor": "private_adapter",
+      "fence": "generation_owner_epoch_unexpired",
+      "atomic": [
+        "attempt_id",
+        "delivery_intent",
+        "capacity"
+      ],
+      "network": false
+    },
+    "finish_notification": {
+      "actor": "private_adapter",
+      "fence": "generation_owner_epoch_unexpired_and_attempt",
+      "atomic": [
+        "delivery_status"
+      ],
+      "network": false
+    },
+    "retire": {
+      "actor": "runtime",
+      "fence": "generation_owner_epoch_unexpired_and_no_readers",
+      "atomic": [
+        "logical_retirement",
+        "irrevocable_tombstone",
+        "capacity"
+      ],
+      "network": false
+    },
+    "restore": {
+      "actor": "administrator",
+      "fence": "stopped_writers_and_current_external_authority",
+      "atomic": [
+        "new_generation",
+        "leases_revoked",
+        "attempts_uncertain",
+        "restore_checkpoint",
+        "ready_false"
+      ],
+      "network": false
+    },
+    "migrate": {
+      "actor": "administrator",
+      "fence": "stopped_writers_and_exact_revision_checksum",
+      "atomic": [
+        "schema_revision",
+        "migration"
+      ],
+      "network": false
+    },
+    "record_receipt": {
+      "actor": "runtime",
+      "fence": "generation_owner_epoch_unexpired",
+      "atomic": [
+        "receipt_reference",
+        "disposition_pins",
+        "capacity"
+      ],
+      "network": false
+    }
+  },
+  "failure_matrix": [
+    {
+      "id": "upload_before_commit_crash",
+      "expected": "orphan_only_no_checkpoint"
+    },
+    {
+      "id": "transaction_before_commit_crash",
+      "expected": "rollback_all"
+    },
+    {
+      "id": "commit_reply_lost",
+      "expected": "resolve_exact_request_or_remain_uncertain"
+    },
+    {
+      "id": "owner_expired_before_transaction",
+      "expected": "reject_no_mutation"
+    },
+    {
+      "id": "owner_changes_after_upload",
+      "expected": "reject_no_mutation_orphan_only"
+    },
+    {
+      "id": "owner_stalls_after_lock",
+      "expected": "transaction_timeout_rollback_then_takeover"
+    },
+    {
+      "id": "foreign_tenant_stream",
+      "expected": "reject_no_disclosure"
+    },
+    {
+      "id": "request_id_conflicting_payload",
+      "expected": "reject_no_mutation"
+    },
+    {
+      "id": "quota_at_commit",
+      "expected": "whole_transaction_rejected"
+    },
+    {
+      "id": "notification_accepted_reply_lost",
+      "expected": "same_key_payload_uncertain_retry"
+    },
+    {
+      "id": "old_attempt_finishes_after_takeover",
+      "expected": "reject_no_mutation"
+    },
+    {
+      "id": "snapshot_expired",
+      "expected": "fail_no_partial_results"
+    },
+    {
+      "id": "gc_old_owner_or_reachable_object",
+      "expected": "reject_no_delete"
+    },
+    {
+      "id": "old_backup_restored",
+      "expected": "new_generation_old_tokens_rejected"
+    },
+    {
+      "id": "object_missing_on_restore",
+      "expected": "remain_not_ready_no_reconstruction"
+    },
+    {
+      "id": "unknown_or_newer_schema",
+      "expected": "fail_no_automatic_reset"
+    },
+    {
+      "id": "cancelled_transaction_or_pool_full",
+      "expected": "bounded_failure_no_false_success"
+    },
+    {
+      "id": "zero_prepared_quarantined_receipt",
+      "expected": "metadata_only_no_fake_manifest_checkpoint_or_feed"
+    }
+  ],
+  "migration": {
+    "revision": 1,
+    "explicit_only": true,
+    "unknown_revision": "reject",
+    "checksummed": true,
+    "automatic_reset": false,
+    "downgrade": "stopped_restore_only"
+  },
+  "restore": {
+    "new_generation": true,
+    "current_external_authority": true,
+    "old_tokens": "reject",
+    "replay": "retained_exact_pins_only",
+    "redetection": "explicit_only",
+    "object_versions_required": true
+  },
+  "runtime_qualification": "separate SHARED-RUNTIME; no replication/HA/production qualification from this contract",
+  "remote_deletion": "disabled in initial shared runtime; a DB lease cannot fence an in-flight S3 deletion",
+  "notification_guarantee": "at_least_once; external endpoints require idempotency support, in-flight effects cannot be rolled back",
+  "feed": {
+    "stream_identity": "store_id",
+    "position": "globally_monotonic_bigint",
+    "cursor_contract": "existing version1 FindingsCursor; global-read authority required",
+    "reset": "never on restart; restore requires coordinated generation barrier",
+    "digest": "existing FindingsCursor::advance over exact first-occurrence payload bytes",
+    "deduplication": "global finding id; exact bytes replay no position or delivery advance",
+    "retention": "no feed pruning in revision1; quota failure preserves complete chain",
+    "restore": "retain exact historical chain and attempt evidence; reconcile every dependent consumer cursor before readiness"
+  },
+  "receipt_only": {
+    "commit_id": "nullable only while retained or zero prepared",
+    "prepared_count": "0..4096",
+    "source_record_count": "0..4096",
+    "zero_prepared": "explicit disposition and source-policy/custody authorization; no implicit ACK",
+    "advances_checkpoint": false,
+    "advances_feed": false
+  },
+  "tombstone_identity": "canonical backend id + object key + exact version, globally unique across partitions"
+}
