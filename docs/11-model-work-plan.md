@@ -18,6 +18,15 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current audit rotation and recovery seam — 2026-10-09
+
+Actual explicit-host credential capture/revocation/current-authority restore passes
+45checks/six original receipts,10 helper tests and review. Exact pending replay,
+fresh query pair and complete witness checks pass; provenance guards were corrected.
+No actual cloud secret provider, encryption or independently fresh restore claim.
+Continue networked distinct-UID qualification inside SECURITY-AUDIT;52 unchanged.
+See [audit contract](45-independent-audit.md).
+
 ## Current fixed pipeline diagnostics — 2026-10-09
 
 Fixed profile/check/kind sidecar plus native/CI propagation passes5/19/16/5 helper
