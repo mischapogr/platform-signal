@@ -18,6 +18,15 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## SHARED-CONTRACT accepted — 2026-10-09
+
+Bounded Standard schema/transaction/fencing/migration/current-authority restore
+contract passes28 negative checks, seven actual isolated PostgreSQL schema checks,
+workspace13 and independent review. Exact feed prefix/global deduplication and
+zero-prepared receipt semantics remain compatible. Two bounded checks are added
+to the existing native CI matrix. This is passed_local design only; continue
+SHARED-RUNTIME without enabling replicas or claiming HA. See [47](47-shared-control-contract.md).
+
 ## SMALL-PILOT accepted — 2026-10-09
 
 Actual one-record protected/S3/finding-feed/private-notification composition passes

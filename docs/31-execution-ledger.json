@@ -829,7 +829,7 @@
     {
       "id": "SHARED-CONTRACT",
       "title": "PostgreSQL shared-control schema, transactions, fencing and migration contract",
-      "status": "pending",
+      "status": "passed_local",
       "dependencies": [
         "SMALL-PILOT"
       ],
@@ -837,12 +837,15 @@
         "Freeze bounded receipt/catalog/state/ownership schemas and separate engine/private roles; explicit migration and restore contract."
       ],
       "evidence": [
-        "target/goal-execution-20261007/SHARED-CONTRACT/"
+        "target/goal-execution-20261007/SHARED-CONTRACT/",
+        "docs/47-shared-control-contract.md",
+        "target/goal-execution-20261007/SHARED-CONTRACT/acceptance.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md"
-      ]
+      ],
+      "notes": "Accepted design-only contract9tables/11operations/18failure cases,28 negative checks,7 actual isolated PG17 schema checks and review. Exact original feed chain/global dedup, zero-prepared metadata-only receipts, fencing/restore/private boundaries frozen. No shared runtime/HA inferred; next SHARED-RUNTIME."
     },
     {
       "id": "SHARED-RUNTIME",
