@@ -23,6 +23,30 @@ and live-vendor checks must remain separately visible, never closed by simulatio
 
 
 
+## Explicit S3 SSE-KMS request selection — 2026-10-09
+
+The optional S3 adapter now selects a bounded explicit KMS key and bucket-key
+policy through the pinned object_store builder. Existing S3Config/build callers
+remain compatible. Invalid key/header input, bucket-key-without-key, unsupported
+boolean spelling and unused S3 settings fail before owner acquisition/provider
+requests. No ambient AWS settings, new credentials provider, cipher or retry is
+introduced. Provider denial cannot fall back to an unencrypted write.
+
+Four new feature regressions pass: key input/privacy, actual conditional PUT
+headers and signing membership, stopped builder policy replacement/new writes
+with pinned older-object GET, and permission denial/one request/static errors;
+server configuration selection has its own strict mapping/precedence checks.
+Strict819 default/874 all-feature tests, both Clippy/fmt/workspace13 and independent
+review pass. Evidence:
+`target/goal-execution-20261007/SECURITY-AUDIT/sse-kms-acceptance.json`.
+
+This proves local request selection, not AWS encrypted media or KMS authorization/
+decryption. Key selection for new writes does not re-encrypt retained objects or
+rotate their existing keys. Receiver/local volumes, control data/cache and backups
+still need external encrypted-media provisioning. Dedicated secrets/rotation/
+current-authority restore and distinct-UID role composition continue inside
+SECURITY-AUDIT; parent in_progress and frozen52 unchanged.
+
 ## Local verified identity and independent audit composition — 2026-10-09
 
 A finite fixture composes the established local Keycloak/browser SDK login with
