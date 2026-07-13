@@ -5,6 +5,34 @@
 
 
 
+## Restricted-role audit composition and local closeout — 2026-10-09
+
+The accepted native receiver and monolith now run with a separately enrolled
+producer and independent health observer under four distinct nonzero Docker UID/
+GID identities. Actual role/certificate/credential/namespace denials preserve
+history, with correct same-listener admission after negatives. Monolith SIGKILL
+leaves receiver/health running. Receiver outage blocks query disclosure/readiness;
+restart replays exact pending evidence before fresh activation/query receipts.
+
+Sixty-two actual checks pass in29.09seconds with12 receipts and65 health polling
+cycles, including unavailable attempts. Eighteen focused guard tests and source/
+complete stopped-witness review pass. Cleanup is clean within64 commands/original
+180s; immutable de8 debug binary and cached AMD64 images are explicit. Corrected
+fixtures use explicit TLS alerts, correct store-bound checksums and H-local clock/
+generation freshness without renewing failed probes or widening deadlines. The
+initial live address is retained while verified TLS Host/SNI remains unchanged.
+Earlier failures remain retained; a specific earlier DNS cause is unconfirmed.
+Two fast role/rotation oracle steps are added to both native Rust CI jobs;28
+wrapped helper tests and workflow structure/security checks pass.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/role-composition-acceptance.json`.
+Together with the retained hook/store/health/IdP/DAC and credential/KMS-request
+seam evidence, SECURITY-AUDIT is passed_simulated for the frozen local scope.
+Real secret provider/IAM/KMS, encrypted objects/volumes/cache/control/backups,
+production isolation, current release image, cloud/native/full-CI qualification
+remain separate. Fixture health is manual Python polling, not SDK deployment or
+source completeness. Continue SMALL-PILOT; no release readiness is inferred.
+
 ## Bounded browser readiness correction — 2026-10-09
 
 An actual owned child reproduced an empty DevToolsActivePort race before the

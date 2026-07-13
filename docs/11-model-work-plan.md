@@ -18,6 +18,16 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## SECURITY-AUDIT local closeout — 2026-10-09
+
+Restricted actual four-UID receiver/monolith/producer/health composition passes
+62checks/12 original receipts,18 guard tests and complete witness/source review.
+28 wrapped role/rotation helpers and unchanged workflow structure pass. Earlier
+hook/store/health/IdP/DAC, credential recovery and KMS request-policy seams combine
+into passed_simulated local acceptance; external encrypted-media/provider/cloud/
+current-image/full-native-CI gates remain. Continue SMALL-PILOT, then the frozen
+shared-control contract. See [audit contract](45-independent-audit.md).
+
 ## Current browser readiness and native CI — 2026-10-09
 
 The reproduced partial port-file race is corrected within the same10s clock;
