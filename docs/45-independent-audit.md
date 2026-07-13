@@ -576,3 +576,21 @@ health ownership, native IdP/audit composition and secrets/encryption retain the
 own acceptance. No source-completeness, restore-freshness, actual encrypted-media,
 cloud/nativeARM/current-image or release claim follows. SECURITY-AUDIT remains
 in_progress and frozen52 unchanged.
+
+## Restricted receiver file-access qualification — 2026-10-09
+
+A finite cached-container fixture initializes the accepted native receiver store
+and checks its real lock/control/journal, private profile, TLS key and health
+secret under four distinct nonzero UID/GID identities. Twenty-seven actual checks
+pass; all36 adversary read/write/list/create probes return EACCES. Owner positive
+access, process identities, no capabilities/no-new-privileges and unchanged
+protected contents pass. Twenty-four focused guard regressions and independent
+review pass. Exact daemon absence, idempotent owned-process retirement and bounded
+regular-file/inventory guards were corrected; earlier attempts remain retained.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/receiver-permissions-report-guard-corrected.json`.
+This uses the accepted de8 debug binary and cached native AMD64 substrate. Other
+roles execute permission probes with networking disabled, not the monolith,
+producer or health applications. Actual distinct-UID TLS/credential/outage/replay
+composition remains next. No current image, ARM/cloud, encryption or production
+qualification follows. SECURITY-AUDIT remains in_progress; frozen52 unchanged.
