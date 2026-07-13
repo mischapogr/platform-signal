@@ -256,6 +256,182 @@ async fn native_conditional_create_and_pinned_get_keep_wire_binding() -> Result 
     io.shutdown(context()).await?;
     Ok(())
 }
+fn encrypted_io(
+    endpoint: &str,
+    policy: Option<&S3KmsEncryption>,
+) -> Result<(ObjectIo, S3HttpObserver)> {
+    let (store, observer) = build_with_kms(&config(endpoint), &credentials(), policy)?;
+    Ok((
+        ObjectIo::remote(
+            Arc::new(store),
+            tokio::runtime::Handle::current(),
+            ObjectIoLimits {
+                bytes: 1024 * 1024,
+                ..Default::default()
+            },
+        )?,
+        observer,
+    ))
+}
+#[test]
+fn selected_kms_header_input_is_bounded_and_redacted() -> Result {
+    for key in [
+        "",
+        " ",
+        "alias/example\r\nx-injected: value",
+        "alias/white space",
+        "alias/☃",
+    ] {
+        let selected = S3KmsEncryption {
+            key_id: key.into(),
+            bucket_key: false,
+        };
+        assert!(matches!(
+            build_with_kms(
+                &config("http://127.0.0.1:1"),
+                &credentials(),
+                Some(&selected)
+            ),
+            Err(S3Error::Config)
+        ));
+    }
+    let mut selected = S3KmsEncryption {
+        key_id: "x".repeat(2049),
+        bucket_key: false,
+    };
+    assert!(matches!(selected.validate(), Err(S3Error::Config)));
+    selected.key_id = "alias/synthetic-private-key-canary".into();
+    assert!(!format!("{selected:?}").contains(&selected.key_id));
+    selected.validate()?;
+    Ok(())
+}
+#[tokio::test]
+async fn explicit_kms_policy_is_signed_on_writes_and_rotates_without_rewriting_old_objects()
+-> Result {
+    let mut endpoint = Endpoint::start(vec![
+        reply(200, object_headers(), b""),
+        reply(200, object_headers(), b"old-evidence"),
+        reply(200, object_headers(), b""),
+    ])
+    .await?;
+    let old_policy = S3KmsEncryption {
+        key_id: "alias/synthetic-old".into(),
+        bucket_key: true,
+    };
+    let (old_io, old_observer) = encrypted_io(&endpoint.url, Some(&old_policy))?;
+    let reference = old_io
+        .create(
+            "query/synthetic/data/old.parquet",
+            b"old-evidence",
+            context(),
+        )
+        .await?;
+    old_io.shutdown(context()).await?;
+    assert_eq!(old_observer.metrics().depth, 0);
+    let new_policy = S3KmsEncryption {
+        key_id: "alias/synthetic-new".into(),
+        bucket_key: false,
+    };
+    let (new_io, new_observer) = encrypted_io(&endpoint.url, Some(&new_policy))?;
+    let old_read = new_io.read_exact(&reference, context()).await?;
+    assert_eq!(old_read.bytes(), b"old-evidence");
+    drop(old_read);
+    new_io
+        .create(
+            "query/synthetic/data/new.parquet",
+            b"new-evidence",
+            context(),
+        )
+        .await?;
+    let wires = endpoint.finish().await?;
+    assert_eq!(wires.len(), 3);
+    for (index, policy) in [(0, &old_policy), (2, &new_policy)] {
+        let wire = &wires[index];
+        assert_eq!(wire.method, "PUT");
+        assert_eq!(
+            wire.headers.get("if-none-match").map(String::as_str),
+            Some("*")
+        );
+        let expected = [
+            ("x-amz-server-side-encryption", "aws:kms"),
+            (
+                "x-amz-server-side-encryption-aws-kms-key-id",
+                policy.key_id.as_str(),
+            ),
+            (
+                "x-amz-server-side-encryption-bucket-key-enabled",
+                if policy.bucket_key { "true" } else { "false" },
+            ),
+        ];
+        let authorization = wire
+            .headers
+            .get("authorization")
+            .ok_or("signed authorization missing")?;
+        for (name, value) in expected {
+            assert_eq!(wire.headers.get(name).map(String::as_str), Some(value));
+            assert!(authorization.contains(name));
+        }
+    }
+    assert_eq!(wires[1].method, "GET");
+    assert!(wires[1].target.contains("versionId=query-v1"));
+    assert!(
+        !wires[1]
+            .headers
+            .keys()
+            .any(|name| name.starts_with("x-amz-server-side-encryption"))
+    );
+    new_io.shutdown(context()).await?;
+    assert_eq!(new_observer.metrics().requests, 2);
+    assert_eq!(new_observer.metrics().depth, 0);
+    // An absent explicit selection keeps the established builder API/legacy wire.
+    let mut plain = Endpoint::start(vec![reply(200, object_headers(), b"")]).await?;
+    let (plain_io, _) = encrypted_io(&plain.url, None)?;
+    plain_io
+        .create("query/synthetic/data/plain.parquet", b"plain", context())
+        .await?;
+    let wires = plain.finish().await?;
+    assert!(
+        !wires[0]
+            .headers
+            .keys()
+            .any(|name| name.starts_with("x-amz-server-side-encryption"))
+    );
+    plain_io.shutdown(context()).await?;
+    Ok(())
+}
+#[tokio::test]
+async fn kms_permission_denial_has_no_unencrypted_retry_or_secret_diagnostic() -> Result {
+    let canary = "synthetic-denial-provider-secret-canary";
+    let body = format!("<Error><Code>AccessDenied</Code><Message>{canary}</Message></Error>");
+    let mut endpoint = Endpoint::start(vec![reply(
+        403,
+        "Content-Type: application/xml\r\n",
+        body.as_bytes(),
+    )])
+    .await?;
+    let policy = S3KmsEncryption {
+        key_id: "alias/synthetic-denied".into(),
+        bucket_key: false,
+    };
+    let (io, observer) = encrypted_io(&endpoint.url, Some(&policy))?;
+    let error = match io
+        .create(
+            "query/synthetic/data/denied.parquet",
+            b"protected",
+            context(),
+        )
+        .await
+    {
+        Ok(_) => return Err("denied write unexpectedly accepted".into()),
+        Err(error) => error,
+    };
+    assert!(!format!("{error:?} {error}").contains(canary));
+    assert_eq!(endpoint.finish().await?.len(), 1);
+    assert_eq!(observer.metrics().requests, 1);
+    assert_eq!(observer.metrics().depth, 0);
+    io.shutdown(context()).await?;
+    Ok(())
+}
 #[tokio::test]
 async fn list_pagination_is_bounded_and_preserves_continuation() -> Result {
     let key = "query/synthetic/data/a.parquet";

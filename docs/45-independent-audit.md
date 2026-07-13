@@ -618,3 +618,49 @@ integration or an automatic readiness/completeness assessment. Only ingest/query
 hooks are selected. Distinct-UID role composition, secret/rotation/recovery and
 encrypted-storage checks remain; real tenants/cloud/ARM/current release image
 qualification remain separate. SECURITY-AUDIT stays in_progress;52 unchanged.
+
+## Explicit S3 encryption request policy
+
+`signal_storage::object_s3::build_with_kms` accepts optional `S3KmsEncryption`
+programmatic input while existing `build` preserves the previous unselected API.
+The key identifier is1–2048 ASCII graphic bytes; identifiers/account/key authority
+remain deployment-owned. Debug excludes the identifier. New writes carry SSE-KMS,
+the selected key and explicit bucket-key headers through the established builder.
+
+The monolith accepts `storage.s3_kms_key_id` / `SIGNAL_S3_KMS_KEY_ID` and quoted
+`storage.s3_bucket_key` / `SIGNAL_S3_BUCKET_KEY` strings `true` or `false`.
+Absent bucket selection with a key means false; bucket selection without a key
+fails, including false. Environment retains established configuration precedence.
+The settings require the S3 backend and s3-query build feature. Actual provider
+rejection is an operation failure; no local or unencrypted fallback is selected.
+
+Existing pinned reads use object identity and provider authorization; no write
+headers or new key can prove old-object decryption. The local peer is unencrypted.
+Actual AWS KMS permissions/key recovery, encrypted objects/volumes/control/backups
+and independently current restoration need separate real-environment evidence.
+The pinned [builder documentation](https://docs.rs/object_store/0.13.2/object_store/aws/struct.AmazonS3Builder.html)
+was checked after Context7 quota exhaustion; actual request tests bind the behavior.
+
+## Explicit S3 SSE-KMS request selection — 2026-10-09
+
+The optional S3 adapter now selects a bounded explicit KMS key and bucket-key
+policy through the pinned object_store builder. Existing S3Config/build callers
+remain compatible. Invalid key/header input, bucket-key-without-key, unsupported
+boolean spelling and unused S3 settings fail before owner acquisition/provider
+requests. No ambient AWS settings, new credentials provider, cipher or retry is
+introduced. Provider denial cannot fall back to an unencrypted write.
+
+Four new feature regressions pass: key input/privacy, actual conditional PUT
+headers and signing membership, stopped builder policy replacement/new writes
+with pinned older-object GET, and permission denial/one request/static errors;
+server configuration selection has its own strict mapping/precedence checks.
+Strict819 default/874 all-feature tests, both Clippy/fmt/workspace13 and independent
+review pass. Evidence:
+`target/goal-execution-20261007/SECURITY-AUDIT/sse-kms-acceptance.json`.
+
+This proves local request selection, not AWS encrypted media or KMS authorization/
+decryption. Key selection for new writes does not re-encrypt retained objects or
+rotate their existing keys. Receiver/local volumes, control data/cache and backups
+still need external encrypted-media provisioning. Dedicated secrets/rotation/
+current-authority restore and distinct-UID role composition continue inside
+SECURITY-AUDIT; parent in_progress and frozen52 unchanged.
