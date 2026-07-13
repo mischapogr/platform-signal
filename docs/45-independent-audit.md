@@ -664,3 +664,27 @@ rotate their existing keys. Receiver/local volumes, control data/cache and backu
 still need external encrypted-media provisioning. Dedicated secrets/rotation/
 current-authority restore and distinct-UID role composition continue inside
 SECURITY-AUDIT; parent in_progress and frozen52 unchanged.
+
+## Audit credential rotation and restored-data authority — 2026-10-09
+
+A finite native fixture captures explicitly delivered append/health credentials,
+rejects provider failure before process launch, and proves that editing delivery
+cannot renew an already running client. Old credentials fail on the real receiver;
+role-swapped credentials fail without changing history. Stopped current clients
+replay the exact original pending sequence before fresh granted/success query
+receipts. Restoring older consistent receiver/outbox data uses current separately
+delivered authority; revoked credentials remain rejected.
+
+Forty-five actual checks pass in7.71seconds with six checksum-verified original
+receipts. Ten focused negative regressions and independent review pass. Review
+closed incomplete provenance acceptance with exact six-source keys/digests and
+before/after metadata guards; original control/journal/pending witnesses remain.
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/secret-rotation-acceptance.json`.
+
+The provider is synthetic explicit host-environment delivery. This qualifies the
+existing capture/rotation/recovery seam, not AWS Secrets Manager/IAM/KMS, encrypted
+media/backups or independently fresh restored history. SameUID immutable315 debug
+binary and availability-only health observations have separate limits from the
+current release image, SDK health owner and distinct-UID campaign. Unchanged Rust
+819/874 evidence remains applicable. SECURITY-AUDIT stays in_progress for the
+networked distinct-UID role qualification; frozen52 statuses stay unchanged.
