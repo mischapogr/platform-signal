@@ -18,6 +18,13 @@ execution and verification evidence is recorded in
 [07-progress.md](07-progress.md). This is a routing plan, not a claim that the
 full MVP release is complete.
 
+## Current restricted receiver file-access proof — 2026-10-09
+
+Twenty-seven native checks,36 actual EACCES denials,24 guard regressions and
+review qualify the partial distinct-UID DAC fixture. Other identities run probes;
+actual distinct-UID monolith/producer/health TLS and outage composition follows.
+Secrets/encryption remain. See [audit contract](45-independent-audit.md);52 unchanged.
+
 ## Current reusable receiver health probe — 2026-10-09
 
 Strict unchanged version1 aggregate and separately authenticated bounded SDK probe

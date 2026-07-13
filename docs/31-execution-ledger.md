@@ -109,6 +109,13 @@ Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
 Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
 `soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
 
+## Current restricted receiver file-access proof — 2026-10-09
+
+Twenty-seven native checks,36 actual EACCES denials,24 guard regressions and
+review qualify the partial distinct-UID DAC fixture. Other identities run probes;
+actual distinct-UID monolith/producer/health TLS and outage composition follows.
+Secrets/encryption remain. See [audit contract](45-independent-audit.md);52 unchanged.
+
 ## Current reusable receiver health probe — 2026-10-09
 
 Strict unchanged version1 aggregate and separately authenticated bounded SDK probe

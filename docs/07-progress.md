@@ -5,6 +5,24 @@
 
 
 
+## Restricted receiver file-access qualification — 2026-10-09
+
+A finite cached-container fixture initializes the accepted native receiver store
+and checks its real lock/control/journal, private profile, TLS key and health
+secret under four distinct nonzero UID/GID identities. Twenty-seven actual checks
+pass; all36 adversary read/write/list/create probes return EACCES. Owner positive
+access, process identities, no capabilities/no-new-privileges and unchanged
+protected contents pass. Twenty-four focused guard regressions and independent
+review pass. Exact daemon absence, idempotent owned-process retirement and bounded
+regular-file/inventory guards were corrected; earlier attempts remain retained.
+
+Evidence: `target/goal-execution-20261007/SECURITY-AUDIT/receiver-permissions-report-guard-corrected.json`.
+This uses the accepted de8 debug binary and cached native AMD64 substrate. Other
+roles execute permission probes with networking disabled, not the monolith,
+producer or health applications. Actual distinct-UID TLS/credential/outage/replay
+composition remains next. No current image, ARM/cloud, encryption or production
+qualification follows. SECURITY-AUDIT remains in_progress; frozen52 unchanged.
+
 ## Bounded independent receiver health probe — 2026-10-09
 
 The unchanged version1 receiver aggregate now has a strict public protocol type.
@@ -59,6 +77,15 @@ was repeated. EXT-CI remains external_pending until complete matching native CI
 and downstream candidate qualification pass.
 
 ## Native CI status — 2026-10-09
+
+Develop4cc1190 CI run37942052354 completed with failure, observed14:54UTC.
+Both complete AMD64/ARM64 Rust jobs, production image builds and basic native
+runtime/persistence pass. Both native pipeline steps fail; downstream Kubernetes,
+supply-chain and candidate steps are skipped. Public reported stage is pipeline;
+no failing assertion or cause is available. Evidence:
+`target/goal-execution-20261007/EXT-CI/autotarget-remote-jobs-6.json`.
+Health commit315ae8c is now pushed for its own qualification; earlier observations
+retain their immutable source bindings. Full remote/native/release gates stay open.
 
 Develop3d23787 CI run37935195529 completed with failure as observed13:33UTC.
 The complete AMD64 Rust job passes; ARM64 fails its Rust Tests step after successful
