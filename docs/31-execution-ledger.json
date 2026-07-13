@@ -668,7 +668,7 @@
     {
       "id": "SECURITY-AUDIT",
       "title": "Restricted independent audit and secrets/encryption integration seams",
-      "status": "in_progress",
+      "status": "passed_simulated",
       "dependencies": [
         "SECURITY-ACCESS",
         "EVIDENCE"
@@ -685,7 +685,7 @@
         "docs/04-implementation-plan.md",
         "docs/45-independent-audit.md"
       ],
-      "notes": "Audit protocol/client/outbox/hooks/receiver/health, actual IdP/audit, partial restricted-UID DAC, explicit S3 KMS request selection and credential rotation/current-authority restored-data seam accepted. Actual networked distinct-UID role composition remains; parent in_progress. External secret-provider/KMS/media qualification stays visible.",
+      "notes": "Frozen local audit scope accepted: all bounded native hooks and independent durable receiver, outage/replay/crash/manual health, actual IdP and restricted DAC/role composition, explicit secret capture/rotation/current-authority recovery and signed S3 KMS request selection. Real provider/encrypted media/production isolation/current image/full-native-CI remain separate exceptions. Continue SMALL-PILOT.",
       "substeps": [
         {
           "id": "bounded-record-ack-protocol",
@@ -696,7 +696,7 @@
         },
         {
           "id": "independent-destination-native-hooks",
-          "status": "in_progress",
+          "status": "passed_simulated",
           "acceptance": [
             "Bounded independent restricted sink and operative access/config/rule activation audit; exact ACK, outages/replay/restart/crash/independent health acceptance."
           ],
@@ -765,7 +765,12 @@
           "idp_audit_composition_evidence": [
             "target/goal-execution-20261007/SECURITY-AUDIT/idp-audit-composition-acceptance.json"
           ],
-          "idp_audit_composition_limit": "SameUID315 debug/native ingest-query only; manual independent mTLS health owner."
+          "idp_audit_composition_limit": "SameUID315 debug/native ingest-query only; manual independent mTLS health owner.",
+          "receiver_role_composition_status": "passed_simulated",
+          "receiver_role_composition_evidence": [
+            "target/goal-execution-20261007/SECURITY-AUDIT/role-composition-acceptance.json"
+          ],
+          "receiver_role_composition_limit": "Immutable de8 debug/cached AMD64 Docker nonzeroUID identities; Python H observer, no current SDK/image/cloud qualification."
         },
         {
           "id": "secrets-encrypted-storage-seams",
@@ -783,6 +788,16 @@
             "target/goal-execution-20261007/SECURITY-AUDIT/secret-rotation-acceptance.json"
           ]
         }
+      ],
+      "local_acceptance": [
+        "target/goal-execution-20261007/SECURITY-AUDIT/role-composition-acceptance.json",
+        "target/goal-execution-20261007/SECURITY-AUDIT/secret-rotation-acceptance.json",
+        "target/goal-execution-20261007/SECURITY-AUDIT/sse-kms-acceptance.json"
+      ],
+      "external_exceptions": [
+        "Actual AWS Secrets Manager/workload identity/IAM/KMS authorization and key recovery",
+        "Actual encrypted objects, receiver/local volumes, control/cache and backup media",
+        "Real independent authority/custody production deployment and native/current release image qualification"
       ]
     },
     {

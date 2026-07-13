@@ -109,6 +109,16 @@ Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
 Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
 `soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
 
+## SECURITY-AUDIT local closeout — 2026-10-09
+
+Restricted actual four-UID receiver/monolith/producer/health composition passes
+62checks/12 original receipts,18 guard tests and complete witness/source review.
+28 wrapped role/rotation helpers and unchanged workflow structure pass. Earlier
+hook/store/health/IdP/DAC, credential recovery and KMS request-policy seams combine
+into passed_simulated local acceptance; external encrypted-media/provider/cloud/
+current-image/full-native-CI gates remain. Continue SMALL-PILOT, then the frozen
+shared-control contract. See [audit contract](45-independent-audit.md).
+
 ## Current browser readiness and native CI — 2026-10-09
 
 The reproduced partial port-file race is corrected within the same10s clock;
