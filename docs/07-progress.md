@@ -5,6 +5,38 @@
 
 
 
+## Bounded independent receiver health probe — 2026-10-09
+
+The unchanged version1 receiver aggregate now has a strict public protocol type.
+It bounds actual JSON to1024bytes, requires an object, rejects unknown/duplicate/
+invalid fields and impossible individual capacities, and validates before bounded
+serialization. Independent atomic counters need not form a transactional pair.
+The host emits the same fields/status and no-store wire contract.
+
+The SDK exposes a separately credentialed fixed-path health client with explicit
+private mTLS; numeric-loopback HTTP is a named simulation constructor. One retained
+physical worker, separate from append, bounds admission before cloning client
+inputs. Original context clocks, cancellation, callerDrop and late handoff checks
+apply through response EOF. No proxies, redirects, retries, ambient roots or cache
+are enabled. Only exact JSON/no-store200 or held503 documents become observations;
+malformed/busy-error/failed/timed-out replies cannot renew health. The monotonic
+receipt timestamp is captured in the physical worker, not later caller delivery.
+An external owner controls polling, classification and expiry. Busy/full counters
+and authenticated held state are facts, not automatic readiness or completeness.
+
+Five new compound regressions pass: strict protocol, fixed-role configuration,
+real HTTP fault/body/header/status cases, original-clock/cancellation/drop/capacity,
+and real mutual TLS wrong-origin/client/credential plus valid/held observations.
+Strict819default/870all-feature workspace tests, both Clippy/fmt/workspace13 and
+six-source review pass. Initial compilation and a forbidden expect_err in a new
+negative test failed, were corrected, and remain retained. Evidence:
+`target/goal-execution-20261007/SECURITY-AUDIT/health-probe-acceptance.json`.
+This is local synthetic HTTP/mTLS proof. Restricted identities, deployed independent
+health ownership, native IdP/audit composition and secrets/encryption retain their
+own acceptance. No source-completeness, restore-freshness, actual encrypted-media,
+cloud/nativeARM/current-image or release claim follows. SECURITY-AUDIT remains
+in_progress and frozen52 unchanged.
+
 ## Automatic Rust target diagnostics — 2026-10-09
 
 The finite public failure-target inventory now includes Cargo's automatically

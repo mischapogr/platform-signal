@@ -516,3 +516,63 @@ The immutable default LinuxAMD64 debug binary is SHA2567233cb7a23b18f7de6b7436b4
 This is sameUID synthetic outage/composition proof, not compromise-resistant
 permissions, production/liveIdP/encryption/cloud/nativeARM/current-image/release
 qualification. SECURITY-AUDIT stays in_progress and frozen52 counts unchanged.
+
+## Reusable health observation contract
+
+`signal_protocol::audit::AuditReceiverHealth` preserves the fifteen version1
+aggregate fields. `from_json` and `to_json` enforce1024bytes, strict object/type/
+unknown/duplicate/version checks and configured scalar capacity bounds. It does
+not add identities, record bodies, expiry or authority. Independent atomic loads
+can be nontransactional; records/bytes pair consistency is not asserted.
+
+`signal_collector_sdk::audit::health::HttpHealthProbe` production construction
+requires explicit private mTLS, a dedicated credential and HTTPS at the fixed
+`/v1/audit/health` path. The numeric-loopback HTTP simulation constructor is
+explicit. One process-wide retained physical probe worker is independent of the
+append worker; depth/capacity/rejections/observed/failed are aggregate metrics.
+The supplied ExtensionContext supplies the original monotonic deadline and
+cancellation. Replies require exactly one application/json and no-store header,
+actual bounded EOF, strict health JSON and200/held=false or503/held=true binding.
+Other503 error bodies, failures and cancelled/expired operations yield no
+observation. An authenticated held snapshot remains an observed failure.
+
+The returned Observation has its validated snapshot and physical receipt Instant.
+Private owners decide assessment/cadence/expiry and never renew from failed probes,
+old results, quiet sources or original receipt ACKs. No automatic health daemon,
+transactional counters, audit-read/admin endpoint, security policy or validity
+period is introduced. Accepted current HTTP receipt alone cannot establish
+source completeness, current independently anchored restored history or actual
+permissions/encryption. Local HTTP and mutual-TLS fault fixtures qualify the seam;
+deployed health-owner operation and real-environment controls remain separate.
+
+## Reusable health probe acceptance
+
+The unchanged version1 receiver aggregate now has a strict public protocol type.
+It bounds actual JSON to1024bytes, requires an object, rejects unknown/duplicate/
+invalid fields and impossible individual capacities, and validates before bounded
+serialization. Independent atomic counters need not form a transactional pair.
+The host emits the same fields/status and no-store wire contract.
+
+The SDK exposes a separately credentialed fixed-path health client with explicit
+private mTLS; numeric-loopback HTTP is a named simulation constructor. One retained
+physical worker, separate from append, bounds admission before cloning client
+inputs. Original context clocks, cancellation, callerDrop and late handoff checks
+apply through response EOF. No proxies, redirects, retries, ambient roots or cache
+are enabled. Only exact JSON/no-store200 or held503 documents become observations;
+malformed/busy-error/failed/timed-out replies cannot renew health. The monotonic
+receipt timestamp is captured in the physical worker, not later caller delivery.
+An external owner controls polling, classification and expiry. Busy/full counters
+and authenticated held state are facts, not automatic readiness or completeness.
+
+Five new compound regressions pass: strict protocol, fixed-role configuration,
+real HTTP fault/body/header/status cases, original-clock/cancellation/drop/capacity,
+and real mutual TLS wrong-origin/client/credential plus valid/held observations.
+Strict819default/870all-feature workspace tests, both Clippy/fmt/workspace13 and
+six-source review pass. Initial compilation and a forbidden expect_err in a new
+negative test failed, were corrected, and remain retained. Evidence:
+`target/goal-execution-20261007/SECURITY-AUDIT/health-probe-acceptance.json`.
+This is local synthetic HTTP/mTLS proof. Restricted identities, deployed independent
+health ownership, native IdP/audit composition and secrets/encryption retain their
+own acceptance. No source-completeness, restore-freshness, actual encrypted-media,
+cloud/nativeARM/current-image or release claim follows. SECURITY-AUDIT remains
+in_progress and frozen52 unchanged.

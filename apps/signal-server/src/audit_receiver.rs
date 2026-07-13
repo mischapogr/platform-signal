@@ -9,7 +9,6 @@ use axum::{
 };
 use config::{Configuration, Enrollment};
 use http_body_util::BodyExt;
-use serde::Serialize;
 use signal_collector_sdk::{
     ExtensionContext,
     audit::receiver::{AuditReceiver, OpenMode, ReceiverError, TrustedProducer},
@@ -19,7 +18,7 @@ use signal_ingest::{
     tls::ServerTls,
 };
 use signal_protocol::{
-    audit::{ACK_BYTES, PreparedAudit, RECORD_BYTES},
+    audit::{ACK_BYTES, AuditReceiverHealth, PreparedAudit, RECORD_BYTES},
     transport::{TLS_DOCUMENT_BYTES, TlsMaterial},
 };
 use std::{
@@ -261,24 +260,6 @@ async fn append_request(host: &Host, request: Request) -> Response {
         _ => unavailable(),
     }
 }
-#[derive(Serialize)]
-struct Health {
-    schema_version: u16,
-    held: bool,
-    records: usize,
-    bytes: u64,
-    record_capacity: usize,
-    byte_capacity: u64,
-    physical_depth: usize,
-    physical_capacity: usize,
-    physical_rejected: u64,
-    rejected: u64,
-    uncertain: u64,
-    append_http_depth: usize,
-    append_http_capacity: usize,
-    append_http_rejected: u64,
-    health_http_rejected: u64,
-}
 async fn health(State(host): State<Host>, request: Request) -> Response {
     let result = health_request(&host, request).await;
     if !result.status().is_success() {
@@ -315,7 +296,7 @@ async fn health_request(host: &Host, request: Request) -> Response {
         Err(_) => return unavailable(),
     }
     let h = host.receiver.health();
-    let document = Health {
+    let document = AuditReceiverHealth {
         schema_version: 1,
         held: h.held,
         records: h.records,
@@ -332,7 +313,7 @@ async fn health_request(host: &Host, request: Request) -> Response {
         append_http_rejected: host.append_rejected.load(Ordering::Relaxed),
         health_http_rejected: host.health_rejected.load(Ordering::Relaxed),
     };
-    let bytes = match serde_json::to_vec(&document) {
+    let bytes = match document.to_json() {
         Ok(bytes) if bytes.len() <= ACK_BYTES => bytes,
         _ => return unavailable(),
     };
