@@ -1,0 +1,10 @@
+# Copied into the project-owned SERENA_HOME by the launcher.
+web_dashboard: false
+web_dashboard_open_on_launch: false
+gui_log_window: false
+log_level: 30
+trace_lsp_communication: false
+tool_timeout: 60
+default_max_tool_answer_chars: 12000
+token_count_estimator: CHAR_COUNT
+projects: []

@@ -18,7 +18,8 @@ use tokio_util::sync::CancellationToken;
 
 #[derive(Clone)]
 struct FindingState {
-    store: Arc<FindingStore>,
+    store: Option<Arc<FindingStore>>,
+    shared_feed: Option<Arc<signal_server::shared_feed::SharedFindingsFeed>>,
     auth: IngestConfig,
     limit: usize,
     response_bytes: usize,
@@ -66,7 +67,8 @@ pub fn router_with_security(
         .route("/v1/findings", get(findings))
         .route("/v1/findings/feed", get(feed))
         .with_state(FindingState {
-            store,
+            store: Some(store),
+            shared_feed: None,
             auth,
             limit,
             response_bytes,
@@ -76,6 +78,41 @@ pub fn router_with_security(
         })
 }
 
+/// Explicit feed-only composition; complete scoped Standard startup remains
+/// unwired. This constructor never exposes a local findings fallback.
+#[allow(dead_code)]
+pub fn router_with_shared_feed(
+    feed: Arc<signal_server::shared_feed::SharedFindingsFeed>,
+    auth: IngestConfig,
+    limit: usize,
+    timeout: Duration,
+    stopping: CancellationToken,
+    security: Security,
+) -> Result<Router, signal_control::ControlError> {
+    if !(1..=signal_control::ITEMS).contains(&limit)
+        || timeout.is_zero()
+        || timeout > Duration::from_secs(5)
+        || security.identity.is_none()
+        || auth.api_token.is_some()
+    {
+        return Err(signal_control::ControlError::Invalid);
+    }
+    Ok(Router::new()
+        .route("/v1/findings/feed", get(feed_route))
+        .with_state(FindingState {
+            store: None,
+            shared_feed: Some(feed.clone()),
+            auth,
+            limit,
+            response_bytes: feed.response_bytes(),
+            timeout,
+            stopping,
+            security,
+        }))
+}
+async fn feed_route(state: State<FindingState>, query: RawQuery, headers: HeaderMap) -> Response {
+    feed(state, query, headers).await
+}
 struct CancelOnDrop(CancellationToken);
 impl Drop for CancelOnDrop {
     fn drop(&mut self) {
@@ -105,7 +142,7 @@ async fn feed_inner(
     state: &FindingState,
     raw: Option<String>,
     context: &FindingContext,
-    grant: Option<&RequestGrant>,
+    grant: Option<&Arc<RequestGrant>>,
 ) -> Response {
     let query = match parse_findings_feed_query(raw.as_deref().unwrap_or(""), state.limit) {
         Ok(query) => query,
@@ -131,12 +168,54 @@ async fn feed_inner(
             );
         }
     };
-    match state
-        .store
-        .feed(query, state.response_bytes, context.clone())
-        .await
-    {
-        Ok(bytes) => match finish(context, grant, Operation::ReadFindingsFeed) {
+    let result = if let Some(shared) = &state.shared_feed {
+        let Some(grant) = grant else {
+            return error(StatusCode::FORBIDDEN, "forbidden", "finding access denied");
+        };
+        let control = match signal_control::ControlContext::new(Duration::from_secs(5)) {
+            Ok(value) => value.limited_to(context.deadline),
+            Err(_) => {
+                return error(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "unavailable",
+                    "finding store unavailable",
+                );
+            }
+        };
+        let result = tokio::select! {biased;
+            ()=context.cancellation.cancelled()=>{control.cancel();return error(StatusCode::SERVICE_UNAVAILABLE,"unavailable","server stopping");},
+            result=tokio::time::timeout_at(context.deadline,shared.read(query,grant.clone(),control.clone()))=>match result {
+                Ok(value)=>value,
+                Err(_)=>{control.cancel();return error(StatusCode::REQUEST_TIMEOUT,"request_timeout","finding query deadline exceeded");},
+            }
+        };
+        result.map_err(|error| match error {
+            signal_server::shared_feed::SharedFeedError::CursorStreamMismatch => {
+                FindingError::CursorStreamMismatch
+            }
+            signal_server::shared_feed::SharedFeedError::PageBudget => {
+                FindingError::PageBudgetExceeded
+            }
+            signal_server::shared_feed::SharedFeedError::Control(error) => match error {
+                signal_control::ControlError::CursorPositionUnavailable => {
+                    FindingError::CursorPositionUnavailable
+                }
+                signal_control::ControlError::Fenced => FindingError::Denied,
+                signal_control::ControlError::Full => FindingError::Full,
+                signal_control::ControlError::Timeout => FindingError::Timeout,
+                signal_control::ControlError::Conflict => FindingError::CursorHistoryMismatch,
+                _ => FindingError::Corrupt("shared finding read"),
+            },
+        })
+    } else if let Some(store) = &state.store {
+        store
+            .feed(query, state.response_bytes, context.clone())
+            .await
+    } else {
+        Err(FindingError::Corrupt("finding backend absent"))
+    };
+    match result {
+        Ok(bytes) => match finish(context, grant.map(Arc::as_ref), Operation::ReadFindingsFeed) {
             None => ([("content-type", "application/json")], bytes).into_response(),
             Some(response) => response,
         },
@@ -214,14 +293,20 @@ async fn findings_inner(
             );
         }
     };
+    let Some(store) = &state.store else {
+        return error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "unavailable",
+            "scoped findings unavailable",
+        );
+    };
     let result = match grant {
         Some(grant) => {
-            state
-                .store
+            store
                 .query_authorized(query, context.clone(), grant.clone())
                 .await
         }
-        None => state.store.query(query, context.clone()).await,
+        None => store.query(query, context.clone()).await,
     };
     match result {
         Ok(findings) => {
@@ -359,7 +444,7 @@ async fn read(
             if let Some(response) = finish(&context, grant.as_deref(), operation) {
                 response
             } else if operation == Operation::ReadFindingsFeed {
-                feed_inner(&state, raw, &context, grant.as_deref()).await
+                feed_inner(&state, raw, &context, grant.as_ref()).await
             } else {
                 findings_inner(&state, raw, &context, grant.as_ref()).await
             }
@@ -515,8 +600,99 @@ fn parse(raw: &str, max_limit: usize) -> Result<FindingQuery, ()> {
 }
 
 #[cfg(test)]
+mod shared_http_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn shared_feed_route_requires_identity_and_never_bootstraps_a_grant()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use tower::ServiceExt;
+        let reader = Arc::new(signal_control::ControlClient::catalog(
+            signal_control::ConnectionSettings::fixture_loopback(
+                "127.0.0.1".parse()?,
+                1,
+                "unreachable".into(),
+                "unreachable".into(),
+                b"synthetic".to_vec(),
+            )?,
+        )?);
+        let shared = Arc::new(signal_server::shared_feed::SharedFindingsFeed::new(
+            reader.clone(),
+            uuid::Uuid::new_v4(),
+            uuid::Uuid::new_v4(),
+            1,
+            1024,
+        )?);
+        assert!(matches!(
+            router_with_shared_feed(
+                shared.clone(),
+                IngestConfig::default(),
+                1,
+                Duration::from_secs(1),
+                CancellationToken::new(),
+                Security::default()
+            ),
+            Err(signal_control::ControlError::Invalid)
+        ));
+        // Exercise actual route authentication with a bootstrap-only host. Even a
+        // correct token cannot manufacture the required authenticated scope grant.
+        let auth = IngestConfig {
+            api_token: Some("synthetic-bootstrap".into()),
+            ..Default::default()
+        };
+        let state = FindingState {
+            store: None,
+            shared_feed: Some(shared.clone()),
+            auth,
+            limit: 1,
+            response_bytes: 1024,
+            timeout: Duration::from_secs(1),
+            stopping: CancellationToken::new(),
+            security: Security::default(),
+        };
+        let router = Router::new()
+            .route("/v1/findings/feed", get(feed))
+            .with_state(state);
+        let request = |token: bool| {
+            let mut request = axum::http::Request::builder().uri("/v1/findings/feed?after=begin");
+            if token {
+                request = request.header("authorization", "Bearer synthetic-bootstrap");
+            }
+            request.body(axum::body::Body::empty())
+        };
+        assert_eq!(
+            router.clone().oneshot(request(false)?).await?.status(),
+            StatusCode::UNAUTHORIZED
+        );
+        let response = router.clone().oneshot(request(true)?).await?;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        assert_eq!(
+            response
+                .headers()
+                .get("cache-control")
+                .and_then(|v| v.to_str().ok()),
+            Some("no-store")
+        );
+        assert_eq!(
+            router
+                .oneshot(
+                    axum::http::Request::builder()
+                        .uri("/v1/findings")
+                        .body(axum::body::Body::empty())?
+                )
+                .await?
+                .status(),
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(shared.metrics().active_callers, 0);
+        assert_eq!(shared.metrics().rejected, 0);
+        reader
+            .shutdown(signal_control::ControlContext::new(Duration::from_secs(1))?)
+            .await?;
+        Ok(())
+    }
     #[test]
     fn finding_url_contract_is_strict_and_bounded() {
         assert_eq!(parse("", 10).map(|q| q.limit), Ok(10));

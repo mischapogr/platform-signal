@@ -15,7 +15,6 @@ signal-event.workspace = true
 signal-protocol.workspace = true
 signal-storage.workspace = true
 arrow.workspace = true
-object_store.workspace = true
 async-trait.workspace = true
 bytes.workspace = true
 url.workspace = true
@@ -30,5 +29,6 @@ tokio.workspace = true
 tokio-util.workspace = true
 
 [dev-dependencies]
+object_store = { workspace = true, features = ["fs"] }
 tempfile.workspace = true
 uuid.workspace = true

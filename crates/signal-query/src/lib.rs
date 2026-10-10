@@ -317,8 +317,11 @@ impl QueryEngine {
             }
         }
         .await
-        .and_then(|response| {
+        .and_then(|(response, selection_deadline)| {
             check_context(&context)?;
+            if selection_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+                return Err(QueryError::Timeout);
+            }
             access::check(grant)?;
             Ok(response)
         });
@@ -374,10 +377,10 @@ impl QueryEngine {
     async fn run(
         &self,
         query: EventQuery,
-        context: OperationContext,
+        mut context: OperationContext,
         started: Instant,
         grant: Option<&RequestGrant>,
-    ) -> Result<EventQueryResponse, QueryError> {
+    ) -> Result<(EventQueryResponse, Option<Instant>), QueryError> {
         let selection = self
             .store
             .select_query_files(
@@ -389,6 +392,28 @@ impl QueryEngine {
             )
             .await
             .map_err(storage_error)?;
+        selection.check_lifetime().map_err(storage_error)?;
+        let selection_deadline = selection.deadline();
+        if let Some(deadline) = selection_deadline {
+            context.deadline = context.deadline.min(deadline);
+        }
+        let response = timeout_at(
+            context.deadline,
+            self.scan(selection, query, context, started, grant),
+        )
+        .await
+        .map_err(|_| QueryError::Timeout)??;
+        Ok((response, selection_deadline))
+    }
+    async fn scan(
+        &self,
+        selection: signal_storage::FileSelection,
+        query: EventQuery,
+        context: OperationContext,
+        started: Instant,
+        grant: Option<&RequestGrant>,
+    ) -> Result<EventQueryResponse, QueryError> {
+        check_context(&context)?;
         access::check(grant)?;
         if selection.files.len() > self.config.max_files {
             return Err(QueryError::Resource);
@@ -720,6 +745,141 @@ mod tests {
         );
     }
 
+    struct SelectionPinSource {
+        store: Arc<ParquetStore>,
+        ttl: Duration,
+        expired: bool,
+    }
+    impl signal_storage::QueryFileSource for SelectionPinSource {
+        fn select_query_files(
+            &self,
+            from: Option<DateTime<Utc>>,
+            to: Option<DateTime<Utc>>,
+            max_files: usize,
+            max_decoded_bytes: u64,
+            context: OperationContext,
+        ) -> signal_storage::StoreFuture<'_, signal_storage::FileSelection> {
+            Box::pin(async move {
+                let deadline = if self.expired {
+                    Instant::now()
+                } else {
+                    Instant::now() + self.ttl
+                };
+                let mut selection = self
+                    .store
+                    .select_query_files(from, to, max_files, max_decoded_bytes, context)
+                    .await?;
+                selection.restrict_deadline(deadline);
+                selection.restrict_deadline(deadline + Duration::from_secs(60));
+                assert_eq!(selection.deadline(), Some(deadline));
+                Ok(selection)
+            })
+        }
+    }
+    #[tokio::test]
+    async fn selection_pin_rejects_expired_empty_results() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let temporary = tempfile::TempDir::new()?;
+        let store = Arc::new(
+            ParquetStore::open(
+                signal_storage::StorageConfig {
+                    directory: temporary.path().join("events"),
+                    ..Default::default()
+                },
+                uuid::Uuid::new_v4(),
+            )
+            .await?,
+        );
+        let source = Arc::new(SelectionPinSource {
+            store: store.clone(),
+            ttl: Duration::from_secs(1),
+            expired: true,
+        });
+        let engine = QueryEngine::with_source(QueryConfig::default(), source)?;
+        assert_eq!(
+            engine
+                .execute(
+                    EventQuery::default(),
+                    OperationContext::new(Duration::from_secs(2))
+                )
+                .await,
+            Err(QueryError::Timeout)
+        );
+        assert_eq!(engine.metrics().completed, 0);
+        assert_eq!(engine.metrics().io_depth, 0);
+        engine
+            .shutdown(OperationContext::new(Duration::from_secs(2)))
+            .await?;
+        store
+            .shutdown(OperationContext::new(Duration::from_secs(2)))
+            .await?;
+        Ok(())
+    }
+    #[tokio::test]
+    async fn selection_pin_expires_during_observed_physical_read_without_partial_success()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let temporary = tempfile::TempDir::new()?;
+        let store = Arc::new(
+            ParquetStore::open(
+                signal_storage::StorageConfig {
+                    directory: temporary.path().join("events"),
+                    ..Default::default()
+                },
+                uuid::Uuid::new_v4(),
+            )
+            .await?,
+        );
+        let event: signal_event::IngestEvent = serde_json::from_str(
+            r#"{"timestamp":"2026-10-10T12:00:00Z","source":{"type":"test"},"message":"shared selection pin"}"#,
+        )?;
+        store
+            .append(
+                vec![signal_storage::StoredEvent {
+                    sequence: 1,
+                    event: event.normalize(Utc::now())?,
+                }],
+                OperationContext::new(Duration::from_secs(2)),
+            )
+            .await?;
+        let source = Arc::new(SelectionPinSource {
+            store: store.clone(),
+            ttl: Duration::from_secs(1),
+            expired: false,
+        });
+        let engine = Arc::new(QueryEngine::with_source(
+            QueryConfig {
+                max_concurrent: 1,
+                ..Default::default()
+            },
+            source,
+        )?);
+        let (started, release) = engine.io.pause_read();
+        let active = engine.clone();
+        let pending = tokio::spawn(async move {
+            active
+                .execute(
+                    EventQuery::default(),
+                    OperationContext::new(Duration::from_secs(5)),
+                )
+                .await
+        });
+        tokio::time::timeout(Duration::from_secs(1), started).await??;
+        assert_eq!(engine.metrics().io_running, 1);
+        let result = tokio::time::timeout(Duration::from_secs(2), pending).await??;
+        assert_eq!(result, Err(QueryError::Timeout));
+        assert_eq!(engine.metrics().completed, 0);
+        assert_eq!(engine.metrics().depth, 0);
+        assert_eq!(engine.metrics().io_depth, 1);
+        release.send(())?;
+        engine
+            .shutdown(OperationContext::new(Duration::from_secs(2)))
+            .await?;
+        assert_eq!(engine.metrics().io_depth, 0);
+        store
+            .shutdown(OperationContext::new(Duration::from_secs(2)))
+            .await?;
+        Ok(())
+    }
     #[tokio::test]
     async fn physical_reads_remain_bounded_after_query_abort_timeout_and_shutdown()
     -> Result<(), Box<dyn std::error::Error>> {

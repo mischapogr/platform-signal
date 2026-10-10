@@ -916,6 +916,7 @@ impl Controller {
             FileSelection {
                 files,
                 partitions: partitions.len(),
+                ..Default::default()
             },
             high_water,
         ))

@@ -2,9 +2,12 @@
   "name": "platform-signal-mcp",
   "private": true,
   "version": "0.0.0",
-  "description": "Project-local documentation MCP tooling for Codex and Claude Code",
-  "engines": { "node": ">=20.18.1" },
+  "description": "Project-local documentation and code navigation MCP tooling",
+  "engines": {
+    "node": ">=20.18.1"
+  },
   "dependencies": {
+    "@colbymchenry/codegraph": "1.6.2",
     "@upstash/context7-mcp": "4.1.1"
   }
 }

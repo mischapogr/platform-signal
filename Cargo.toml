@@ -11,6 +11,7 @@ members = [
     "crates/signal-findings",
     "crates/signal-collector-sdk",
     "crates/signal-coverage",
+    "crates/signal-control",
     "apps/signal-server",
     "apps/signal-agent",
     "apps/signalctl",
@@ -23,13 +24,16 @@ rust-version = "1.94.1"
 license = "Apache-2.0"
 
 [workspace.dependencies]
+tokio-postgres = { version = "=0.7.18", default-features = false, features = ["runtime", "with-uuid-1", "with-serde_json-1"] }
+tokio-postgres-rustls = { version = "=0.14.0", default-features = false, features = ["ring"] }
+rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
 aws-sigv4 = { version = "=1.6.0", default-features = false, features = ["sign-http", "http1"] }
 aws-credential-types = "=1.3.0"
 aws-smithy-runtime-api = { version = "=1.19.0", features = ["client"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 libc = "0.2"
 serde-saphyr = { version = "1", default-features = false, features = ["deserialize"] }
-object_store = { version = "=0.13.2", default-features = false }
+object_store = { version = "=0.14.2", default-features = false }
 async-trait = "0.1"
 bytes = "1"
 url = "2"
@@ -73,6 +77,7 @@ signal-rules = { path = "crates/signal-rules" }
 signal-findings = { path = "crates/signal-findings" }
 signal-collector-sdk = { path = "crates/signal-collector-sdk" }
 signal-coverage = { path = "crates/signal-coverage" }
+signal-control = { path = "crates/signal-control" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
