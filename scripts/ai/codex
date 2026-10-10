@@ -16,4 +16,4 @@ while [[ "${1:-}" == "--with" ]]; do
   esac
 done
 cd -- "$platform_repo_root"
-exec codex "${platform_overrides[@]}" "$@"
+exec python3 scripts/ai/telemetry.py codex -- codex "${platform_overrides[@]}" "$@"

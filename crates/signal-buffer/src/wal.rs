@@ -14,6 +14,19 @@ const RECORD_HEADER: u64 = 20;
 pub(crate) const METADATA_RESERVE: u64 = 128;
 const SEGMENT_MAGIC: &[u8; 8] = b"SIGWAL01";
 const CHECKPOINT_MAGIC: &[u8; 8] = b"SIGACK01";
+#[path = "recovery.rs"]
+mod recovery;
+pub(crate) fn recovery_reserve(capacity: usize) -> Result<u64, BufferError> {
+    if capacity > 4 * 1024 * 1024 {
+        return Err(BufferError::Config("recovery capacity"));
+    }
+    Ok(METADATA_RESERVE
+        + if capacity == 0 {
+            0
+        } else {
+            2 * (capacity as u64 + 64)
+        })
+}
 
 pub(crate) struct Record {
     pub seq: u64,
@@ -36,6 +49,9 @@ pub(crate) struct Engine {
     checkpoint: u64,
     last: u64,
     delivered: u64,
+    pub recovery: Option<crate::RecoveryRecord>,
+    recovery_capacity: usize,
+    reserve: u64,
 }
 
 fn io(error: std::io::Error) -> BufferError {
@@ -117,7 +133,7 @@ fn u32_at(bytes: &[u8], offset: usize) -> Result<u32, BufferError> {
 }
 
 impl Engine {
-    pub fn open(config: BufferConfig) -> Result<Self, BufferError> {
+    pub fn open(config: BufferConfig, recovery_capacity: usize) -> Result<Self, BufferError> {
         ensure_directory(&config.directory)?;
         if !fs::symlink_metadata(&config.directory)
             .map_err(io)?
@@ -145,12 +161,19 @@ impl Engine {
         }
         directory.sync_all().map_err(io)?;
         let mut paths = Vec::new();
-        let mut total_bytes = METADATA_RESERVE;
+        let reserve = recovery_reserve(recovery_capacity)?;
+        let mut total_bytes = reserve;
         for entry in fs::read_dir(&config.directory).map_err(io)? {
             let entry = entry.map_err(io)?;
             regular(&entry.path())?;
             let name = entry.file_name();
             let name = name.to_str().ok_or(BufferError::Directory)?;
+            if recovery_capacity > 0 && matches!(name, "recovery" | "recovery.tmp") {
+                if entry.metadata().map_err(io)?.len() > recovery_capacity as u64 + 64 {
+                    return Err(BufferError::Corrupt("recovery length"));
+                }
+                continue;
+            }
             if name == "identity.tmp" {
                 if entry.metadata().map_err(io)?.len() > 36 {
                     return Err(BufferError::Corrupt("temporary stream identity length"));
@@ -248,7 +271,8 @@ impl Engine {
                 capacity: config.max_events,
                 byte_capacity: config.max_memory_bytes,
                 wal_byte_capacity: config.max_wal_bytes,
-                wal_bytes: METADATA_RESERVE,
+                wal_bytes: reserve,
+                recovery_capacity,
                 dropped,
                 command_capacity: config.command_capacity,
                 waiter_capacity: config.max_waiters,
@@ -263,7 +287,11 @@ impl Engine {
             checkpoint,
             last: checkpoint,
             delivered: checkpoint,
+            recovery: None,
+            recovery_capacity,
+            reserve,
         };
+        engine.load_recovery()?;
         // A temporary checkpoint never supersedes the atomically published checkpoint.
         if engine
             .config
@@ -481,7 +509,7 @@ impl Engine {
             || size > self.config.max_record_bytes
             || size > self.config.max_memory_bytes
             || RECORD_HEADER + size as u64 + SEGMENT_HEADER > self.config.segment_bytes
-            || RECORD_HEADER + size as u64 + SEGMENT_HEADER + METADATA_RESERVE
+            || RECORD_HEADER + size as u64 + SEGMENT_HEADER + self.reserve
                 > self.config.max_wal_bytes
         {
             return Err(BufferError::Full);

@@ -28,6 +28,7 @@ signal-rules.workspace = true
 signal-findings.workspace = true
 signal-collector-sdk.workspace = true
 signal-coverage.workspace = true
+signal-control.workspace = true
 chrono.workspace = true
 uuid.workspace = true
 axum.workspace = true
@@ -43,6 +44,9 @@ http-body-util.workspace = true
 subtle.workspace = true
 
 [dev-dependencies]
+tokio-postgres.workspace = true
+async-trait.workspace = true
+futures-util.workspace = true
 object_store.workspace = true
 reqwest.workspace = true
 flate2.workspace = true

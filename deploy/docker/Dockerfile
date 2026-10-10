@@ -29,3 +29,11 @@ EXPOSE 8080 9090
 HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=3 \
     CMD ["/usr/local/bin/signal-healthcheck"]
 ENTRYPOINT ["/usr/local/bin/signal-server"]
+
+# Existing deployable roles share the same qualified OSS runtime.
+FROM runtime AS agent
+HEALTHCHECK NONE
+ENTRYPOINT ["/usr/local/bin/signal-agent"]
+
+# Keep the default target compatible with Compose and the container gate.
+FROM runtime AS server

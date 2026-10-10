@@ -13,6 +13,7 @@ pub mod object_retention;
 pub mod object_retirement;
 #[cfg(feature = "s3")]
 pub mod object_s3;
+pub mod object_selection;
 mod pages;
 
 use chrono::{DateTime, Utc};
@@ -60,6 +61,41 @@ pub struct PublishedFile {
 pub struct FileSelection {
     pub files: Vec<PublishedFile>,
     pub partitions: usize,
+    expires_at: Option<Instant>,
+    // Immutable derived paths retain their exclusive cache lease through physical
+    // readers, independently of explicit source shutdown.
+    materialization: Option<Arc<MaterializationLease>>,
+    selection_slot: Option<Arc<OwnedSemaphorePermit>>,
+}
+struct MaterializationLease {
+    _owner: Arc<object_owner::SmallOwner>,
+}
+impl std::fmt::Debug for MaterializationLease {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("MaterializationLease")
+    }
+}
+impl FileSelection {
+    pub(crate) fn retain_materialization(&mut self, owner: Arc<object_owner::SmallOwner>) {
+        self.materialization = Some(Arc::new(MaterializationLease { _owner: owner }));
+    }
+    /// Restrict this snapshot's fixed lifetime; repeated calls never renew it.
+    pub fn restrict_deadline(&mut self, deadline: Instant) {
+        self.expires_at = Some(self.expires_at.map_or(deadline, |old| old.min(deadline)));
+    }
+    pub fn deadline(&self) -> Option<Instant> {
+        self.expires_at
+    }
+    pub fn check_lifetime(&self) -> Result<(), StorageError> {
+        if self
+            .expires_at
+            .is_some_and(|deadline| Instant::now() >= deadline)
+        {
+            Err(StorageError::Timeout)
+        } else {
+            Ok(())
+        }
+    }
 }
 /// Trusted bounded committed-file adapter. No DataFusion dependency belongs here.
 /// Implementations own immutable files for their lifetime and must authenticate

@@ -26,6 +26,22 @@ pub struct FindingsCursor {
     digest: [u8; 32],
 }
 impl FindingsCursor {
+    /// Reconstruct a retained reference, never an authorization capability.
+    /// The caller must still compare it with authoritative retained history.
+    pub fn from_retained_parts(
+        stream: Uuid,
+        position: u64,
+        digest: [u8; 32],
+    ) -> Result<Self, FeedQueryError> {
+        if stream.is_nil() {
+            return Err(FeedQueryError::InvalidCursor);
+        }
+        Ok(Self {
+            stream,
+            position,
+            digest,
+        })
+    }
     pub fn initial(stream: Uuid) -> Result<Self, FeedQueryError> {
         if stream.is_nil() {
             return Err(FeedQueryError::InvalidCursor);
@@ -194,6 +210,23 @@ pub struct FindingsFeedResponse<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn retained_parts_are_references_and_preserve_the_exact_digest() -> Result<(), FeedQueryError> {
+        let store = Uuid::new_v4();
+        let mut hash = Sha256::new();
+        hash.update(b"SIGNAL-FINDINGS-CURSOR-V1");
+        hash.update(store.as_bytes());
+        let digest: [u8; 32] = hash.finalize().into();
+        assert_eq!(
+            FindingsCursor::from_retained_parts(store, 0, digest)?,
+            FindingsCursor::initial(store)?
+        );
+        let arbitrary = FindingsCursor::from_retained_parts(store, 0, [0; 32])?;
+        assert_ne!(arbitrary, FindingsCursor::initial(store)?);
+        assert_eq!(FindingsCursor::decode(&arbitrary.encode())?, arbitrary);
+        assert!(FindingsCursor::from_retained_parts(Uuid::nil(), 0, digest).is_err());
+        Ok(())
+    }
     #[test]
     fn fixed_cursor_vector_and_strict_encoding() -> Result<(), Box<dyn std::error::Error>> {
         let zero = FindingsCursor::initial(Uuid::from_bytes([1; 16]))?;

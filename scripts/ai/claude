@@ -4,4 +4,4 @@ set -euo pipefail
 platform_repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd -- "$platform_repo_root"
 # Keep the variadic --mcp-config option last so it cannot consume a user prompt.
-exec claude --strict-mcp-config "$@" --mcp-config "$platform_repo_root/.mcp.json"
+exec python3 scripts/ai/telemetry.py claude -- claude --strict-mcp-config "$@" --mcp-config "$platform_repo_root/.mcp.json"

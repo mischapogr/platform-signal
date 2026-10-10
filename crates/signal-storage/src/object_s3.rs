@@ -352,6 +352,22 @@ impl HttpService for Transport {
             {
                 return Err(error(HttpErrorKind::Decode));
             }
+            // The current signer includes host in SigV4 but removes its header.
+            // Restore exactly its canonical URL authority before converting to
+            // origin-form. Existing contradictory/duplicate hosts fail closed.
+            let signed_host = header::HeaderValue::from_str(
+                &uri[url::Position::BeforeHost..url::Position::AfterPort],
+            )
+            .map_err(|_| error(HttpErrorKind::Decode))?;
+            if request.headers().get_all(header::HOST).iter().count() > 1
+                || request
+                    .headers()
+                    .get(header::HOST)
+                    .is_some_and(|host| host != signed_host)
+            {
+                return Err(error(HttpErrorKind::Decode));
+            }
+            request.headers_mut().insert(header::HOST, signed_host);
             if *request.method() == Method::DELETE {
                 let (bucket, stream) = self
                     .delete_scope
@@ -643,7 +659,8 @@ impl crate::object_reclamation::ExactVersionDelete for RetiredVersions {
             .body(object_store::client::HttpRequestBody::empty())
             .map_err(|_| ObjectIoError::Config)?;
         object_store::aws::AwsAuthorizer::new(&self.credential, "s3", &self.region)
-            .authorize(&mut request, None);
+            .try_authorize(&mut request, None)
+            .map_err(|_| ObjectIoError::Backend)?;
         let response = self
             .transport
             .call(request)

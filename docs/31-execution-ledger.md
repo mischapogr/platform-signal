@@ -109,6 +109,15 @@ Query hook revisionfe5acf3 is pushed; run37895779773 is still in progress as of
 Evidence: `target/goal-execution-20261007/EXT-CI/idp-stage-remote-jobs-2.json`,
 `soak-triage-public/report.json` and `query-hooks-remote-jobs-1.json`.
 
+## SHARED-RUNTIME current continuation — 2026-10-11
+
+The [current runtime](48-shared-control-runtime.md) records source-bound catalog/
+query, coordinated profile4-to5 restore and server publication coordinator slices.
+The coordinator requires matching final review/gates. Standard startup/WAL/global
+findings/private consumers, operational restore/retirement and independent review
+remain open. Continue those slices; SHARED-RUNTIME stays in_progress. Older
+measurements below retain their original evidence authority and dates.
+
 ## SHARED-CONTRACT accepted — 2026-10-09
 
 Bounded Standard schema/transaction/fencing/migration/current-authority restore
@@ -352,7 +361,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | SECURITY-AUDIT | in_progress | SECURITY-ACCESS, EVIDENCE | Restricted independent audit and secrets/encryption integration seams |
 | SMALL-PILOT | pending | AWS-DELIVERY, COVERAGE-OBSERVERS, OUTBOX, EVIDENCE, S3-QUERY, SECURITY-TRANSPORT | Small source→evidence→finding→notification simulation |
 | SHARED-CONTRACT | pending | SMALL-PILOT | PostgreSQL shared-control schema, transactions, fencing and migration contract |
-| SHARED-RUNTIME | pending | SHARED-CONTRACT | Shared-control implementation and local PostgreSQL qualification |
+| SHARED-RUNTIME | in_progress | SHARED-CONTRACT | Shared-control implementation and local PostgreSQL qualification |
 | OBJECT-CUSTODY | pending | SHARED-RUNTIME, S3-QUERY | Versioned object-backed custody receipt |
 | STANDARD-RECOVERY | pending | OBJECT-CUSTODY, SECURITY-AUDIT | Standard ownership, failover and consistent restore simulation |
 | ONBOARDING | pending | COVERAGE-OBSERVERS, SECURITY-ACCESS, SHARED-RUNTIME | Secure scoped onboarding and coverage/detection activation |

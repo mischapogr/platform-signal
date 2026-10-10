@@ -69,7 +69,8 @@ The owner approved project-local optimization on 2026-10-07:
 - `.codex/config.toml`: `gpt-6.1-sol`, medium reasoning, Standard (`default`) speed.
 - `.claude/settings.json`: `sonnet`, medium effort. Explicit client/environment or
   managed overrides can still take precedence; confirm the actual model/effort.
-- Context7 is the only enabled project-configured MCP baseline. Other inherited
+- Context7, Serena, OpenAI Docs and CodeGraph are enabled by owner request on
+  2026-10-10. Other inherited
   servers remain off unless an individual task needs them. Connected app/plugin
   catalogs are separate from these server entries.
 - `.agents/skills/signal-{task,validate,handoff}/SKILL.md` provides compact task
@@ -83,7 +84,7 @@ selected model/effort and may keep an older MCP catalog. The installed Codex
 [11](11-model-work-plan.md) rather than old embedded `[profiles]` examples.
 
 ```bash
-# Normal Codex task: project defaults, Context7 baseline
+# Normal Codex task: project defaults, project MCPs and local telemetry
 scripts/ai/codex
 
 # A focused Rust rule/security investigation; opt-in lasts only this invocation
@@ -113,8 +114,9 @@ capability selectively, with a SIGNAL root and the smallest relevant tool set:
 | Semgrep | Targeted Rust AST/custom-rule inspection | Optional installed local CLI; only language/schema/AST/custom-rule tools exposed |
 | GitHub | Read upstream issues/source and PR status | Optional installed server; read-only allowlist, launching-shell credentials |
 | tmux | A task that specifically needs persistent interactive execution | Optional installed server; operate only task-owned sessions |
-| Serena | Trial Rust symbol/reference navigation when repeated code discovery is a measured bottleneck | Candidate only; uses rust-analyzer and needs a SIGNAL project/index |
-| CodeGraph | Candidate for dependency/call graph discovery if Rust support and indexing benefit are established | Not added; existing Astro launchers bind their own repository graph |
+| Serena | Rust symbol/reference navigation | Enabled; pinned 1.5.3, rust-analyzer, read-only project tool set |
+| CodeGraph | Dependency/call graph discovery | Enabled; pinned 1.6.2, project-owned index and eight read-only query tools |
+| OpenAI Docs | Official OpenAI product/tooling documentation | Enabled; public read-only HTTP endpoint, search and fetch tools |
 | Browser tools | Future web-interface testing | Not enabled for the current HTTP/CLI slice |
 
 The optional Semgrep/GitHub/tmux entries use the installed generic executables
@@ -133,6 +135,55 @@ needs to change. Serena's documented Rust backend is
 Semgrep supports [local rules](https://semgrep.dev/docs/running-rules).
 
 ### Per-task usage measurement
+
+The project launchers now capture local session telemetry automatically under
+`target/ai-telemetry/<UTC-time>-<unique-id>/`: before/after Codex and Claude
+project counters, elapsed time, exit status and comparable deltas. Start sessions
+with `scripts/ai/codex` or `scripts/ai/claude`; direct client/app launches do not
+run this wrapper. Existing sessions need a restart to load the added MCPs.
+Serena and CodeGraph launchers also record per-request tool name, duration,
+input/output byte counts and error flags in `mcp.jsonl`, with no arguments or
+result content. OpenAI Docs uses the client's native HTTP transport; its calls
+are included in client usage, without per-call metrics from our stdio proxy.
+Telemetry writes remain local; no collector or vendor usage reporting is enabled.
+Serena's own diagnostic logs live under `target/ai-mcp/serena/` and may contain
+diagnostic details; they are separate from the metadata-only telemetry files.
+
+Install/recreate the pinned navigation tools:
+
+```bash
+npm ci --prefix tools/mcp --ignore-scripts --no-fund
+uv venv tools/mcp/serena-venv
+uv pip install --python tools/mcp/serena-venv/bin/python -r tools/mcp/serena-requirements.txt
+rustup component add rust-analyzer rust-src --toolchain 1.94.1
+bash scripts/ai/codegraph init . --yes
+```
+
+CodeGraph uses `.codegraph/`, honors `.gitignore` and `codegraph.json` exclusions,
+and watches changes while its MCP server is running. Run
+`bash scripts/ai/codegraph sync` after offline edits before relying on its graph.
+Its normal shared daemon supports multiple clients; sandbox restrictions can
+force a single-client in-process fallback. Do not run two direct-mode writers.
+The daemon may keep operational registry files under `~/.codegraph`; no global
+client settings or credentials are changed. Serena configuration/runtime state
+uses the project-owned `SERENA_HOME`; both indexes exclude target/generated,
+vendor and private environment paths. Local indexes are ignored by Git.
+
+Discovery and live queries were verified separately for all three new servers.
+Repeat each check with the virtualenv interpreter:
+
+```bash
+tools/mcp/serena-venv/bin/python scripts/ai/check-navigation-mcp.py --server serena --live
+tools/mcp/serena-venv/bin/python scripts/ai/check-navigation-mcp.py --server codegraph --live
+tools/mcp/serena-venv/bin/python scripts/ai/check-navigation-mcp.py --server openaiDeveloperDocs --live
+python3 scripts/test-ai-telemetry.py
+```
+
+The OpenAI Docs endpoint is documented in the
+[official OpenAI documentation](https://developers.openai.com/learn/docs-mcp).
+Use Serena for symbol/reference questions, CodeGraph for call paths/impact, and
+`rg` for text/config/docs. Avoid querying both navigation tools for the same
+settled question. Savings remain unproven until accepted-task comparisons.
 
 The read-only helper reads the local Codex thread registry and rollout counters,
 without credentials, prompt content, external calls or price assumptions:
@@ -176,3 +227,11 @@ BLOCKED but receives NOT_CHECKED from the previously modified checks.py. That fi
 and IPAM's Codex/model/MCP settings were preserved. This tooling validation does
 not add product/runtime/release evidence. The setup report is retained locally
 under `target/ai-workflow-setup-20261007/`.
+
+## Bounded task execution and long-running Goals
+
+See [execution workflow](49-ai-execution-workflow.md) for compact task packets,
+reviewed-source serial acceptance, scoped task usage and interruption handoffs.
+Use the current progress/release/routing pages; dated archives retain historical
+evidence. These helpers do not switch models, enable agents, alter credentials
+or expand Git/cloud authority.

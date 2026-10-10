@@ -22,7 +22,8 @@ CI and released-dependency qualification remain open. Local kind and finite
 soaks do not prove AWS runtime, prolonged stability or physical-device throughput.
 
 Start with `docs/07-progress.md` and `docs/21-release-readiness.md` for current
-work and evidence; historical counts, images and review paths live there.
+work and evidence; dated history links preserve earlier counts, images and reviews.
+Use `docs/49-ai-execution-workflow.md` for compact packets and continuation.
 The docs remain the spec. Read the relevant contracts and ADRs before writing code:
 
 - Architecture/scope/order/review: `docs/01-architecture.md`, `02-mvp.md`,
@@ -55,6 +56,9 @@ parallel agents for the current task; historical team authorization is not a
 standing instruction. Give authorized agents owned paths, runnable acceptance
 and a stop condition; finish them when their deliverable is accepted. Use scripts
 for bulk processing and runtime waits, with compact result summaries.
+Use `scripts/ai/task.py` for bounded packets, source-bound review and serial
+acceptance. Finish review/corrections before final gates; any source drift
+invalidates acceptance. Checkpoint the next runnable slice after each task.
 
 New project sessions default to Sol 6.1/medium (Codex) or Sonnet/medium (Claude).
 Use Luna/low or Haiku for settled mechanical work; Sol/high for durability,

@@ -586,6 +586,7 @@ impl Engine {
         Ok(crate::FileSelection {
             files,
             partitions: partitions.len(),
+            ..Default::default()
         })
     }
     pub fn append(&mut self, batch: Vec<StoredEvent>) -> Result<StoreReceipt, StorageError> {

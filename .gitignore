@@ -1,6 +1,10 @@
 /target/
 /data/
 /tools/mcp/node_modules/
+/tools/mcp/serena-venv/
+/.serena/cache/
+/.serena/memories/
+/.codegraph/
 /tools/identity/node_modules/
 /.idea/
 /.setting.app/

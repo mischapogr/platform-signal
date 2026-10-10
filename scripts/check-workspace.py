@@ -18,14 +18,19 @@ ALLOWED = {
     "signal-findings": {"signal-event", "signal-protocol"},
     "signal-collector-sdk": {"signal-event", "signal-protocol"},
     "signal-coverage": {"signal-collector-sdk"},
+    "signal-control": {"signal-protocol", "signal-storage", "signal-findings"},
     "signal-server": {
         "signal-event", "signal-protocol", "signal-ingest", "signal-buffer",
         "signal-storage", "signal-query", "signal-rules", "signal-findings",
-        "signal-collector-sdk", "signal-coverage",
+        "signal-collector-sdk", "signal-coverage", "signal-control",
     },
     "signal-agent": {"signal-event", "signal-protocol", "signal-collector-sdk"},
     "signalctl": {"signal-protocol"},
 }
+# The control adapter implements storage's downward QueryFileSource trait.
+# Its PostgreSQL integration test composes real events/DataFusion without
+# introducing either dependency into the production control library.
+TEST_ONLY = {"signal-control": {"signal-event", "signal-query"}}
 
 
 def main():
@@ -40,7 +45,8 @@ def main():
     if names != set(ALLOWED):
         raise SystemExit(f"Unexpected workspace membership: {sorted(names ^ set(ALLOWED))}")
     for package in packages:
-        local = {d["name"] for d in package["dependencies"] if d["name"] in names}
+        local = {d["name"] for d in package["dependencies"] if d["name"] in names
+                 and not (d["kind"] == "dev" and d["name"] in TEST_ONLY.get(package["name"], set()))}
         invalid = local - ALLOWED[package["name"]]
         if invalid:
             raise SystemExit(f"Invalid dependency direction: {package['name']} -> {sorted(invalid)}")
@@ -49,7 +55,7 @@ def main():
             text = path.read_text()
             if re.search(r"\bdemo\.|\bunbounded_channel\s*\(", text):
                 raise SystemExit(f"Company namespace or unbounded channel: {path.relative_to(ROOT)}")
-    print(f"Workspace boundaries verified: {len(packages)} packages; no reverse dependencies")
+    print(f"Workspace boundaries verified: {len(packages)} packages; no reverse production dependencies")
 
 
 if __name__ == "__main__":
