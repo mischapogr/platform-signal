@@ -13,6 +13,7 @@ import platform
 import re
 import selectors
 import signal
+import stat
 import struct
 import subprocess
 import sys
@@ -69,7 +70,12 @@ def sha256(path):
 
 def check_files(paths):
     for path, limit in paths():
-        if path.exists() and (not path.is_file() or path.stat().st_size > limit):
+        try:
+            metadata = path.stat()
+        except FileNotFoundError:
+            # Atomic report replacement can retire an enumerated sidecar.
+            continue
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > limit:
             raise RuntimeError(f'artifact exceeds file bound: {path}')
 
 
@@ -181,6 +187,9 @@ def validate_pipeline(report, architecture, image_id, binary_hash, quick):
     expected = [(1024, 100, False)] if quick else [(size, rate, False) for size in (1024, 4096) for rate in (100, 1000, 10000)] + [(4096, 20000, True)]
     if report.get('schema_version') != 1 or report.get('architecture') != ARCHITECTURES[architecture][0] or report.get('image_id') != image_id or report.get('binary_sha256') != binary_hash:
         raise pipeline_diagnostics.PipelineAssertion('report-identity', 'pipeline report identity mismatch')
+    limits = report.get('limits')
+    if not isinstance(limits, dict) or limits.get('query_memory_bytes') != pipeline_diagnostics.QUERY_MEMORY_BYTES:
+        raise pipeline_diagnostics.PipelineAssertion('report-measurements', 'pipeline query budget mismatch')
     profiles = report.get('profiles', [])
     if [(row.get('event_bytes'), row.get('target_eps'), row.get('saturation')) for row in profiles] != expected:
         raise pipeline_diagnostics.PipelineAssertion('report-profiles', 'pipeline report missing required completed profiles')
@@ -256,8 +265,16 @@ class Gate:
         self.commands.append(entry)
         started = time.monotonic()
         def bounded_files():
-            paths = [(path, LOG_CAP if path.suffix == '.log' else REPORT_CAP) for path in self.output.rglob('*') if path.is_file()]
-            if sum(path.stat().st_size for path, _ in paths) > TOTAL_CAP:
+            paths, total = [], 0
+            for path in self.output.rglob('*'):
+                try:
+                    metadata = path.stat()
+                except FileNotFoundError:
+                    continue
+                if stat.S_ISREG(metadata.st_mode):
+                    total += metadata.st_size
+                    paths.append((path, LOG_CAP if path.suffix == '.log' else REPORT_CAP))
+            if total > TOTAL_CAP:
                 raise RuntimeError('total report files exceed bound')
             return paths + list(files())
         log = self.output / f'command-{len(self.commands):02d}.log'

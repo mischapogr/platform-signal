@@ -24,7 +24,7 @@ IMAGE = 'sha256:' + 'a' * 64
 def pipeline(quick=False):
     profiles = [(1024, 100, False)] if quick else [(size, rate, False) for size in (1024, 4096) for rate in (100, 1000, 10000)] + [(4096, 20000, True)]
     return {'schema_version': 1, 'architecture': 'x86_64', 'image_id': IMAGE,
-            'binary_sha256': 'hash', 'profiles': [
+            'binary_sha256': 'hash', 'limits': {'query_memory_bytes': 128 * 1024 * 1024}, 'profiles': [
                 {'event_bytes': size, 'target_eps': rate, 'saturation': saturation,
                  'shutdown_exit_code': 0, 'sample_count': 1, 'query_samples': 20,
                  'attempted': 1, 'accepted': 1, 'rejected': 0, 'transport_uncertain': 0}
@@ -46,6 +46,68 @@ def soak_report():
 
 
 class IdentityAndReports(unittest.TestCase):
+    def test_report_requires_the_fixed_declared_query_budget(self):
+        for budget in (None, 64 * 1024 * 1024, '134217728', True):
+            report = pipeline()
+            report['limits'] = {} if budget is None else {'query_memory_bytes': budget}
+            with self.subTest(budget=budget), self.assertRaisesRegex(RuntimeError, 'query budget mismatch'):
+                qualification.validate_pipeline(report, 'amd64', IMAGE, 'hash', False)
+
+    def test_disappearing_atomic_sidecar_does_not_abort_or_hide_child_failure(self):
+        for failure in (False, True):
+            with self.subTest(child_failure=failure), tempfile.TemporaryDirectory() as folder:
+                directory = Path(folder)
+                sidecar = directory / 'diagnostic.json.next'
+                sidecar.write_text('{}')
+                original_stat = Path.stat
+                removed = []
+                def racing_stat(path, *args, **kwargs):
+                    metadata = original_stat(path, *args, **kwargs)
+                    if path == sidecar and not removed:
+                        sidecar.unlink()
+                        removed.append(True)
+                    return metadata
+                def child(_argv, _stream, _timeout, files):
+                    qualification.check_files(files)
+                    if failure:
+                        raise RuntimeError('command failed with exit 1')
+                    return 'completed'
+                gate = qualification.Gate(directory)
+                with mock.patch.object(Path, 'stat', racing_stat), mock.patch.object(qualification, 'run_bounded', child):
+                    if failure:
+                        with self.assertRaisesRegex(RuntimeError, 'command failed with exit 1'):
+                            gate.run(['owned-fixture'])
+                    else:
+                        self.assertEqual(gate.run(['owned-fixture']), 'completed')
+                self.assertEqual(removed, [True])
+                self.assertEqual(gate.commands[0]['status'], 'failed' if failure else 'passed')
+
+    def test_artifact_observer_preserves_size_aggregate_type_and_permission_failures(self):
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            artifact = directory / 'report.json'
+            artifact.write_bytes(b'1234')
+            def observer(_argv, _stream, _timeout, files):
+                qualification.check_files(files)
+                return 'completed'
+            gate = qualification.Gate(directory)
+            with mock.patch.object(qualification, 'run_bounded', observer):
+                with mock.patch.object(qualification, 'REPORT_CAP', 3), self.assertRaisesRegex(RuntimeError, 'file bound'):
+                    gate.run(['owned-fixture'])
+                with mock.patch.object(qualification, 'TOTAL_CAP', 3), self.assertRaisesRegex(RuntimeError, 'total report'):
+                    gate.run(['owned-fixture'])
+                subdirectory = directory / 'nonregular'
+                subdirectory.mkdir()
+                with self.assertRaisesRegex(RuntimeError, 'file bound'):
+                    gate.run(['owned-fixture'], files=lambda: [(subdirectory, 100)])
+                original_stat = Path.stat
+                def denied_stat(path, *args, **kwargs):
+                    if path == artifact:
+                        raise PermissionError('fixture observer denied')
+                    return original_stat(path, *args, **kwargs)
+                with mock.patch.object(Path, 'stat', denied_stat), self.assertRaises(PermissionError):
+                    gate.run(['owned-fixture'])
+
     def test_partial_or_inconsistent_soak_evidence_fails(self):
         qualification.validate_soak(soak_report(), 'amd64', IMAGE, 'hash', 120)
         for failure in ('missing-size', 'wrong-binary', 'failed', 'short-load', 'nan-load',

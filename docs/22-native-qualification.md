@@ -87,7 +87,7 @@ The runner fixes the soak rate at 100 EPS. The standalone
 of at most 20. Events are exactly 1 or 4 KiB; HTTP responses are capped at 1 MiB
 and the JSON report at 256 KiB. Profile limits are WAL 64 MiB, event storage
 256 MiB/8,192 files, findings 16 MiB, query memory 256 MiB and a 30-second
-drain. The short pipeline harness keeps its separate 64 MiB query budget.
+drain. The short pipeline harness uses a separate fixed 128 MiB query budget.
 Shutdown allows 12
 seconds of graceful termination followed by a five-second kill/reap deadline.
 Resource sampling attempts about once per second; each sample includes a
@@ -199,3 +199,33 @@ The actual local AMD64 campaign is recorded in
 executed. Subsequent cancellation-only corrections have separate regression and
 review evidence; final validators checked the retained successful reports
 without repeating the unchanged load campaign.
+
+
+## Public native qualification corrections — 2026-10-11
+
+Public run38119398746 (38b3c6f) passed Rust jobs and built native production
+images on AMD64 and ARM64, then failed pipeline qualification. Verified public
+artifact digests and bounded archives are retained under
+`target/shared-main-restart-20261011T092414+0200/ci-diagnosis/`. AMD64 returned
+HTTP413 on the4 KiB/10,000 profile; ARM64's artifact monitor attempted to stat
+an atomic diagnostic sidecar after its rename.
+
+Evidence: `target/native-ci-fixes-20261011T095750+0200/`; acceptance requires
+the matching source-bound writer review and passed final campaign. A controlled
+filesystem regression reproduces the disappearing-sidecar failure. Monitoring
+now captures each size once and tolerates only a missing file, including a file
+that disappears before its per-file check. Persistent size, aggregate, type,
+permission and underlying child failures remain failures with owned cleanup.
+
+A retained production-image binary diagnostic reaches exactly10,000 events
+under a longer finite90-second local window. Its selected333 Parquet files
+contain81,613,095 uncompressed bytes, exceeding the former64 MiB scan preflight
+budget; the original query returns413. The pipeline harness now configures a
+fixed128 MiB query budget from startup and records it in its report; the native
+validator rejects a missing or mismatched declared budget. The corrected
+10,000-row diagnostic completes all20 queries and shuts down cleanly. WAL/storage
+64 MiB, findings16 MiB, response1 MiB, query limit100 and strict non-200/no-retry
+checks remain in force. This changes the laboratory configuration; production
+defaults remain unchanged. The retained image and longer-window reproduction
+are diagnostic evidence, not current-image or native ARM64 acceptance. Fresh
+public jobs must qualify the complete reviewed revision.

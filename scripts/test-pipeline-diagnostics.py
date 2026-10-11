@@ -62,6 +62,12 @@ class FixedDiagnostics(unittest.TestCase):
             self.assertEqual(sidecar.read_bytes(), original)
 
     def test_primary_accounting_survives_sampler_and_server_cleanup_failures(self):
+        self.profile_failure(False)
+
+    def test_query_413_is_not_retried_or_hidden_by_cleanup(self):
+        self.profile_failure(True)
+
+    def profile_failure(self, query_status):
         class Process:
             pid = 12345
             returncode = None
@@ -92,8 +98,13 @@ class FixedDiagnostics(unittest.TestCase):
                     confirmed_capacity_rejected=0, statuses={'202': 1}) for _ in range(4)]
         process = Process()
         sampling = SimpleNamespace(start=lambda: None, join=lambda **_kw: None, is_alive=lambda: True)
-        metric = {'signal_queue_depth': 0, 'signal_storage_persisted_total': 5,
-                  'signal_events_accepted_total': 5, 'signal_events_rejected_total': 0}
+        metric = {'signal_queue_depth': 0, 'signal_storage_persisted_total': 4 if query_status else 5,
+                  'signal_events_accepted_total': 4 if query_status else 5, 'signal_events_rejected_total': 0,
+                  'signal_wal_accepted_total': 4, 'signal_rules_evaluated_total': 4, 'signal_findings_count': 0}
+        calls = []
+        def request(_base, path):
+            calls.append(path)
+            return (413, b'resource_limit') if path.startswith('/v1/events') else (200, b'')
         with tempfile.TemporaryDirectory() as folder:
             sidecar = Path(folder) / 'point.json'
             diagnostic = pipeline.Diagnostic(sidecar)
@@ -102,17 +113,19 @@ class FixedDiagnostics(unittest.TestCase):
                     mock.patch.object(pipeline, 'Sampler', Sampler), \
                     mock.patch.object(pipeline.threading, 'Thread', return_value=sampling), \
                     mock.patch.object(pipeline.subprocess, 'Popen', return_value=process), \
-                    mock.patch.object(pipeline, 'request', return_value=(200, b'')), \
+                    mock.patch.object(pipeline, 'request', side_effect=request), \
                     mock.patch.object(pipeline, 'metrics', return_value=metric), \
                     mock.patch.object(pipeline.concurrent.futures, 'ThreadPoolExecutor', Pool):
                 with self.assertRaises(pipeline.PipelineAssertion) as failure:
                     pipeline.profile(Path('not-executed'), 1024, 100, False, diagnostic)
-            self.assertEqual(failure.exception.check, 'http-accepted-accounting')
+            self.assertEqual(failure.exception.check, 'event-query-status' if query_status else 'http-accepted-accounting')
+            if query_status:
+                self.assertEqual(sum(path.startswith('/v1/events') for path in calls), 1)
             self.assertEqual(failure.exception.__notes__, [
                 'secondary pipeline cleanup failure: sampler-shutdown',
                 'secondary pipeline cleanup failure: server-shutdown'])
             self.assertTrue(process.terminated)
-            self.assertEqual(pipeline.read_diagnostic(sidecar)['check'], 'http-accepted-accounting')
+            self.assertEqual(pipeline.read_diagnostic(sidecar)['check'], 'event-query-status' if query_status else 'http-accepted-accounting')
 
     def test_strict_bounded_sidecar_rejects_duplicates_types_unknown_and_aliases(self):
         valid = {'schema_version': 1, 'profile': '1k-100', 'check': 'readiness', 'kind': 'last-entered'}
