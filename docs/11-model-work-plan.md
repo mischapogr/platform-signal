@@ -23,8 +23,12 @@ compiled-fixture bundle reuse pass locally in181.93s/170.05s:
 now passes both complete native jobs and Standard cluster profiles107.40s/114.57s
 with verified source/bundle/image/WAL/PVC bindings:
 `target/standard-kind-ci-20261012/NATIVE-STANDARD-ACCEPTANCE.json`.
-Next, implement the generic OBJECT-CUSTODY receipt contract/mechanism, then
-STANDARD-RECOVERY in ledger dependency order. Observe later`cc3744a` full CI
+Generic OBJECT-CUSTODY description/coordinator now passes924default/981all-feature
+tests and five focused guards: [contract51](51-object-custody.md),
+`target/object-custody-coordinator-20261012/ACCEPTANCE.json`. Next, qualify its
+real PostgreSQL/pinned-object adapter and authenticated server/API/producer-copy
+retention path; keep the full item in progress. Then STANDARD-RECOVERY follows
+ledger dependency order. Observe later`cc3744a` full CI
 separately; the bounded download retry fix does not close that gate locally.
 Preserve one replica/Recreate and explicit external configuration;
 no runtime bootstrap, inferred custody, private policy or remote DELETE.

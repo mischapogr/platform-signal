@@ -1,6 +1,12 @@
 //! Bounded shared-control mechanisms; private policy stays in external adapters.
 //! Work in progress: this crate does not enable replicas or claim shared readiness.
+mod custody;
 mod notification;
+pub use custody::{
+    CustodyFuture, ObjectCustodyDescription, ObjectCustodyPermit, ObjectCustodyReceipt,
+    ObjectCustodyRecorder, ObjectCustodyVerifier, RetainedObjectObservation,
+    coordinate_object_custody,
+};
 pub use notification::{
     NotificationAction, NotificationInput, NotificationOutcome, NotificationResult,
     NotificationState,
