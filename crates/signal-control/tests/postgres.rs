@@ -14,6 +14,8 @@ mod catalog;
 mod catalog_query;
 #[path = "support/catalog_restore.rs"]
 mod catalog_restore;
+#[path = "support/custody.rs"]
+mod custody;
 #[path = "support/finding_scope.rs"]
 mod finding_scope;
 #[path = "support/global_feed.rs"]
@@ -35,6 +37,16 @@ mod snapshot;
 
 fn context() -> Result<ControlContext, ControlError> {
     ControlContext::new(Duration::from_secs(5))
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+#[ignore = "owned PostgreSQL TLS fixture; check-shared-runtime.py --custody-only"]
+async fn postgres_object_custody_coordinator() -> Result<(), Box<dyn std::error::Error>> {
+    let path = std::env::var("SIGNAL_CONTROL_FIXTURE")?;
+    assert!(std::fs::metadata(&path)?.len() <= 4096);
+    let fixture: Fixture = serde_json::from_slice(&std::fs::read(path)?)?;
+    assert!(fixture.password.starts_with("synthetic-control-") && fixture.password.len() <= 64);
+    custody::qualify(&fixture).await
 }
 fn scope() -> Scope {
     Scope {

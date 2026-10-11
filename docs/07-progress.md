@@ -86,9 +86,11 @@ their later local acceptance is recorded below. EKS/release gates remain open.
 
 Generic OBJECT-CUSTODY description/coordinator now passes924default/981all-feature
 tests, both strict Clippy modes and five uncertainty/fencing/retention guards.
-See [contract51](51-object-custody.md) and
-`target/object-custody-coordinator-20261012/ACCEPTANCE.json`. The item is in
-progress: real object/control/API/producer retention integration remains required.
+Independent review and actual PostgreSQL TLS custody qualification now pass8.86s:
+`target/object-custody-postgres-20261012/ACCEPTANCE.json`; exact replay/conflict,
+observed COMMIT cancellation, quota, takeover and reopen retain the original copy.
+Retention authority is simulated. [Contract51](51-object-custody.md) remains in
+progress for concrete retained-object adapter and authenticated API/producer integration.
 
 Native CI now prepares one source/revision/architecture-bound executable bundle
 per architecture and reuses it for the Standard cluster gate. Direct compiled
