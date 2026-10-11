@@ -41,9 +41,32 @@ class BoundsAndEvidence(unittest.TestCase):
             'max_disk_bytes: 67108864', 'max_disk_bytes: 268435456')
         current_soak = soak.soak_config(directory, 20000, 20001)
         self.assertEqual(current_soak.replace('query:\n  memory_bytes: 268435456',
-                                               'query:\n  memory_bytes: 67108864'), previous_soak)
-        self.assertIn('query:\n  memory_bytes: 67108864', original_pipeline)
+                                               f'query:\n  memory_bytes: {soak.pipeline.QUERY_MEMORY_BYTES}'), previous_soak)
+        self.assertIn(f'query:\n  memory_bytes: {soak.pipeline.QUERY_MEMORY_BYTES}', original_pipeline)
+        self.assertIn('query:\n  memory_bytes: 268435456\n', current_soak)
         self.assertEqual(soak.QUERY_MEMORY_BYTES, 256 * 1024 * 1024)
+
+    def test_soak_budget_survives_pipeline_budget_changes(self):
+        directory = Path('/owned-synthetic-data')
+        for memory in (64, 128, 192):
+            with self.subTest(memory_mib=memory), mock.patch.object(soak.pipeline, 'QUERY_MEMORY_BYTES', memory * 1024 * 1024):
+                configured = soak.soak_config(directory, 20000, 20001)
+                self.assertIn('query:\n  memory_bytes: 268435456\n', configured)
+                original = soak.pipeline.config(directory, 20000, 20001, False).replace(
+                    'max_files: 2048', 'max_files: 8192').replace(
+                    'max_disk_bytes: 67108864', 'max_disk_bytes: 268435456')
+                self.assertEqual(configured.replace('query:\n  memory_bytes: 268435456\n',
+                                                    f'query:\n  memory_bytes: {memory * 1024 * 1024}\n'), original)
+
+    def test_missing_or_ambiguous_pipeline_query_memory_fails_closed(self):
+        directory = Path('/owned-synthetic-data')
+        original = soak.pipeline.config(directory, 20000, 20001, False)
+        field = f'query:\n  memory_bytes: {soak.pipeline.QUERY_MEMORY_BYTES}\n'
+        for altered in (original.replace(field, 'query:\n'), original + field,
+                        original.replace(field, field.rstrip('\n') + '0\n')):
+            with mock.patch.object(soak.pipeline, 'config', return_value=altered):
+                with self.assertRaisesRegex(RuntimeError, 'exactly once'):
+                    soak.soak_config(directory, 20000, 20001)
 
     def test_existing_evidence_and_symlink_never_overwritten(self):
         with tempfile.TemporaryDirectory() as folder:
