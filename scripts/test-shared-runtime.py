@@ -31,6 +31,14 @@ test postgres_lease_authority_and_cancellation ... ok
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 3.83s
 """
 class Guards(unittest.TestCase):
+    def test_final_elapsed_uses_the_expanded_execution_budget(self):
+        # A complete run beyond the old180s limit must not be rejected after
+        # execution was explicitly admitted within the expanded240s budget.
+        for elapsed in (0, 180.5, 239.9, 240):
+            self.assertTrue(module.elapsed_within_fixture_budget(elapsed))
+        for elapsed in (-1, 240.001, float('inf'), float('-inf'), float('nan'), True, '240'):
+            self.assertFalse(module.elapsed_within_fixture_budget(elapsed))
+
     def test_readiness_wait_has_finite_probes_and_rejects_invalid_configuration(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory=Path(temporary)

@@ -17,7 +17,7 @@ summarized in [progress](07-progress.md).
 | Prior shared administrative migration slice | Source-bound workspace acceptance; 26 control unit tests, actual PostgreSQL17.5 initialization/populated upgrade/rollback fixture and writer review | Local Linux AMD64 library, SHARED-RUNTIME still in_progress |
 | Core phases 0–8 and bounded Phase 10 | Prior source-bound process/container/kind/scans/finite soaks and offline restore | Historical inputs; no automatic current-image or prolonged stability claim |
 | Finite implementation ledger | 52 items: 10 passed_local, 10 passed_simulated, 1 in_progress, 25 pending, 6 external_pending | Simulated and local proof remain distinct from actual external acceptance |
-| Latest recorded public CI132f2b2 | Native AMD64/ARM64 Rust jobs and basic container runtime/persistence pass | Both pipeline jobs fail; kind/supply-chain skipped; not freshly observed here |
+| Latest observed public CI73e0cd5 (run38110565434) | Tooling passes; both Rust jobs fail at AMD64 query-retirement and ARM64 PostgreSQL fixture steps | Container/Kubernetes skipped; failed logs need GitHub CLI authentication; no current complete native CI acceptance |
 
 Exact latest evidence (valid only once its source-bound final campaign passes):
 `target/goal-execution-20261007/SHARED-RUNTIME/matrix-20261010/acceptance.json`
