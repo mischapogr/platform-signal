@@ -62,6 +62,17 @@ tests, workflow lint and14workspace boundaries pass. No production behavior or
 deadline changes. Evidence: `target/arm64-agent-process-20261012/ACCEPTANCE.json`.
 Fresh native execution must determine whether any further remote issue remains.
 
+## Standard Helm runtime configuration prepared — 2026-10-12
+
+Writer-reviewed`0addc76` selects external runtime config-file and environment
+Secrets through bounded explicit references. Four supported config selectors mount
+as read-only regular subPath files; selected Standard cache stays on the PVC.
+Default deployment is byte-identical. Default/selected Helm lint,12rejected unsafe
+cases, manifest checks, five cluster-helper guards and14workspace boundaries pass.
+Evidence: `target/helm-runtime-config-20261012/`. Actual owned local Kubernetes
+Standard startup/recovery/cleanup and independent full-item review remain required;
+rendering does not close Kubernetes, EKS or release gates.
+
 ## Remaining work
 
 The52-item ledger remains10passed_local,10passed_simulated,1in_progress,
