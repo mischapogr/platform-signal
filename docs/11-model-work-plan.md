@@ -11,14 +11,15 @@ phase rows and measurements; completed rows are not new implementation tasks.
 Read [current progress](07-progress.md), [release boundaries](21-release-readiness.md)
 and the [52-item ledger](31-execution-ledger.json). Continue the in_progress
 SHARED-RUNTIME item under [runtime contract](48-shared-control-runtime.md).
-Writer-reviewed Standard startup/WAL/global findings/private-consumer and fresh
-scoped restore integration is accepted locally at pushed`1273054`; exact evidence
-and limits are in [progress](07-progress.md). Finish the reproduced CI soak-helper
-budget correction, then implement the separate operational stopped retirement
-adapter and obtain independent full-item review. Publication, snapshots,
-retirement pins, notification fencing, explicit migration and the complete bounded
-crash/restore matrix have local evidence. Keep remote DELETE and replicas disabled;
-new native/cloud/container/dependency/release qualification remains separate.
+Writer-reviewed Standard integration is accepted at`1273054`, the CI soak-helper
+correction at`b42501d`, and stopped lifecycle integration at`750b004`. Current
+source-bound919default/976all-feature tests,36guards and catalog4/restored5 process
+campaigns pass; exact evidence and limits are in [progress](07-progress.md).
+Obtain independent full-item review next. Stopped lifecycle requires exclusive
+original WAL ownership, completed local recovery and separately authorized strict
+maintenance credentials; it does not infer external retention policy or custody.
+Keep remote DELETE and replicas disabled. Native/cloud/container/remote-CI/
+dependency/release qualification remains separate.
 Select one reviewable slice at a time; do not rerun unchanged campaigns.
 
 Respect ledger dependencies and original phase order. Core phases0–8 and bounded

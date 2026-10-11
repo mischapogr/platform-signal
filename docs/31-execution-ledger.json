@@ -865,13 +865,14 @@
         "target/shared-query-20261010T205840Z/acceptance.json",
         "target/catalog-restore-20261010T212803Z/acceptance.json",
         "target/shared-server-publication-20261010T215920Z/",
-        "target/standard-main-20261011T104031+0200/ACCEPTANCE.json"
+        "target/standard-main-20261011T104031+0200/ACCEPTANCE.json",
+        "target/stopped-retirement-20261011/ACCEPTANCE.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md"
       ],
-      "notes": "Writer-reviewed Standard startup/WAL/scoped/global findings/private outbox and fresh scoped restore/restored Main are accepted locally at pushed1273054. Matching914default/971all-feature tests, both strict Clippy,36guards, complete18case physical crash matrix and pipeline/audit/private/restore process campaigns pass with source binding and cleanup. Current-generation/custody decisions in the restore fixture are local simulation, not AWS production authority. Operational stopped retirement and independent full-item review remain. No replicas, remote DELETE, HA or release readiness inferred."
+      "notes": "Writer-reviewed Standard integration and fresh scoped restore are accepted at1273054. Stopped lifecycle integration is accepted locally at750b004 with919default/976all-feature tests, both strict Clippy,36guards and current catalog4/restored5 process campaigns. Exclusive original WAL, pending recovery refusal, separate strict four-RPC maintenance credentials, explicit restore/replay/evidence holds/releases, exact tombstones, stale fencing and original-context retained shutdown are qualified. Local synthetic custody/policy decisions do not prove AWS authority. Independent full-item review remains. No replicas, remote DELETE, HA or release readiness inferred."
     },
     {
       "id": "OBJECT-CUSTODY",
