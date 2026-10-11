@@ -6,7 +6,7 @@
 {{- end }}
 {{- $seen := dict }}
 {{- $reserved := list "PATH" "HOME" "USER" "SHELL" "LD_PRELOAD" "LD_LIBRARY_PATH" "RUST_LOG" }}
-{{- $s3Env := list "SIGNAL_S3_ENDPOINT" "SIGNAL_S3_REGION" "SIGNAL_S3_BUCKET" "SIGNAL_S3_ACCESS_KEY" "SIGNAL_S3_SECRET_KEY" "SIGNAL_S3_SESSION_TOKEN" "SIGNAL_S3_BACKEND_ID" "SIGNAL_S3_ALLOW_LOOPBACK_HTTP" "SIGNAL_S3_OBJECT_BYTES" "SIGNAL_S3_INVENTORY_OBJECTS" "SIGNAL_S3_CACHE_FILES" "SIGNAL_S3_CACHE_BYTES" }}
+{{- $runtimeEnv := list "SIGNAL_IDENTITY_CLIENT_SECRET" "SIGNAL_S3_ENDPOINT" "SIGNAL_S3_REGION" "SIGNAL_S3_BUCKET" "SIGNAL_S3_ACCESS_KEY" "SIGNAL_S3_SECRET_KEY" "SIGNAL_S3_SESSION_TOKEN" "SIGNAL_S3_BACKEND_ID" "SIGNAL_S3_ALLOW_LOOPBACK_HTTP" "SIGNAL_S3_OBJECT_BYTES" "SIGNAL_S3_INVENTORY_OBJECTS" "SIGNAL_S3_CACHE_FILES" "SIGNAL_S3_CACHE_BYTES" }}
 {{- range .Values.runtime.secretEnv }}
 {{- if hasKey $seen .name }}
 {{- fail "runtime.secretEnv contains a duplicate environment name" }}
@@ -14,7 +14,7 @@
 {{- if has .name $reserved }}
 {{- fail "runtime.secretEnv cannot override process control or logging settings" }}
 {{- end }}
-{{- if and (hasPrefix "SIGNAL_" .name) (not (has .name $s3Env)) }}
+{{- if and (hasPrefix "SIGNAL_" .name) (not (has .name $runtimeEnv)) }}
 {{- fail "runtime.secretEnv cannot override chart-owned settings or runtime config selectors" }}
 {{- end }}
 {{- $_ := set $seen .name true }}
@@ -106,6 +106,8 @@ spec:
               value: {{ printf "/etc/signal/%s.json" $name | quote }}
             {{- end }}
             {{- if hasKey .Values.runtime.files "SIGNAL_SHARED_CONFIG" }}
+            - name: SIGNAL_STORAGE_TYPE
+              value: s3
             - name: SIGNAL_S3_CACHE_DIR
               value: /var/lib/signal/query-cache
             {{- end }}
