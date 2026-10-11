@@ -28,6 +28,9 @@ MAX_EVENTS = 10000
 WINDOW = 5.0
 HTTP_TIMEOUT = 5
 RESPONSE_BYTES = 1048576
+# The 10,000-row 4 KiB corpus includes canonical payload and projected columns.
+# Its uncompressed Parquet scan exceeds 64 MiB even with a 100-row result limit.
+QUERY_MEMORY_BYTES = 128 * 1024 * 1024
 
 
 
@@ -238,7 +241,7 @@ storage:
   max_files: 2048
   compression: snappy
 query:
-  memory_bytes: 67108864
+  memory_bytes: {QUERY_MEMORY_BYTES}
   max_concurrent: 2
   max_limit: 100
   max_response_bytes: 1048576
@@ -524,7 +527,7 @@ def main(argv=None):
               "profiles": [], "limits": {"profile_seconds": WINDOW, "max_events": MAX_EVENTS,
                                          "workers": WORKERS, "http_timeout_seconds": HTTP_TIMEOUT,
                                          "wal_bytes": 67108864, "storage_bytes": 67108864,
-                                         "findings_bytes": 16777216}}
+                                         "findings_bytes": 16777216, "query_memory_bytes": QUERY_MEMORY_BYTES}}
     profiles = [(4096, 20000, True)] if args.overload_only else [(1024, args.quick_rate, False)] if args.quick else [
         (size, rate, False) for size in (1024, 4096) for rate in (100, 1000, 10000)] + [(4096, 20000, True)]
     for size, rate, saturation in profiles:

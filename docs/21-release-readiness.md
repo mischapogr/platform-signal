@@ -17,7 +17,8 @@ summarized in [progress](07-progress.md).
 | Prior shared administrative migration slice | Source-bound workspace acceptance; 26 control unit tests, actual PostgreSQL17.5 initialization/populated upgrade/rollback fixture and writer review | Local Linux AMD64 library, SHARED-RUNTIME still in_progress |
 | Core phases 0–8 and bounded Phase 10 | Prior source-bound process/container/kind/scans/finite soaks and offline restore | Historical inputs; no automatic current-image or prolonged stability claim |
 | Finite implementation ledger | 52 items: 10 passed_local, 10 passed_simulated, 1 in_progress, 25 pending, 6 external_pending | Simulated and local proof remain distinct from actual external acceptance |
-| Latest observed public CIfc4d732 (run38112482427) | Verified public archives: AMD64 runtime lacks s3-query; ARM64 TLS fixture times out compiling its default test binary | Build-order fixes have local qualification pending matching campaign; fresh native/container CI remains open |
+| Completed public CI38b3c6f (run38119398746) | Both native Rust jobs pass and production images build; verified artifacts show AMD64 query413 and ARM64 atomic diagnostic monitor race in pipeline qualification | Harness corrections under `target/native-ci-fixes-20261011T095750+0200/` require matching final acceptance and fresh complete remote CI |
+| Observed public CIc2bdf6c (run38120937629) | Both Rust jobs pass; ARM64 container job fails and AMD64 native qualification is still running at observation | Current1f2beff run38123061324 is queued; no complete reviewed-revision CI or ARM64 qualification claimed |
 
 Exact latest evidence (valid only once its source-bound final campaign passes):
 `target/goal-execution-20261007/SHARED-RUNTIME/matrix-20261010/acceptance.json`

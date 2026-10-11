@@ -34,14 +34,20 @@ the configured target was attained. `--quick` runs one diagnostic profile;
 only the queue pressure profile.
 
 All queues/storage use the server's existing bounds. WAL and event storage are
-limited to 64 MiB each, findings to 16 MiB, and query memory to 64 MiB. Every
+limited to 64 MiB each, findings to 16 MiB, and query memory to 128 MiB. Every
 profile must drain within 30 seconds. Each request/response is bounded to 1 MiB;
 only four current batches and twenty query durations are retained. A sampler
 retains aggregates rather than a sample history and samples at most ten times
 per second. The JSON report contains configuration, CPU time, observed RSS,
 queue/WAL peaks, accepted/rejected/drop counts, Parquet/finding totals, and
 median/p95 query latency. Query samples return at most 100 events; exact persisted
-counts come from metrics checked against durable WAL admission counts.
+counts come from metrics checked against durable WAL admission counts. The fixed
+query budget also caps the selected uncompressed Parquet scan before decoding.
+A result limit of100 does not reduce that scan: the largest10,000-row 4 KiB
+corpus stores both canonical payload and projected columns. An owned diagnostic
+measured81,613,095 uncompressed bytes and reproduced413 with the former64 MiB
+budget. The harness uses128 MiB from startup, records it in report limits, and
+keeps non-200 query responses as failures without retrying under a new budget.
 
 HTTP response counts and durable WAL counts are separate. A received 408 or 503 response
 can race a durable append: its reported rejected suffix is an upper bound on
