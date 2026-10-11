@@ -334,6 +334,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--image', default='postgres:17.5-alpine')
     parser.add_argument('--matrix', action='store_true', help='owned persistent volume and abrupt database restart qualification')
+    parser.add_argument('--custody-only', action='store_true', help='focused actual PostgreSQL/object-file custody coordinator; simulated retention authority')
     parser.add_argument('--server', action='store_true', help='actual monolithic server publication/rules/query coordinator qualification')
     parser.add_argument('--standard', action='store_true', help='actual Standard executable with owned TLS and persistent S3 protocol fixture')
     parser.add_argument('--standard-only', action='store_true', help='focused Standard process calibration; excludes library and crash matrices')
@@ -345,6 +346,10 @@ def main():
     parser.add_argument('--standard-restore-only',action='store_true',help='fresh scoped destination and actual restored Standard/private progress; excludes full matrices')
     parser.add_argument('--private-checkout',type=Path,default=ROOT.parent/'platform-signal-private')
     args = parser.parse_args()
+    if args.custody_only and (args.matrix or args.server or args.standard or args.standard_only
+                             or args.standard_kubernetes_image or args.standard_offline_fixture
+                             or args.standard_audit_only or args.standard_private_only or args.standard_restore_only):
+        parser.error('--custody-only excludes other profiles')
     if args.standard_kubernetes_image and not args.standard_only:
         parser.error('--standard-kubernetes-image requires --standard-only')
     if args.standard_restore_only:
@@ -518,7 +523,19 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
                 report['source_hashes'][source_name]=hashlib.sha256((ROOT/source_name).read_bytes()).hexdigest()
             for path in sorted([ROOT/'apps/signal-server/Cargo.toml', *list((ROOT/'apps/signal-server/src').rglob('*.rs')), *list((ROOT/'apps/signal-server/tests').rglob('*.rs')), ROOT/'crates/signal-buffer/Cargo.toml', *list((ROOT/'crates/signal-buffer/src').rglob('*.rs'))]):
                 report['source_hashes'][str(path.relative_to(ROOT))]=hashlib.sha256(path.read_bytes()).hexdigest()
-        if not (args.standard_only or args.standard_audit_only or args.standard_private_only or args.standard_restore_only):
+        if args.custody_only:
+            test_output=run(['cargo','test','--locked','--offline','-p','signal-control','--test','postgres',
+                            'postgres_object_custody_coordinator','--','--ignored','--exact','--nocapture'],60,env)
+            expected=['custody-real-postgres-TLS-exact-replay-conflict-original-copy-qualified',
+                      'custody-observed-COMMIT-cancel-physical-drain-same-request-qualified',
+                      'custody-real-quota-postcommit-outage-competing-owner-original-retained-qualified',
+                      'custody-fresh-control-reopen-original-id-verified-archive-release-qualified']
+            if (any(test_output.splitlines().count('phase: '+name)!=1 for name in expected)
+                    or len(re.findall(r'^test result: ok\. 1 passed; 0 failed; 0 ignored;',test_output,re.MULTILINE))!=1):
+                raise ValueError('exact real PostgreSQL custody qualification missing')
+            report['checks'].extend(expected)
+            report['scope']='Actual PostgreSQL TLS receipt replay/conflict/quota/observed COMMIT uncertainty/takeover/reopen and independent immutable file copies; retention authority simulated; no server/API/producer network or AWS proof'
+        elif not (args.standard_only or args.standard_audit_only or args.standard_private_only or args.standard_restore_only):
             test_output=run(['cargo','test','--locked','--offline','-p','signal-control','--test','postgres','postgres_lease_authority_and_cancellation',
                  '--','--ignored','--exact','--nocapture'],150,env)
             qualify_test_output(test_output)
