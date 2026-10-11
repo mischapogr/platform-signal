@@ -510,3 +510,96 @@ async fn provider_deadline_rejects_before_body_and_exposes_bounded_metrics_witho
         .unwrap();
     provider.finish().await;
 }
+
+/// A grant-only sink catches accidental fallback to the legacy EventSink seam.
+struct GrantOnlySink {
+    grants: AtomicUsize,
+    legacy: AtomicUsize,
+    original_deadline: std::time::Instant,
+}
+impl EventSink for GrantOnlySink {
+    fn admit(&self, _event: signal_event::SignalEvent) -> signal_protocol::AdmissionFuture<'_> {
+        Box::pin(async move {
+            self.legacy.fetch_add(1, Ordering::Relaxed);
+            Err(signal_protocol::AdmissionError::Unavailable)
+        })
+    }
+    fn admit_with_grant<'a>(
+        &'a self,
+        event: signal_event::SignalEvent,
+        grant: &'a RequestGrant,
+        deadline: std::time::Instant,
+    ) -> signal_protocol::AdmissionFuture<'a> {
+        Box::pin(async move {
+            assert!(deadline <= self.original_deadline);
+            assert!(deadline > std::time::Instant::now());
+            assert!(
+                grant.subject_matches(
+                    "https://identity.example.test",
+                    "reader",
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs()
+                )
+            );
+            assert!(
+                grant.allows(
+                    Operation::IngestEvents,
+                    ScopeFacts::event(&event),
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs()
+                )
+            );
+            self.grants.fetch_add(1, Ordering::Relaxed);
+            Ok(())
+        })
+    }
+    fn metrics(&self) -> signal_protocol::SinkMetrics {
+        signal_protocol::SinkMetrics::default()
+    }
+    fn close(&self) {}
+}
+#[tokio::test]
+async fn native_tls_http_ingest_forwards_original_grant_and_deadline_to_sink() {
+    let provider = fixture::Fixture::new(
+        vec![fixture::json_reply(&fixture::valid_body())],
+        "127.0.0.1",
+        "1",
+    )
+    .await;
+    let backend = IdentityBackend::new(
+        provider.config(),
+        profile(),
+        producer_policy(),
+        tokio::runtime::Handle::current(),
+    )
+    .unwrap();
+    let sink = Arc::new(GrantOnlySink {
+        grants: AtomicUsize::new(0),
+        legacy: AtomicUsize::new(0),
+        original_deadline: std::time::Instant::now() + Duration::from_secs(2),
+    });
+    let service = IngestService::new_with_identity(
+        IngestConfig {
+            request_timeout: Duration::from_secs(1),
+            ..Default::default()
+        },
+        sink.clone(),
+        backend.clone(),
+    )
+    .unwrap();
+    let (status, response) = post(&service, vec![event(701, "a")], Some("Bearer opaque")).await;
+    assert_eq!(status, StatusCode::ACCEPTED);
+    assert_eq!(response.accepted, 1);
+    assert_eq!(sink.grants.load(Ordering::Relaxed), 1);
+    assert_eq!(sink.legacy.load(Ordering::Relaxed), 0);
+    assert_eq!(provider.requests.load(Ordering::Acquire), 1);
+    backend
+        .shutdown(Instant::now() + Duration::from_secs(1))
+        .await
+        .unwrap();
+    provider.finish().await;
+}

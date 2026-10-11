@@ -653,10 +653,16 @@ async fn authenticated_ingest(
             );
         }
         let id = event.id;
+        let admission = match grant {
+            Some(grant) => shared
+                .sink
+                .admit_with_grant(event, grant, deadline.into_std()),
+            None => shared.sink.admit(event),
+        };
         let result = tokio::select! {
             biased;
             _ = cancellation.cancelled() => Err((StatusCode::SERVICE_UNAVAILABLE, ErrorCode::Stopping, "admission is stopped")),
-            result = timeout_at(deadline, shared.sink.admit(event)) => match result {
+            result = timeout_at(deadline, admission) => match result {
                 Err(_) => { shared.metrics.timed_out.fetch_add(1, Ordering::Relaxed); Err((StatusCode::REQUEST_TIMEOUT, ErrorCode::RequestTimeout, "request deadline exceeded")) }
                 Ok(Err(AdmissionError::Full)) => Err((StatusCode::TOO_MANY_REQUESTS, ErrorCode::Full, "admission capacity is full")),
                 Ok(Err(AdmissionError::Closed)) => Err((StatusCode::SERVICE_UNAVAILABLE, ErrorCode::Stopping, "admission is stopped")),

@@ -667,13 +667,19 @@ impl Write for LimitedBytes {
         Ok(())
     }
 }
-impl EventSink for DurableBuffer {
-    fn admit(&self, event: SignalEvent) -> AdmissionFuture<'_> {
+impl DurableBuffer {
+    /// A trusted caller may shorten the original admission budget. Cancellation
+    /// still uses the same bounded worker and uncertain-effects semantics.
+    pub fn admit_at(&self, event: SignalEvent, original_deadline: Instant) -> AdmissionFuture<'_> {
         Box::pin(async move {
             let mut attempt = AdmissionAttempt {
                 shared: &self.shared,
                 accepted: false,
             };
+            if Instant::now() >= original_deadline {
+                self.shared.timeouts.fetch_add(1, Ordering::Relaxed);
+                return Err(AdmissionError::Unavailable);
+            }
             if self.shared.closed.load(Ordering::Acquire) {
                 return Err(AdmissionError::Closed);
             }
@@ -692,7 +698,7 @@ impl EventSink for DurableBuffer {
             } else {
                 self.config.operation_timeout
             };
-            let deadline = Instant::now() + duration;
+            let deadline = original_deadline.min(Instant::now() + duration);
             loop {
                 if self.shared.closed.load(Ordering::Acquire) {
                     return Err(AdmissionError::Closed);
@@ -737,6 +743,11 @@ impl EventSink for DurableBuffer {
                 }
             }
         })
+    }
+}
+impl EventSink for DurableBuffer {
+    fn admit(&self, event: SignalEvent) -> AdmissionFuture<'_> {
+        self.admit_at(event, Instant::now() + self.config.operation_timeout)
     }
     fn metrics(&self) -> SinkMetrics {
         let metrics = self.snapshot();
