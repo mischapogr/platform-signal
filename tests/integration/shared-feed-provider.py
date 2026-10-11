@@ -34,7 +34,7 @@ def main():
             counters['calls'] += 1
             length = int(self.headers.get('Content-Length', '0'))
             expected = 'Basic ' + base64.b64encode(b'synthetic-client:synthetic-shared-feed-secret').decode()
-            if (counters['calls'] > 32 or self.path != '/token' or not 0 < length <= 16384
+            if (counters['calls'] > 64 or self.path != '/token' or not 0 < length <= 16384
                     or self.headers.get('Authorization') != expected):
                 counters['invalid'] += 1
                 self.send_error(400)
@@ -77,7 +77,12 @@ def main():
             '--', '--ignored', '--exact', '--nocapture'], cwd=ROOT, env=environment, timeout=15, check=False)
         if result.returncode:
             raise RuntimeError('native owner/provider/HTTP/WAL admission test failed')
-        if not 6 <= counters['calls'] <= 32 or counters['invalid']:
+        result = subprocess.run(['cargo', 'test', '--locked', '--offline', '-p', 'signal-server',
+            '--bin', 'signal-server', 'finding_api::shared_scoped_http_tests::authorized_shared_scoped_http_provider_audit',
+            '--', '--ignored', '--exact', '--nocapture'], cwd=ROOT, env=environment, timeout=15, check=False)
+        if result.returncode:
+            raise RuntimeError('native shared scoped HTTP/provider/audit test failed')
+        if not 6 <= counters['calls'] <= 64 or counters['invalid']:
             raise RuntimeError('TLS introspection request contract or count')
     finally:
         fixture.stop_provider(provider, thread)

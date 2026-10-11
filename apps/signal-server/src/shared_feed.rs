@@ -69,6 +69,9 @@ impl SharedFindingsFeed {
             rejected: AtomicU64::new(0),
         })
     }
+    pub fn store_binding(&self) -> (Uuid, Uuid) {
+        (self.store, self.generation)
+    }
     pub fn response_bytes(&self) -> usize {
         self.max_bytes
     }
