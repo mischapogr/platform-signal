@@ -5,15 +5,36 @@ Every wait has a deadline. Child processes, listeners and data belong to this ru
 Run after cargo build -p signal-agent -p signal-server.
 """
 import http.client
+import http.server
+from collections import Counter
 import json
 import os
 from pathlib import Path
 import signal
 import socket
+import struct
 import subprocess
 import sys
 import time
+import threading
 import urllib.parse
+import uuid
+import zlib
+
+
+def logical_events(events, known):
+    """Allow at-least-once copies only with original IDs and canonical payloads."""
+    unique = {}
+    for event in events:
+        identity = event.get("id")
+        assert isinstance(identity, str) and uuid.UUID(identity).int != 0, "invalid event identity"
+        if identity in known:
+            assert known[identity] == event, "replay changed canonical event payload"
+        if identity in unique:
+            assert unique[identity] == event, "duplicate ID changed canonical event payload"
+        unique[identity] = event
+    assert all(identity in unique for identity in known), "previously delivered event disappeared"
+    return unique
 
 
 def free_port():
@@ -42,6 +63,9 @@ def main():
     processes = []
     logs = []
     server = None
+    relay = relay_thread = None
+    reply_loss = {"accepted": None, "replayed": False, "requests": 0}
+    known_events = {}
 
     def request(path, telemetry_port=None):
         connection = http.client.HTTPConnection("127.0.0.1", telemetry_port or port, timeout=2)
@@ -80,10 +104,10 @@ def main():
         code = process.wait(timeout=15)
         assert code == (-signal.SIGKILL if kill else 0), (code, [log.read_text() for log in logs])
 
-    def start_agent(name, args, metrics_port=None):
+    def start_agent(name, args, metrics_port=None, endpoint=None):
         log = root / f"agent-{name}-{len(logs)}.log"
         logs.append(log)
-        command = [agent_binary, "--server", url, "--spool-dir", str(root / name),
+        command = [agent_binary, "--server", endpoint or url, "--spool-dir", str(root / name),
                    "--flush-ms", "20", "--retry-base-ms", "20", "--retry-max-ms", "100",
                    "--request-timeout-ms", "500", "--shutdown-timeout-ms", "1000", *args]
         if metrics_port:
@@ -102,7 +126,32 @@ def main():
         return [row.get("message") for row in rows(source)]
 
     def expect_messages(source, expected):
-        wait_for(lambda: sorted(messages(source)) == sorted(expected), f"missing/duplicate rows: {source} {expected}")
+        known = known_events.get(source, {})
+        def complete():
+            unique = logical_events(rows(source), known)
+            if sorted(row.get("message") for row in unique.values()) != sorted(expected):
+                return False
+            known_events[source] = unique
+            return True
+        try:
+            wait_for(complete, f"missing/unexpected logical rows: {source} {expected}")
+        except TimeoutError as error:
+            actual = rows(source)
+            counts = Counter(row.get("message") for row in actual)
+            diagnostic = {
+                "source": source,
+                "expected": expected,
+                "actual_count": len(actual),
+                "unique_ids": len({row.get("id") for row in actual}),
+                "missing": [message for message in expected if counts[message] == 0],
+                "repeated": {message: count for message, count in counts.items() if count > 1},
+                "samples": [{"id": row.get("id"), "message": str(row.get("message"))[:128]}
+                            for row in actual[:32]],
+            }
+            encoded = json.dumps(diagnostic, sort_keys=True)
+            assert len(encoded.encode()) <= 16384, "recovery diagnostic exceeded bound"
+            (root / "delivery-mismatch.json").write_text(encoded + "\n")
+            raise TimeoutError(str(error) + "; diagnostic=" + encoded) from error
 
     def telemetry(metrics_port):
         text = request("/metrics", metrics_port).decode()
@@ -224,10 +273,72 @@ def main():
         assert metrics["signal_agent_spool_bytes"] <= metrics["signal_agent_spool_capacity_bytes"]
         wait_for(lambda: telemetry(metrics_port).get("signal_agent_retries_total", 0) > 0,
                  "offline agent did not retry")
+        # Observe the actual synced records before the physical crash, rather
+        # than inferring original identity from the restarted process.
+        original_spool = []
+        frames = sorted((root / "offline").glob("record-*"))
+        assert len(frames) == 8
+        for sequence, path in enumerate(frames, 1):
+            assert not path.is_symlink() and 12 < path.stat().st_size <= 2060
+            frame = path.read_bytes()
+            length, payload_crc, header_crc = struct.unpack("<III", frame[:12])
+            assert len(frame) == length + 12
+            assert zlib.crc32(frame[:8]) == header_crc and zlib.crc32(frame[12:]) == payload_crc
+            record = json.loads(frame[12:])
+            assert record["version"] == 1 and record["sequence"] == sequence
+            original_spool.append(record["event"])
+        assert [event["message"] for event in original_spool] == offline_expected[:8]
         stop(offline, kill=True)
         start_server()
-        recovered = start_agent("offline", offline_args)
+        class LostReply(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                pass
+
+            def do_POST(self):
+                reply_loss["requests"] += 1
+                assert reply_loss["requests"] <= 16, "reply-loss fixture request bound"
+                length = int(self.headers.get("Content-Length", "0"))
+                assert self.path == "/v1/events/batch" and 0 < length <= 65536
+                self.connection.settimeout(2)
+                body = self.rfile.read(length)
+                assert len(body) == length
+                events = json.loads(body)["events"]
+                if reply_loss["accepted"] is None:
+                    assert events == original_spool, "restart changed original durable spool events"
+                connection = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
+                try:
+                    connection.request("POST", self.path, body=body,
+                                       headers={"Authorization": "Bearer " + token,
+                                                "Content-Type": "application/json"})
+                    response = connection.getresponse()
+                    payload = response.read(65537)
+                    assert response.status == 202 and len(payload) <= 65536
+                    assert json.loads(payload)["accepted"] == len(events), "lost reply lacked full admission"
+                finally:
+                    connection.close()
+                if reply_loss["accepted"] is None:
+                    # Actual server admission completed; the agent receives no
+                    # verified prefix and must retry the original spool bytes.
+                    reply_loss["accepted"] = events
+                    self.close_connection = True
+                    self.connection.shutdown(socket.SHUT_RDWR)
+                    return
+                if not reply_loss["replayed"]:
+                    assert events == reply_loss["accepted"], "uncertain retry changed original events"
+                    reply_loss["replayed"] = True
+                self.send_response(202)
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+        relay = http.server.HTTPServer(("127.0.0.1", 0), LostReply)
+        relay_thread = threading.Thread(target=relay.serve_forever, daemon=True)
+        relay_thread.start()
+        recovered = start_agent("offline", offline_args,
+                                endpoint=f"http://127.0.0.1:{relay.server_port}")
         expect_messages("offline-gate", offline_expected)
+        assert reply_loss["replayed"] and len(reply_loss["accepted"]) == 8
+        assert len(rows("offline-gate")) >= len(offline_expected) + 8, "actual uncertain replay was not persisted"
         with offline_file.open("a") as file:
             file.write("after restart\n")
         expect_messages("offline-gate", offline_expected + ["after restart"])
@@ -237,6 +348,12 @@ def main():
         expect_messages("offline-gate", offline_expected + ["after restart"])
         expect_messages("stdin-gate", ["plain first", "json second"])
         stop(server)
+        (root / "recovery-report.json").write_text(json.dumps({
+            "status": "passed", "original_spooled_ids": [event["id"] for event in original_spool],
+            "logical_events": len(known_events["offline-gate"]),
+            "lost_accepted_reply": True, "exact_replay_verified": reply_loss["replayed"],
+            "relay_requests": reply_loss["requests"],
+        }, sort_keys=True) + "\n")
         for log in logs:
             assert token not in log.read_text(), f"API token leaked in {log}"
     finally:
@@ -244,7 +361,12 @@ def main():
             if process.poll() is None:
                 process.kill()
                 process.wait(timeout=3)
-    print("Phase 6 process gate passed: stdin/plain/JSON, nested attributes, file cursors, oversized canonical event rejection/cursor restart, partial lines, rotation/truncation, idle cancellation, authenticated delivery, saturated bounded offline spool, retry, SIGKILL recovery, server restart, invalid cross limits and token redaction")
+        if relay is not None:
+            relay.shutdown()
+            relay.server_close()
+            relay_thread.join(timeout=3)
+            assert not relay_thread.is_alive(), "reply-loss fixture thread survived cleanup"
+    print("Phase 6 process gate passed: stdin/plain/JSON, nested attributes, file cursors, oversized canonical event rejection/cursor restart, partial lines, rotation/truncation, idle cancellation, authenticated delivery, saturated bounded offline spool, retry, original durable identity, actual lost-admission reply/exact replay, SIGKILL recovery, server restart, invalid cross limits and token redaction")
 
 
 if __name__ == "__main__":

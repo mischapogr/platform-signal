@@ -65,6 +65,8 @@ jobs:
           key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
       - name: Tests
         run: python3 scripts/run-ci-check.py --name tests --timeout 1200 -- cargo test --workspace --all-features --locked
+      - name: Agent logical delivery guards
+        run: python3 scripts/run-ci-check.py --name agent-process-helpers --timeout 60 -- python3 scripts/test-agent-process.py
       - name: Established IdP harness failure regressions
         run: python3 scripts/run-ci-check.py --name idp-helpers --timeout 60 -- python3 scripts/test-access-idp.py
       - name: Independent audit fixture oracle regressions
