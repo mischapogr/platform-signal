@@ -337,11 +337,14 @@ def main():
     parser.add_argument('--server', action='store_true', help='actual monolithic server publication/rules/query coordinator qualification')
     parser.add_argument('--standard', action='store_true', help='actual Standard executable with owned TLS and persistent S3 protocol fixture')
     parser.add_argument('--standard-only', action='store_true', help='focused Standard process calibration; excludes library and crash matrices')
+    parser.add_argument('--standard-kubernetes-image', help='qualify this local image in an owned Standard kind cluster; requires --standard-only')
     parser.add_argument('--standard-audit-only',action='store_true',help='focused actual Standard independent audit receiver lifecycle; excludes pipeline/library/crash matrices')
     parser.add_argument('--standard-private-only',action='store_true',help='actual Standard feed/private outbox and notification qualification; excludes restore/full matrices')
     parser.add_argument('--standard-restore-only',action='store_true',help='fresh scoped destination and actual restored Standard/private progress; excludes full matrices')
     parser.add_argument('--private-checkout',type=Path,default=ROOT.parent/'platform-signal-private')
     args = parser.parse_args()
+    if args.standard_kubernetes_image and not args.standard_only:
+        parser.error('--standard-kubernetes-image requires --standard-only')
     if args.standard_restore_only:
         if args.matrix or args.server or args.standard_only or args.standard_audit_only or args.standard_private_only:parser.error('--standard-restore-only excludes other focused/full matrices')
         args.standard=True
@@ -366,6 +369,8 @@ def main():
     focused=args.standard_only or args.standard_audit_only or args.standard_private_only or args.standard_restore_only
     combined_standard=args.standard and not focused
     fixture_seconds=FIXTURE_SECONDS+(STANDARD_SECONDS if combined_standard else 0)
+    if args.standard_kubernetes_image:
+        fixture_seconds = 600
     deadline = began+fixture_seconds
     name = 'signal-shared-runtime-'+uuid.uuid4().hex
     password = 'synthetic-control-'+uuid.uuid4().hex
@@ -581,11 +586,32 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
             for source_name in ('crates/signal-collector-sdk/src/audit.rs','crates/signal-protocol/src/audit.rs'):
                 report['source_hashes'][source_name]=hashlib.sha256((ROOT/source_name).read_bytes()).hexdigest()
             scenario='restore' if args.standard_restore_only else 'private' if args.standard_private_only else 'audit' if args.standard_audit_only else 'pipeline'
-            standard_output=run(['python3','tests/integration/standard-main-process.py','--scenario',scenario,'--server',str(standard_binary),'--output',str(out/'standard-process')],STANDARD_SECONDS,env)
-            if standard_output.splitlines().count('Standard executable process gate passed') != 1:
+            if args.standard_kubernetes_image:
+                for source in ('scripts/check-standard-kubernetes.py', 'scripts/check-kubernetes.py', 'scripts/fixtures/standard-kubernetes.py',
+                               'deploy/helm/signal/templates/deployment.yaml', 'deploy/helm/signal/templates/configmap.yaml',
+                               'deploy/helm/signal/values.yaml', 'deploy/helm/signal/values.schema.json', 'deploy/docker/Dockerfile'):
+                    report['source_hashes'][source] = hashlib.sha256((ROOT/source).read_bytes()).hexdigest()
+                standard_output=run(['python3','scripts/check-standard-kubernetes.py','--image',args.standard_kubernetes_image,
+                                     '--postgres',name,'--server',str(standard_binary),'--output',str(out/'standard-process')],540,env)
+                marker = 'Standard Kubernetes process gate passed'
+            else:
+                standard_output=run(['python3','tests/integration/standard-main-process.py','--scenario',scenario,'--server',str(standard_binary),'--output',str(out/'standard-process')],STANDARD_SECONDS,env)
+                marker = 'Standard executable process gate passed'
+            if standard_output.splitlines().count(marker) != 1:
                 raise ValueError('actual Standard executable process qualification missing')
             standard_report=json.loads((out/'standard-process/report.json').read_text())
-            if args.standard_restore_only:
+            if args.standard_kubernetes_image:
+                if (standard_report.get('status') != 'passed_simulated'
+                        or standard_report.get('wal_checkpoint') != 2 or standard_report.get('database_witness') != '2|0|2'
+                        or standard_report.get('architecture') not in ('amd64', 'arm64')
+                        or any(not isinstance(standard_report.get(key), str)
+                               or not re.fullmatch(r'sha256:[0-9a-f]{64}', standard_report[key]) for key in ('image_id', 'fixture_image_id'))
+                        or any(standard_report.get(key) is not True for key in
+                               ('regular_config_mounts', 'sigkill_recovery', 'replacement_pod_pvc_recovery', 'owned_cluster_cleanup'))):
+                    raise ValueError('Standard Kubernetes runtime acceptance missing')
+                report['checks'].append('actual_Standard_kind_image_regular_Secret_mounts_original_WAL_PVC_SIGKILL_and_replacement_recovery')
+                report['scope'] = standard_report['scope']
+            elif args.standard_restore_only:
                 qualify_standard_restore_report(standard_report,report['standard_binary_sha256'])
                 if private_source_hashes(args.private_checkout)!=report['private_source_hashes']:raise RuntimeError('private consumer source changed during restore qualification')
                 report['checks'].append('actual_fresh_scoped_restore_current_custody_private_cursor_generation_fencing_restored_native_publication')
@@ -687,7 +713,9 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
                 report['status']='failed'
         report['elapsed_seconds']=time.monotonic()-began
         report['commands']=count
-        if not elapsed_within_fixture_budget(report['elapsed_seconds'],combined_standard=combined_standard):
+        within_budget = (0 <= report['elapsed_seconds'] <= fixture_seconds if args.standard_kubernetes_image
+                         else elapsed_within_fixture_budget(report['elapsed_seconds'],combined_standard=combined_standard))
+        if not within_budget:
             report['status']='failed'
         (out/'report.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps({key:value for key,value in report.items() if key not in ('source_hashes','private_source_hashes')}))

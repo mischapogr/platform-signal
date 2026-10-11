@@ -78,9 +78,27 @@ Secrets through bounded explicit references. Four supported config selectors mou
 as read-only regular subPath files; selected Standard cache stays on the PVC.
 Default deployment is byte-identical. Default/selected Helm lint,12rejected unsafe
 cases, manifest checks, five cluster-helper guards and14workspace boundaries pass.
-Evidence: `target/helm-runtime-config-20261012/`. Actual owned local Kubernetes
-Standard startup/recovery/cleanup and independent full-item review remain required;
-rendering does not close Kubernetes, EKS or release gates.
+Evidence: `target/helm-runtime-config-20261012/`. This render proof alone did not
+close actual Standard startup/recovery/cleanup or independent full-item review;
+their later local acceptance is recorded below. EKS/release gates remain open.
+
+## Actual local Standard Kubernetes accepted — 2026-10-12
+
+The current S3-enabled image is qualified in an exclusively owned kind cluster
+with native TLS/probes, identity-backed admission and PostgreSQL TLS. Runtime and
+TLS documents mount as regular read-only Secret files. Explicit offline enrollment
+and coverage initialization retain private modes; startup performs no bootstrap.
+Two original events/findings, CRC-protected WAL checkpoint2, original stream/floor0
+and database facts survive server SIGKILL and serial pod replacement on the same
+PVC. Synthetic versioned objects remain on the PVC across replacement.
+
+Frozen-source acceptance passes in141.13s with167source bindings, two original-
+state guards, five Helm regressions, five cleanup guards,36shared helpers and
+14workspace boundaries. The failed private-mode attempt and corrected138.08s
+focused run are retained. All owned clusters/containers were removed.
+Evidence: `target/standard-kubernetes-20261012/ACCEPTANCE.json`.
+KIND is accepted locally; identity/S3 remain synthetic. Native Standard cluster
+CI, actual EKS/AWS custody, released dependencies and publication remain open.
 
 ## Local SHARED-RUNTIME accepted independently — 2026-10-12
 
@@ -96,11 +114,11 @@ the retained observation; Standard Kubernetes and external release gates remain.
 
 ## Remaining work
 
-The 52-item ledger now records 11 passed_local, 10 passed_simulated, 25 pending
-and 6 external_pending: 21 accepted within their recorded scope and 31 unfinished.
+The 52-item ledger now records12passed_local,10passed_simulated,24pending
+and6external_pending:22accepted within their recorded scope and30unfinished.
 Independent review closes local SHARED-RUNTIME at `b9c58da`. Continue with the
-separate owned Standard Kubernetes profile, then dependency/phase order.
-Current native/container/kind/supply-chain, actual EKS/AWS, complete remote CI,
+native Standard Kubernetes CI profile, then dependency/phase order.
+Current native/container/supply-chain, actual EKS/AWS, complete remote CI,
 released private dependency and owner-selected release/publication gates remain
 open. Finite soaks and synthetic proof do not establish prolonged stability or
 physical-device throughput. GHCR publication is prepared in

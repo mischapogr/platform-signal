@@ -129,14 +129,32 @@ The node image is digest pinned from the
 This is local Linux architecture evidence; EKS and cross-architecture cluster
 qualification need their own runs.
 
+For the owned Standard profile, first prebuild the all-feature server and exact
+`standard_main` integration-test target outside the runtime deadline, and make
+the local `python:3.13.5-alpine` fixture image available. Then run:
+
+```bash
+python3 scripts/check-shared-runtime.py --standard-only \
+  --standard-kubernetes-image platform-signal:standard-local \
+  --image postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa \
+  --output target/standard-kind-qualification
+```
+
+Use a freshly built S3-enabled server image at the supplied tag. This gate uses
+explicit offline synthetic enrollment and coverage initialization, native TLS
+probes, PostgreSQL TLS and bounded loopback identity/S3 sidecars. It retains the
+original WAL, coverage and versioned fixture objects on the PVC, verifies both
+server SIGKILL and serial pod replacement, and deletes its owned cluster and
+database container. Synthetic services qualify the local profile only.
+
 ## Native authenticated probes
 
 Set `tls.existingSecret` to a separately created Secret containing `server.json`
 and `probe.json` (or override `serverKey`/`probeKey`). Each is the private version1
 [transport document](../../../docs/44-transport-security.md), with distinct server
 and probe leaf identities, explicit peer roots and optional signed CRLs. The
-chart projects only these keys read-only with0440 permissions and pod fsGroup65532;
-the Secret's symlinks resolve to regular files. Actual key contents never enter
+chart mounts these keys as read-only regular `subPath` files with0440 permissions
+and pod fsGroup65532. Restart pods after changing either TLS document. Actual key contents never enter
 values or rendered YAML. The server certificate must include `IP:127.0.0.1` SAN
 for the local probe, as well as the intended external client DNS/IP names.
 
