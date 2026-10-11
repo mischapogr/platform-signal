@@ -193,3 +193,23 @@ AMD64 Rust tests pass, but its full job fails at reported IdP browser-start;
 downstream native container/Kubernetes jobs are skipped. The reproduced fixture
 race is corrected locally, but the exact remote cause remains unconfirmed. Full
 matching CI/image/Kubernetes/release gates remain open; frozen52 unchanged.
+
+
+## Native Standard executable coverage — 2026-10-12
+
+The AMD64 and ARM64 Rust jobs now include an explicit all-feature Standard
+fixture prebuild followed immediately by the bounded `--standard-only` process
+campaign, after the existing library18case crash/restore matrix. The pinned
+PostgreSQL manifest is reused. The source-bound executable snapshot prevents
+later default-feature Cargo commands from replacing the qualified image. Actual
+TLS/native admission, original WAL, persistent versioned loopback S3 query,
+scoped/global findings, stopped lifecycle and crash/restart run on each hosted
+native architecture. Reports and failures stay under`target/ci/` and the existing
+always-upload step; failures do not become successful release evidence.
+
+Prebuild/gate deadlines are1200s/300s; internal fixture/process240s/180s. No
+production timeout changes, new credentials, private checkout, source policy,
+AWS environment, package publication or mutable third-party pin is introduced.
+The private consumer/restored executable campaigns retain their separate local
+boundary. Native workflow configuration is preparation; only actual successful
+matching runs/artifacts can close the applicable remote/native qualification.
