@@ -580,6 +580,13 @@ async fn postgres_server_publication_and_actual_query() -> Result {
         id: finding.id,
         bytes: finding_bytes.clone(),
     }];
+    let abandoned = publisher
+        .prepare(token.clone(), &rows, draft(), context()?)
+        .await?;
+    assert_eq!(publisher.metrics().orphan_candidate_results, 0);
+    drop(abandoned);
+    assert_eq!(publisher.metrics().active, 0);
+    assert_eq!(publisher.metrics().orphan_candidate_results, 1);
     let prepared = publisher
         .prepare(token.clone(), &rows, first_draft, context()?)
         .await?;
@@ -606,6 +613,7 @@ async fn postgres_server_publication_and_actual_query() -> Result {
     let first = publisher.commit(prepared).await?;
     assert_eq!(first.id, first_id);
     assert_eq!(publisher.metrics().active, 0);
+    assert_eq!(publisher.metrics().orphan_candidate_results, 1);
     // A DB commit cannot bless a WAL that lacks the admitted sequence. Once
     // present, its committed but unacknowledged prefix remains replayable.
     assert!(matches!(
