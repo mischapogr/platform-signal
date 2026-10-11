@@ -1,11 +1,13 @@
 # Finite execution ledger
 
-Current Standard slice: writer-reviewed pushed`1273054` passes914default/
-971all-feature tests, both strict Clippy,36guards and full18case/current Standard,
-independent audit/private outbox/fresh scoped restore process campaigns. Exact
-accepted source binding: `target/standard-main-20261011T104031+0200/ACCEPTANCE.json`.
-SHARED-RUNTIME stays **in_progress** for operational retirement and independent
-full-item review. All52item IDs, statuses and dependencies remain unchanged:
+Current stopped lifecycle slice: writer-reviewed`750b004` passes919default/
+976all-feature tests, both strict Clippy,36guards and catalog4/restored5 process
+campaigns (181.75s/76.30s), including retained cancellation/drain, all three explicit
+hold kinds, releases, exact tombstones and stale fencing with original WAL
+checkpoints2/3 unchanged. Source binding:
+`target/stopped-retirement-20261011/ACCEPTANCE.json`. Earlier Standard integration
+is accepted at`1273054`. SHARED-RUNTIME stays **in_progress** for independent
+full-item review. All52IDs/statuses/dependencies remain unchanged:
 10passed_local,10passed_simulated,1in_progress,25pending,6external_pending.
 Older entries below retain their original historical evidence boundaries.
 

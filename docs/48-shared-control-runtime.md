@@ -1454,3 +1454,46 @@ Local loopback current-custody adapters do not attest AWS credentials/PKI/custod
 current native ARM64/container/cloud/remote/released-dependency/publication gates
 remain. Remote DELETE and replicas stay disabled. Earlier calibration descriptions
 retain their original source/evidence boundaries; this accepted entry is current.
+
+
+## Current stopped lifecycle acceptance — 2026-10-11
+
+The operational `signal_server::shared_retirement::StoppedLifecycle` adapter is
+writer-reviewed at`750b004`. The host supplies its configured original WAL path,
+exact scope/backend/catalog profile and separately enrolled maintenance principal.
+It retains the physical WAL worker before cancellable opening and does not expose
+admission or a mutable control client. Foreign/lossy WAL, unacknowledged events or
+retained draft/prepared recovery withhold lifecycle authority. Catalog checkpoint
+must equal the existing WAL checkpoint/tail; no ACK, recovery deletion or migration
+is synthesized. This path does not prove custody of a copied WAL or external data.
+
+Maintenance credential inspection permits only acquire, renew, catalog snapshot
+and object control. USAGE on both control and finding-scope namespaces permits
+exact RPC inspection; it grants no scoped publication execution. Owner/inherited,
+DDL/DML/table/column/PUBLIC/helper/grant-option authority remains forbidden. The
+producer's five-RPC allowlist is unchanged. Every operation retains its original
+finite context and complete DB fence. Renewal is explicit, with no background
+maintenance lease. Both shutdown drains obey original cancellation/deadline and
+retain physical handles after an incomplete drain for explicit retry.
+
+The external policy owner registers applicable restore/replay/evidence holds and
+provides explicit release/retirement reasons. The adapter never infers custody,
+legal policy or source ACK. Retirement remains a permanent exact-version metadata
+tombstone; no provider DELETE, deletion ticket or history pruning is enabled.
+
+The matching serial campaign passes all10gates: formatting, both strict Clippy,
+919default/976all-feature tests,14workspace boundaries,36guards and all-feature
+prebuild followed by both process campaigns. Catalog4 passes181.75s/28commands;
+restored5 passes76.30s/28commands. Actual stopped Main WAL checkpoints2/3 stay
+unchanged; committed versions, each explicit hold kind, release/replay, tombstones,
+restricted permissions and stale fencing are checked. Five real-WAL regressions
+cover live-lock rejection, pending event/recovery preservation, foreign/cancelled
+startup and cancelled shutdown followed by physical drain/reopen. All owned
+containers are removed without cleanup errors. Diagnostic failures remain retained.
+Acceptance: `target/stopped-retirement-20261011/ACCEPTANCE.json`.
+
+This supersedes the earlier next-step reference to operational retirement.
+Independent full-item review still keeps SHARED-RUNTIME in_progress. Local AMD64,
+synthetic current-policy/custody and loopback provider/private effects do not close
+native ARM64, actual EKS/AWS, current containers/CI, released-dependency or release
+publication gates. No release version is selected.
