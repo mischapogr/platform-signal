@@ -36,6 +36,16 @@ jobs:
           persist-credentials: false
       - name: Pinned Rust toolchain
         run: python3 scripts/run-ci-check.py --name toolchain --timeout 60 -- rustup show active-toolchain
+      - name: Restore public Cargo downloads
+        id: cargo-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-
       - name: Formatting
         run: python3 scripts/run-ci-check.py --name fmt --timeout 120 -- cargo fmt --check
       - name: OSS image release policy regressions
@@ -44,6 +54,15 @@ jobs:
         run: python3 scripts/run-ci-check.py --name clippy --timeout 1800 -- cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
       - name: Build sibling executables
         run: python3 scripts/run-ci-check.py --name build --timeout 1200 -- cargo build --workspace --all-features --locked
+      - name: Save public Cargo downloads
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' && steps.cargo-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
       - name: Tests
         run: python3 scripts/run-ci-check.py --name tests --timeout 1200 -- cargo test --workspace --all-features --locked
       - name: Established IdP harness failure regressions
@@ -125,7 +144,7 @@ jobs:
           name: rust-${{ matrix.arch }}
           path: |
             target/ci/
-          retention-days: 7
+          retention-days: 1
           if-no-files-found: error
 
   native:
@@ -174,7 +193,7 @@ jobs:
         with:
           name: candidate-${{ github.sha }}-${{ matrix.arch }}
           path: target/ci-candidate/
-          retention-days: 7
+          retention-days: 1
           if-no-files-found: error
       - name: Preserve checks and failure diagnostics
         if: always()
@@ -188,7 +207,7 @@ jobs:
             target/ci-candidate/candidate.json
             target/ci-candidate/packaging.log
             target/ci-candidate/cleanup.log
-          retention-days: 7
+          retention-days: 1
           if-no-files-found: error
 
   tooling:

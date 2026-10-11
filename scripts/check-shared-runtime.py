@@ -12,6 +12,11 @@ import time
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
+FIXTURE_SECONDS = 240
+
+
+def elapsed_within_fixture_budget(elapsed):
+    return type(elapsed) in (int, float) and 0 <= elapsed <= FIXTURE_SECONDS
 
 # One charged Docker command; each connection probe and the retry count are finite.
 # This owned-container loop cannot consume the four cleanup command slots.
@@ -152,7 +157,7 @@ def main():
     began = time.monotonic()
     # Expanded control/restore and server crash matrices need separate harness
     # headroom. This never extends any production operation context or SQL timeout.
-    deadline = began+240
+    deadline = began+FIXTURE_SECONDS
     name = 'signal-shared-runtime-'+uuid.uuid4().hex
     password = 'synthetic-control-'+uuid.uuid4().hex
     image = None
@@ -419,7 +424,7 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
                 report['status']='failed'
         report['elapsed_seconds']=time.monotonic()-began
         report['commands']=count
-        if report['elapsed_seconds']>180:
+        if not elapsed_within_fixture_budget(report['elapsed_seconds']):
             report['status']='failed'
         (out/'report.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps({key:value for key,value in report.items() if key!='source_hashes'}))
