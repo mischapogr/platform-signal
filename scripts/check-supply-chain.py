@@ -45,9 +45,11 @@ def install(name, directory):
     if not archive.exists() or digest(archive) != expected:
         temporary = archive.with_suffix('.download')
         url = f'https://github.com/{repo}/releases/download/{tag}/{asset}'
-        # A finite deadline and 128 MiB bound cover tool release downloads.
+        # Curl retries transient HTTP failures; the existing whole-process
+        # deadline and byte limit still bound the complete download campaign.
         subprocess.run(['curl', '--fail', '--location', '--silent', '--show-error',
                         '--connect-timeout', '20', '--max-time', '180',
+                        '--retry', '2', '--retry-delay', '1', '--retry-max-time', '180',
                         '--max-filesize', str(128 * 1024 * 1024),
                         '--output', str(temporary), url], check=True, timeout=190)
         if digest(temporary) != expected:
