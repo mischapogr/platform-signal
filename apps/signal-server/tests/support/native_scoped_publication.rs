@@ -231,8 +231,36 @@ pub(super) async fn qualify(
         let denied = timeout(Duration::from_secs(2), db.query("SELECT * FROM signal_finding_scope.facts", &[])).await?;
         assert_eq!(denied.err().and_then(|e| e.code().cloned()), Some(tokio_postgres::error::SqlState::INSUFFICIENT_PRIVILEGE));
         timeout(Duration::from_secs(2), db.batch_execute("RESET ROLE")).await??;
-        let inspector=signal_control::FindingScopeAdministrator::new(super::settings(f)?,"signal_control_owner".into(),signal_control::FindingScopeProfile::Catalog4Scoped)?;
-        let pin=inspector.inspect(producer.scope.clone(),producer.scope_generation,context()?).await?;
+        let binding=signal_control::ScopedFindingsBinding {store:producer.scope.store_id,generation:producer.scope.generation,scope_generation:producer.scope_generation,schema_owner:"signal_control_owner".into()};
+        let connection=|user:&str| signal_control::ConnectionSettings::fixture_loopback("127.0.0.1".parse().map_err(|_|ControlError::Invalid)?,f.port,super::DB.into(),user.into(),f.password.as_bytes().to_vec());
+        let execute_only=signal_control::ControlClient::catalog(connection("signal_runtime")?)?;
+        assert!(matches!(execute_only.inspect_existing_finding_scope(producer.scope.clone(),binding.clone(),context()?).await,Err(ControlError::Fenced)));
+        execute_only.shutdown(context()?).await?;
+        let owner_reader=signal_control::ControlClient::catalog(super::settings(f)?)?;
+        assert!(matches!(owner_reader.inspect_existing_finding_scope(producer.scope.clone(),binding.clone(),context()?).await,Err(ControlError::Fenced)));
+        owner_reader.shutdown(context()?).await?;
+        timeout(Duration::from_secs(2),db.batch_execute("CREATE ROLE signal_bootstrap_reader LOGIN; GRANT USAGE ON SCHEMA signal_control,signal_finding_scope TO signal_bootstrap_reader; GRANT SELECT ON signal_control.store,signal_control.migrations,signal_control.findings,signal_control.partitions,signal_finding_scope.activation,signal_finding_scope.profile,signal_finding_scope.producers,signal_finding_scope.facts,signal_finding_scope.requests TO signal_bootstrap_reader")).await??;
+        timeout(Duration::from_secs(2),db.execute("SELECT set_config('signal_fixture.password',$1,false)",&[&f.password])).await??;
+        timeout(Duration::from_secs(2),db.batch_execute("DO $$ BEGIN EXECUTE format('ALTER ROLE signal_bootstrap_reader PASSWORD %L',current_setting('signal_fixture.password')); END $$")).await??;
+        let inspector=signal_control::ControlClient::catalog(connection("signal_bootstrap_reader")?)?;
+        for kind in 0..3 {
+            let mut wrong=producer.scope.clone();
+            match kind {0=>wrong.tenant="foreign".into(),1=>wrong.stream=Uuid::new_v4(),_=>wrong.partition_id=Uuid::new_v4()};
+            assert!(matches!(inspector.inspect_existing_finding_scope(wrong,binding.clone(),context()?).await,Err(ControlError::Fenced)));
+        }
+        let mut stale=binding.clone();stale.scope_generation=Uuid::new_v4();
+        assert!(matches!(inspector.inspect_existing_finding_scope(producer.scope.clone(),stale,context()?).await,Err(ControlError::Fenced)));
+        timeout(Duration::from_secs(2),db.batch_execute("GRANT UPDATE ON signal_finding_scope.producers TO signal_bootstrap_reader")).await??;
+        assert!(matches!(inspector.inspect_existing_finding_scope(producer.scope.clone(),binding.clone(),context()?).await,Err(ControlError::Fenced)));
+        timeout(Duration::from_secs(2),db.batch_execute("REVOKE UPDATE ON signal_finding_scope.producers FROM signal_bootstrap_reader")).await??;
+        timeout(Duration::from_secs(2),db.batch_execute("GRANT EXECUTE ON FUNCTION signal_finding_scope.publish(jsonb,bytea,bytea,boolean,bytea,bytea,text,text) TO signal_bootstrap_reader")).await??;
+        assert!(matches!(inspector.inspect_existing_finding_scope(producer.scope.clone(),binding.clone(),context()?).await,Err(ControlError::Fenced)));
+        timeout(Duration::from_secs(2),db.batch_execute("REVOKE EXECUTE ON FUNCTION signal_finding_scope.publish(jsonb,bytea,bytea,boolean,bytea,bytea,text,text) FROM signal_bootstrap_reader")).await??;
+        let cancelled=context()?;
+        let lost=inspector.inspect_existing_finding_scope(producer.scope.clone(),binding.clone(),cancelled.clone()).await?;
+        cancelled.cancel();assert!(matches!(lost.binding(),Err(ControlError::Cancelled)));
+        let pin=inspector.inspect_existing_finding_scope(producer.scope.clone(),binding.clone(),context()?).await?;
+        println!("phase: read-only-original-enrollment-bootstrap-no-owner-or-mutation-qualified");
         assert_eq!(pin.binding()?.producer.as_ref().ok_or("producer missing")?.wal_floor,1);
         assert_eq!(pin.binding()?.checkpoint,Some(2));
         assert_eq!(reopened.snapshot().last_sequence,2);
@@ -250,7 +278,7 @@ pub(super) async fn qualify(
         let new_rows=reopened.read_batch(1,65536).await?;
         assert_eq!(new_rows.len(),1);assert_eq!(new_rows[0].sequence,3);assert_eq!(new_rows[0].event.id,Uuid::from_u128(803));
         assert_eq!(reopened.snapshot().checkpoint,2);
-        let held=inspector.inspect(producer.scope.clone(),producer.scope_generation,context()?).await?;
+        let held=inspector.inspect_existing_finding_scope(producer.scope.clone(),binding.clone(),context()?).await?;
         assert!(matches!(signal_server::shared_admission::SharedAdmission::new(reopened.clone(),held),Err(ControlError::Fenced)));
         inspector.shutdown(context()?).await?;
         println!("phase: fully-reconciled-native-WAL-restart-future-only-admission-qualified");

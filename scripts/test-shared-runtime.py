@@ -201,6 +201,7 @@ class ServerOutputGuards(unittest.TestCase):
                    'phase: actual-native-http-scoped-publication-legacy-unknown-original-request-resume-qualified',
                'phase: actual-native-TLS-shared-scoped-read-paired-before-limit-history-integrity-qualified',
                    'phase: actual-native-shared-scoped-http-TLS-paired-before-limit-unknown-history-durable-audit-qualified',
+               'phase: read-only-original-enrollment-bootstrap-no-owner-or-mutation-qualified',
                'phase: fully-reconciled-native-WAL-restart-future-only-admission-qualified']
         tests = ['test finding_api::shared_http_tests::authorized_shared_feed_http_provider_audit ... ok',
                  'test native_owner_provider_http_wal_admission ... ok',

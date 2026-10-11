@@ -129,6 +129,18 @@ contains acceptance, review, handoff, PostgreSQL and final validation reports.
 See [runtime contract](48-shared-control-runtime.md) and
 [shared-control contract](47-shared-control-contract.md).
 
+## Read-only Standard bootstrap prerequisite — 2026-10-11
+
+The original owner-enrolled producer can now be inspected using separately
+configured read-only credentials. The worker checks exact current schema/scope
+state and rejects owner membership, mutation privileges and shared-function
+EXECUTE. The native restart fixture preserves original enrollment, fresh-only
+admission and cancellation without owner role switching. Evidence:
+`target/shared-main-bootstrap-20261011T101500+0200/`; acceptance requires its matching passed
+source-bound final campaign. This is a startup prerequisite; complete Standard
+Main/READY, recovery/restore/private-consumer integration and release qualification
+remain open. See [runtime contract](48-shared-control-runtime.md).
+
 ## Next runnable work
 
 Continue SHARED-RUNTIME with complete Standard Main startup and private-consumer

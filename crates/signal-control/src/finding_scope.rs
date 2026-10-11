@@ -460,7 +460,7 @@ pub(crate) async fn read_binding(
     binding: &crate::ScopedFindingsBinding,
     profile: FindingScopeProfile,
     context: &ControlContext,
-) -> Result<(), ControlError> {
+) -> Result<FindingScopeBinding, ControlError> {
     context.check()?;
     let owner = &binding.schema_owner;
     let owners = db.query("SELECT pg_get_userbyid(nspowner)::text FROM pg_namespace WHERE nspname IN ('signal_control','signal_finding_scope') ORDER BY nspname LIMIT 3", &[]).await.map_err(db_error)?;
@@ -507,7 +507,7 @@ pub(crate) async fn read_binding(
     if floor > position {
         return Err(ControlError::Corrupt);
     }
-    prefix(
+    let cursor = prefix(
         db,
         binding.store,
         floor,
@@ -532,8 +532,68 @@ pub(crate) async fn read_binding(
     limits.validate().map_err(|_| ControlError::Corrupt)?;
     counters(db, binding.scope_generation, limits, profile).await?;
     context.check()?;
-    Ok(())
+    Ok(FindingScopeBinding {
+        store: binding.store,
+        store_generation: binding.generation,
+        scope_generation: binding.scope_generation,
+        prefix: cursor,
+        limits,
+        producer: None,
+        checkpoint: None,
+    })
 }
+/// Inspect only an existing owner-created binding with independent read-only
+/// credentials. No SET ROLE, enrollment, activation or mutable startup repair.
+pub(crate) async fn read_existing(
+    db: &Client,
+    scope: &Scope,
+    binding: &crate::ScopedFindingsBinding,
+    context: &ControlContext,
+    routines: [u8; 32],
+) -> Result<FindingScopeBinding, ControlError> {
+    context.check()?;
+    db.batch_execute("SET LOCAL search_path=pg_catalog,signal_control,pg_temp")
+        .await
+        .map_err(db_error)?;
+    crate::scoped_read::privileges(db).await?;
+    let readonly = db.query_one("SELECT NOT pg_has_role(session_user,$1::name,'MEMBER') AND NOT has_schema_privilege(session_user,'signal_control','CREATE') AND NOT has_schema_privilege(session_user,'signal_finding_scope','CREATE') AND NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('signal_control','signal_finding_scope') AND has_function_privilege(session_user,p.oid,'EXECUTE')) AND NOT EXISTS(SELECT 1 FROM unnest(ARRAY['signal_control.store','signal_control.migrations','signal_control.findings','signal_control.partitions','signal_finding_scope.activation','signal_finding_scope.profile','signal_finding_scope.producers','signal_finding_scope.facts','signal_finding_scope.requests']) name WHERE has_table_privilege(session_user,name,'INSERT') OR has_table_privilege(session_user,name,'UPDATE') OR has_table_privilege(session_user,name,'DELETE') OR has_table_privilege(session_user,name,'TRUNCATE') OR has_table_privilege(session_user,name,'TRIGGER') OR has_table_privilege(session_user,name,'REFERENCES'))", &[&binding.schema_owner]).await.map_err(db_error)?;
+    if !field::<bool>(&readonly, 0)? {
+        return Err(ControlError::Fenced);
+    }
+    let profile = if routines == crate::catalog_schema_identity().1 {
+        FindingScopeProfile::Catalog4Scoped
+    } else if routines == crate::restored_catalog_schema_identity().1 {
+        FindingScopeProfile::RestoredCatalog5Scoped
+    } else {
+        return Err(ControlError::Invalid);
+    };
+    let mut result = read_binding(db, binding, profile, context).await?;
+    let row = db.query_opt("SELECT p.tenant,p.stream,p.kind,p.checkpoint,s.scope_generation,s.stream,s.startup_id,s.wal_floor FROM signal_control.partitions p JOIN signal_finding_scope.producers s ON s.partition_id=p.id WHERE p.id=$1", &[&scope.partition_id]).await.map_err(db_error)?.ok_or(ControlError::Fenced)?;
+    if field::<String>(&row, 0)? != scope.tenant
+        || field::<Uuid>(&row, 1)? != scope.stream
+        || field::<String>(&row, 2)? != "pipeline"
+        || field::<Uuid>(&row, 4)? != binding.scope_generation
+        || field::<Uuid>(&row, 5)? != scope.stream
+    {
+        return Err(ControlError::Fenced);
+    }
+    let startup: Uuid = field(&row, 6)?;
+    if startup.is_nil() {
+        return Err(ControlError::Corrupt);
+    }
+    let wal_floor = u64::try_from(field::<i64>(&row, 7)?).map_err(|_| ControlError::Corrupt)?;
+    result.producer = Some(ProducerEnrollment {
+        scope: scope.clone(),
+        scope_generation: binding.scope_generation,
+        startup,
+        wal_floor,
+    });
+    result.checkpoint =
+        Some(u64::try_from(field::<i64>(&row, 3)?).map_err(|_| ControlError::Corrupt)?);
+    context.check()?;
+    Ok(result)
+}
+
 pub(crate) async fn run(
     db: &Client,
     owner: &str,

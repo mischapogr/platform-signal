@@ -19,6 +19,24 @@ pub struct ScopedFindingsBinding {
     pub scope_generation: Uuid,
     pub schema_owner: String,
 }
+impl ScopedFindingsBinding {
+    pub(crate) fn validate(&self) -> Result<(), ControlError> {
+        if self.store.is_nil()
+            || self.generation.is_nil()
+            || self.scope_generation.is_nil()
+            || self.schema_owner.is_empty()
+            || self.schema_owner.len() > 63
+            || self.schema_owner.capacity() > 63
+            || !self
+                .schema_owner
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        {
+            return Err(ControlError::Invalid);
+        }
+        Ok(())
+    }
+}
 pub(crate) struct ScopedRead {
     pub binding: ScopedFindingsBinding,
     pub query: FindingQuery,
@@ -44,18 +62,8 @@ impl ScopedRead {
         if self.stopping.is_cancelled() {
             return Err(ControlError::Cancelled);
         }
-        let b = &self.binding;
-        if b.store.is_nil()
-            || b.generation.is_nil()
-            || b.scope_generation.is_nil()
-            || b.schema_owner.is_empty()
-            || b.schema_owner.len() > 63
-            || b.schema_owner.capacity() > 63
-            || !b
-                .schema_owner
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || b == b'_')
-            || !(1..=ITEMS).contains(&self.query.limit)
+        self.binding.validate()?;
+        if !(1..=ITEMS).contains(&self.query.limit)
             || self
                 .query
                 .from
@@ -126,7 +134,7 @@ fn selectors(grant: &RequestGrant) -> Result<String, ControlError> {
     serde_json::to_writer(&mut writer, &scopes).map_err(|_| ControlError::Full)?;
     String::from_utf8(writer.0.into_boxed_slice().into_vec()).map_err(|_| ControlError::Invalid)
 }
-async fn privileges(db: &Client) -> Result<(), ControlError> {
+pub(crate) async fn privileges(db: &Client) -> Result<(), ControlError> {
     let row = db.query_one("SELECT has_schema_privilege(session_user,'signal_control','USAGE') AND has_schema_privilege(session_user,'signal_finding_scope','USAGE') AND NOT EXISTS(SELECT 1 FROM unnest(ARRAY['signal_control.store','signal_control.migrations','signal_control.findings','signal_control.partitions','signal_finding_scope.activation','signal_finding_scope.profile','signal_finding_scope.producers','signal_finding_scope.facts','signal_finding_scope.requests']) name WHERE NOT has_table_privilege(session_user,name,'SELECT'))",&[]).await.map_err(crate::client::database_error)?;
     if row
         .try_get::<_, bool>(0)
@@ -353,6 +361,64 @@ mod tests {
         };
         context.cancel();
         assert!(matches!(list.findings(), Err(ControlError::Cancelled)));
+        Ok(())
+    }
+    #[tokio::test]
+    async fn existing_bootstrap_rejects_bad_binding_and_cancel_before_network() -> Result {
+        let settings = crate::ConnectionSettings::fixture_loopback(
+            "127.0.0.1".parse()?,
+            9,
+            "fixture".into(),
+            "reader".into(),
+            b"synthetic".to_vec(),
+        )?;
+        let client = crate::ControlClient::catalog(settings)?;
+        let binding = read(grant("read_findings")?)?.binding;
+        let scope = crate::Scope {
+            schema_version: 1,
+            store_id: binding.store,
+            generation: binding.generation,
+            tenant: "tenant".into(),
+            stream: Uuid::new_v4(),
+            partition_id: Uuid::new_v4(),
+        };
+        let mut wrong = binding.clone();
+        wrong.store = Uuid::new_v4();
+        assert!(matches!(
+            client
+                .inspect_existing_finding_scope(
+                    scope.clone(),
+                    wrong,
+                    ControlContext::new(Duration::from_secs(1))?
+                )
+                .await,
+            Err(ControlError::Fenced)
+        ));
+        let mut wrong = binding.clone();
+        wrong.schema_owner = "unsafe\nrole".into();
+        assert!(matches!(
+            client
+                .inspect_existing_finding_scope(
+                    scope.clone(),
+                    wrong,
+                    ControlContext::new(Duration::from_secs(1))?
+                )
+                .await,
+            Err(ControlError::Invalid)
+        ));
+        let cancelled = ControlContext::new(Duration::from_secs(1))?;
+        cancelled.cancel();
+        assert!(matches!(
+            client
+                .inspect_existing_finding_scope(scope, binding, cancelled)
+                .await,
+            Err(ControlError::Cancelled)
+        ));
+        assert_eq!(client.metrics().queue_depth, 0);
+        assert_eq!(client.metrics().active, 0);
+        client
+            .shutdown(ControlContext::new(Duration::from_secs(1))?)
+            .await?;
         Ok(())
     }
     #[test]

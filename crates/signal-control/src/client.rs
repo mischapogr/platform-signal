@@ -65,6 +65,10 @@ enum Reply {
     Object(ObjectControlResult),
 }
 enum Operation {
+    ExistingFindingScope {
+        scope: Scope,
+        binding: crate::ScopedFindingsBinding,
+    },
     FindingScope {
         owner: String,
         profile: crate::FindingScopeProfile,
@@ -247,6 +251,7 @@ impl ControlClient {
                             | Operation::Catalog { .. }
                             | Operation::Feed { .. }
                             | Operation::ScopedList { .. }
+                            | Operation::ExistingFindingScope { .. }
                     ) && completion.rollback_confirmed
                         && matches!(&completion.result, Err(ControlError::Retryable))
                         && rounds < 3
@@ -544,6 +549,32 @@ impl ControlClient {
             Reply::ScopedList(list) => {
                 list.findings()?;
                 Ok(list)
+            }
+            _ => Err(ControlError::Corrupt),
+        }
+    }
+    /// Fresh inspection of an existing owner-enrolled producer, using separately
+    /// configured read-only credentials. Never activates or enrolls a producer.
+    /// The pin is current configuration evidence, not credentials for old rows.
+    pub async fn inspect_existing_finding_scope(
+        &self,
+        scope: Scope,
+        binding: crate::ScopedFindingsBinding,
+        context: ControlContext,
+    ) -> Result<crate::FindingScopePin, ControlError> {
+        scope.validate()?;
+        binding.validate()?;
+        if scope.store_id != binding.store || scope.generation != binding.generation {
+            return Err(ControlError::Fenced);
+        }
+        context.check()?;
+        let original = context.clone();
+        match self
+            .submit(Operation::ExistingFindingScope { scope, binding }, context)
+            .await?
+        {
+            Reply::FindingScope(binding) => {
+                crate::FindingScopePin::new(binding, original, self.inner.stop.child_token())
             }
             _ => Err(ControlError::Corrupt),
         }
@@ -914,6 +945,7 @@ async fn execute(
             | Operation::Catalog { .. }
             | Operation::Feed { .. }
             | Operation::ScopedList { .. }
+            | Operation::ExistingFindingScope { .. }
     ) {
         ControlContext {
             deadline: transaction_deadline,
@@ -941,6 +973,7 @@ async fn execute(
             | Operation::Catalog { .. }
             | Operation::Feed { .. }
             | Operation::ScopedList { .. }
+            | Operation::ExistingFindingScope { .. }
     ) {
         transaction_deadline
     } else {
@@ -964,10 +997,13 @@ async fn execute(
                         | Operation::Catalog { .. }
                         | Operation::Feed { .. }
                         | Operation::ScopedList { .. }
+                        | Operation::ExistingFindingScope { .. }
                 ) {
                     if matches!(
                         operation,
-                        Operation::Feed { .. } | Operation::ScopedList { .. }
+                        Operation::Feed { .. }
+                            | Operation::ScopedList { .. }
+                            | Operation::ExistingFindingScope { .. }
                     ) {
                         "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY"
                     } else {
@@ -988,6 +1024,17 @@ async fn execute(
             Reply::FindingScope(
                 crate::finding_scope::run(&connection.client, owner, *profile, action, context)
                     .await?,
+            )
+        } else if let Operation::ExistingFindingScope { scope, binding } = operation {
+            Reply::FindingScope(
+                crate::finding_scope::read_existing(
+                    &connection.client,
+                    scope,
+                    binding,
+                    context,
+                    routines_identity,
+                )
+                .await?,
             )
         } else if let Operation::Feed { read } = operation {
             Reply::Feed(
@@ -1027,6 +1074,7 @@ async fn execute(
                     Operation::Administration { .. }
                     | Operation::Restore { .. }
                     | Operation::Feed { .. } | Operation::ScopedList { .. }
+                        | Operation::ExistingFindingScope { .. }
                     | Operation::FindingScope { .. } => {
                         return Err(ControlError::Corrupt);
                     }
@@ -1133,6 +1181,7 @@ async fn execute(
             match operation {
                 Operation::Feed { .. }
                 | Operation::ScopedList { .. }
+                | Operation::ExistingFindingScope { .. }
                 | Operation::FindingScope { .. } => {
                     return Err(ControlError::Corrupt);
                 }
