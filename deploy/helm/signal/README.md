@@ -147,6 +147,13 @@ original WAL, coverage and versioned fixture objects on the PVC, verifies both
 server SIGKILL and serial pod replacement, and deletes its owned cluster and
 database container. Synthetic services qualify the local profile only.
 
+Native CI retains one `standard-kind-<architecture>` executable bundle, with
+qualified original hashes and current source/revision/ELF bindings. After download,
+the verifier checks every executable before restoring permissions. The gate then
+uses `--standard-server` and `--standard-offline-fixture` to run those compiled
+fixtures directly. Rust/native artifacts retain diagnostics and hashes without
+duplicating the executable snapshots; bundle retention is one day.
+
 ## Native authenticated probes
 
 Set `tls.existingSecret` to a separately created Secret containing `server.json`

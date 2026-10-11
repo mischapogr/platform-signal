@@ -338,6 +338,8 @@ def main():
     parser.add_argument('--standard', action='store_true', help='actual Standard executable with owned TLS and persistent S3 protocol fixture')
     parser.add_argument('--standard-only', action='store_true', help='focused Standard process calibration; excludes library and crash matrices')
     parser.add_argument('--standard-kubernetes-image', help='qualify this local image in an owned Standard kind cluster; requires --standard-only')
+    parser.add_argument('--standard-server', type=Path, default=ROOT/'target/debug/signal-server', help='prebuilt Standard executable')
+    parser.add_argument('--standard-offline-fixture', type=Path, help='prebuilt exact Standard enrollment test executable; skips runtime Cargo')
     parser.add_argument('--standard-audit-only',action='store_true',help='focused actual Standard independent audit receiver lifecycle; excludes pipeline/library/crash matrices')
     parser.add_argument('--standard-private-only',action='store_true',help='actual Standard feed/private outbox and notification qualification; excludes restore/full matrices')
     parser.add_argument('--standard-restore-only',action='store_true',help='fresh scoped destination and actual restored Standard/private progress; excludes full matrices')
@@ -358,6 +360,8 @@ def main():
         if args.matrix or args.server:
             parser.error('--standard-only cannot claim the library/server crash matrices')
         args.standard=True
+    if args.standard_offline_fixture and not args.standard:
+        parser.error('--standard-offline-fixture requires a Standard profile')
     out = args.output.resolve()
     out.mkdir(mode=0o700, parents=True, exist_ok=False)
     spec = importlib.util.spec_from_file_location('shared_runtime_command', ROOT/'scripts/check-native-qualification.py')
@@ -402,7 +406,10 @@ def main():
             # normal target/debug binary. Preserve the prebuilt Standard image
             # before running them, without charging compilation to runtime gates.
             standard_binary=out/'standard-server'
-            report['standard_binary_sha256']=capture_standard_binary(ROOT/'target/debug/signal-server',standard_binary)
+            report['standard_binary_sha256']=capture_standard_binary(args.standard_server,standard_binary)
+            if args.standard_offline_fixture:
+                offline_binary=out/'standard-offline-fixture'
+                report['standard_offline_binary_sha256']=capture_standard_binary(args.standard_offline_fixture,offline_binary)
         inspected = json.loads(run(['docker','image','inspect',args.image]))[0]
         image = inspected['Id']
         if inspected['Os']!='linux' or inspected['Architecture'] not in ('amd64','arm64'):
@@ -495,6 +502,8 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
         config.chmod(0o600)
         env={key:os.environ[key] for key in ('PATH','HOME','RUSTUP_HOME','CARGO_HOME','CARGO_TARGET_DIR','LANG','LC_ALL','TMPDIR') if key in os.environ}
         env['SIGNAL_CONTROL_FIXTURE']=str(config)
+        if args.standard_offline_fixture:
+            env['SIGNAL_STANDARD_OFFLINE_FIXTURE']=str(offline_binary)
         if args.standard_private_only or args.standard_restore_only:
             report['private_source_hashes']=private_source_hashes(args.private_checkout)
             env['SIGNAL_STANDARD_PRIVATE_CHECKOUT']=str(args.private_checkout.resolve(strict=True))

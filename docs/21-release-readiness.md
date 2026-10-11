@@ -65,7 +65,7 @@ older report's documentation identities without rewriting accepted reports.
 | Native ARM64 | Full architecture-specific runtime/pipeline/container/Kubernetes/benchmark evidence; partial passing Rust CI is insufficient |
 | Current container/kind/supply chain | Fresh matching reviewed source/config/image; prior current-kind attempts hit PVC/host-resource exhaustion |
 | Actual EKS/AWS | Authorized environment, namespace, storage and persistent restart evidence; none is available currently; local kind cannot close this gate |
-| Reviewed-revision remote CI | All required jobs and retained matching artifacts for the newly reviewed/pushed source;8f14fb0 failed the ARM64 helper, corrected at71e45a9 |
+| Reviewed-revision remote CI | Reviewed metrics revision b9c58da run38237870960 succeeds; native976-test/Standard process and Small container/kind/supply-chain artifacts verified. New direct-fixture/bundle/Standard cluster workflow is locally accepted but needs exact pushed-revision remote results |
 | Released external dependency | Private application against the actual released version and locked dependency graph |
 | Release review/version/publication | Applicable trust/security/restore/package/SBOM review, owner-selected version and explicit release authority |
 

@@ -84,6 +84,19 @@ their later local acceptance is recorded below. EKS/release gates remain open.
 
 ## Actual local Standard Kubernetes accepted — 2026-10-12
 
+Native CI now prepares one source/revision/architecture-bound executable bundle
+per architecture and reuses it for the Standard cluster gate. Direct compiled
+enrollment retains exact Rust test/phase assertions and avoids runtime Cargo.
+Current frozen local process/kind campaigns pass181.93s/170.05s, bundle guards,
+workflow lint and14workspace boundaries. A fresh build reproduces the exact
+qualified image ID. Evidence: `target/standard-kind-ci-20261012/ACCEPTANCE.json`.
+The new native workflow still requires its own successful remote evidence.
+
+Reviewed metrics revision`b9c58da` run38237870960 passes both native976-test jobs
+and five Standard process scenarios each. Primary ZIP digests, native ELF/bytes,
+Small container/kind/soak and supply-chain reports are verified under
+`target/native-ci-monitor-20261012/VERIFIED-METRICS-*`; no Standard cluster claim.
+
 The current S3-enabled image is qualified in an exclusively owned kind cluster
 with native TLS/probes, identity-backed admission and PostgreSQL TLS. Runtime and
 TLS documents mount as regular read-only Secret files. Explicit offline enrollment
