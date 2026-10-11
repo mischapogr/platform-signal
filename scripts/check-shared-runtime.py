@@ -38,6 +38,7 @@ def qualify_standard_report(report, binary_sha256):
     if not isinstance(report,dict):
         raise ValueError('actual Standard executable report shape')
     expected=['actual_Standard_native_TLS_ingest_versioned_S3_query_scoped_findings_global_feed_graceful_shutdown',
+              'actual_Standard_stopped_original_WAL_explicit_holds_exact_retirement_stale_fence',
               'actual_Standard_stopped_restart_original_enrollment_and_current_query',
               'actual_Standard_SIGKILL_saved_original_request_manifest_once_checkpoint3',
               'actual_Standard_unprepared_native_WAL_restart_held_original_row_checkpoint3']
@@ -65,7 +66,7 @@ def qualify_standard_report(report, binary_sha256):
             or type(report.get('provider_calls')) is not int or not 1<=report['provider_calls']<=64):
         raise ValueError('actual Standard executable report bindings incomplete')
     scenarios=report.get('scenarios')
-    if not isinstance(scenarios,list) or len(scenarios)!=4 or any(not isinstance(row,dict) for row in scenarios):
+    if not isinstance(scenarios,list) or len(scenarios)!=5 or any(not isinstance(row,dict) for row in scenarios):
         raise ValueError('actual Standard executable scenarios incomplete')
     if [row.get('name') for row in scenarios]!=expected or any(row.get('status')!='passed_simulated' for row in scenarios):
         raise ValueError('actual Standard executable scenarios missing or duplicated')
@@ -77,7 +78,7 @@ def qualify_standard_report(report, binary_sha256):
             raise ValueError('actual Standard executable event identities')
     if len(set(identifiers))!=2:
         raise ValueError('actual Standard executable duplicate event identities')
-    crash=scenarios[2]
+    crash=scenarios[3]
     for field,report_field in [('event_id','original_crash_event_id'),('request_id','original_crash_request_id')]:
         value=crash.get(field)
         if (not isinstance(value,str) or not re.fullmatch('[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',value)
@@ -85,7 +86,7 @@ def qualify_standard_report(report, binary_sha256):
             raise ValueError('actual Standard original crash operation binding')
     if crash['event_id'] in identifiers:
         raise ValueError('actual Standard crash must admit a new distinct event')
-    pending=scenarios[3].get('event_id')
+    pending=scenarios[4].get('event_id')
     if (not isinstance(pending,str) or not re.fullmatch('[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',pending)
             or uuid.UUID(pending).int==0 or report.get('pending_native_event_id')!=pending
             or pending in identifiers+[crash['event_id']]):
@@ -152,6 +153,7 @@ def qualify_standard_restore_report(report,binary_sha256):
     qualify_standard_private_report(adapted,binary_sha256)
     receipt=report.get('restore_receipt')
     if (report.get('scoped_restore_generation_qualified') is not True or report.get('restored_native_publication_qualified') is not True
+            or report.get('restored_retirement_qualified') is not True
             or report.get('old_generation_Main_fenced') is not True or report.get('original_source_checkpoint_unchanged') is not True
             or not isinstance(receipt,dict) or receipt.get('schema_version')!=1
             or any(receipt.get(key) is not True for key in ('ready','scope_original_bytes_preserved','consumer_current_reconciled','scoped_ddl_error_rollback','scoped_ddl_cancel_rollback','scoped_lost_commit_resolved','scoped_consumer_resume_refused'))):
@@ -587,6 +589,7 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
                 qualify_standard_restore_report(standard_report,report['standard_binary_sha256'])
                 if private_source_hashes(args.private_checkout)!=report['private_source_hashes']:raise RuntimeError('private consumer source changed during restore qualification')
                 report['checks'].append('actual_fresh_scoped_restore_current_custody_private_cursor_generation_fencing_restored_native_publication')
+                report['checks'].append('actual_restored_Standard_stopped_WAL_restricted_maintenance_holds_retirement_stale_fence')
                 report['scope']=standard_report['scope']
             elif args.standard_private_only:
                 qualify_standard_private_report(standard_report,report['standard_binary_sha256'])
@@ -599,6 +602,7 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
             else:
                 qualify_standard_report(standard_report,report['standard_binary_sha256'])
                 report['checks'].append('actual_Standard_executable_native_TLS_ingest_persistent_versioned_S3_protocol_query_scoped_findings_global_feed_stopped_restart')
+                report['checks'].append('actual_Standard_stopped_WAL_restricted_maintenance_holds_retirement_stale_fence')
             if args.standard_audit_only:report['scope']='Focused actual Standard startup with actual independent audit receiver, owned PostgreSQL TLS and persistent loopback S3 simulation; excludes pipeline/library/crash matrices, DAC, AWS, ARM64 and release qualification'
             report['standard_process_scope']=standard_report['scope']
         if args.matrix:
