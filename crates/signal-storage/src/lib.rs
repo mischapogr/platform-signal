@@ -152,7 +152,7 @@ impl std::str::FromStr for StorageCompression {
         }
     }
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct StorageConfig {
     pub directory: PathBuf,
     pub max_batch_events: usize,

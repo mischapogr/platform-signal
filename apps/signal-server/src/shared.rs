@@ -171,8 +171,8 @@ pub struct SharedPublisher {
     control: Arc<ControlClient>,
     scope: Scope,
     backend: Uuid,
-    io: ObjectIo,
-    codec: ObjectCodec,
+    io: Arc<ObjectIo>,
+    codec: Arc<ObjectCodec>,
     limits: ManifestLimits,
     seats: Arc<Semaphore>,
     binding: Arc<()>,
@@ -305,7 +305,38 @@ impl SharedPublisher {
         if backend.is_nil() || io.small_owner_binding().is_some() {
             return Err(ControlError::Invalid.into());
         }
-        let codec = ObjectCodec::new(storage, limits)?;
+        let codec = Arc::new(ObjectCodec::new(storage.clone(), limits)?);
+        Self::with_workers(
+            control,
+            scope,
+            backend,
+            Arc::new(io),
+            codec,
+            storage,
+            limits,
+        )
+    }
+    /// Compose host-retained workers. The host keeps clones until construction
+    /// succeeds or its original cleanup budget has explicitly drained them.
+    pub fn with_workers(
+        control: Arc<ControlClient>,
+        scope: Scope,
+        backend: Uuid,
+        io: Arc<ObjectIo>,
+        codec: Arc<ObjectCodec>,
+        storage: StorageConfig,
+        limits: ManifestLimits,
+    ) -> Result<Self, SharedError> {
+        scope.validate()?;
+        limits.validate().map_err(|_| ControlError::Invalid)?;
+        if backend.is_nil()
+            || io.small_owner_binding().is_some()
+            || !codec.matches_configuration(&storage, limits)
+            || io.metrics().closed
+            || codec.metrics().closed
+        {
+            return Err(ControlError::Invalid.into());
+        }
         Ok(Self {
             control,
             scope,

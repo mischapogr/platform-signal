@@ -228,6 +228,38 @@ struct Command {
     permit: Option<Arc<OwnedSemaphorePermit>>,
 }
 
+/// Readiness wait separated from the host-owned physical store. The original
+/// launch context bounds disk opening; dropping this wait cancels that context.
+pub struct CoverageReady {
+    answer: oneshot::Receiver<Result<(), Error>>,
+    abort: AbortGuard,
+}
+impl CoverageReady {
+    pub async fn wait(mut self) -> Result<(), Error> {
+        let startup = &self.abort.ctx;
+        startup.check()?;
+        let result = tokio::select! { biased;
+            _=startup.context.cancellation.cancelled()=>Err(if startup.abort() {Error::OutcomeUnknown} else {Error::Cancelled}),
+            value=timeout_at(startup.context.deadline,&mut self.answer)=>match value {
+                Ok(Ok(v))=>v,Ok(Err(_))=>Err(Error::Unavailable),Err(_)=>{
+                    increment(&self.abort.shared.timeouts);
+                    Err(if startup.abort() {Error::OutcomeUnknown} else {Error::Timeout})
+                }
+            },
+        };
+        result?;
+        startup.check()?;
+        self.abort.armed = false;
+        Ok(())
+    }
+}
+impl Drop for CoverageReady {
+    fn drop(&mut self) {
+        if self.abort.armed {
+            self.abort.shared.stopped.store(true, Ordering::Release);
+        }
+    }
+}
 /// Single worker and private root owner. No service or observers.
 pub struct CoverageStore {
     sender: mpsc::Sender<Command>,
@@ -247,10 +279,29 @@ impl CoverageStore {
     pub async fn open(config: CoverageConfig) -> Result<Self, Error> {
         Self::launch(config, None).await
     }
+    /// Retain the worker before awaiting recovery of an existing initialized root.
+    /// The host awaits readiness before serving requests and drains the returned
+    /// store on failed or cancelled opening using its original cleanup deadline.
+    pub fn begin_open(
+        config: CoverageConfig,
+        context: OperationContext,
+    ) -> Result<(Self, CoverageReady), Error> {
+        Self::begin_launch(config, None, context)
+    }
     async fn launch(
         config: CoverageConfig,
         initial: Option<(Uuid, Timestamp)>,
     ) -> Result<Self, Error> {
+        let context = OperationContext::new(config.operation_timeout);
+        let (store, ready) = Self::begin_launch(config, initial, context)?;
+        ready.wait().await?;
+        Ok(store)
+    }
+    fn begin_launch(
+        config: CoverageConfig,
+        initial: Option<(Uuid, Timestamp)>,
+        context: OperationContext,
+    ) -> Result<(Self, CoverageReady), Error> {
         config.validate()?;
         let shared = Arc::new(Shared {
             stopped: AtomicBool::new(false),
@@ -271,11 +322,9 @@ impl CoverageStore {
             identities_pruned: AtomicU64::new(0),
             identity_metadata_bytes_pruned: AtomicU64::new(0),
         });
-        let startup = WorkContext::new(
-            OperationContext::new(config.operation_timeout),
-            config.operation_timeout,
-        );
-        let mut abort = AbortGuard {
+        let startup = WorkContext::new(context, config.operation_timeout);
+        startup.check()?;
+        let abort = AbortGuard {
             ctx: startup.clone(),
             shared: shared.clone(),
             armed: true,
@@ -435,28 +484,15 @@ impl CoverageStore {
                     worker_shared.fail();
                 }
             })?;
-        let result = tokio::select! {
-            value=timeout_at(startup.context.deadline,answer)=>match value {
-                Ok(Ok(v))=>v,Ok(Err(_))=>Err(Error::Unavailable),Err(_)=>{
-                    increment(&shared.timeouts);
-                    Err(if startup.abort() {Error::OutcomeUnknown} else {Error::Timeout})
-                }
-            },
-            _=startup.context.cancellation.cancelled()=>Err(if startup.abort() {Error::OutcomeUnknown} else {Error::Cancelled}),
-        };
-        if let Err(error) = result {
-            shared.stopped.store(true, Ordering::Release);
-            // Dropping sender/ready receiver wakes idle work; active work owns the root until settled.
-            return Err(error);
-        }
-        abort.armed = false;
-        Ok(Self {
+        let ready = CoverageReady { answer, abort };
+        let store = Self {
             sender,
             shared,
             permits: Arc::new(Semaphore::new(config.operation_capacity)),
             config,
             worker: Mutex::new(Some(worker)),
-        })
+        };
+        Ok((store, ready))
     }
     /// Low-level trusted append. The caller owns authorization, age and retention policy.
     pub async fn append(
@@ -736,20 +772,20 @@ impl CoverageStore {
         m
     }
     fn stop(&self) {
-        if !self.shared.stopped.swap(true, Ordering::AcqRel) {
-            let ctx = WorkContext::new(
-                OperationContext::new(self.config.operation_timeout),
-                self.config.operation_timeout,
-            );
-            // The additional channel slot is reserved for this control wake.
-            let (reply, _) = oneshot::channel();
-            let _ = self.sender.try_send(Command {
-                operation: Operation::Wake,
-                ctx,
-                reply,
-                permit: None,
-            });
-        }
+        self.shared.stopped.store(true, Ordering::Release);
+        let ctx = WorkContext::new(
+            OperationContext::new(self.config.operation_timeout),
+            self.config.operation_timeout,
+        );
+        // Readiness cancellation can mark stopped before a wake is sent.
+        // Always attempt the reserved wake; repeats and exited workers are safe.
+        let (reply, _) = oneshot::channel();
+        let _ = self.sender.try_send(Command {
+            operation: Operation::Wake,
+            ctx,
+            reply,
+            permit: None,
+        });
     }
     pub async fn shutdown(&self, context: OperationContext) -> Result<(), Error> {
         self.stop();
@@ -793,6 +829,55 @@ mod tests {
     }
     fn context() -> OperationContext {
         OperationContext::new(Duration::from_secs(10))
+    }
+    #[tokio::test]
+    async fn cancelled_opening_retains_join_and_releases_existing_coverage_root() -> TestResult {
+        let t = tempfile::tempdir()?;
+        let config = cfg(t.path().join("coverage"), 1);
+        let initialized = CoverageStore::initialize(
+            config.clone(),
+            Uuid::new_v4(),
+            clock("2026-10-11T00:00:00Z")?,
+        )
+        .await?;
+        initialized.shutdown(context()).await?;
+        let (store, ready) = CoverageStore::begin_open(config.clone(), context())?;
+        drop(ready);
+        let shutdown = store.shutdown(context()).await;
+        assert!(shutdown.is_ok() || matches!(shutdown, Err(Error::Unavailable)));
+        assert!(
+            store
+                .worker
+                .lock()
+                .map_err(|_| Error::Unavailable)?
+                .is_none()
+        );
+        let reopened = CoverageStore::open(config).await?;
+        reopened.shutdown(context()).await?;
+        Ok(())
+    }
+    #[tokio::test]
+    async fn failed_or_precancelled_opening_does_not_lose_physical_store_ownership() -> TestResult {
+        let t = tempfile::tempdir()?;
+        let config = cfg(t.path().join("missing"), 1);
+        let cancelled = context();
+        cancelled.cancellation.cancel();
+        assert!(matches!(
+            CoverageStore::begin_open(config.clone(), cancelled),
+            Err(Error::Cancelled)
+        ));
+        assert!(!config.directory.exists());
+        let (store, ready) = CoverageStore::begin_open(config, context())?;
+        assert!(ready.wait().await.is_err());
+        let _ = store.shutdown(context()).await;
+        assert!(
+            store
+                .worker
+                .lock()
+                .map_err(|_| Error::Unavailable)?
+                .is_none()
+        );
+        Ok(())
     }
     #[tokio::test]
     async fn active_timeout_retains_slot_and_root_until_worker_settles() -> TestResult {
@@ -1428,15 +1513,28 @@ mod tests {
     async fn ready_reply_authorization_expiry_denies_without_disclosing_original_receipt()
     -> TestResult {
         let t = tempfile::tempdir()?;
-        let store = CoverageStore::initialize(
-            cfg(t.path().join("coverage"), 2),
-            Uuid::new_v4(),
-            clock("2026-10-07T00:05:29Z")?,
-        )
-        .await?;
+        let store = Arc::new(
+            CoverageStore::initialize(
+                cfg(t.path().join("coverage"), 2),
+                Uuid::new_v4(),
+                clock("2026-10-07T00:05:29Z")?,
+            )
+            .await?,
+        );
         let f = fixture()?;
         let p = prepared(&f["chains"][0]["commits"][0], &f)?;
         let receipt = store.append(p.clone(), context()).await?;
+        // Keep the physical worker occupied until the caller has submitted.
+        // An otherwise idle worker can publish its reply during the first poll.
+        let (started, wait) = oneshot::channel();
+        let (release, blocked) = std::sync::mpsc::sync_channel(1);
+        let owner = store.clone();
+        let hold = tokio::spawn(async move {
+            owner
+                .request(Operation::Pause(started, blocked, false), context())
+                .await
+        });
+        wait.await?;
         let now = u64::try_from(chrono::Utc::now().timestamp())?;
         let authority = crate::intake_tests::authority(&p)?.with_lease(now, now + 2)?;
         let deadline = authority.lease_deadline().ok_or("lease deadline")?;
@@ -1445,6 +1543,8 @@ mod tests {
             std::future::poll_fn(|cx| std::task::Poll::Ready(pending.as_mut().poll(cx).is_ready()))
                 .await;
         assert!(!completed);
+        release.send(())?;
+        hold.await??;
         // A FIFO unleased read settles only after the earlier authorized read
         // published its successful reply. The caller remains deliberately unpolled.
         assert_eq!(

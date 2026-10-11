@@ -162,6 +162,11 @@ pub struct ObjectCodec {
     limits: ManifestLimits,
 }
 impl ObjectCodec {
+    /// Check a retained worker's immutable bounds before composing a host.
+    pub fn matches_configuration(&self, config: &StorageConfig, limits: ManifestLimits) -> bool {
+        self.config == *config && self.limits == limits
+    }
+
     pub fn new(config: StorageConfig, limits: ManifestLimits) -> Result<Self, StorageError> {
         config.validate()?;
         limits

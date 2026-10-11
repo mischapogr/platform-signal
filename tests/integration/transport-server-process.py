@@ -30,7 +30,7 @@ HELP = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(HELP)
 
 
-def absolute_request(context, port, path, token, timeout=1, method='GET', body=None):
+def absolute_request(context, port, path, token, timeout=1, method='GET', body=None, extra_headers=None):
     """One absolute Linux main-thread budget includes handshake/headers/body."""
     def expired(_kind, _frame):
         raise TimeoutError('transport fixture request deadline')
@@ -39,6 +39,7 @@ def absolute_request(context, port, path, token, timeout=1, method='GET', body=N
     connection = http.client.HTTPSConnection('127.0.0.1', port, timeout=timeout, context=context)
     try:
         headers = {'Content-Type': 'application/json'}
+        if extra_headers is not None:headers.update(extra_headers)
         if token is not None:
             headers['Authorization'] = 'Bearer ' + token
         connection.request(method, path, body=body, headers=headers)

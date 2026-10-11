@@ -74,10 +74,21 @@ pub(crate) enum Action {
         scope: Scope,
         generation: Uuid,
     },
+    /// Read-only complete scope validation inside a restore transaction.
+    Validate {
+        scope: AdministrativeScope,
+        generation: Uuid,
+    },
 }
 impl Action {
     pub(crate) fn validate(&self) -> Result<(), ControlError> {
         match self {
+            Self::Validate { scope, generation } => {
+                scope.validate()?;
+                if generation.is_nil() {
+                    return Err(ControlError::Invalid);
+                }
+            }
             Self::Activate {
                 scope,
                 generation,
@@ -109,14 +120,18 @@ impl Action {
     }
     fn store(&self) -> (Uuid, Uuid) {
         match self {
-            Self::Activate { scope, .. } => (scope.store_id, scope.generation),
+            Self::Activate { scope, .. } | Self::Validate { scope, .. } => {
+                (scope.store_id, scope.generation)
+            }
             Self::Enroll(i) => (i.scope.store_id, i.scope.generation),
             Self::Inspect { scope, .. } => (scope.store_id, scope.generation),
         }
     }
     fn generation(&self) -> Uuid {
         match self {
-            Self::Activate { generation, .. } | Self::Inspect { generation, .. } => *generation,
+            Self::Activate { generation, .. }
+            | Self::Inspect { generation, .. }
+            | Self::Validate { generation, .. } => *generation,
             Self::Enroll(i) => i.scope_generation,
         }
     }
@@ -594,6 +609,46 @@ pub(crate) async fn read_existing(
     Ok(result)
 }
 
+/// Validates existing supplemental authority without initialization or enrollment.
+/// Core and scope tables must already be locked by the restore owner.
+pub(crate) async fn inspect_restore(
+    db: &Client,
+    owner: &str,
+    scope: AdministrativeScope,
+    restored: bool,
+    context: &ControlContext,
+) -> Result<(), ControlError> {
+    context.check()?;
+    let rows = db
+        .query(
+            "SELECT scope_generation FROM signal_finding_scope.activation WHERE singleton LIMIT 2",
+            &[],
+        )
+        .await
+        .map_err(db_error)?;
+    if rows.len() != 1 {
+        return Err(ControlError::Corrupt);
+    }
+    let action = Action::Validate {
+        scope,
+        generation: field(&rows[0], 0)?,
+    };
+    action.validate()?;
+    run(
+        db,
+        owner,
+        if restored {
+            FindingScopeProfile::RestoredCatalog5Scoped
+        } else {
+            FindingScopeProfile::Catalog4Scoped
+        },
+        &action,
+        context,
+    )
+    .await?;
+    context.check()
+}
+
 pub(crate) async fn run(
     db: &Client,
     owner: &str,
@@ -621,7 +676,9 @@ pub(crate) async fn run(
     {
         return Err(ControlError::Corrupt);
     }
-    if !matches!(action, Action::Inspect { .. }) && field::<bool>(&head, 3)? {
+    if !matches!(action, Action::Inspect { .. } | Action::Validate { .. })
+        && field::<bool>(&head, 3)?
+    {
         return Err(ControlError::Fenced);
     }
     let position = field::<i64>(&head, 6)?;

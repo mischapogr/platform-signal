@@ -53,7 +53,10 @@ def http(url,method='GET',body=None):
         return response.status,result
 
 class Run:
-    def __init__(self,out,binary):
+    def __init__(self,out,binary,child_capacity=2,log_capacity=16):
+        if type(child_capacity) is not int or not 1<=child_capacity<=4 or type(log_capacity) is not int or not 1<=log_capacity<=32:
+            raise ValueError('owned fixture process/log capacity')
+        self.child_capacity,self.log_capacity=child_capacity,log_capacity
         self.out,self.binary=out,binary
         self.fixture_id=str(uuid.uuid4());self.fixture_root=out/'fixture';self.fixture_root.mkdir()
         self.server_root=out/'server';self.server_root.mkdir();self.server_port=port();self.url=f'http://127.0.0.1:{self.server_port}'
@@ -72,7 +75,7 @@ class Run:
             time.sleep(.02)
         raise RuntimeError('bounded simulation deadline')
     def spawn(self,command,env,label):
-        if len(self.owned)>=2 or len(self.logs)>=16:raise RuntimeError('owned process/log capacity')
+        if len(self.owned)>=self.child_capacity or len(self.logs)>=self.log_capacity:raise RuntimeError('owned process/log capacity')
         path=self.out/(label+'.log');self.logs.append(path)
         # Popen construction and registry insertion form one ownership milestone.
         # Deferral avoids inheriting a blocked signal mask into the owned child.

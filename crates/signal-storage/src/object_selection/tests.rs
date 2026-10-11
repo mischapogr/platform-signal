@@ -467,3 +467,54 @@ async fn derived_disk_quota_holds_whole_selection_and_stopped_reopen_reuses_only
     reader.shutdown(context()).await?;
     Ok(())
 }
+
+#[tokio::test]
+async fn failed_retained_selection_keeps_physical_children_for_host_cleanup() -> Result {
+    let root = TempDir::new()?;
+    let cache = TempDir::new()?;
+    let cfg = config(&cache);
+    let io = Arc::new(ObjectIo::local(
+        LocalFileSystem::new_with_prefix(root.path())?,
+        ObjectIoLimits::default(),
+    )?);
+    let codec = Arc::new(ObjectCodec::new(cfg.storage.clone(), cfg.manifests)?);
+    let mut invalid = cfg.clone();
+    invalid.cache.max_files = 0;
+    assert!(
+        ObjectSelection::with_workers(
+            io.clone(),
+            codec.clone(),
+            tokio::runtime::Handle::current(),
+            invalid
+        )
+        .is_err()
+    );
+    let mut mismatched = cfg.clone();
+    mismatched.storage.max_files += 1;
+    assert!(matches!(
+        ObjectSelection::with_workers(
+            io.clone(),
+            codec.clone(),
+            tokio::runtime::Handle::current(),
+            mismatched
+        ),
+        Err(StorageError::Config("selection retained worker binding"))
+    ));
+    assert!(!io.metrics().closed);
+    assert!(!codec.metrics().closed);
+    assert_eq!(Arc::strong_count(&io), 1);
+    assert_eq!(Arc::strong_count(&codec), 1);
+    let selection = ObjectSelection::with_workers(
+        io.clone(),
+        codec.clone(),
+        tokio::runtime::Handle::current(),
+        cfg,
+    )?;
+    selection.shutdown(context()).await?;
+    // Child handles remain usable for explicit idempotent host shutdown.
+    codec.shutdown(context()).await?;
+    io.shutdown(context()).await?;
+    assert!(codec.metrics().closed);
+    assert!(io.metrics().closed);
+    Ok(())
+}

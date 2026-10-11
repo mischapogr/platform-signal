@@ -31,6 +31,7 @@ pub fn restored_catalog_schema_identity() -> ([u8; 32], [u8; 32]) {
 pub(crate) enum RestoreProfile {
     Legacy,
     Catalog,
+    CatalogScoped,
 }
 impl RestoreProfile {
     fn source_revision(self) -> u32 {
@@ -71,7 +72,7 @@ impl RestoreProfile {
         crate::administration::TABLES
             .iter()
             .copied()
-            .chain((self == Self::Catalog).then_some("catalog_snapshots"))
+            .chain((self != Self::Legacy).then_some("catalog_snapshots"))
             .chain(["migrations"])
     }
 }
@@ -148,6 +149,28 @@ impl PostgresStoppedRestore {
             RestoreProfile::Catalog,
         )
     }
+    /// Explicit catalog4 source with fully populated frozen007/008 scope history.
+    /// The independently authorized barrier rebinds only its store generation;
+    /// scope generation, producer enrollment, original claims and facts survive.
+    pub fn scoped_catalog(
+        settings: ConnectionSettings,
+        schema_owner: String,
+        source_scope: AdministrativeScope,
+        destination: RestoreDestination,
+        objects: Vec<RestoreObject>,
+        consumers: Arc<dyn RestoreConsumers>,
+    ) -> Result<Self, ControlError> {
+        Self::with_profile(
+            settings,
+            schema_owner,
+            source_scope,
+            destination,
+            objects,
+            consumers,
+            RestoreProfile::CatalogScoped,
+        )
+    }
+
     fn with_profile(
         settings: ConnectionSettings,
         schema_owner: String,
@@ -426,7 +449,7 @@ async fn verify_history(
         ("002-functions.sql", crate::legacy_identity()),
         ("003-administration.sql", crate::schema_identity().1),
     ];
-    if profile == RestoreProfile::Catalog {
+    if profile != RestoreProfile::Legacy {
         artifacts.push(("005-catalog.sql", crate::catalog_schema_identity().1));
     }
     if restored {
@@ -481,7 +504,26 @@ async fn lock(db: &Client, owner: &str, profile: RestoreProfile) -> Result<(), C
                 .join(",")
         ),
     )
-    .await
+    .await?;
+    let exists = field::<bool>(
+        &db.query_one(
+            "SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname='signal_finding_scope')",
+            &[],
+        )
+        .await
+        .map_err(crate::client::database_error)?,
+        0,
+    )?;
+    if profile == RestoreProfile::CatalogScoped {
+        if !exists {
+            return Err(ControlError::Corrupt);
+        }
+        batch(db,"LOCK TABLE signal_finding_scope.profile,signal_finding_scope.activation,signal_finding_scope.producers,signal_finding_scope.facts,signal_finding_scope.requests IN ACCESS EXCLUSIVE MODE NOWAIT").await?;
+    } else if exists {
+        // A core-only inventory cannot authorize unaccounted supplemental history.
+        return Err(ControlError::Corrupt);
+    }
+    Ok(())
 }
 fn hash_json<T: Serialize>(value: &T) -> Result<[u8; 32], ControlError> {
     Ok(Sha256::digest(serde_json::to_vec(value).map_err(|_| ControlError::Corrupt)?).into())
@@ -504,6 +546,7 @@ async fn inventory(
     db: &Client,
     owner: &str,
     plan: &RestorePlan,
+    context: &ControlContext,
 ) -> Result<RestoreInventory, ControlError> {
     crate::administration::inspect_profile(db, owner, plan.profile.source_revision() as u8).await?;
     let head=db.query_one("SELECT store_id,generation,revision,ready,schema_sha256,routines_sha256,feed_position,feed_digest,max_rows,max_bytes FROM signal_control.store WHERE singleton LIMIT 2",&[]).await.map_err(crate::client::database_error)?;
@@ -523,11 +566,15 @@ async fn inventory(
         return Err(ControlError::Corrupt);
     }
     verify_history(db, plan.profile, false).await?;
+    if plan.profile == RestoreProfile::CatalogScoped {
+        crate::finding_scope::inspect_restore(db, owner, plan.scope.clone(), false, context)
+            .await?;
+    }
     let busy=db.query_one("SELECT EXISTS(SELECT 1 FROM signal_control.partitions WHERE owner IS NOT NULL OR lease_until IS NOT NULL)",&[]).await.map_err(crate::client::database_error)?;
     if field::<bool>(&busy, 0)? {
         return Err(ControlError::Fenced);
     }
-    if plan.profile == RestoreProfile::Catalog {
+    if plan.profile != RestoreProfile::Legacy {
         crate::administration::validate_catalog_state(db).await?;
     } else {
         batch(db, crate::administration::VALIDATE_SOURCE).await?;
@@ -683,6 +730,20 @@ async fn data_hash(db: &Client, profile: RestoreProfile) -> Result<[u8; 32], Con
     for table in profile.tables().filter(|t| *t != "store") {
         values.push((table, table_hash(db, table).await?));
     }
+    if profile == RestoreProfile::CatalogScoped {
+        for table in ["profile", "activation", "producers", "facts", "requests"] {
+            let sql = format!(
+                "SELECT sha256(convert_to(coalesce(jsonb_agg(h ORDER BY h),'[]'::jsonb)::text,'UTF8')) FROM (SELECT encode(sha256(convert_to(to_jsonb(t)::text,'UTF8')),'hex') AS h FROM signal_finding_scope.{table} t) s"
+            );
+            let digest: Vec<u8> = field(
+                &db.query_one(&sql, &[])
+                    .await
+                    .map_err(crate::client::database_error)?,
+                0,
+            )?;
+            values.push((table, digest.try_into().map_err(|_| ControlError::Corrupt)?));
+        }
+    }
     hash_json(&values)
 }
 fn check_destination(
@@ -701,6 +762,7 @@ async fn retained_receipt(
     db: &Client,
     owner: &str,
     plan: &RestorePlan,
+    context: &ControlContext,
 ) -> Result<RestoreReceipt, ControlError> {
     if plan.profile == RestoreProfile::Legacy {
         crate::administration::inspect_restored_catalog(db, owner).await?;
@@ -717,6 +779,20 @@ async fn retained_receipt(
         return Err(ControlError::Corrupt);
     }
     let generation: Uuid = field(&row, 1)?;
+    if plan.profile == RestoreProfile::CatalogScoped {
+        crate::finding_scope::inspect_restore(
+            db,
+            owner,
+            AdministrativeScope {
+                schema_version: 1,
+                store_id: plan.scope.store_id,
+                generation,
+            },
+            true,
+            context,
+        )
+        .await?;
+    }
     if field::<Uuid>(&row, 0)? != plan.destination.id
         || field::<Vec<u8>>(&row, 11)? != plan.destination.credential_binding_sha256
         || generation != field::<Uuid>(&row, 12)?
@@ -767,14 +843,14 @@ pub(crate) async fn run(
 ) -> Result<Row, ControlError> {
     lock(db, owner, plan.profile).await?;
     let reply = match action {
-        RestoreAction::Stage => RestoreReply::Inventory(inventory(db, owner, plan).await?),
+        RestoreAction::Stage => RestoreReply::Inventory(inventory(db, owner, plan, context).await?),
         RestoreAction::Resolve => {
-            RestoreReply::Receipt(retained_receipt(db, owner, plan).await?.into())
+            RestoreReply::Receipt(retained_receipt(db, owner, plan, context).await?.into())
         }
         RestoreAction::Barrier(permit) => {
             permit.check()?;
             check_destination(plan, permit.decision())?;
-            let actual = inventory(db, owner, plan).await?;
+            let actual = inventory(db, owner, plan, context).await?;
             if actual != *permit.inventory()
                 || actual.digest()? != permit.decision().challenge.inventory_sha256
                 || actual.checkpoint_sha256 != permit.decision().challenge.checkpoint_sha256
@@ -812,16 +888,22 @@ pub(crate) async fn run(
             .await
             .map_err(crate::client::database_error)?;
             db.execute("UPDATE signal_control.store SET generation=$1,revision=$4,routines_sha256=$2 WHERE singleton AND NOT ready AND schema_sha256=$3",&[&challenge.new_generation,&routines.as_slice(),&base.as_slice(),&(plan.profile.destination_revision() as i32)]).await.map_err(crate::client::database_error)?;
+            if plan.profile == RestoreProfile::CatalogScoped {
+                let changed=db.execute("UPDATE signal_finding_scope.activation SET store_generation=$1 WHERE singleton AND store_id=$2 AND store_generation=$3",&[&challenge.new_generation,&plan.scope.store_id,&actual.old_generation]).await.map_err(crate::client::database_error)?;
+                if changed != 1 {
+                    return Err(ControlError::Corrupt);
+                }
+            }
             let post = data_hash(db, plan.profile).await?;
             db.execute("UPDATE signal_control.restore_record SET post_checkpoint_sha256=$1 WHERE singleton",&[&post.as_slice()]).await.map_err(crate::client::database_error)?;
             batch(db,"UPDATE signal_control.restore_record r SET seal=signal_control.restore_record_seal(r)").await?;
             permit.check()?;
             check_destination(plan, decision)?;
             context.check()?;
-            RestoreReply::Receipt(retained_receipt(db, owner, plan).await?.into())
+            RestoreReply::Receipt(retained_receipt(db, owner, plan, context).await?.into())
         }
         RestoreAction::Reconcile(expected, cursors) => {
-            let actual = retained_receipt(db, owner, plan).await?;
+            let actual = retained_receipt(db, owner, plan, context).await?;
             if actual != expected.clone().into() || actual.ready {
                 return Err(ControlError::Fenced);
             }
@@ -851,7 +933,7 @@ pub(crate) async fn run(
         RestoreAction::Enable(permit) => {
             permit.check()?;
             check_destination(plan, permit.decision())?;
-            let mut actual = retained_receipt(db, owner, plan).await?;
+            let mut actual = retained_receipt(db, owner, plan, context).await?;
             if actual != *permit.receipt() || actual.ready {
                 return Err(ControlError::Fenced);
             }

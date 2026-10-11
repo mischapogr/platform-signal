@@ -1355,3 +1355,74 @@ Evidence: `target/shared-main-bootstrap-20261011T101500+0200/`; acceptance requi
 passed source-bound final campaign and writer review. Frozen SQL001–008 remain
 unchanged. Complete Standard Main composition, recovery/restore/private consumers
 and independent or external release gates remain open.
+
+## Populated finding-scope restore profile — implementation in progress, 2026-10-11
+
+`PostgresStoppedRestore::scoped_catalog` explicitly selects a catalog4 checkpoint
+with the existing frozen007/008 scope schema. Core-only restore profiles reject
+a supplemental namespace instead of authorizing an incomplete inventory. The
+scoped profile takes the same original bounded owner transaction, locks all five
+scope tables, checks their compiled schema/function identities, original feed
+prefix, enrollment, claims hashes and exact quota counters, and includes all
+scope rows in checkpoint and post-checkpoint hashes. No initialization or
+reenrollment occurs during validation.
+
+The independently permitted catalog4-to5 generation transaction rebinds only
+`activation.store_generation`. It preserves the stable scope generation used in
+historical finding payloads, original producer startup/WAL floors, facts and
+request bytes. Every runtime scope still requires the new store generation;
+retained scope metadata cannot independently grant current authority. Reconcile,
+resolution and readiness revalidate the scoped restored profile and post-checkpoint
+hash under the existing restore locks and original deadline. Frozen SQL001–008
+and the version1 inventory serialization remain unchanged.
+
+The current actual Standard/private fixture retains stage-only evidence at
+`target/standard-main-20261011T104031+0200/standard-scoped-restore-stage-1/`
+(45.23s/28commands). Populated core-only stage fails, scoped stage succeeds,
+corrupted scope counters fail, and repair reproduces the original inventory.
+Actual private outbox/retry/restart continues to pass.58control unit tests,
+34launcher guards and strict all-target/all-feature control/server Clippy pass.
+
+Fresh destination and restored Main qualification now passes at
+`target/standard-main-20261011T104031+0200/standard-fresh-restore-6/report.json`
+(45.67s/28commands). The destination uses compiled DDL and imports data only;
+current loopback custody rereads exact versions and checks byte counts/hashes.
+Missing approval/custody leaves the generation unchanged. Missing actual private
+cursor reconciliation holds the committed generation unready; explicit current
+reconciliation resumes it. All original scope rows remain identical except
+`activation.store_generation`. Owner inspection and actual Main startup with the
+old generation are fenced; startup resources explicitly drain.
+
+The stopped WAL copy retains original stream/checkpoint bytes. Restored Main
+queries both original events; the actual external private outbox resumes its
+cursor/status without historical redelivery. A new native event persists a third
+finding/fact and advances destination DB/WAL checkpoint3, preserving floor0 and
+notification cursor2. The original stopped source remains checkpoint2. All156
+public and57private source hashes remain unchanged and owned cleanup succeeds.
+35launcher guards, focused strict control/server Clippy and private formatting/
+strict Clippy pass. This is local AMD64 PostgreSQL/TLS/S3-protocol simulation,
+not AWS IAM, fresh production credentials or an operational recovery attestation.
+
+The refreshed scoped failure campaign at
+`target/standard-main-20261011T104031+0200/standard-fresh-restore-7/report.json`
+passes in48.67s/28commands. A real DDL failure and cancellation during observed
+DDL each roll back to the identical source inventory, including original scope
+rows; no restore record survives. A deferred fixture pause lets the observer
+cancel only after PostgreSQL reports actual COMMIT. The caller returns Uncertain;
+read-only resolution finds the committed generation held unready. Refused consumer
+reconciliation leaves that exact receipt unchanged; current reconciliation resumes
+it. The same restored Main/query/private/new-publication checks then pass. These
+hooks are local to the owned database and removed before runtime startup.
+
+Operational retirement, source-bound review and frozen final acceptance remain
+required. Prior pipeline/audit reports remain historical until current source
+campaigns pass; no full-item, AWS, native ARM64 or release claim follows.
+
+The combined library/server/Standard qualification reserves a finite420s outer
+fixture budget: the existing240s matrix allowance plus the existing180s Standard
+process allowance. Focused campaigns retain240s; every SQL/control/startup/object
+operation retains its original limit. The first combined campaign exhausted its
+outer allowance after passing the library/crash/server/HTTP checks; its stopped
+Standard run and successful owned container/volume cleanup remain diagnostic
+at `target/standard-main-20261011T104031+0200/final-postgres-standard/report.json`.
+This budget correction does not replace a matching passed full campaign.
