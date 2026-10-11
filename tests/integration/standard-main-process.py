@@ -40,6 +40,12 @@ class Run(BASE.Run):
     def __init__(self, out, binary, fixture):
         super().__init__(out, binary,child_capacity=3,log_capacity=24)
         self.control = fixture
+        direct = os.environ.get('SIGNAL_STANDARD_OFFLINE_FIXTURE')
+        self.direct_offline = Path(direct) if direct else None
+        if self.direct_offline is not None and (self.direct_offline.is_symlink()
+                or not self.direct_offline.is_file() or not os.access(self.direct_offline, os.X_OK)
+                or not 0 < self.direct_offline.stat().st_size <= 2 * 1024**3):
+            raise ValueError('prebuilt offline fixture must be a bounded executable regular file')
         self.provider_calls = 0
         self.pki = TRANSPORT.Run(binary, binary, out / 'pki')
         ca = self.pki.ca('standard')
@@ -57,9 +63,11 @@ class Run(BASE.Run):
         environment.update(SIGNAL_CONTROL_FIXTURE=str(self.control), SIGNAL_STANDARD_ROOT=str(self.out),
                            SIGNAL_STANDARD_BACKEND=self.fixture_id, SIGNAL_STANDARD_PHASE=phase)
         if getattr(self,'audit_mode',False):environment['SIGNAL_STANDARD_AUDIT']='true'
-        child = self.spawn(['cargo','test','--locked','--offline','-p','signal-server','--all-features',
-                            '--test','standard_main','standard_offline_fixture','--','--ignored','--exact','--nocapture'],
-                           environment, label)
+        command = ([str(self.direct_offline),'standard_offline_fixture','--ignored','--exact','--nocapture']
+                   if self.direct_offline is not None else
+                   ['cargo','test','--locked','--offline','-p','signal-server','--all-features',
+                    '--test','standard_main','standard_offline_fixture','--','--ignored','--exact','--nocapture'])
+        child = self.spawn(command, environment, label)
         try:
             child.wait(timeout=30)
             if child.returncode:
@@ -87,13 +95,19 @@ class Run(BASE.Run):
             'verify_unprepared_after':['phase: Standard-unprepared-native-restart-held-original-event-floor-checkpoints-unchanged-qualified'],
         }[phase]
         if phase=='prepare':
-            matches=re.findall(r'Running tests/standard_main\.rs \((target/debug/deps/standard_main-[0-9a-f]+)\)',output)
-            if len(matches)!=1:raise RuntimeError('owned offline test executable not uniquely bound')
-            self.offline_binary=(ROOT/matches[0]).resolve()
+            if self.direct_offline is not None:
+                self.offline_binary = self.direct_offline
+            else:
+                matches=re.findall(r'Running tests/standard_main\.rs \((target/debug/deps/standard_main-[0-9a-f]+)\)',output)
+                if len(matches)!=1:raise RuntimeError('owned offline test executable not uniquely bound')
+                self.offline_binary=(ROOT/matches[0]).resolve()
             if self.offline_binary.is_symlink() or not self.offline_binary.is_file() or not 0<self.offline_binary.stat().st_size<=2*1024**3:
                 raise RuntimeError('owned offline test executable shape')
         if any(output.splitlines().count(marker)!=1 for marker in markers):
             raise RuntimeError('offline Standard qualification marker missing or duplicated: '+phase)
+        summaries = [line for line in output.splitlines() if line.startswith('test result:')]
+        if len(summaries) != 1 or not summaries[0].startswith('test result: ok. 1 passed; 0 failed; 0 ignored;'):
+            raise RuntimeError('offline Standard exact test result missing: '+phase)
 
     def start_provider(self):
         fixture = BASE.read_json(self.control)
@@ -734,6 +748,10 @@ def main():
                                 startup_denials=['owner-capable-producer','direct-reader-as-producer'],
                                 binary_sha256=binary_digest(run.binary))
     finally:
-        run.cleanup_all();BASE.write_json(args.output/'report.json',report)
+        try:
+            if hasattr(run, 'offline_binary'):
+                report['offline_binary_sha256'] = binary_digest(run.offline_binary)
+        finally:
+            run.cleanup_all();BASE.write_json(args.output/'report.json',report)
     print('Standard executable process gate passed')
 if __name__=='__main__':main()

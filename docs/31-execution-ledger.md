@@ -12,7 +12,9 @@ passes141.13s with167source bindings, regular runtime/TLS Secret files, original
 WAL/checkpoint2/database facts and same-PVC SIGKILL/pod replacement recovery,
 plus owned cleanup: `target/standard-kubernetes-20261012/ACCEPTANCE.json`.
 KIND becomes passed_local:12 passed_local,10 passed_simulated,24 pending,
-6 external_pending. Native Standard cluster CI is next. Local provider/custody
+6 external_pending. Native Standard cluster CI wiring now passes local direct
+process/bundle/kind acceptance181.93s/170.05s; exact remote results are next:
+`target/standard-kind-ci-20261012/ACCEPTANCE.json`. Local provider/custody
 simulation does not close corrected native/current CI, AWS/EKS or release gates.
 Earlier entries below retain their original historical evidence boundaries.
 

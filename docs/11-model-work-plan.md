@@ -17,10 +17,12 @@ limits: `target/shared-runtime-refresh-20261012/INDEPENDENT-LOCAL-ACCEPTANCE.jso
 
 The actual owned local Kubernetes Standard profile now passes in141.13s,
 including regular runtime/TLS Secret files, original WAL/PVC recovery and cleanup:
-`target/standard-kubernetes-20261012/ACCEPTANCE.json`. Next, wire this bounded
-profile into native public GitHub qualification. Reuse each architecture's
-compiled offline enrollment fixture and tested production image; prebuild outside
-runtime deadlines and retain matching artifacts. Then follow ledger dependencies
+`target/standard-kubernetes-20261012/ACCEPTANCE.json`. Native CI wiring and checked
+compiled-fixture bundle reuse pass locally in181.93s/170.05s:
+`target/standard-kind-ci-20261012/ACCEPTANCE.json`. Next, observe the exact pushed
+workflow and verify both architectures' Standard cluster results and artifact
+source/image bindings. Prebuild stays outside runtime deadlines; executable bytes
+are retained once per architecture. Then follow ledger dependencies
 and the remaining custody/recovery gates. Preserve one replica/Recreate and explicit external configuration;
 no runtime bootstrap, inferred custody, private policy or remote DELETE.
 Corrected native/current image/CI, actual AWS/EKS, released dependencies and
