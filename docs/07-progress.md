@@ -143,6 +143,59 @@ remain open. See [runtime contract](48-shared-control-runtime.md).
 
 ## Next runnable work
 
+Standard executable composition is currently **in progress**, with an unaccepted
+implementation checkpoint at `target/standard-main-20261011T104031+0200/`.
+Focused executable tests and the Small process regression pass. The owned Standard
+executable process check now passes native TLS admission, empty and scoped catalog
+queries, scoped findings/global feed, graceful shutdown and original-enrollment
+restart. Verified PostgreSQL TLS checks reject owner, direct/column/PUBLIC grants,
+helper EXECUTE and indirect role membership; actual Main rejects owner-capable and
+reader producer credentials. Startup now polls termination signals during preparation,
+clamps control and bind operations to its original60second deadline, and retains
+opened resources outside the cancelled preparation future for explicit cleanup.
+Actual interrupted PostgreSQL negotiation and late occupied-listener failure drain
+resources; offline verification preserves committed facts/findings/DB-WAL checkpoints.
+Reader credentials validate before either control pool opens, remote workers are
+registered immediately, and cache settings validate before raw query I/O transfer.
+Actual invalid-cache startup explicitly drains the retained workers; offline rows
+and checkpoints remain unchanged. Evidence: that checkpoint's
+`standard-calibration-25/` (142.42s/28commands, four exact scenarios, preserved executable, source
+hashes and owned cleanup). Earlier interrupted/occupied-listener evidence remains retained.
+Host-retained I/O/codec handles now survive publisher/query constructor failures,
+and the WAL is registered before its cancellable readiness wait. Focused retained
+worker tests verify explicit join and WAL lock release. Coverage opening is also registered before its original-context readiness wait;
+113coverage library tests qualify cancellation/failure, explicit join and root
+reopen. Actual selected native coverage reads survive restart, restricted reads
+are denied, and a missing root is rejected without implicit initialization. Two
+direct helper regressions enforce the original overall preparation deadline.
+Actual SIGKILL after a saved scoped publication retains the original request;
+Main restart commits its exact manifest once and advances DB/WAL checkpoint3.
+A native-admitted but unprepared fourth row holds restart, preserving its original
+bytes, floor0 and checkpoint3 without new findings/facts. This is bounded local
+simulation, not final task acceptance. The separate actual independent audit
+receiver lifecycle passes under that checkpoint's `standard-audit-calibration-3/`
+(54.38s/28commands): two activation receipts precede readiness; required outage
+holds/drains startup; exact pending receipt replay precedes fresh activation
+receipts on restart. Receiver history/control survives Main shutdown and the
+original empty DB/WAL/floor remains unchanged. Authenticated coverage probes pass
+before/after restart. This is local process proof, without a DAC/AWS/ARM64 claim.
+Actual private-consumer integration also passes under `standard-private-calibration-2/`
+(44.26s/28commands): native mTLS global feed enters the separate private SQLite
+outbox with complete atomic cursor/plans and exact replay. Two notifications each
+retain the original payload/key across lost reply,429 and200. Standard/private
+restart preserves the original cursor and delivered status without redelivery;
+retained payload files match original feed findings and the private executable
+identity is unchanged. Both source inventories and owned cleanup are checked.
+This does not qualify populated restore or released dependencies. The explicit scoped restore profile now includes frozen007/008 tables in locked
+checkpoint validation; core-only restore rejects omitted supplemental history.
+Current-executable `standard-scoped-restore-stage-1/` passes in45.23s/28commands:
+populated inventory, scope-counter corruption rejection and identical inventory
+after repair, plus the existing private consumer checks. This is stage-only proof;
+fresh destination/current custody, atomic generation change and restored Main
+remain unqualified. Operational restore integration, focused review and final
+gates remain. Prior pipeline/audit source bindings need refresh at final acceptance.
+See that checkpoint's `NEXT.md`; do not treat the implementation as shared READY.
+
 Continue SHARED-RUNTIME with complete Standard Main startup and private-consumer
 integration using the accepted scoped HTTP/read components, populated scope restore
 under independently current authority and a fresh generation, and full crash/restore
@@ -311,3 +364,30 @@ Do not reread the complete historical logs for each task.
 - <a id="project-ai-tooling--2026-10-07"></a>[Project AI tooling — 2026-10-07](07-progress-history-20261010.md#project-ai-tooling--2026-10-07)
 
 </details>
+
+## Fresh scoped restore and restored Standard Main — 2026-10-11
+
+The local fresh-destination qualification passes in45.67s/28commands at
+`target/standard-main-20261011T104031+0200/standard-fresh-restore-6/report.json`.
+Compiled DDL, exact immutable object bytes, generation fencing and actual private
+cursor reconciliation preserve original scope/WAL/finding history. Old-generation
+Main is denied and drained; restored Main queries original events and persists a
+new event at checkpoint3 while the stopped source remains checkpoint2. The private
+outbox resumes without historical notification dispatch.156public/57private source
+hashes remain unchanged; owned cleanup succeeds.35launcher guards and focused
+strict public/private Clippy pass. See the [scope and remaining checks](48-shared-control-runtime.md#populated-finding-scope-restore-profile--implementation-in-progress-2026-10-11).
+Scoped rollback/uncertain-COMMIT, operational retirement, review/full final gates
+and independent/external acceptance remain open; no full ledger item closes.
+
+## Scoped restore rollback and uncertain-commit resolution — 2026-10-11
+
+The refreshed [scoped restore campaign](48-shared-control-runtime.md#populated-finding-scope-restore-profile--implementation-in-progress-2026-10-11)
+passes in48.67s/28commands at
+`target/standard-main-20261011T104031+0200/standard-fresh-restore-7/report.json`.
+Actual DDL failure/cancellation preserve the original inventory. Cancellation
+occurs only during observed COMMIT; read-only resolution finds the committed
+held generation, and private cursor refusal preserves its receipt until explicit
+current reconciliation. Restored Main and new native publication still pass.
+35launcher guards and strict focused Clippy pass. Current Standard writer review
+and serial full acceptance precede the separate operational retirement task;
+independent full-item and external release gates remain open.

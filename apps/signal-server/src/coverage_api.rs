@@ -317,6 +317,20 @@ impl Configuration {
         identity: Option<IdentityBackend>,
         audit: Option<Arc<crate::audit::Control>>,
     ) -> Result<Arc<CoverageState>, CoverageError> {
+        let context = OperationContext::new(self.store.operation_timeout);
+        let (state, ready) =
+            self.begin_open_with_identity(timeout, stopping, identity, audit, context)?;
+        ready.wait().await?;
+        Ok(state)
+    }
+    pub(crate) fn begin_open_with_identity(
+        self,
+        timeout: Duration,
+        stopping: CancellationToken,
+        identity: Option<IdentityBackend>,
+        audit: Option<Arc<crate::audit::Control>>,
+        context: OperationContext,
+    ) -> Result<(Arc<CoverageState>, signal_coverage::CoverageReady), CoverageError> {
         if self
             .scopes
             .iter()
@@ -327,9 +341,9 @@ impl Configuration {
                 "coverage authentication mode conflict",
             ));
         }
-        let store = Arc::new(CoverageStore::open(self.store).await?);
-        Ok(Arc::new(CoverageState {
-            store,
+        let (store, ready) = CoverageStore::begin_open(self.store, context)?;
+        let state = Arc::new(CoverageState {
+            store: Arc::new(store),
             scopes: self.scopes,
             timeout: timeout.min(Duration::from_secs(10)),
             stopping,
@@ -337,7 +351,8 @@ impl Configuration {
             rejected: AtomicU64::new(0),
             identity,
             audit,
-        }))
+        });
+        Ok((state, ready))
     }
 }
 pub struct CoverageState {

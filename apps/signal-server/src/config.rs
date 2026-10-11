@@ -234,6 +234,7 @@ section!(Telemetry {
 section!(Coverage { config: Text });
 section!(Access { config: Text });
 section!(Audit { config: Text });
+section!(Shared { config: Text });
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Document {
@@ -261,6 +262,8 @@ struct Document {
     access: Access,
     #[serde(default, deserialize_with = "section_map")]
     audit: Audit,
+    #[serde(default, deserialize_with = "section_map")]
+    shared: Shared,
 }
 trait Value {
     fn setting_value(&self) -> String;
@@ -462,6 +465,7 @@ impl Settings {
         mapping!(values,document.coverage,{config=>"SIGNAL_COVERAGE_CONFIG"});
         mapping!(values,document.access,{config=>"SIGNAL_ACCESS_CONFIG"});
         mapping!(values,document.audit,{config=>"SIGNAL_AUDIT_CONFIG"});
+        mapping!(values,document.shared,{config=>"SIGNAL_SHARED_CONFIG"});
         duration(
             &mut values,
             "SIGNAL_CONNECTION_TIMEOUT_MS",
@@ -794,6 +798,31 @@ mod tests {
     }
     fn settings(yaml: &str, entries: &[(&str, &str)]) -> Result<Settings, ConfigError> {
         Settings::from_document(parse(yaml)?, injected(entries))
+    }
+    #[test]
+    fn explicit_shared_profile_keeps_strict_configuration_and_environment_precedence() -> TestResult
+    {
+        let yaml = "schema_version: 1\nshared: {config: '/private/shared.json'}\n";
+        let configured = Settings::for_test(yaml, &[])?;
+        assert_eq!(
+            configured.optional("SIGNAL_SHARED_CONFIG")?.as_deref(),
+            Some("/private/shared.json")
+        );
+        let overridden =
+            Settings::for_test(yaml, &[("SIGNAL_SHARED_CONFIG", "/private/override.json")])?;
+        assert_eq!(
+            overridden.optional("SIGNAL_SHARED_CONFIG")?.as_deref(),
+            Some("/private/override.json")
+        );
+        for invalid in [
+            "schema_version: 1\nshared: null",
+            "schema_version: 1\nshared: {config: null}",
+            "schema_version: 1\nshared: {install: true}",
+            "schema_version: 1\nshared: {config: 'a', config: 'b'}",
+        ] {
+            assert!(Settings::for_test(invalid, &[]).is_err());
+        }
+        Ok(())
     }
     #[test]
     fn strict_schema_null_duplicate_types_and_static_redaction() -> TestResult {

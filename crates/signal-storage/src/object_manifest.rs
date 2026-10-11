@@ -11,7 +11,7 @@ pub const MANIFEST_SCHEMA_VERSION: u16 = 1;
 pub const MAX_MANIFEST_BYTES: usize = 256 * 1024;
 pub const MAX_MANIFEST_FILES: usize = 128;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ManifestLimits {
     pub manifest_bytes: usize,
     pub files: usize,

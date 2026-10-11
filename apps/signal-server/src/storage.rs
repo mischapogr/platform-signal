@@ -248,7 +248,7 @@ const OBJECT_SETTINGS: &[&str] = &[
     "SIGNAL_S3_BUCKET_KEY",
 ];
 #[cfg(feature = "s3-query")]
-fn kms_selection(
+pub(crate) fn kms_selection(
     settings: &Settings,
 ) -> Result<Option<signal_storage::object_s3::S3KmsEncryption>, StorageError> {
     use signal_storage::object_s3::S3KmsEncryption;

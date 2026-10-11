@@ -232,6 +232,47 @@ impl Shared {
         }
     }
 }
+/// Readiness capability with the original launch clock. Dropping it cancels
+/// opening while the separate DurableBuffer retains its physical join handle.
+pub struct BufferReady {
+    receiver: oneshot::Receiver<Result<(), BufferError>>,
+    shared: Arc<Shared>,
+    deadline: Instant,
+    armed: bool,
+}
+impl BufferReady {
+    pub async fn wait(self) -> Result<(), BufferError> {
+        let deadline = self.deadline;
+        self.wait_until(deadline).await
+    }
+    pub async fn wait_until(mut self, original_deadline: Instant) -> Result<(), BufferError> {
+        let deadline = self.deadline.min(original_deadline);
+        if Instant::now() >= deadline {
+            return Err(BufferError::Timeout);
+        }
+        let result = match timeout_at(deadline, &mut self.receiver).await {
+            Ok(Ok(result)) => result,
+            Ok(Err(_)) => Err(BufferError::Unavailable),
+            Err(_) => Err(BufferError::Timeout),
+        };
+        if result.is_ok() {
+            if Instant::now() >= deadline {
+                return Err(BufferError::Timeout);
+            }
+            self.armed = false;
+        }
+        result
+    }
+}
+impl Drop for BufferReady {
+    fn drop(&mut self) {
+        if self.armed {
+            self.shared.stopping.store(true, Ordering::Release);
+            self.shared.closed.store(true, Ordering::Release);
+            self.shared.wake_waiters();
+        }
+    }
+}
 enum Operation {
     Append(Vec<u8>),
     Read(usize, usize),
@@ -319,6 +360,17 @@ impl DurableBuffer {
         config: BufferConfig,
         recovery_capacity: usize,
     ) -> Result<Self, BufferError> {
+        let (buffer, ready) = Self::begin_open_with_recovery(config, recovery_capacity)?;
+        ready.wait().await?;
+        Ok(buffer)
+    }
+    /// Launch and retain the physical worker before waiting for disk recovery.
+    /// The host must await readiness before exposing admission, and explicitly
+    /// drain the returned buffer if opening fails or is cancelled.
+    pub fn begin_open_with_recovery(
+        config: BufferConfig,
+        recovery_capacity: usize,
+    ) -> Result<(Self, BufferReady), BufferError> {
         config.validate()?;
         let reserve = wal::recovery_reserve(recovery_capacity)?;
         if config
@@ -341,6 +393,7 @@ impl DurableBuffer {
         });
         let (sender, mut receiver) = mpsc::channel::<Command>(config.command_capacity);
         let (ready_tx, ready_rx) = oneshot::channel();
+        let opening_deadline = Instant::now() + config.operation_timeout;
         let worker_shared = shared.clone();
         let worker_config = config.clone();
         let worker = thread::Builder::new()
@@ -421,22 +474,21 @@ impl DurableBuffer {
                 }
             })
             .map_err(BufferError::Io)?;
-        match timeout_at(Instant::now() + config.operation_timeout, ready_rx).await {
-            Ok(Ok(Ok(()))) => Ok(Self {
-                sender,
-                shared,
-                waiters: Semaphore::new(config.max_waiters),
-                commands: Semaphore::new(config.command_capacity),
-                config,
-                worker: Mutex::new(Some(worker)),
-            }),
-            Ok(Ok(Err(error))) => Err(error),
-            Ok(Err(_)) => Err(BufferError::Unavailable),
-            Err(_) => {
-                shared.stopping.store(true, Ordering::Release);
-                Err(BufferError::Timeout)
-            }
-        }
+        let ready = BufferReady {
+            receiver: ready_rx,
+            shared: shared.clone(),
+            deadline: opening_deadline,
+            armed: true,
+        };
+        let buffer = Self {
+            sender,
+            shared,
+            waiters: Semaphore::new(config.max_waiters),
+            commands: Semaphore::new(config.command_capacity),
+            config,
+            worker: Mutex::new(Some(worker)),
+        };
+        Ok((buffer, ready))
     }
     async fn command(&self, operation: Operation, deadline: Instant) -> Result<Reply, BufferError> {
         self.shared.check_deadline();
@@ -1095,6 +1147,69 @@ mod worker_tests {
         .await?;
         assert_eq!(replay.snapshot().depth, 0);
         replay.shutdown().await?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod retained_opening_tests {
+    use super::*;
+    type Result = std::result::Result<(), Box<dyn std::error::Error>>;
+
+    #[tokio::test]
+    async fn cancelled_or_expired_opening_keeps_join_handle_and_releases_wal_lock() -> Result {
+        for cancelled in [true, false] {
+            let temp = tempfile::tempdir()?;
+            let config = BufferConfig {
+                directory: temp.path().join("wal"),
+                ..Default::default()
+            };
+            let (buffer, ready) = DurableBuffer::begin_open_with_recovery(config.clone(), 0)?;
+            if cancelled {
+                drop(ready);
+            } else {
+                assert!(matches!(
+                    ready.wait_until(Instant::now()).await,
+                    Err(BufferError::Timeout)
+                ));
+            }
+            buffer.shutdown().await?;
+            assert!(
+                buffer
+                    .worker
+                    .lock()
+                    .map_err(|_| BufferError::Unavailable)?
+                    .is_none()
+            );
+            assert!(buffer.snapshot().closed);
+            // Reopening the same root proves the old physical worker released its lock.
+            let reopened = DurableBuffer::open(config).await?;
+            reopened.shutdown().await?;
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn failed_wal_opening_remains_explicitly_joinable() -> Result {
+        let temp = tempfile::tempdir()?;
+        let directory = temp.path().join("not-a-directory");
+        std::fs::write(&directory, b"synthetic")?;
+        let (buffer, ready) = DurableBuffer::begin_open_with_recovery(
+            BufferConfig {
+                directory,
+                ..Default::default()
+            },
+            0,
+        )?;
+        assert!(ready.wait().await.is_err());
+        buffer.shutdown().await?;
+        assert!(
+            buffer
+                .worker
+                .lock()
+                .map_err(|_| BufferError::Unavailable)?
+                .is_none()
+        );
         Ok(())
     }
 }

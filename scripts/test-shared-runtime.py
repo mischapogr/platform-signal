@@ -31,6 +31,121 @@ test postgres_lease_authority_and_cancellation ... ok
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 3.83s
 """
 class Guards(unittest.TestCase):
+    def test_combined_standard_budget_preserves_separate_limits_and_rejects_overflow(self):
+        self.assertFalse(module.elapsed_within_fixture_budget(240.001))
+        self.assertTrue(module.elapsed_within_fixture_budget(240.001,combined_standard=True))
+        self.assertTrue(module.elapsed_within_fixture_budget(420,combined_standard=True))
+        for value in (-1,420.001,float('inf'),float('nan'),True,'420'):
+            with self.subTest(value=value):
+                self.assertFalse(module.elapsed_within_fixture_budget(value,combined_standard=True))
+        for mode in (None,1,'true'):
+            self.assertFalse(module.elapsed_within_fixture_budget(1,combined_standard=mode))
+
+    def test_standard_private_requires_actual_notifications_and_original_event_bindings(self):
+        events=['00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002']
+        good={'schema_version':1,'status':'passed_simulated','binary_sha256':'a'*64,'child_capacity':3,'log_capacity':24,
+              'provider_calls':4,'private_original_cursor_restart_qualified':True,'populated_scope_restore_stage_qualified':True,'raw_feed_sha256':'b'*64,
+              'notification_calls':6,'notification_deliveries':2,'event_ids':events,'notification_witness_sha256':'c'*64,'private_binary_sha256':'d'*64,
+              'scenarios':[{'name':'actual_Standard_native_feed_private_atomic_outbox_exact_replay_three_attempt_notifications','status':'passed_simulated','event_ids':events},
+                           {'name':'actual_Standard_original_feed_cursor_private_restart_no_historical_redelivery','status':'passed_simulated'}]}
+        module.qualify_standard_private_report(good,'a'*64)
+        for key,value in [('populated_scope_restore_stage_qualified',False),('private_original_cursor_restart_qualified',False),('notification_calls',5),('notification_calls',7),
+                          ('notification_deliveries',1),('binary_sha256','b'*64),('provider_calls',0),('child_capacity',4),
+                          ('raw_feed_sha256','bad'),('private_binary_sha256','bad'),('notification_witness_sha256',None),('event_ids',events[:1]),('event_ids',[events[0]]*2),
+                          ('scenarios',good['scenarios'][::-1]),('scenarios',good['scenarios'][:1])]:
+            with self.assertRaises(ValueError):module.qualify_standard_private_report(dict(good,**{key:value}),'a'*64)
+
+    def test_standard_restore_requires_fresh_generation_original_progress_and_new_publication(self):
+        events=['00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002']
+        event='00000000-0000-0000-0000-000000000003'
+        receipt={'schema_version':1,'generation':'00000000-0000-0000-0000-000000000005',
+                 'old_generation':'00000000-0000-0000-0000-000000000004','ready':True,
+                 'scope_original_bytes_preserved':True,'consumer_current_reconciled':True,
+                 'scoped_ddl_error_rollback':True,'scoped_ddl_cancel_rollback':True,'scoped_lost_commit_resolved':True,'scoped_consumer_resume_refused':True,
+                 'inventory':{'old_generation':'00000000-0000-0000-0000-000000000004','feed_position':2,
+                              'revision':4,'objects':[{}],'consumers':[{'position':2}]}}
+        good={'schema_version':1,'status':'passed_simulated','binary_sha256':'a'*64,'child_capacity':3,'log_capacity':24,
+              'provider_calls':4,'private_original_cursor_restart_qualified':True,'populated_scope_restore_stage_qualified':True,
+              'raw_feed_sha256':'b'*64,'notification_calls':6,'notification_deliveries':2,'event_ids':events,
+              'notification_witness_sha256':'c'*64,'private_binary_sha256':'d'*64,
+              'scoped_restore_generation_qualified':True,'restored_native_publication_qualified':True,
+              'restore_receipt':receipt,'restored_event_id':event,'old_generation_Main_fenced':True,'original_source_checkpoint_unchanged':True,
+              'scenarios':[{'name':'actual_Standard_native_feed_private_atomic_outbox_exact_replay_three_attempt_notifications','status':'passed_simulated','event_ids':events},
+                           {'name':'actual_Standard_fresh_destination_generation_original_cursor_restart_and_new_native_publication','status':'passed_simulated','event_id':event}]}
+        module.qualify_standard_restore_report(good,'a'*64)
+        for key,value in [('scoped_restore_generation_qualified',False),('restored_native_publication_qualified',False),
+                          ('old_generation_Main_fenced',False),('original_source_checkpoint_unchanged',False),('restored_event_id',events[0]),('restored_event_id',None),('scenarios',[None,None]),('notification_calls',7)]:
+            with self.subTest(key=key):
+                with self.assertRaises(ValueError):module.qualify_standard_restore_report(dict(good,**{key:value}),'a'*64)
+        for key,value in [('generation',receipt['old_generation']),('old_generation',None),('ready',False),
+                          ('scope_original_bytes_preserved',False),('consumer_current_reconciled',False),('scoped_ddl_error_rollback',False),
+                          ('scoped_ddl_cancel_rollback',False),('scoped_lost_commit_resolved',False),('scoped_consumer_resume_refused',False),('inventory',{})]:
+            with self.subTest(receipt=key):
+                with self.assertRaises(ValueError):module.qualify_standard_restore_report(dict(good,restore_receipt=dict(receipt,**{key:value})),'a'*64)
+
+    def test_standard_audit_requires_exact_scenarios_original_identities_and_bounds(self):
+        good={'schema_version':1,'status':'passed_simulated','binary_sha256':'a'*64,'child_capacity':3,'log_capacity':24,
+              'independent_receiver_qualified':True,'exact_pending_replay_qualified':True,'empty_WAL_qualified':True,
+              'provider_calls':2,'required_audit_failure_seconds':0.1,'original_pending_sha256':'b'*64,
+              'audit_producer_id':'00000000-0000-0000-0000-000000000009',
+              'audit_record_ids':[f'00000000-0000-0000-0000-{i:012d}' for i in range(1,6)],
+              'scenarios':[{'name':name,'status':'passed_simulated'} for name in (
+                  'actual_Standard_activation_receipts_before_ready_independent_receiver_survives_stop',
+                  'actual_Standard_required_audit_outage_holds_with_original_pending_receipt',
+                  'actual_Standard_original_audit_replay_fresh_activations_existing_receiver_empty_WAL')]}
+        module.qualify_standard_audit_report(good,'a'*64)
+        for key,value in [('binary_sha256','b'*64),('exact_pending_replay_qualified',False),('independent_receiver_qualified',False),
+                          ('empty_WAL_qualified',False),('child_capacity',4),('log_capacity',25),('provider_calls',65),
+                          ('required_audit_failure_seconds',float('nan')),('required_audit_failure_seconds',7),
+                          ('audit_record_ids',good['audit_record_ids'][:4]),('audit_record_ids',[good['audit_record_ids'][0]]*5),
+                          ('audit_producer_id','00000000-0000-0000-0000-000000000000'),('original_pending_sha256','bad'),
+                          ('scenarios',good['scenarios'][:2]),('scenarios',good['scenarios'][::-1])]:
+            with self.assertRaises(ValueError):module.qualify_standard_audit_report(dict(good,**{key:value}),'a'*64)
+
+    def test_standard_binary_snapshot_survives_default_cargo_output_replacement(self):
+        import hashlib
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'server';destination=root/'qualified-server'
+            source.write_bytes(b'all-feature executable fixture')
+            digest=module.capture_standard_binary(source,destination)
+            source.write_bytes(b'default executable fixture')
+            self.assertEqual(destination.read_bytes(),b'all-feature executable fixture')
+            self.assertEqual(digest,hashlib.sha256(destination.read_bytes()).hexdigest())
+            with self.assertRaises(ValueError):module.capture_standard_binary(source,destination)
+            link=root/'link';link.symlink_to(source)
+            with self.assertRaises(ValueError):module.capture_standard_binary(link,root/'absent')
+            source.write_bytes(b'')
+            with self.assertRaises(ValueError):module.capture_standard_binary(source,root/'absent')
+    def test_standard_report_requires_exact_runtime_binary_cases_and_witnesses(self):
+        good={'schema_version':1,'status':'passed_simulated','producer_credentials_qualified':True,
+              'original_publication_crash_recovery_qualified':True,'unprepared_native_wal_hold_qualified':True,
+              'pending_native_event_id':'12345678-1234-1234-1234-123456789016','child_capacity':3,'log_capacity':24,
+              'original_crash_event_id':'12345678-1234-1234-1234-123456789014','original_crash_request_id':'12345678-1234-1234-1234-123456789015',
+              'startup_denials':['owner-capable-producer','direct-reader-as-producer'],
+              'empty_catalog_qualified':True,'selected_coverage_startup_and_restart_qualified':True,'missing_coverage_failure_qualified':True,'missing_coverage_failure_seconds':.2,'invalid_cache_failure_qualified':True,'invalid_cache_failure_seconds':.2,'late_startup_failure_qualified':True,'late_startup_failure_seconds':.2,'startup_interruption_qualified':True,'startup_interruption_seconds':.2,'provider_calls':13,'binary_sha256':'a'*64,
+              'scenarios':[{'name':'actual_Standard_native_TLS_ingest_versioned_S3_query_scoped_findings_global_feed_graceful_shutdown',
+                            'status':'passed_simulated','event_ids':['12345678-1234-1234-1234-123456789012','12345678-1234-1234-1234-123456789013']},
+                           {'name':'actual_Standard_stopped_restart_original_enrollment_and_current_query','status':'passed_simulated'},
+                           {'name':'actual_Standard_SIGKILL_saved_original_request_manifest_once_checkpoint3','status':'passed_simulated',
+                            'event_id':'12345678-1234-1234-1234-123456789014','request_id':'12345678-1234-1234-1234-123456789015'},
+                           {'name':'actual_Standard_unprepared_native_WAL_restart_held_original_row_checkpoint3','status':'passed_simulated',
+                            'event_id':'12345678-1234-1234-1234-123456789016'}]}
+        module.qualify_standard_report(good,'a'*64)
+        for key,value in [('unprepared_native_wal_hold_qualified',False),('pending_native_event_id','bad'),
+                          ('original_publication_crash_recovery_qualified',False),('child_capacity',4),('log_capacity',32),
+                          ('original_crash_event_id','bad'),('original_crash_request_id','bad'),('status','passed_local'),('producer_credentials_qualified',False),('empty_catalog_qualified',None),('selected_coverage_startup_and_restart_qualified',False),('missing_coverage_failure_qualified',False),
+                          ('missing_coverage_failure_seconds',5),('missing_coverage_failure_seconds',True),
+                          ('provider_calls',True),('provider_calls',65),('binary_sha256','b'*64),('scenarios',[]),
+                          ('scenarios',[good['scenarios'][0]]*2),('startup_denials',[]),
+                          ('invalid_cache_failure_qualified',False),('invalid_cache_failure_seconds',5),
+                          ('invalid_cache_failure_seconds',True),('late_startup_failure_qualified',False),('late_startup_failure_seconds',5),
+                          ('late_startup_failure_seconds',True),('startup_interruption_qualified',False),('startup_interruption_seconds',3),
+                          ('startup_interruption_seconds',True)]:
+            with self.assertRaises(ValueError):module.qualify_standard_report(dict(good,**{key:value}),'a'*64)
+        for identifiers in ([good['scenarios'][0]['event_ids'][0]]*2,['','bad'],[{},None],['00000000-0000-0000-0000-000000000000',good['scenarios'][0]['event_ids'][1]]):
+            bad=json.loads(json.dumps(good));bad['scenarios'][0]['event_ids']=identifiers
+            with self.assertRaises(ValueError):module.qualify_standard_report(bad,'a'*64)
+        with self.assertRaises(ValueError):module.qualify_standard_report(None,'a'*64)
     def test_final_elapsed_uses_the_expanded_execution_budget(self):
         # A complete run beyond the old180s limit must not be rejected after
         # execution was explicitly admitted within the expanded240s budget.
@@ -56,15 +171,19 @@ sys.exit(codes[min(len(calls),len(codes)-1)])
             pause.write_text('#!/bin/sh\nexit 0\n')
             pause.chmod(0o700)
             trace=directory/'trace'
-            for codes,status,count in [([2,1,0],0,3),([2],1,60),([3],3,1)]:
-                with self.subTest(codes=codes):
+            for codes,status,count,limit in [([2,1,0],0,3,None),([2],1,60,None),([3],3,1,None),
+                                            ([2]*74+[0],0,75,'120'),([2],1,120,'120'),
+                                            ([0],3,0,'121'),([0],3,0,'0')]:
+                with self.subTest(codes=codes,limit=limit):
                     trace.unlink(missing_ok=True)
-                    result=subprocess.run(['sh','-c',module.READY_SCRIPT],
+                    argv=['sh','-c',module.READY_SCRIPT]
+                    if limit is not None:argv.extend(['signal-ready-fixture',limit])
+                    result=subprocess.run(argv,
                         env=dict(os.environ,PATH=str(directory)+os.pathsep+os.environ['PATH'],
                                  READY_TRACE=str(trace),READY_CODES=json.dumps(codes)),
-                        capture_output=True,text=True,timeout=3)
+                        capture_output=True,text=True,timeout=6)
                     self.assertEqual(result.returncode,status,result.stderr)
-                    calls=[json.loads(line) for line in trace.read_text().splitlines()]
+                    calls=[json.loads(line) for line in trace.read_text().splitlines()] if trace.exists() else []
                     self.assertEqual(len(calls),count)
                     self.assertTrue(all(call==['-q','-t','1','-h','127.0.0.1','-U','postgres'] for call in calls))
     def test_all_eighteen_cases_required(self):

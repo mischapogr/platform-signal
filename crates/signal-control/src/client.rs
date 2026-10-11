@@ -51,6 +51,7 @@ pub struct ControlMetrics {
     pub snapshot_retries: u64,
 }
 enum Reply {
+    ProducerCredentials,
     FindingScope(crate::FindingScopeBinding),
     Feed(crate::AuthorizedFindingsPage),
     ScopedList(crate::AuthorizedFindingsList),
@@ -65,6 +66,9 @@ enum Reply {
     Object(ObjectControlResult),
 }
 enum Operation {
+    ProducerCredentials {
+        owner: String,
+    },
     ExistingFindingScope {
         scope: Scope,
         binding: crate::ScopedFindingsBinding,
@@ -252,6 +256,7 @@ impl ControlClient {
                             | Operation::Feed { .. }
                             | Operation::ScopedList { .. }
                             | Operation::ExistingFindingScope { .. }
+                            | Operation::ProducerCredentials { .. }
                     ) && completion.rollback_confirmed
                         && matches!(&completion.result, Err(ControlError::Retryable))
                         && rounds < 3
@@ -576,6 +581,36 @@ impl ControlClient {
             Reply::FindingScope(binding) => {
                 crate::FindingScopePin::new(binding, original, self.inner.stop.child_token())
             }
+            _ => Err(ControlError::Corrupt),
+        }
+    }
+    /// Check captured runtime credentials without owner role switching or DDL.
+    /// This proves privilege separation at inspection time, not future ACL state.
+    pub async fn verify_producer_credentials(
+        &self,
+        schema_owner: String,
+        context: ControlContext,
+    ) -> Result<(), ControlError> {
+        if schema_owner.is_empty()
+            || schema_owner.len() > 63
+            || schema_owner.capacity() > 63
+            || !schema_owner
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        {
+            return Err(ControlError::Invalid);
+        }
+        context.check()?;
+        match self
+            .submit(
+                Operation::ProducerCredentials {
+                    owner: schema_owner,
+                },
+                context,
+            )
+            .await?
+        {
+            Reply::ProducerCredentials => Ok(()),
             _ => Err(ControlError::Corrupt),
         }
     }
@@ -946,6 +981,7 @@ async fn execute(
             | Operation::Feed { .. }
             | Operation::ScopedList { .. }
             | Operation::ExistingFindingScope { .. }
+            | Operation::ProducerCredentials { .. }
     ) {
         ControlContext {
             deadline: transaction_deadline,
@@ -974,6 +1010,7 @@ async fn execute(
             | Operation::Feed { .. }
             | Operation::ScopedList { .. }
             | Operation::ExistingFindingScope { .. }
+            | Operation::ProducerCredentials { .. }
     ) {
         transaction_deadline
     } else {
@@ -998,12 +1035,14 @@ async fn execute(
                         | Operation::Feed { .. }
                         | Operation::ScopedList { .. }
                         | Operation::ExistingFindingScope { .. }
+                        | Operation::ProducerCredentials { .. }
                 ) {
                     if matches!(
                         operation,
                         Operation::Feed { .. }
                             | Operation::ScopedList { .. }
                             | Operation::ExistingFindingScope { .. }
+                            | Operation::ProducerCredentials { .. }
                     ) {
                         "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY"
                     } else {
@@ -1015,7 +1054,40 @@ async fn execute(
             )
             .await
             .map_err(database_error)?;
-        let reply = if let Operation::FindingScope {
+        let reply = if let Operation::ProducerCredentials { owner } = operation {
+            let row = connection.client.query_one(
+                "SELECT NOT pg_has_role(session_user,$1::name,'MEMBER')
+                AND NOT EXISTS(SELECT 1 FROM pg_roles r WHERE pg_has_role(session_user,r.oid,'MEMBER')
+                    AND (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls
+                    OR has_database_privilege(r.oid,current_database(),'CREATE')
+                    OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname IN ('signal_control','signal_finding_scope')
+                        AND (has_schema_privilege(r.oid,n.oid,'CREATE') OR pg_has_role(r.oid,n.nspowner,'MEMBER')))
+                    OR EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                        WHERE n.nspname IN ('signal_control','signal_finding_scope')
+                        AND (has_function_privilege(r.oid,p.oid,'EXECUTE WITH GRANT OPTION')
+                        OR (has_function_privilege(r.oid,p.oid,'EXECUTE') AND p.oid NOT IN (
+                            'signal_control.acquire(jsonb,uuid,integer,bytea,bytea)'::regprocedure,
+                            'signal_control.renew(jsonb,integer,bytea,bytea)'::regprocedure,
+                            'signal_control.read_catalog_snapshot(jsonb,uuid,integer,bytea,bytea)'::regprocedure,
+                            'signal_control.publish(jsonb,bytea,boolean,bytea,bytea)'::regprocedure,
+                            'signal_finding_scope.publish(jsonb,bytea,bytea,boolean,bytea,bytea,text,text)'::regprocedure))))
+                    OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                        WHERE n.nspname IN ('signal_control','signal_finding_scope')
+                        AND (pg_has_role(r.oid,c.relowner,'MEMBER')
+                        OR (c.relkind IN ('r','p','v','m','f') AND
+                            (has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+                            OR has_any_column_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')))
+                        OR (c.relkind='S' AND has_sequence_privilege(r.oid,c.oid,'USAGE,SELECT,UPDATE'))))))",
+                &[owner],
+            ).await.map_err(database_error)?;
+            if !row
+                .try_get::<_, bool>(0)
+                .map_err(|_| ControlError::Corrupt)?
+            {
+                return Err(ControlError::Fenced);
+            }
+            Reply::ProducerCredentials
+        } else if let Operation::FindingScope {
             owner,
             profile,
             action,
@@ -1075,6 +1147,7 @@ async fn execute(
                     | Operation::Restore { .. }
                     | Operation::Feed { .. } | Operation::ScopedList { .. }
                         | Operation::ExistingFindingScope { .. }
+                        | Operation::ProducerCredentials { .. }
                     | Operation::FindingScope { .. } => {
                         return Err(ControlError::Corrupt);
                     }
@@ -1182,6 +1255,7 @@ async fn execute(
                 Operation::Feed { .. }
                 | Operation::ScopedList { .. }
                 | Operation::ExistingFindingScope { .. }
+                | Operation::ProducerCredentials { .. }
                 | Operation::FindingScope { .. } => {
                     return Err(ControlError::Corrupt);
                 }

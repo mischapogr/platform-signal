@@ -21,7 +21,7 @@ pub use store::{
     IdentityPruneOutcome, PayloadPruneBudget, PayloadPruneOutcome, PreparedObservation, Receipt,
     StoredObservation,
 };
-pub use worker::{CoverageStore, OperationContext};
+pub use worker::{CoverageReady, CoverageStore, OperationContext};
 
 #[cfg(test)]
 mod tests;
