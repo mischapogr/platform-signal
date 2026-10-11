@@ -141,6 +141,7 @@ def qualify_shared_http_output(output):
                'phase: actual-native-http-scoped-publication-legacy-unknown-original-request-resume-qualified',
                'phase: actual-native-TLS-shared-scoped-read-paired-before-limit-history-integrity-qualified',
                'phase: actual-native-shared-scoped-http-TLS-paired-before-limit-unknown-history-durable-audit-qualified',
+               'phase: read-only-original-enrollment-bootstrap-no-owner-or-mutation-qualified',
                'phase: fully-reconciled-native-WAL-restart-future-only-admission-qualified')
     tests = ('test finding_api::shared_http_tests::authorized_shared_feed_http_provider_audit ... ok',
              'test native_owner_provider_http_wal_admission ... ok',
@@ -350,6 +351,7 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
             report['checks'].append('actual_shared_feed_live_http_tls_introspection_and_durable_audit')
             report['checks'].append('actual_owner_enrollment_native_tls_http_WAL_floor_deadline_expiry_and_replay')
             report['checks'].append('actual_fully_reconciled_native_WAL_restart_original_enrollment_future_only_floor_and_pending_hold')
+            report['checks'].append('actual_readonly_original_owner_enrollment_bootstrap_no_owner_mutation_and_foreign_scope_hold')
             report['checks'].append('actual_native_HTTP_rules_scoped_publication_legacy_unknown_original_request_WAL_resume')
             report['checks'].append('actual_native_TLS_scoped_read_explicit_SELECT_paired_before_limit_unknown_history_integrity_cancellation')
             report['checks'].append('actual_native_shared_scoped_HTTP_TLS_paired_before_limit_unknown_history_durable_audit_wire_limits_no_fallback')
