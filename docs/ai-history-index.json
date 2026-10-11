@@ -266,6 +266,33 @@
         "phase-10--hardening-and-release-evidence",
         "invocation-examples-and-execution-discipline"
       ]
+    },
+    {
+      "current": "07-progress.md",
+      "archive": "07-progress-history-20261012.md",
+      "sha256": "82953c1608687b7cfb43fe051e98ad1ddb5a6d134bab42fe97d692e76b66b850",
+      "bytes": 48981,
+      "headings": [
+        "implementation-progress",
+        "native-ci-cancellation-fixture-corrected--2026-10-12",
+        "stopped-standard-lifecycle-accepted-locally--2026-10-11",
+        "standard-integration-accepted-locally--2026-10-11",
+        "standard-server-startup-publication-and-wal-recovery--2026-10-11",
+        "public-oss-image-publication-prepared--2026-10-10",
+        "shared-control-crashrestore-matrix-locally-qualified--2026-10-10",
+        "coordinated-stopped-restore-locally-qualified--2026-10-10",
+        "shared-control-administrative-migration-locally-qualified--2026-10-10",
+        "shared-control-notification-fencing-locally-qualified--2026-10-10",
+        "shared-control-retirement-and-retention-locally-qualified--2026-10-10",
+        "shared-control-read-snapshots-locally-qualified--2026-10-10",
+        "shared-control-publication-primitives-locally-qualified--2026-10-10",
+        "read-only-standard-bootstrap-prerequisite--2026-10-11",
+        "next-runnable-work",
+        "current-evidence-boundaries",
+        "ai-execution-workflow",
+        "fresh-scoped-restore-and-restored-standard-main--2026-10-11",
+        "scoped-restore-rollback-and-uncertain-commit-resolution--2026-10-11"
+      ]
     }
   ]
 }
