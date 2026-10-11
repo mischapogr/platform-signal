@@ -28,6 +28,17 @@ impl ControlContext {
             cancellation: CancellationToken::new(),
         })
     }
+    /// Start a distinct finite operation under the caller's cancellation tree.
+    /// Use limited_to on the same context for later stages of that operation.
+    pub fn new_cancellable(
+        duration: Duration,
+        parent: &CancellationToken,
+    ) -> Result<Self, ControlError> {
+        let mut context = Self::new(duration)?;
+        context.cancellation = parent.child_token();
+        context.check()?;
+        Ok(context)
+    }
     /// Cancel this context and its submitted children.
     pub fn cancel(&self) {
         self.cancellation.cancel();
@@ -244,6 +255,29 @@ mod tests {
         context.cancellation.cancel();
         assert!(child.is_cancelled());
         assert!(matches!(context.check(), Err(ControlError::Cancelled)));
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod cancellable_context_tests {
+    use super::*;
+    #[test]
+    fn parent_cancellation_is_retained_without_budget_renewal() -> Result<(), ControlError> {
+        let parent = CancellationToken::new();
+        let original = ControlContext::new_cancellable(Duration::from_secs(1), &parent)?;
+        let deadline = original.deadline();
+        let child = original
+            .clone()
+            .limited_to(deadline + Duration::from_secs(1));
+        assert_eq!(child.deadline(), deadline);
+        parent.cancel();
+        assert!(matches!(original.check(), Err(ControlError::Cancelled)));
+        assert!(matches!(child.check(), Err(ControlError::Cancelled)));
+        assert!(matches!(
+            ControlContext::new_cancellable(Duration::from_secs(1), &parent),
+            Err(ControlError::Cancelled)
+        ));
         Ok(())
     }
 }

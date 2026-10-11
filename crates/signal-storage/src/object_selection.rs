@@ -107,6 +107,8 @@ struct Completion {
 /// One ordinary controller, one exact I/O worker and one codec worker. A cancelled
 /// caller does not release admission until all physical child operations drain.
 pub struct ObjectSelection {
+    io: Arc<ObjectIo>,
+    codec: Arc<ObjectCodec>,
     config: SelectionConfig,
     state: Arc<State>,
     sender: Mutex<Option<mpsc::Sender<Command>>>,
@@ -124,7 +126,27 @@ impl ObjectSelection {
                 "shared selection requires unowned read I/O",
             ));
         }
-        let codec = ObjectCodec::new(config.storage.clone(), config.manifests)?;
+        let codec = Arc::new(ObjectCodec::new(config.storage.clone(), config.manifests)?);
+        Self::with_workers(Arc::new(io), codec, runtime, config)
+    }
+    /// Retain child-worker ownership in the host even if controller creation
+    /// fails. Immutable codec bounds must match the selection configuration.
+    pub fn with_workers(
+        io: Arc<ObjectIo>,
+        codec: Arc<ObjectCodec>,
+        runtime: tokio::runtime::Handle,
+        config: SelectionConfig,
+    ) -> Result<Self, StorageError> {
+        config.validate()?;
+        if io.small_owner_binding().is_some()
+            || !codec.matches_configuration(&config.storage, config.manifests)
+            || io.metrics().closed
+            || codec.metrics().closed
+        {
+            return Err(StorageError::Config("selection retained worker binding"));
+        }
+        let observed_io = io.clone();
+        let observed_codec = codec.clone();
         let state = Arc::new(State {
             slots: Arc::new(Semaphore::new(1)),
             closed: AtomicBool::new(false),
@@ -170,6 +192,8 @@ impl ObjectSelection {
             })
             .map_err(StorageError::Io)?;
         Ok(Self {
+            io: observed_io,
+            codec: observed_codec,
             config,
             state,
             sender: Mutex::new(Some(sender)),
@@ -200,6 +224,13 @@ impl ObjectSelection {
             rejected: self.state.rejected.load(Ordering::Relaxed),
             closed: self.state.closed.load(Ordering::Acquire),
         }
+    }
+    /// Read-only physical child metrics; retaining them never grants admission.
+    pub fn io_metrics(&self) -> crate::object_io::ObjectIoMetrics {
+        self.io.metrics()
+    }
+    pub fn codec_metrics(&self) -> crate::object_codec::CodecMetrics {
+        self.codec.metrics()
     }
     /// The host must establish committed catalog authority before calling this.
     /// Borrowed bytes are copied only after admission and aggregate size checks.

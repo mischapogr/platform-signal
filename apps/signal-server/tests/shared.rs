@@ -912,3 +912,76 @@ async fn postgres_server_publication_and_actual_query() -> Result {
     eprintln!("phase: actual-server-shared-publication-replay-query-and-orphan-fencing-qualified");
     Ok(())
 }
+
+#[tokio::test]
+async fn rejected_publisher_retains_exact_codec_and_io_for_host_drain() -> Result {
+    let control = Arc::new(ControlClient::catalog(
+        ConnectionSettings::fixture_loopback(
+            "127.0.0.1".parse()?,
+            1,
+            "unreachable".into(),
+            "unreachable".into(),
+            b"synthetic-not-a-secret".to_vec(),
+        )?,
+    )?);
+    let storage = StorageConfig::default();
+    let limits = ManifestLimits::default();
+    let io = Arc::new(ObjectIo::remote(
+        Arc::new(object_store::memory::InMemory::new()),
+        tokio::runtime::Handle::current(),
+        ObjectIoLimits::default(),
+    )?);
+    let codec = Arc::new(signal_storage::object_codec::ObjectCodec::new(
+        storage.clone(),
+        limits,
+    )?);
+    let scope = Scope {
+        schema_version: 1,
+        store_id: Uuid::new_v4(),
+        generation: Uuid::new_v4(),
+        tenant: "synthetic".into(),
+        stream: Uuid::new_v4(),
+        partition_id: Uuid::new_v4(),
+    };
+    let mut mismatch = limits;
+    mismatch.events -= 1;
+    assert!(matches!(
+        SharedPublisher::with_workers(
+            control.clone(),
+            scope.clone(),
+            Uuid::new_v4(),
+            io.clone(),
+            codec.clone(),
+            storage.clone(),
+            mismatch
+        ),
+        Err(SharedError::Control(ControlError::Invalid))
+    ));
+    assert!(!io.metrics().closed);
+    assert!(!codec.metrics().closed);
+    assert_eq!(Arc::strong_count(&io), 1);
+    assert_eq!(Arc::strong_count(&codec), 1);
+    let publisher = SharedPublisher::with_workers(
+        control.clone(),
+        scope,
+        Uuid::new_v4(),
+        io.clone(),
+        codec.clone(),
+        storage,
+        limits,
+    )?;
+    publisher.shutdown(context()?).await?;
+    codec
+        .shutdown(signal_storage::OperationContext::new(Duration::from_secs(
+            5,
+        )))
+        .await?;
+    io.shutdown(signal_storage::OperationContext::new(Duration::from_secs(
+        5,
+    )))
+    .await?;
+    control.shutdown(context()?).await?;
+    assert!(codec.metrics().closed);
+    assert!(io.metrics().closed);
+    Ok(())
+}

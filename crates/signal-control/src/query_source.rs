@@ -25,6 +25,8 @@ pub struct SharedQuerySource {
 #[derive(Clone, Copy, Debug)]
 pub struct SharedQueryMetrics {
     pub objects: signal_storage::object_selection::SelectionMetrics,
+    pub io: signal_storage::object_io::ObjectIoMetrics,
+    pub codec: signal_storage::object_codec::CodecMetrics,
     pub accepted: u64,
     pub rejected: u64,
 }
@@ -62,6 +64,8 @@ impl SharedQuerySource {
     pub fn metrics(&self) -> SharedQueryMetrics {
         SharedQueryMetrics {
             objects: self.objects.metrics(),
+            io: self.objects.io_metrics(),
+            codec: self.objects.codec_metrics(),
             accepted: self.accepted.load(Ordering::Relaxed),
             rejected: self.rejected.load(Ordering::Relaxed),
         }

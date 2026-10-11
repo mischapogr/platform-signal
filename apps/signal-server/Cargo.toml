@@ -42,6 +42,7 @@ sha2.workspace = true
 tokio-util.workspace = true
 http-body-util.workspace = true
 subtle.workspace = true
+rustls.workspace = true
 
 [dev-dependencies]
 tokio-postgres.workspace = true
