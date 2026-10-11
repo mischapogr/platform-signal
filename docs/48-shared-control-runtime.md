@@ -1189,3 +1189,29 @@ retained under `target/ci-qualification-queue-20261011T070403+0200/public-artifa
 These are verified failed-run causes and local workflow corrections. Fresh remote
 AMD64/ARM64/full container/runtime qualification still needs successful observed
 jobs and retained matching reports; no current release acceptance is implied.
+
+
+## Native authenticated mixed-history scoped publication — 2026-10-11
+
+The owned native admission fixture now continues through deterministic rules,
+original scoped preparation, Parquet upload and atomic PostgreSQL publication.
+The original enrollment floor remains1: the existing WAL row is published with
+its exact ordinary finding bytes and no scope claim, while the actually TLS-
+authenticated HTTP row at sequence2 receives canonical audit/account/resource
+facts. Attempts to claim the old row or substitute another canonical account
+fail before publication. Retained attributes and reopened WAL sequences do not
+supply authentication; the fixture carries its observed exclusive native admission.
+
+Preparing retains the original request without publishing findings or advancing
+the checkpoint. Dropping the prepared capability and reopening the real WAL
+preserves the complete saved bytes. Reconciliation uses that original request;
+atomic core findings, exact manifest and companion claims precede checkpoint2
+and slot clearing. A second resume is empty. Runtime table reads remain denied.
+
+Evidence: `target/native-scoped-publication-20261011T072254+0200/`; acceptance
+requires its source-bound writer review and matching passed final campaign.
+This is actual owner/SQL/native TLS/HTTP/rules/WAL composition with emulated,
+parent-retained object versions. It does not establish scoped shared HTTP reads,
+Standard Main/READY, populated scope restore, private consumers or AWS/ARM64/
+release acceptance. Existing frozen schemas001–008 and production Rust remain
+unchanged. Independent full-item review remains open.
