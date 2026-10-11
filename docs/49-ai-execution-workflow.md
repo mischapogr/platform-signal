@@ -171,3 +171,16 @@ without prompt/tool payloads or external telemetry export. See
 [installation and telemetry](08-development-tooling.md#per-task-usage-measurement).
 Restart existing sessions to load the new MCP catalog. Global client settings,
 credentials, model/effort and speed remain unchanged.
+
+
+## Let native branch qualification finish — 2026-10-11
+
+The CI concurrency group retains one active and the newest pending run per ref.
+Branch pushes, manual runs and release-tag checks let an active suite complete;
+new pending revisions replace older pending work. Pull-request updates still
+cancel their superseded active run. This prevents frequent implementation pushes
+from repeatedly interrupting long native ARM64/runtime qualification. A passing
+older revision remains evidence only for its exact source; current release gates
+require the matching final revision. Keep standard public runners and existing
+permissions/billing settings. Measure observed runs before claiming speed gains.
+[Official concurrency behavior](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
