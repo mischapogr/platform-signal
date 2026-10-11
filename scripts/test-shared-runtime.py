@@ -68,13 +68,13 @@ class Guards(unittest.TestCase):
               'provider_calls':4,'private_original_cursor_restart_qualified':True,'populated_scope_restore_stage_qualified':True,
               'raw_feed_sha256':'b'*64,'notification_calls':6,'notification_deliveries':2,'event_ids':events,
               'notification_witness_sha256':'c'*64,'private_binary_sha256':'d'*64,
-              'scoped_restore_generation_qualified':True,'restored_native_publication_qualified':True,
+              'scoped_restore_generation_qualified':True,'restored_retirement_qualified':True,'restored_native_publication_qualified':True,
               'restore_receipt':receipt,'restored_event_id':event,'old_generation_Main_fenced':True,'original_source_checkpoint_unchanged':True,
               'scenarios':[{'name':'actual_Standard_native_feed_private_atomic_outbox_exact_replay_three_attempt_notifications','status':'passed_simulated','event_ids':events},
                            {'name':'actual_Standard_fresh_destination_generation_original_cursor_restart_and_new_native_publication','status':'passed_simulated','event_id':event}]}
         module.qualify_standard_restore_report(good,'a'*64)
         for key,value in [('scoped_restore_generation_qualified',False),('restored_native_publication_qualified',False),
-                          ('old_generation_Main_fenced',False),('original_source_checkpoint_unchanged',False),('restored_event_id',events[0]),('restored_event_id',None),('scenarios',[None,None]),('notification_calls',7)]:
+                          ('restored_retirement_qualified',False),('old_generation_Main_fenced',False),('original_source_checkpoint_unchanged',False),('restored_event_id',events[0]),('restored_event_id',None),('scenarios',[None,None]),('notification_calls',7)]:
             with self.subTest(key=key):
                 with self.assertRaises(ValueError):module.qualify_standard_restore_report(dict(good,**{key:value}),'a'*64)
         for key,value in [('generation',receipt['old_generation']),('old_generation',None),('ready',False),
@@ -125,7 +125,8 @@ class Guards(unittest.TestCase):
               'empty_catalog_qualified':True,'selected_coverage_startup_and_restart_qualified':True,'missing_coverage_failure_qualified':True,'missing_coverage_failure_seconds':.2,'invalid_cache_failure_qualified':True,'invalid_cache_failure_seconds':.2,'late_startup_failure_qualified':True,'late_startup_failure_seconds':.2,'startup_interruption_qualified':True,'startup_interruption_seconds':.2,'provider_calls':13,'binary_sha256':'a'*64,
               'scenarios':[{'name':'actual_Standard_native_TLS_ingest_versioned_S3_query_scoped_findings_global_feed_graceful_shutdown',
                             'status':'passed_simulated','event_ids':['12345678-1234-1234-1234-123456789012','12345678-1234-1234-1234-123456789013']},
-                           {'name':'actual_Standard_stopped_restart_original_enrollment_and_current_query','status':'passed_simulated'},
+                           {'name':'actual_Standard_stopped_original_WAL_explicit_holds_exact_retirement_stale_fence','status':'passed_simulated'},
+                          {'name':'actual_Standard_stopped_restart_original_enrollment_and_current_query','status':'passed_simulated'},
                            {'name':'actual_Standard_SIGKILL_saved_original_request_manifest_once_checkpoint3','status':'passed_simulated',
                             'event_id':'12345678-1234-1234-1234-123456789014','request_id':'12345678-1234-1234-1234-123456789015'},
                            {'name':'actual_Standard_unprepared_native_WAL_restart_held_original_row_checkpoint3','status':'passed_simulated',
@@ -137,6 +138,8 @@ class Guards(unittest.TestCase):
                           ('missing_coverage_failure_seconds',5),('missing_coverage_failure_seconds',True),
                           ('provider_calls',True),('provider_calls',65),('binary_sha256','b'*64),('scenarios',[]),
                           ('scenarios',[good['scenarios'][0]]*2),('startup_denials',[]),
+                          ('scenarios',good['scenarios'][:1]+good['scenarios'][2:]),
+                          ('scenarios',good['scenarios'][:1]+[good['scenarios'][0]]+good['scenarios'][2:]),
                           ('invalid_cache_failure_qualified',False),('invalid_cache_failure_seconds',5),
                           ('invalid_cache_failure_seconds',True),('late_startup_failure_qualified',False),('late_startup_failure_seconds',5),
                           ('late_startup_failure_seconds',True),('startup_interruption_qualified',False),('startup_interruption_seconds',3),

@@ -68,6 +68,7 @@ enum Reply {
 enum Operation {
     ProducerCredentials {
         owner: String,
+        lifecycle: bool,
     },
     ExistingFindingScope {
         scope: Scope,
@@ -591,6 +592,25 @@ impl ControlClient {
         schema_owner: String,
         context: ControlContext,
     ) -> Result<(), ControlError> {
+        self.verify_credentials(schema_owner, false, context).await
+    }
+    /// Separate stopped-host allowlist: acquire, renew, catalog and object control.
+    /// This does not broaden the producer allowlist or confer policy authority.
+    /// Schema USAGE on both control and finding-scope permits exact RPC inspection;
+    /// it does not grant execution of the finding-scope publication function.
+    pub async fn verify_lifecycle_credentials(
+        &self,
+        schema_owner: String,
+        context: ControlContext,
+    ) -> Result<(), ControlError> {
+        self.verify_credentials(schema_owner, true, context).await
+    }
+    async fn verify_credentials(
+        &self,
+        schema_owner: String,
+        lifecycle: bool,
+        context: ControlContext,
+    ) -> Result<(), ControlError> {
         if schema_owner.is_empty()
             || schema_owner.len() > 63
             || schema_owner.capacity() > 63
@@ -605,6 +625,7 @@ impl ControlClient {
             .submit(
                 Operation::ProducerCredentials {
                     owner: schema_owner,
+                    lifecycle,
                 },
                 context,
             )
@@ -1054,7 +1075,7 @@ async fn execute(
             )
             .await
             .map_err(database_error)?;
-        let reply = if let Operation::ProducerCredentials { owner } = operation {
+        let reply = if let Operation::ProducerCredentials { owner, lifecycle } = operation {
             let row = connection.client.query_one(
                 "SELECT NOT pg_has_role(session_user,$1::name,'MEMBER')
                 AND NOT EXISTS(SELECT 1 FROM pg_roles r WHERE pg_has_role(session_user,r.oid,'MEMBER')
@@ -1068,9 +1089,11 @@ async fn execute(
                         OR (has_function_privilege(r.oid,p.oid,'EXECUTE') AND p.oid NOT IN (
                             'signal_control.acquire(jsonb,uuid,integer,bytea,bytea)'::regprocedure,
                             'signal_control.renew(jsonb,integer,bytea,bytea)'::regprocedure,
-                            'signal_control.read_catalog_snapshot(jsonb,uuid,integer,bytea,bytea)'::regprocedure,
-                            'signal_control.publish(jsonb,bytea,boolean,bytea,bytea)'::regprocedure,
-                            'signal_finding_scope.publish(jsonb,bytea,bytea,boolean,bytea,bytea,text,text)'::regprocedure))))
+                            'signal_control.read_catalog_snapshot(jsonb,uuid,integer,bytea,bytea)'::regprocedure)
+                            AND NOT (($2::boolean AND p.oid='signal_control.object_control(jsonb,bytea,bytea,bytea)'::regprocedure)
+                            OR (NOT $2::boolean AND p.oid IN (
+                                'signal_control.publish(jsonb,bytea,boolean,bytea,bytea)'::regprocedure,
+                                'signal_finding_scope.publish(jsonb,bytea,bytea,boolean,bytea,bytea,text,text)'::regprocedure))))))
                     OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
                         WHERE n.nspname IN ('signal_control','signal_finding_scope')
                         AND (pg_has_role(r.oid,c.relowner,'MEMBER')
@@ -1078,7 +1101,7 @@ async fn execute(
                             (has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
                             OR has_any_column_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')))
                         OR (c.relkind='S' AND has_sequence_privilege(r.oid,c.oid,'USAGE,SELECT,UPDATE'))))))",
-                &[owner],
+                &[owner, lifecycle],
             ).await.map_err(database_error)?;
             if !row
                 .try_get::<_, bool>(0)

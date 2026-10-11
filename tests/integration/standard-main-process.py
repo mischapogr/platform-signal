@@ -79,6 +79,8 @@ class Run(BASE.Run):
             'restore_scope_stage':['phase: Standard-populated-scoped-restore-stage-core-only-denial-counter-corruption-qualified'],
             'verify_audit_empty':['phase: Standard-audit-lifecycle-original-empty-DB-WAL-floor-checkpoint-qualified'],
             'verify':['phase: Standard-process-exact-findings-facts-DB-WAL-checkpoint-original-floor-qualified'],
+            'retirement':['phase: Standard-stopped-original-WAL-explicit-holds-retirement-stale-fence-qualified'],
+            'retirement_restored':['phase: Standard-restored-stopped-original-WAL-explicit-holds-retirement-stale-fence-qualified'],
             'verify_crash_saved':['phase: Standard-SIGKILL-original-prepared-request-retained-WAL3-DB-checkpoint2-qualified'],
             'verify_crash_recovered':['phase: Standard-original-saved-request-manifest-once-DB-WAL-checkpoint3-qualified'],
             'verify_unprepared_before':['phase: Standard-native-SIGKILL-unprepared-WAL4-checkpoint3-no-recovery-qualified'],
@@ -379,6 +381,10 @@ class Run(BASE.Run):
         self.record('actual_Standard_native_TLS_ingest_versioned_S3_query_scoped_findings_global_feed_graceful_shutdown',event_ids=ids)
         # The original database-clock lease must expire; no owner overwrite/DDL.
         time.sleep(16)
+        self.offline('retirement')
+        self.record('actual_Standard_stopped_original_WAL_explicit_holds_exact_retirement_stale_fence')
+        # Maintenance also has a real finite lease; do not override its owner.
+        time.sleep(16)
         self.start_server()
         if {e['id'] for e in self.events()['events']}!=set(ids):raise RuntimeError('Standard stopped restart query identities')
         self.check_coverage()
@@ -532,6 +538,7 @@ class PrivateRun(Run):
             if self.request('/v1/events',method='POST',body=event)[0]!=202:raise RuntimeError('restored fresh native admission')
             self.wait(lambda:len(self.events()['events'])==3)
             self.restored_event_id=event['id'];self.stop('server');self.offline('verify_restored');self.offline('verify','offline-original-source-unchanged')
+            time.sleep(16);self.offline('retirement_restored');self.restored_retirement_qualified=True
             self.record('actual_Standard_fresh_destination_generation_original_cursor_restart_and_new_native_publication',event_id=event['id'])
         else:
             self.stop('server');self.offline('verify','offline-verify-after-private-restart')
@@ -686,7 +693,7 @@ def main():
                           notification_witness_sha256=run.notification_witness_sha256,private_binary_sha256=run.private_binary_sha256)
             if args.scenario=='restore':
                 report['scope']='Actual fresh compiled-DDL stopped scoped restore, current pinned object custody and private progress, generation fencing, restored native Standard query and new publication; local simulation only'
-                report.update(scoped_restore_generation_qualified=True,restored_native_publication_qualified=True,
+                report.update(scoped_restore_generation_qualified=True,restored_native_publication_qualified=True,restored_retirement_qualified=run.restored_retirement_qualified,
                               restore_receipt=run.restore_receipt,restored_event_id=run.restored_event_id,
                               old_generation_Main_fenced=run.restored_old_generation_startup_fenced,original_source_checkpoint_unchanged=True)
         elif args.scenario=='audit':

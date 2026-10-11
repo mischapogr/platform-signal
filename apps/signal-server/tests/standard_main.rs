@@ -14,6 +14,8 @@ type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 const DB: &str = "signal_standard_main";
 #[path = "support/standard_restore.rs"]
 mod standard_restore;
+#[path = "support/standard_retirement.rs"]
+mod standard_retirement;
 #[derive(serde::Deserialize)]
 struct Fixture {
     port: u16,
@@ -55,11 +57,13 @@ async fn standard_offline_fixture() -> Result {
         drop(db);
         timeout(Duration::from_secs(2), driver).await???;
     }
-    pg.dbname(if phase == "verify_restored" {
-        "signal_standard_restore"
-    } else {
-        DB
-    });
+    pg.dbname(
+        if matches!(phase.as_str(), "verify_restored" | "retirement_restored") {
+            "signal_standard_restore"
+        } else {
+            DB
+        },
+    );
     let (db, driver) = timeout(Duration::from_secs(2), pg.connect(tokio_postgres::NoTls)).await??;
     let driver = tokio::spawn(driver);
     let result:Result=async {
@@ -80,6 +84,7 @@ async fn standard_offline_fixture() -> Result {
             assert_eq!(wal.snapshot().last_sequence,3);assert_eq!(wal.snapshot().checkpoint,3);assert!(wal.read_recovery(context()?.deadline()).await?.is_none());wal.shutdown().await?;
             println!("phase: Standard-restored-native-publication-original-WAL-floor-and-private-cursor-qualified");return Ok(());
         }
+        if matches!(phase.as_str(),"retirement"|"retirement_restored") {standard_retirement::qualify(&db,&f,&root,phase=="retirement_restored").await?;return Ok(());}
         if phase=="restore_scope" {standard_restore::qualify(&db,&f,&root).await?;return Ok(());}
         if phase=="verify_audit_empty" {
             let row=timeout(Duration::from_secs(2),db.query_one("SELECT (SELECT count(*) FROM signal_control.findings),(SELECT count(*) FROM signal_finding_scope.facts),(SELECT checkpoint FROM signal_control.partitions WHERE kind='pipeline'),(SELECT wal_floor FROM signal_finding_scope.producers)",&[])).await??;
