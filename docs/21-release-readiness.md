@@ -10,6 +10,7 @@ summarized in [progress](07-progress.md).
 
 | Scope | Accepted evidence | Limit |
 | --- | --- | --- |
+| Native Standard executable | Run38212500862 at16ca254 passes AMD64/ARM64 Rust jobs; GitHub artifact digests, matching native ELF/binary identities,159current runtime source hashes and five Standard scenarios per architecture verified;170.97s/168.97s with owned cleanup; `target/native-ci-monitor-20261012/VERIFIED-NATIVE-STANDARD.json` | Real PostgreSQL TLS and simulated versioned S3 process scope; excludes Standard Kubernetes, private consumer/restore, actual AWS, independent full-item review and release acceptance |
 | Stopped Standard lifecycle | Writer-reviewed750b004;919default/976all-feature tests, both strict Clippy,36guards, catalog4/restored5 campaigns181.75s/76.30s; source binding at`target/stopped-retirement-20261011/ACCEPTANCE.json` | Local AMD64/owned simulation; independent full-item review, external retention/custody and current release gates remain; no remote DELETE |
 | Standard executable and fresh scoped restore | Writer-reviewed pushed1273054;914default/971all-feature tests, both strict Clippy modes,36guards, all18matrix cases and actual pipeline/audit/private/restore process campaigns; exact binding at`target/standard-main-20261011T104031+0200/ACCEPTANCE.json` | Local AMD64/loopback S3 and private-destination simulation; independent full-item and current external/release gates remain |
 | Server publication coordinator | Actual rule/Parquet/atomic control/query, exact replay, cancellation/stale-owner orphan-only and observed lost COMMIT resolution; matching final gates required | Application component with emulated process-local versions; no Standard startup/WAL/custody/private-consumer qualification |
@@ -38,7 +39,10 @@ not distinguish missing versus duplicated rows. Writer-reviewed`7d5d83f` enforce
 complete logical events, stable original IDs/full payloads, original durable
 spool/physical SIGKILL, actual uncertainty/exact replay and restart retention.
 Five guard tests, full process/Cargo process tests and workflow checks pass.
-Fresh exact-head native/Standard/container qualification remains required.
+Both native Rust jobs pass at16ca254, including the Standard executable fixture;
+their digest-verified runtime reports are recorded above. Container/Kubernetes
+jobs remain in progress at the retained observation. Latest-revision CI and full
+matching qualification remain required.
 
 Earlier matrix evidence (valid only once its source-bound final campaign passes):
 `target/goal-execution-20261007/SHARED-RUNTIME/matrix-20261010/acceptance.json`
