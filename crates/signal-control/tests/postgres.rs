@@ -163,6 +163,9 @@ async fn postgres_lease_authority_and_cancellation() -> Result<(), Box<dyn std::
     let tls = ControlClient::new(tls_settings("signal-control.invalid", &f.root_der)?)?;
     let token = tls.acquire(scope.clone(), actor, 60000, context()?).await?;
     assert_eq!(tls.renew(token.clone(), 60000, context()?).await?, token);
+    assert_eq!(tls.metrics().lease_acquired_results, 1);
+    assert_eq!(tls.metrics().lease_renewed_results, 1);
+    assert_eq!(tls.metrics().fenced_results, 0);
     tls.shutdown(context()?).await?;
     assert_eq!(token.epoch, 1);
     publication::qualify(&db, &runtime, &token).await?;
@@ -219,6 +222,7 @@ async fn postgres_lease_authority_and_cancellation() -> Result<(), Box<dyn std::
         assert_eq!(publication::witness(&db).await?, foreign_before);
     }
     eprintln!("matrix-case:foreign_tenant_stream passed");
+    assert!(runtime.metrics().fenced_results > 0);
     let mut stale = scope.clone();
     stale.generation = Uuid::from_u128(999);
     assert!(matches!(
@@ -300,6 +304,47 @@ async fn postgres_lease_authority_and_cancellation() -> Result<(), Box<dyn std::
     ));
     idle(&runtime).await?;
     eprintln!("phase: blocked-statements");
+    // A deadline after actual SQL lock admission must retain uncertainty and
+    // physically roll back without granting a renewal or changing store facts.
+    let before_timeout = runtime.metrics().transaction_timeouts;
+    let before_renewal = runtime.metrics().lease_renewed_results;
+    let before_facts = publication::witness(&db).await?;
+    db.batch_execute("BEGIN; SELECT singleton FROM signal_control.store FOR UPDATE")
+        .await?;
+    let bounded = runtime.clone();
+    let original = next.clone();
+    let short = ControlContext::new(Duration::from_millis(400))?;
+    let timed = tokio::spawn(async move { bounded.renew(original, 15000, short).await });
+    tokio::time::timeout(Duration::from_millis(300), async {
+        loop {
+            db.batch_execute("SELECT pg_stat_clear_snapshot()").await?;
+            let row = db.query_one("SELECT count(*) FROM pg_stat_activity WHERE application_name='signal-control' AND wait_event_type='Lock'", &[]).await?;
+            if row.get::<_, i64>(0) == 1 { break; }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        Ok::<(), tokio_postgres::Error>(())
+    }).await??;
+    assert!(matches!(timed.await?, Err(ControlError::Uncertain)));
+    db.batch_execute("ROLLBACK").await?;
+    idle(&runtime).await?;
+    assert_eq!(runtime.metrics().transaction_timeouts, before_timeout + 1);
+    assert_eq!(runtime.metrics().lease_renewed_results, before_renewal);
+    assert_eq!(publication::witness(&db).await?, before_facts);
+    // PostgreSQL query-cancel responses retain a timeout class without parsing
+    // localized error messages; existing uncertainty/rollback rules still apply.
+    db.batch_execute("SET statement_timeout='5ms'").await?;
+    let cancelled_statement = db.batch_execute("SELECT pg_sleep(0.1)").await;
+    let cancelled_statement = match cancelled_statement {
+        Err(error) => error,
+        Ok(()) => return Err("statement timeout did not fire".into()),
+    };
+    assert_eq!(
+        cancelled_statement
+            .as_db_error()
+            .map(|error| error.code().code()),
+        Some("57014")
+    );
+    db.batch_execute("SET statement_timeout='2000ms'").await?;
     // Hold the actual store row: four cancelled statements must keep their seats
     // while ROLLBACK waits behind those statements. Queue admits only another32.
     db.batch_execute("BEGIN; SELECT singleton FROM signal_control.store FOR UPDATE")

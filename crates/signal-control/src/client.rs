@@ -34,6 +34,10 @@ struct Counters {
     notification_uncertain_results: AtomicU64,
     snapshot_expired: AtomicU64,
     snapshot_retries: AtomicU64,
+    fenced_results: AtomicU64,
+    transaction_timeouts: AtomicU64,
+    lease_acquired_results: AtomicU64,
+    lease_renewed_results: AtomicU64,
 }
 #[derive(Clone, Copy, Debug)]
 pub struct ControlMetrics {
@@ -49,6 +53,16 @@ pub struct ControlMetrics {
     pub notification_uncertain_results: u64,
     pub snapshot_expired: u64,
     pub snapshot_retries: u64,
+    /// Worker-observed stale or denied authority results, including abandoned callers.
+    pub fenced_results: u64,
+    /// Transaction budget expiry or PostgreSQL query-cancellation responses observed
+    /// before uncertain-outcome conversion. SQLSTATE 57014 does not distinguish
+    /// statement timeouts from an external cancellation; this is not that inventory.
+    /// Connection/admission timeouts are excluded; retries are separate attempts.
+    pub transaction_timeouts: u64,
+    /// Confirmed worker transaction results, not current leases or caller authority.
+    pub lease_acquired_results: u64,
+    pub lease_renewed_results: u64,
 }
 enum Reply {
     ProducerCredentials,
@@ -137,6 +151,27 @@ enum Operation {
         resolve_only: bool,
         expected: PublicationResult,
     },
+}
+impl Counters {
+    fn observe(&self, operation: &Operation, completion: &Completion) {
+        if completion.fenced_result {
+            self.fenced_results.fetch_add(1, Ordering::Relaxed);
+        }
+        if completion.transaction_timed_out {
+            self.transaction_timeouts.fetch_add(1, Ordering::Relaxed);
+        }
+        if matches!(completion.result, Ok(Reply::Lease(_))) {
+            match operation {
+                Operation::Acquire { .. } => {
+                    self.lease_acquired_results.fetch_add(1, Ordering::Relaxed);
+                }
+                Operation::Renew { .. } => {
+                    self.lease_renewed_results.fetch_add(1, Ordering::Relaxed);
+                }
+                _ => {}
+            }
+        }
+    }
 }
 struct QueueMark {
     counters: Arc<Counters>,
@@ -250,6 +285,7 @@ impl ControlClient {
                         routines_identity,
                     )
                     .await;
+                    job.mark.counters.observe(&job.operation, &completion);
                     while matches!(
                         &job.operation,
                         Operation::Snapshot { .. }
@@ -279,6 +315,7 @@ impl ControlClient {
                             routines_identity,
                         )
                         .await;
+                        job.mark.counters.observe(&job.operation, &completion);
                     }
                     let result = match completion.result {
                         Ok(value) => job
@@ -331,6 +368,22 @@ impl ControlClient {
                 .load(Ordering::Relaxed),
             snapshot_expired: self.inner.counters.snapshot_expired.load(Ordering::Relaxed),
             snapshot_retries: self.inner.counters.snapshot_retries.load(Ordering::Relaxed),
+            fenced_results: self.inner.counters.fenced_results.load(Ordering::Relaxed),
+            transaction_timeouts: self
+                .inner
+                .counters
+                .transaction_timeouts
+                .load(Ordering::Relaxed),
+            lease_acquired_results: self
+                .inner
+                .counters
+                .lease_acquired_results
+                .load(Ordering::Relaxed),
+            lease_renewed_results: self
+                .inner
+                .counters
+                .lease_renewed_results
+                .load(Ordering::Relaxed),
         }
     }
     pub async fn acquire(
@@ -925,6 +978,11 @@ impl ControlClient {
 }
 pub(crate) fn database_error(error: tokio_postgres::Error) -> ControlError {
     if let Some(db) = error.as_db_error() {
+        if db.code().code() == "57014" {
+            // A server-side statement timeout or query cancellation is a bounded
+            // transaction failure. COMMIT uncertainty still overrides this class.
+            return ControlError::Timeout;
+        }
         if matches!(db.code().code(), "42501") {
             return ControlError::Fenced;
         }
@@ -986,6 +1044,8 @@ fn final_transaction_result<T>(
 struct Completion {
     result: Result<Reply, ControlError>,
     rollback_confirmed: bool,
+    transaction_timed_out: bool,
+    fenced_result: bool,
 }
 async fn execute(
     settings: &ConnectionSettings,
@@ -1018,9 +1078,12 @@ async fn execute(
     let mut connection = match connection {
         Ok(value) => value,
         Err(error) => {
+            let fenced_result = matches!(error, ControlError::Fenced);
             return Completion {
                 result: Err(error),
                 rollback_confirmed: true,
+                transaction_timed_out: false,
+                fenced_result,
             };
         }
     };
@@ -1425,6 +1488,9 @@ async fn execute(
         ()=context.cancellation.cancelled()=>Err(ControlError::Cancelled),
         value=tokio::time::timeout_at(transaction_deadline,query)=>match value {Ok(value)=>value,Err(_)=>Err(ControlError::Timeout)},
     };
+    let transaction_timed_out = matches!(result, Err(ControlError::Timeout))
+        || tokio::time::Instant::now() >= transaction_deadline;
+    let fenced_result = matches!(result, Err(ControlError::Fenced));
     let result = final_transaction_result(result, transaction_deadline, context);
     // Protocol ordering puts ROLLBACK after any dropped in-flight query. Keep
     // the driver and seat until its response, even after the caller has left.
@@ -1451,6 +1517,8 @@ async fn execute(
     Completion {
         result,
         rollback_confirmed,
+        transaction_timed_out,
+        fenced_result,
     }
 }
 

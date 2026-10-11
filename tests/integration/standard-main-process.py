@@ -373,6 +373,24 @@ class Run(BASE.Run):
         (self.out/'feed-response.json').write_bytes(body[:65536])
         if status!=200 or len(json.loads(body)['findings'])!=2:raise RuntimeError('Standard global findings feed')
         status,body=self.request('/metrics/shared')
+        (self.out/'shared-metrics.txt').write_bytes(body[:16384])
+        names=(b'producer_fenced_results',b'reader_fenced_results',
+               b'producer_transaction_timeouts',b'reader_transaction_timeouts',
+               b'producer_lease_acquired_results',b'producer_lease_renewed_results',
+               b'producer_snapshot_expired',b'reader_snapshot_expired',
+               b'producer_snapshot_retries',b'reader_snapshot_retries',
+               b'producer_notification_uncertain_results',b'reader_notification_uncertain_results',
+               b'publication_orphan_candidate_results',b'publication_prepared',b'publication_committed')
+        lines=body.splitlines()
+        for name in names:
+            prefix=b'signal_shared_'+name+b'_total '
+            values=[line[len(prefix):] for line in lines if line.startswith(prefix)]
+            if len(values)!=1 or not values[0].isdigit():raise RuntimeError('Standard shared outcome metrics')
+        for role in (b'producer',b'reader'):
+            for suffix in (b'depth',b'capacity'):
+                prefix=b'signal_shared_'+role+b'_quarantined_connections_'+suffix+b' '
+                values=[line[len(prefix):] for line in lines if line.startswith(prefix)]
+                if len(values)!=1 or not values[0].isdigit():raise RuntimeError('Standard control quarantine metrics')
         required=(b'signal_shared_producer_queue_capacity 32',b'signal_shared_query_io_queue_capacity 1',
                   b'signal_shared_query_codec_queue_capacity 1',b'signal_shared_findings_callers_capacity 4',
                   b'signal_shared_feed_callers_capacity 4',b'signal_shared_query_io_rejected_total 0')

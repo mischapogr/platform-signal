@@ -278,6 +278,16 @@ mod host {
         let list = state.findings.metrics();
         let feed = state.feed.metrics();
         let rows = [
+            (
+                "producer_quarantined_connections",
+                c.quarantined,
+                c.connection_capacity,
+            ),
+            (
+                "reader_quarantined_connections",
+                q.quarantined,
+                q.connection_capacity,
+            ),
             ("producer_queue", c.queue_depth, c.queue_capacity),
             ("producer_connections", c.active, c.connection_capacity),
             ("reader_queue", q.queue_depth, q.queue_capacity),
@@ -323,6 +333,32 @@ mod host {
             );
         }
         let counters = [
+            ("producer_fenced_results", c.fenced_results),
+            ("reader_fenced_results", q.fenced_results),
+            ("producer_transaction_timeouts", c.transaction_timeouts),
+            ("reader_transaction_timeouts", q.transaction_timeouts),
+            ("producer_lease_acquired_results", c.lease_acquired_results),
+            ("producer_lease_renewed_results", c.lease_renewed_results),
+            ("reader_lease_acquired_results", q.lease_acquired_results),
+            ("reader_lease_renewed_results", q.lease_renewed_results),
+            ("producer_snapshot_expired", c.snapshot_expired),
+            ("reader_snapshot_expired", q.snapshot_expired),
+            ("producer_snapshot_retries", c.snapshot_retries),
+            ("reader_snapshot_retries", q.snapshot_retries),
+            (
+                "producer_notification_uncertain_results",
+                c.notification_uncertain_results,
+            ),
+            (
+                "reader_notification_uncertain_results",
+                q.notification_uncertain_results,
+            ),
+            (
+                "publication_orphan_candidate_results",
+                p.orphan_candidate_results,
+            ),
+            ("publication_prepared", p.prepared),
+            ("publication_committed", p.committed),
             ("producer_rejected", c.rejected),
             ("reader_rejected", q.rejected),
             ("admission_rejected", a.rejected),

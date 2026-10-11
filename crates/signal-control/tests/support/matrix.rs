@@ -140,6 +140,9 @@ pub async fn worker() -> Result<(), Error> {
         return Err("producer survived the intended crash boundary".into());
     }
     runtime.shutdown(super::context()?).await?;
+    if work.mode == "stall" {
+        assert!(runtime.metrics().transaction_timeouts > 0);
+    }
     publish_marker(&root.join("refused"), b"refused")?;
     Ok(())
 }

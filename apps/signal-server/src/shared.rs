@@ -131,6 +131,7 @@ pub struct PreparedPublication {
     context: ControlContext,
     binding: Arc<()>,
     _seat: OwnedSemaphorePermit,
+    objects_observed: UnconfirmedObjects,
 }
 impl PreparedPublication {
     pub fn request(&self) -> &PublicationInput {
@@ -162,6 +163,9 @@ pub struct SharedPublicationMetrics {
     pub rejected: u64,
     pub prepared: u64,
     pub committed: u64,
+    /// Preparation attempts with verified references ending without confirmed publication.
+    /// Includes abandoned/cancelled preparation and uncertain replies, not an inventory.
+    pub orphan_candidate_results: u64,
     pub closed: bool,
     pub objects: signal_storage::object_io::ObjectIoMetrics,
     pub codec: signal_storage::object_codec::CodecMetrics,
@@ -180,6 +184,19 @@ pub struct SharedPublisher {
     rejected: AtomicU64,
     prepared: AtomicU64,
     committed: AtomicU64,
+    orphan_candidate_results: Arc<AtomicU64>,
+}
+struct UnconfirmedObjects {
+    counter: Arc<AtomicU64>,
+    observed: bool,
+    confirmed: bool,
+}
+impl Drop for UnconfirmedObjects {
+    fn drop(&mut self) {
+        if self.observed && !self.confirmed {
+            self.counter.fetch_add(1, Ordering::Relaxed);
+        }
+    }
 }
 struct Observation<'a> {
     rejected: &'a AtomicU64,
@@ -350,6 +367,7 @@ impl SharedPublisher {
             rejected: AtomicU64::new(0),
             prepared: AtomicU64::new(0),
             committed: AtomicU64::new(0),
+            orphan_candidate_results: Arc::new(AtomicU64::new(0)),
         })
     }
     pub fn metrics(&self) -> SharedPublicationMetrics {
@@ -359,6 +377,7 @@ impl SharedPublisher {
             rejected: self.rejected.load(Ordering::Relaxed),
             prepared: self.prepared.load(Ordering::Relaxed),
             committed: self.committed.load(Ordering::Relaxed),
+            orphan_candidate_results: self.orphan_candidate_results.load(Ordering::Relaxed),
             closed: self.closed.load(Ordering::Acquire),
             objects: self.io.metrics(),
             codec: self.codec.metrics(),
@@ -404,6 +423,11 @@ impl SharedPublisher {
         draft: PublicationDraft,
         mut context: ControlContext,
     ) -> Result<PreparedPublication, SharedError> {
+        let mut objects_observed = UnconfirmedObjects {
+            counter: self.orphan_candidate_results.clone(),
+            observed: false,
+            confirmed: false,
+        };
         let mut observation = Observation {
             rejected: &self.rejected,
             failed: true,
@@ -463,16 +487,18 @@ impl SharedPublisher {
                 }
                 // Only a database-committed predecessor gets a canonical manifest
                 // object. No pending current manifest can reserve a future head.
+                let object = self
+                    .create_exact(
+                        &manifest_key(self.scope.stream, parsed.first_sequence),
+                        &prior.bytes,
+                        &context,
+                    )
+                    .await?;
+                objects_observed.observed = true;
                 Some(PreviousManifest {
                     first_sequence: parsed.first_sequence,
                     last_sequence: parsed.last_sequence,
-                    object: self
-                        .create_exact(
-                            &manifest_key(self.scope.stream, parsed.first_sequence),
-                            &prior.bytes,
-                            &context,
-                        )
-                        .await?,
+                    object,
                 })
             }
         };
@@ -482,18 +508,20 @@ impl SharedPublisher {
         }
         let mut files = Vec::with_capacity(batch.files().len());
         for file in batch.files() {
+            let object = self
+                .create_exact(
+                    &data_key(self.scope.stream, file.date(), file.hour(), file.sha256()),
+                    file.bytes(),
+                    &context,
+                )
+                .await?;
+            objects_observed.observed = true;
             files.push(QueryFile {
                 date: file.date().into(),
                 hour: file.hour(),
                 rows: file.rows(),
                 decoded_bytes: file.decoded_bytes(),
-                object: self
-                    .create_exact(
-                        &data_key(self.scope.stream, file.date(), file.hour(), file.sha256()),
-                        file.bytes(),
-                        &context,
-                    )
-                    .await?,
+                object,
             });
         }
         let manifest = QueryManifest {
@@ -533,6 +561,7 @@ impl SharedPublisher {
             context,
             binding: self.binding.clone(),
             _seat: seat,
+            objects_observed,
         })
     }
     pub async fn prepare_scoped(
@@ -558,7 +587,7 @@ impl SharedPublisher {
             rejected: &self.rejected,
             failed: true,
         };
-        let p = prepared.prepared;
+        let mut p = prepared.prepared;
         p.context.check()?;
         self.token(&p.token)?;
         if !Arc::ptr_eq(&p.binding, &self.binding) {
@@ -570,6 +599,7 @@ impl SharedPublisher {
             .publish_scoped(p.token, prepared.request, p.context.clone())
             .await?;
         p.context.check().map_err(|_| ControlError::Uncertain)?;
+        p.objects_observed.confirmed = true;
         self.committed.fetch_add(1, Ordering::Relaxed);
         observation.failed = false;
         Ok(result)
@@ -599,7 +629,7 @@ impl SharedPublisher {
     /// Uncertainty is returned unchanged; this method never retries with a new ID.
     pub async fn commit(
         &self,
-        prepared: PreparedPublication,
+        mut prepared: PreparedPublication,
     ) -> Result<PublicationResult, SharedError> {
         let mut observation = Observation {
             rejected: &self.rejected,
@@ -619,6 +649,7 @@ impl SharedPublisher {
             .check()
             .map_err(|_| ControlError::Uncertain)?;
         self.committed.fetch_add(1, Ordering::Relaxed);
+        prepared.objects_observed.confirmed = true;
         observation.failed = false;
         Ok(result)
     }
