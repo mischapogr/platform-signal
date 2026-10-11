@@ -202,10 +202,11 @@ class ServerOutputGuards(unittest.TestCase):
         feed='phase: actual-server-shared-findings-feed-wire-qualified'
         recovery='phase: actual-server-durable-request-recovery-before-wal-checkpoint-qualified'
         scoped='phase: actual-server-scoped-wal-original-claims-crash-and-startup-fencing-qualified'
+        scoped_commit='phase: actual-server-scoped-lost-commit-original-claims-and-checkpoint-qualified'
         crashed=[f'recovery-process: {mode} owned child SIGKILL observed and reaped' for mode in ('draft','before-commit','after-commit','after-ack')]
         scoped_crashed=[f'recovery-process: scoped-{mode} owned child SIGKILL observed and reaped' for mode in ('draft','before-commit','after-commit','after-ack')]
         summary='test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out;'
-        required=[marker,startup,recovery,feed,scoped,*crashed,*scoped_crashed]
+        required=[marker,startup,recovery,feed,scoped,scoped_commit,*crashed,*scoped_crashed]
         good='\n'.join([*required,summary])
         module.qualify_server_output(good)
         for output in [summary, *[good.replace(value+'\n','') for value in required], *[good+'\n'+value for value in required], good.replace('ok.', 'FAILED.')]:

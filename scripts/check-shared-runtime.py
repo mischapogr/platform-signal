@@ -123,9 +123,10 @@ def qualify_server_output(output):
     feed='phase: actual-server-shared-findings-feed-wire-qualified'
     recovery='phase: actual-server-durable-request-recovery-before-wal-checkpoint-qualified'
     scoped='phase: actual-server-scoped-wal-original-claims-crash-and-startup-fencing-qualified'
+    scoped_commit='phase: actual-server-scoped-lost-commit-original-claims-and-checkpoint-qualified'
     crashed=[f'recovery-process: {mode} owned child SIGKILL observed and reaped' for mode in ('draft','before-commit','after-commit','after-ack')]
     scoped_crashed=[f'recovery-process: scoped-{mode} owned child SIGKILL observed and reaped' for mode in ('draft','before-commit','after-commit','after-ack')]
-    if any(output.splitlines().count(value)!=1 for value in [marker,startup,recovery,feed,scoped,*crashed,*scoped_crashed]) or not re.search(r'test result: ok\. 1 passed; 0 failed; 0 ignored; 0 measured; [0-9]+ filtered out;',output):
+    if any(output.splitlines().count(value)!=1 for value in [marker,startup,recovery,feed,scoped,scoped_commit,*crashed,*scoped_crashed]) or not re.search(r'test result: ok\. 1 passed; 0 failed; 0 ignored; 0 measured; [0-9]+ filtered out;',output):
         raise ValueError('server shared publication qualification missing or ambiguous')
 
 
@@ -149,7 +150,9 @@ def main():
     gate = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(gate)
     began = time.monotonic()
-    deadline = began+180
+    # Expanded control/restore and server crash matrices need separate harness
+    # headroom. This never extends any production operation context or SQL timeout.
+    deadline = began+240
     name = 'signal-shared-runtime-'+uuid.uuid4().hex
     password = 'synthetic-control-'+uuid.uuid4().hex
     image = None
@@ -279,7 +282,7 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
             for path in sorted([ROOT/'apps/signal-server/Cargo.toml', *list((ROOT/'apps/signal-server/src').rglob('*.rs')), *list((ROOT/'apps/signal-server/tests').rglob('*.rs')), ROOT/'crates/signal-buffer/Cargo.toml', *list((ROOT/'crates/signal-buffer/src').rglob('*.rs'))]):
                 report['source_hashes'][str(path.relative_to(ROOT))]=hashlib.sha256(path.read_bytes()).hexdigest()
         test_output=run(['cargo','test','--locked','--offline','-p','signal-control','--test','postgres','postgres_lease_authority_and_cancellation',
-             '--','--ignored','--exact','--nocapture'],120,env)
+             '--','--ignored','--exact','--nocapture'],150,env)
         qualify_test_output(test_output)
         catalogs=re.findall(r'^catalog4-catalog: ([0-9a-f]{64})$',test_output,re.MULTILINE)
         expected=(ROOT/'schemas/shared-control/005-catalog.sha256').read_text().strip()
@@ -321,7 +324,8 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
             report['checks'].append('actual_server_explicit_catalog_startup_scope_backend_existing_WAL_binding')
             report['checks'].append('actual_server_original_draft_request_SIGKILL_recovery_before_checkpoint_and_after_ACK')
             report['checks'].append('actual_server_scoped_original_claims_SIGKILL_recovery_and_stale_startup_missing_operation_hold')
-            report['server_scoped_recovery_scope']='Actual owned PostgreSQL and durable WAL original scoped schema2 draft/request through four producer SIGKILL boundaries; byte-exact committed findings resolve after current startup replacement, while a missing old-startup operation remains fenced with original slot and checkpoint held. Synthetic host authentication reports and emulated parent-retained object versions; no native authenticated admission, scoped reads, populated008 restore or Main readiness proof.'
+            report['checks'].append('actual_server_scoped_observed_COMMIT_cancellation_original_claims_resolution_and_confirmed_WAL_checkpoint')
+            report['server_scoped_recovery_scope']='Actual owned PostgreSQL and durable WAL original scoped schema2 draft/request through four producer SIGKILL boundaries and observed server COMMIT cancellation; byte-exact committed findings and companion claims resolve after current startup replacement, while a missing old-startup operation remains fenced with original slot and checkpoint held. Synthetic host authentication reports and emulated parent-retained object versions; no native authenticated admission, scoped reads, populated008 restore or Main readiness proof.'
             report['checks'].append('actual_shared_findings_original_wire_prefix_quota_and_cursor_classes')
             report['shared_findings_wire_scope']='Actual library adapter over PostgreSQL findings, original cursor/payload, finite caller seats and wire limit; ordinary Cargo route-denial regressions. No live authorized shared HTTP/provider roundtrip or main/scoped Standard readiness.'
             http_output=run(['python3','tests/integration/shared-feed-provider.py'],30,env)

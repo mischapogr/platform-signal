@@ -69,7 +69,7 @@ jobs:
       - name: Fetch pinned PostgreSQL fixture
         run: python3 scripts/run-ci-check.py --name shared-postgres-image --timeout 240 -- docker pull postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa
       - name: Real local PostgreSQL crash and restore matrix
-        run: python3 scripts/run-ci-check.py --name shared-postgres --timeout 240 -- python3 scripts/check-shared-runtime.py --matrix --server --image postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa --output target/ci/shared-postgres-qualification
+        run: python3 scripts/run-ci-check.py --name shared-postgres --timeout 300 -- python3 scripts/check-shared-runtime.py --matrix --server --image postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa --output target/ci/shared-postgres-qualification
       - name: Install locked optional identity qualification tools
         run: python3 scripts/run-ci-check.py --name idp-tools --timeout 180 -- npm ci --prefix tools/identity --engine-strict --ignore-scripts --no-audit --no-fund --fetch-retries=1 --fetch-timeout=15000 --cache target/idp-npm-cache
       - name: Install locked Chromium and runner dependencies
