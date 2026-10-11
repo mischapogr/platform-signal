@@ -197,7 +197,8 @@ sys.exit(codes[min(len(calls),len(codes)-1)])
 class ServerOutputGuards(unittest.TestCase):
     def test_live_shared_http_output_required(self):
         markers = ['phase: actual-shared-feed-live-http-tls-provider-durable-audit-qualified',
-                   'phase: actual-owner-native-provider-http-wal-floor-deadline-expiry-replay-qualified']
+                   'phase: actual-owner-native-provider-http-wal-floor-deadline-expiry-replay-qualified',
+                   'phase: actual-native-http-scoped-publication-legacy-unknown-original-request-resume-qualified']
         tests = ['test finding_api::shared_http_tests::authorized_shared_feed_http_provider_audit ... ok',
                  'test native_owner_provider_http_wal_admission ... ok']
         summary='test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 200 filtered out;'
