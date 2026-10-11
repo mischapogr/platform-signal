@@ -1,7 +1,23 @@
 # Implementation progress
 
-Current snapshot: 2026-10-11. Read [release boundaries](21-release-readiness.md) and [finite ledger](31-execution-ledger.json).
+Current snapshot: 2026-10-12. Read [release boundaries](21-release-readiness.md) and [finite ledger](31-execution-ledger.json).
 Prior record: [progress history](07-progress-history-20261010.md).
+
+## Native CI cancellation fixture corrected — 2026-10-12
+
+Public CIrun38146772722 at`8f14fb0` completed: AMD64 Rust and MCP pass; ARM64
+fails only`test-native-qualification.py` at the readiness-stage assertion, and
+container/Kubernetes jobs are skipped. The public ARM64 artifact is retained with
+its GitHub SHA-256 verified under`target/arm64-native-helper-20261012/`.
+
+Writer-reviewed`71e45a9` reproduces the exact spawn/readiness mismatch by delaying
+sampler-thread setup0.65s. A finite test-only2s cancellation interval preserves the
+strict readiness marker, explicit delay witness, child-start and physical reaping
+assertions;3s cleanup grace and all production deadlines remain unchanged.
+All22native helper tests,16CI-wrapper tests and14workspace boundaries pass.
+Acceptance: `target/arm64-native-helper-20261012/ACCEPTANCE.json`. Fresh complete
+remote CI/native qualification is still required. Independent SHARED-RUNTIME
+review remains the next full-item gate; no release version is selected.
 
 ## Stopped Standard lifecycle accepted locally — 2026-10-11
 
