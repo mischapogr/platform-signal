@@ -56,6 +56,7 @@ runtime:
   secretEnv:
     - {name: DB_PRODUCER_PASSWORD, secret: runtime-credentials, key: producer-password}
     - {name: DB_READER_PASSWORD, secret: runtime-credentials, key: reader-password}
+    - {name: SIGNAL_IDENTITY_CLIENT_SECRET, secret: runtime-credentials, key: identity-client-secret}
     - {name: SIGNAL_S3_ENDPOINT, secret: runtime-credentials, key: object-endpoint}
     - {name: SIGNAL_S3_REGION, secret: runtime-credentials, key: object-region}
     - {name: SIGNAL_S3_BUCKET, secret: runtime-credentials, key: object-bucket}
@@ -70,12 +71,15 @@ native HTTPS identity/probes, selected coverage and externally initialized
 dependencies. Match the password environment names in the shared document.
 Configure HTTPS object endpoints; loopback HTTP is an explicit laboratory option.
 The server validates all selections before readiness and never initializes or
-migrates shared metadata during startup. Use a qualified S3-enabled image.
+migrates shared metadata during startup. Use a qualified image with Standard
+runtime and S3 support enabled.
 
-The chart sets the Standard query cache to `/var/lib/signal/query-cache`.
+Selecting `SIGNAL_SHARED_CONFIG` sets `SIGNAL_STORAGE_TYPE=s3` and the Standard
+query cache to `/var/lib/signal/query-cache`.
 `runtime.secretEnv` is bounded to16references, rejects duplicate names, reserved
 process/logging variables, and overrides of chart-owned/config-selector settings.
-Supported `SIGNAL_S3_*` references select the existing object adapter; other custom
+Supported `SIGNAL_S3_*` references select the existing object adapter, and
+`SIGNAL_IDENTITY_CLIENT_SECRET` supplies the native identity client credential. Other custom
 secret variable names must not use the reserved `SIGNAL_` prefix. No environment
 or credential values are rendered in the chart.
 
