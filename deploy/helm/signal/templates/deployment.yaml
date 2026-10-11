@@ -1,6 +1,24 @@
 {{- if ne (int .Values.replicaCount) 1 }}
 {{- fail "filesystem persistence requires replicaCount=1" }}
 {{- end }}
+{{- if and .Values.runtime.files (not .Values.runtime.existingSecret) }}
+{{- fail "runtime.files requires runtime.existingSecret" }}
+{{- end }}
+{{- $seen := dict }}
+{{- $reserved := list "PATH" "HOME" "USER" "SHELL" "LD_PRELOAD" "LD_LIBRARY_PATH" "RUST_LOG" }}
+{{- $s3Env := list "SIGNAL_S3_ENDPOINT" "SIGNAL_S3_REGION" "SIGNAL_S3_BUCKET" "SIGNAL_S3_ACCESS_KEY" "SIGNAL_S3_SECRET_KEY" "SIGNAL_S3_SESSION_TOKEN" "SIGNAL_S3_BACKEND_ID" "SIGNAL_S3_ALLOW_LOOPBACK_HTTP" "SIGNAL_S3_OBJECT_BYTES" "SIGNAL_S3_INVENTORY_OBJECTS" "SIGNAL_S3_CACHE_FILES" "SIGNAL_S3_CACHE_BYTES" }}
+{{- range .Values.runtime.secretEnv }}
+{{- if hasKey $seen .name }}
+{{- fail "runtime.secretEnv contains a duplicate environment name" }}
+{{- end }}
+{{- if has .name $reserved }}
+{{- fail "runtime.secretEnv cannot override process control or logging settings" }}
+{{- end }}
+{{- if and (hasPrefix "SIGNAL_" .name) (not (has .name $s3Env)) }}
+{{- fail "runtime.secretEnv cannot override chart-owned settings or runtime config selectors" }}
+{{- end }}
+{{- $_ := set $seen .name true }}
+{{- end }}
 {{- if eq (int .Values.service.port) (int .Values.service.metricsPort) }}
 {{- fail "service.port and service.metricsPort must differ" }}
 {{- end }}
@@ -83,6 +101,21 @@ spec:
                   name: {{ .Values.auth.existingSecret | quote }}
                   key: {{ .Values.auth.key | quote }}
             {{- end }}
+            {{- range $name, $key := .Values.runtime.files }}
+            - name: {{ $name }}
+              value: {{ printf "/etc/signal/%s.json" $name | quote }}
+            {{- end }}
+            {{- if hasKey .Values.runtime.files "SIGNAL_SHARED_CONFIG" }}
+            - name: SIGNAL_S3_CACHE_DIR
+              value: /var/lib/signal/query-cache
+            {{- end }}
+            {{- range .Values.runtime.secretEnv }}
+            - name: {{ .name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .secret | quote }}
+                  key: {{ .key | quote }}
+            {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
@@ -109,6 +142,12 @@ spec:
             - {name: config, mountPath: /etc/signal/server.yaml, subPath: server.yaml, readOnly: true}
             - {name: data, mountPath: /var/lib/signal}
             - {name: tmp, mountPath: /tmp}
+            {{- range $name, $key := .Values.runtime.files }}
+            - name: runtime
+              mountPath: {{ printf "/etc/signal/%s.json" $name | quote }}
+              subPath: {{ printf "%s.json" $name | quote }}
+              readOnly: true
+            {{- end }}
             {{- if .Values.tls.existingSecret }}
             - {name: tls, mountPath: /etc/signal/tls, readOnly: true}
             {{- end }}
@@ -130,6 +169,17 @@ spec:
         - name: tmp
           emptyDir:
             sizeLimit: 128Mi
+        {{- if .Values.runtime.files }}
+        - name: runtime
+          secret:
+            secretName: {{ .Values.runtime.existingSecret | quote }}
+            defaultMode: 0440
+            items:
+              {{- range $name, $key := .Values.runtime.files }}
+              - key: {{ $key | quote }}
+                path: {{ printf "%s.json" $name | quote }}
+              {{- end }}
+        {{- end }}
         {{- if .Values.tls.existingSecret }}
         - name: tls
           secret:

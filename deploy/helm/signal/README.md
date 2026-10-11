@@ -34,7 +34,56 @@ remove it only when its data is no longer needed. Reinstallation can use
 `persistence.existingClaim`. Storage-class choice, expansion, retention, backup,
 restore and disk monitoring are operator responsibilities. Server storage/WAL/
 findings caps in `limits` bound application usage; size the volume for all three,
-plus filesystem overhead. This chart uses filesystem Parquet only.
+plus filesystem overhead. The default profile uses filesystem Parquet. Explicit
+Standard selection retains the original WAL and query cache on this PVC; shared
+metadata and immutable objects require separately provisioned dependencies.
+
+## Explicit runtime configuration
+
+`runtime.files` selects separately created Secret keys for `SIGNAL_SHARED_CONFIG`,
+`SIGNAL_ACCESS_CONFIG`, `SIGNAL_COVERAGE_CONFIG` and `SIGNAL_AUDIT_CONFIG`.
+Each key mounts read-only as a regular `subPath` file under `/etc/signal`, with
+0440 permissions and the existing pod fsGroup. Only selected keys are projected.
+Secret contents, identities, policy and deployment values belong in the external
+overlay. The chart creates no runtime Secret, database schema or enrollment.
+
+```yaml
+runtime:
+  existingSecret: runtime-config
+  files:
+    SIGNAL_SHARED_CONFIG: shared.json
+    SIGNAL_ACCESS_CONFIG: access.json
+  secretEnv:
+    - {name: DB_PRODUCER_PASSWORD, secret: runtime-credentials, key: producer-password}
+    - {name: DB_READER_PASSWORD, secret: runtime-credentials, key: reader-password}
+    - {name: SIGNAL_S3_ENDPOINT, secret: runtime-credentials, key: object-endpoint}
+    - {name: SIGNAL_S3_REGION, secret: runtime-credentials, key: object-region}
+    - {name: SIGNAL_S3_BUCKET, secret: runtime-credentials, key: object-bucket}
+    - {name: SIGNAL_S3_ACCESS_KEY, secret: runtime-credentials, key: object-access-key}
+    - {name: SIGNAL_S3_SECRET_KEY, secret: runtime-credentials, key: object-secret-key}
+```
+
+This is a reference-only fragment, not a complete Standard deployment. The
+operator supplies supported version1 documents, current scope/backend/catalog,
+distinct least-privilege database roles and verified roots, matching credentials,
+native HTTPS identity/probes, selected coverage and externally initialized
+dependencies. Match the password environment names in the shared document.
+Configure HTTPS object endpoints; loopback HTTP is an explicit laboratory option.
+The server validates all selections before readiness and never initializes or
+migrates shared metadata during startup. Use a qualified S3-enabled image.
+
+The chart sets the Standard query cache to `/var/lib/signal/query-cache`.
+`runtime.secretEnv` is bounded to16references, rejects duplicate names, reserved
+process/logging variables, and overrides of chart-owned/config-selector settings.
+Supported `SIGNAL_S3_*` references select the existing object adapter; other custom
+secret variable names must not use the reserved `SIGNAL_` prefix. No environment
+or credential values are rendered in the chart.
+
+Perform a controlled restart after changes to external runtime Secrets.
+Kubernetes [subPath Secret mounts do not receive updates](https://kubernetes.io/docs/concepts/configuration/secret/#using-secrets-as-files-from-a-pod).
+Single-replica `Recreate`, PVC ownership, resource limits and protected probes
+remain required. Rendering this profile does not qualify its cluster runtime,
+independent review, actual EKS/AWS custody or release readiness.
 
 The process runs as 65532 with a read-only root, dropped capabilities and bounded
 128Mi `/tmp`; its data mount is writable. `fsGroup` permits access on supporting
