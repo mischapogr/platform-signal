@@ -198,6 +198,7 @@ pub fn build_with_kms(
         tls: Arc::new(tls),
         state: state.clone(),
         delete_scope: None,
+        retained_reads: false,
     };
     let provider = HostCredentials(Arc::new(AwsCredential {
         key_id: credentials.access_key.clone(),
@@ -278,6 +279,7 @@ fn validate(config: &S3Config, credentials: &S3Credentials) -> Result<Url, S3Err
 }
 #[derive(Clone)]
 struct Transport {
+    retained_reads: bool,
     endpoint: Url,
     max_object_bytes: usize,
     tls: Arc<rustls::ClientConfig>,
@@ -392,7 +394,7 @@ impl HttpService for Transport {
             );
             let cap = if *request.method() == Method::GET
                 && !uri.query_pairs().any(|(k, _)| k == "list-type")
-                && uri.path().ends_with(".parquet")
+                && (uri.path().ends_with(".parquet") || self.retained_reads)
             {
                 self.max_object_bytes
             } else {
@@ -558,8 +560,10 @@ impl Transport {
         }
     }
 }
+mod custody;
 #[cfg(test)]
 mod tests;
+pub use custody::build_custody_reader;
 
 /// Separately enabled, version-pinned query reclamation transport. Normal
 /// `build` never enables DELETE. Call only through an explicitly owned ObjectIo.
@@ -595,6 +599,7 @@ pub fn build_retired_version_reclaimer(
         tls: Arc::new(tls),
         state: state.clone(),
         delete_scope: Some((config.bucket.clone(), stream)),
+        retained_reads: false,
     };
     let reclaimer = RetiredVersions {
         transport,

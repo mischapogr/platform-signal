@@ -89,8 +89,10 @@ tests, both strict Clippy modes and five uncertainty/fencing/retention guards.
 Independent review and actual PostgreSQL TLS custody qualification now pass8.86s:
 `target/object-custody-postgres-20261012/ACCEPTANCE.json`; exact replay/conflict,
 observed COMMIT cancellation, quota, takeover and reopen retain the original copy.
-Retention authority is simulated. [Contract51](51-object-custody.md) remains in
-progress for concrete retained-object adapter and authenticated API/producer integration.
+S3 exact-version compliance readback now passes924default/985all-feature tests
+and4wire/cancellation guards: `target/object-custody-s3-20261012/ACCEPTANCE.json`.
+Retention is simulated; [contract51](51-object-custody.md) still needs configured
+control verifier and authenticated API/producer integration.
 
 Native CI now prepares one source/revision/architecture-bound executable bundle
 per architecture and reuses it for the Standard cluster gate. Direct compiled

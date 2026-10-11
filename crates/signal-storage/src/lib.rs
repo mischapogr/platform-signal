@@ -3,6 +3,7 @@ pub mod codec;
 mod fs;
 pub mod object_cache;
 pub mod object_codec;
+pub mod object_custody;
 mod object_head;
 pub mod object_io;
 pub mod object_manifest;

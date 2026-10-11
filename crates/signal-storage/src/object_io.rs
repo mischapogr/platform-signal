@@ -120,6 +120,7 @@ impl ObjectInventory {
     }
 }
 enum Work {
+    Retained(QueryObjectRef, chrono::DateTime<chrono::Utc>),
     Create(String, Vec<u8>),
     Read(String, Option<QueryObjectRef>, usize),
     List(String),
@@ -134,6 +135,7 @@ enum Work {
     Pause(oneshot::Sender<()>, std::sync::mpsc::Receiver<()>),
 }
 enum ResultData {
+    Retained(chrono::DateTime<chrono::Utc>),
     Created(QueryObjectRef),
     Read(ObjectRead),
     Inventory(ObjectInventory),
@@ -190,6 +192,7 @@ impl Drop for WorkerExit {
 struct IoBackend {
     store: Arc<dyn ObjectStore>,
     reclaimer: Option<Arc<dyn crate::object_reclamation::ExactVersionDelete>>,
+    custody: Option<Arc<dyn crate::object_custody::RetainedVersionRead>>,
 }
 pub struct ObjectIo {
     sender: Mutex<Option<mpsc::Sender<Command>>>,
@@ -200,6 +203,24 @@ pub struct ObjectIo {
     reclamation_enabled: bool,
 }
 impl ObjectIo {
+    /// Explicit custody observation capability; default constructors omit it.
+    pub fn remote_retained(
+        store: Arc<dyn ObjectStore>,
+        custody: Arc<dyn crate::object_custody::RetainedVersionRead>,
+        runtime: tokio::runtime::Handle,
+        limits: ObjectIoLimits,
+    ) -> Result<Self, ObjectIoError> {
+        Self::start_backend(
+            IoBackend {
+                store,
+                reclaimer: None,
+                custody: Some(custody),
+            },
+            Some(runtime),
+            limits,
+            None,
+        )
+    }
     pub fn remote(
         store: Arc<dyn ObjectStore>,
         runtime: tokio::runtime::Handle,
@@ -283,6 +304,23 @@ impl ObjectIo {
         owner: Option<OwnerStartup>,
         reclaimer: Option<Arc<dyn crate::object_reclamation::ExactVersionDelete>>,
     ) -> Result<Self, ObjectIoError> {
+        Self::start_backend(
+            IoBackend {
+                store,
+                reclaimer,
+                custody: None,
+            },
+            runtime,
+            limits,
+            owner,
+        )
+    }
+    fn start_backend(
+        backend: IoBackend,
+        runtime: Option<tokio::runtime::Handle>,
+        limits: ObjectIoLimits,
+        owner: Option<OwnerStartup>,
+    ) -> Result<Self, ObjectIoError> {
         limits.validate()?;
         let owner_binding = owner
             .as_ref()
@@ -297,8 +335,7 @@ impl ObjectIo {
         });
         let (sender, mut receiver) = mpsc::channel::<Command>(1);
         let shared = state.clone();
-        let reclamation_enabled = reclaimer.is_some();
-        let backend = IoBackend { store, reclaimer };
+        let reclamation_enabled = backend.reclaimer.is_some();
         let worker = thread::Builder::new()
             .name("signal-object-io".into())
             .spawn(move || {
@@ -639,6 +676,33 @@ impl ObjectIo {
         self.read(&reference.key, Some(reference), self.limits.bytes, context)
             .await
     }
+    pub async fn verify_retained(
+        &self,
+        reference: &QueryObjectRef,
+        retain_until: chrono::DateTime<chrono::Utc>,
+        mut context: OperationContext,
+    ) -> Result<chrono::DateTime<chrono::Utc>, ObjectIoError> {
+        let mut rejected = RejectGuard(self.state.clone(), true);
+        let result = async {
+            let slot = self.admit(&mut context)?;
+            valid_key(&reference.key)?;
+            crate::object_custody::validate(reference, retain_until, self.limits.bytes as u64)?;
+            match self
+                .submit(
+                    Work::Retained(reference.clone(), retain_until),
+                    context,
+                    slot,
+                )
+                .await?
+            {
+                ResultData::Retained(horizon) if horizon >= retain_until => Ok(horizon),
+                _ => Err(ObjectIoError::Condition),
+            }
+        }
+        .await;
+        rejected.1 = result.is_err();
+        result
+    }
     async fn read(
         &self,
         key: &str,
@@ -841,6 +905,20 @@ async fn execute(
     let _request_scope = crate::object_s3::RequestScope::enter(ctx)?;
     let store = &*io_backend.store;
     match work {
+        Work::Retained(reference, horizon) => {
+            crate::object_custody::validate(&reference, horizon, limits.bytes as u64)?;
+            let retained = io_backend
+                .custody
+                .as_ref()
+                .ok_or(ObjectIoError::Config)?
+                .verify_retained(&reference, horizon, ctx)
+                .await?;
+            check(ctx)?;
+            if retained < horizon {
+                return Err(ObjectIoError::Condition);
+            }
+            Ok(ResultData::Retained(retained))
+        }
         Work::RemoveRetired(reference, floor) => {
             let owner = owner.ok_or(ObjectIoError::Config)?;
             let (current, pending) = owner.read_retirement(ctx).map_err(owner_error)?;
