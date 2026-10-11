@@ -67,8 +67,8 @@ justify indefinitely rereading historical logs.
 For long runs, use an explicitly requested Codex Goal plus the bounded continuation
 loop in [49](49-ai-execution-workflow.md). Checkpoint evidence and the next runnable
 slice after each acceptance. A Goal never expands Git, publication, cloud or
-private-environment authority. No version is selected; staging, commits, pushes
-and publication remain held until owner-directed alpha/first-minor readiness.
+private-environment authority. The owner authorized reviewed scoped commits and
+pushes on2026-10-11; no version is selected and release publication remains held.
 
 <details>
 <summary>Historical heading links (compatibility index)</summary>

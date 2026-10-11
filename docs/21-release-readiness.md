@@ -70,9 +70,9 @@ review and final campaign must match
 shared manifest/object selection and Standard runtime wiring are still required;
 the adapter alone grants neither content nor tenant authority.
 
-The owner holds staging, commits, pushes and publication until alpha or first
-minor readiness. Historical authorizations in archived logs do not supersede
-this current hold. No remote token is needed for the authorized local tasks.
+The owner authorized reviewed scoped commits and pushes on2026-10-11, using free
+public GitHub runners. Release publication remains held; no version is selected.
+SSH push works; GitHub CLI authentication is needed to fetch failed Actions logs.
 A core-MVP preview may defer advanced SOC UX/post-MVP scope; applicable release
 qualification still applies. A preview claiming all planned architecture also
 requires the frozen post-MVP ledger. Actual vendor/AWS acceptance stays visible.

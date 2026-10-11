@@ -244,6 +244,30 @@ pub type AdmissionFuture<'a> =
 /// duplicates. Ingest never knows about storage or WAL internals.
 pub trait EventSink: Send + Sync + 'static {
     fn admit(&self, event: SignalEvent) -> AdmissionFuture<'_>;
+    /// Request-local native authority, never serialized into the event or WAL.
+    /// Durable adapters must carry `deadline` into their existing tracked worker.
+    /// The HTTP caller retains cancellation ownership of the returned future.
+    fn admit_with_grant<'a>(
+        &'a self,
+        event: SignalEvent,
+        grant: &'a access::RequestGrant,
+        deadline: std::time::Instant,
+    ) -> AdmissionFuture<'a> {
+        Box::pin(async move {
+            let now = u64::try_from(chrono::Utc::now().timestamp())
+                .map_err(|_| AdmissionError::Unavailable)?;
+            if std::time::Instant::now() >= deadline
+                || !grant.allows(
+                    access::Operation::IngestEvents,
+                    access::ScopeFacts::event(&event),
+                    now,
+                )
+            {
+                return Err(AdmissionError::Unavailable);
+            }
+            self.admit(event).await
+        })
+    }
     fn metrics(&self) -> SinkMetrics;
     /// Must stop new admission before returning; existing committed events remain owned.
     fn close(&self);

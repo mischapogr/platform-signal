@@ -44,9 +44,10 @@ includes server wiring/Compose. Phase 7-B uses the separate
 `platform-signal-private/overlays/example` checkout. Phase 9 AWS collection is
 post-MVP and requires a new task.
 
-The owner holds staging, commits, pushes and publication until alpha or first
-minor readiness. No release version has been selected. Do not stage or commit
-unless requested; publication and external environments need their own authority.
+The owner authorized reviewed, scoped staging, current-time commits and pushes
+on 2026-10-11, using free public GitHub infrastructure where applicable. Preserve
+unrelated work and credentials. No release version has been selected; publication
+and external environments still need their own authority.
 
 ## Development workflow
 
