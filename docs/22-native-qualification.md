@@ -118,15 +118,31 @@ limits. Recorded command deadlines and [benchmark limits](../BENCHMARKS.md) appl
 ## CI and current environment
 
 The native AMD64/ARM64 CI matrix builds once per architecture and reuses that
-image for runtime, Kubernetes, scanning and this measured campaign. It runs
-cleanup and soak regressions and retains qualification reports using `if: always()` and
-14-day retention. Each native job runs a 120-second soak per event size as part
-of the campaign. Workspace tests and the Phase 0 harness smoke remain separate.
+image for runtime, Kubernetes, scanning and this measured campaign. Both Rust
+jobs also prebuild the exact all-feature Standard executable fixture, then run
+`check-shared-runtime.py --standard-only` against the pinned PostgreSQL manifest.
+No default-feature Cargo operation may intervene between prebuild and the
+harness's immutable executable capture. This exercises actual Standard TLS/native
+admission, original WAL, versioned loopback S3 query/findings, stopped retirement
+and crash/restart on each native runner; it does not require the private checkout.
+The library18case matrix remains a separate preceding gate.
 
-Remote CI has not run for this uncommitted checkout. The owner confirmed no
-ARM64 host is available, so ARM64 remains unchecked in the
-[release checklist](06-definition-of-done.md). No remote job, deployment,
-publication, stage or commit was made.
+Each command has a finite deadline; Standard prebuild is1200s, its external gate
+300s, internal fixture240s and Standard process180s. These are qualification
+budgets, not extensions of application/SQL/context deadlines. Failed steps stop
+subsequent qualification; `if: always()` retains reports under`target/ci/` with
+1-day retention. Archive needed reports before expiration. Each native container
+job runs120-second soaks per event size. Workspace/property/benchmark checks
+remain separate.
+
+Current source and evidence are in [release readiness](21-release-readiness.md).
+The completed`8f14fb0` run passes AMD64 Rust and MCP but fails the ARM64 helper;
+its correction`71e45a9` is pushed. Workflow preparation and local source-bound
+simulation do not close native ARM64/current image/remote/release gates. Verify
+successful exact-revision native runs and matching retained artifacts. No local
+ARM64 host or authorized actual EKS environment is available; public hosted ARM64
+runners supply native CI, while loopback S3/local clusters do not prove AWS custody
+or actual EKS behavior. No release version or publication is selected.
 
 The local soak-only run passed on AMD64 using the same image and binary as the
 native pipeline campaign. Both 120-second profiles accepted and durably
