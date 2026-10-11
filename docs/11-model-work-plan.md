@@ -1,6 +1,6 @@
 # Remaining work and model routing
 
-Current routing snapshot: 2026-10-11. New-session defaults already use
+Current routing snapshot: 2026-10-12. New-session defaults already use
 Sol6.1/medium/Standard (Codex) and Sonnet/medium (Claude). Loading this plan does
 not change the active model, speed, permissions or global settings.
 [Historical plan](11-model-work-plan-history-20261010.md) preserves the earlier
@@ -9,18 +9,21 @@ phase rows and measurements; completed rows are not new implementation tasks.
 ## Next task and plan order
 
 Read [current progress](07-progress.md), [release boundaries](21-release-readiness.md)
-and the [52-item ledger](31-execution-ledger.json). Continue the in_progress
-SHARED-RUNTIME item under [runtime contract](48-shared-control-runtime.md).
-Writer-reviewed Standard integration is accepted at`1273054`, the CI soak-helper
-correction at`b42501d`, and stopped lifecycle integration at`750b004`. Current
-source-bound919default/976all-feature tests,36guards and catalog4/restored5 process
-campaigns pass; exact evidence and limits are in [progress](07-progress.md).
-Obtain independent full-item review next. Stopped lifecycle requires exclusive
-original WAL ownership, completed local recovery and separately authorized strict
-maintenance credentials; it does not infer external retention policy or custody.
-Keep remote DELETE and replicas disabled. Native/cloud/container/remote-CI/
-dependency/release qualification remains separate.
-Select one reviewable slice at a time; do not rerun unchanged campaigns.
+and the [52-item ledger](31-execution-ledger.json). Local SHARED-RUNTIME is
+independently accepted at `b9c58da`; SHARED-METRICS-1 is resolved. Current source-
+bound 919 default / 976 all-feature tests, both strict Clippy modes and actual
+PostgreSQL/Standard/audit/private/restored5 campaigns pass. Exact review and
+limits: `target/shared-runtime-refresh-20261012/INDEPENDENT-LOCAL-ACCEPTANCE.json`.
+
+Qualify the actual owned local Kubernetes Standard profile next, as ordered by
+[the finite runtime acceptance](47-shared-control-contract.md#finite-acceptance-and-next-work).
+Generic Helm runtime Secret selectors are prepared at `0addc76`; render proof
+requires actual startup, regular-file mounts, original WAL/PVC recovery and
+owned cleanup. Preserve one replica/Recreate and explicit external configuration;
+no runtime bootstrap, inferred custody, private policy or remote DELETE.
+Corrected native/current image/CI, actual AWS/EKS, released dependencies and
+owner-selected version/publication remain separate gates. Select one reviewable
+slice at a time; reuse qualified evidence only while its inputs still match.
 
 Respect ledger dependencies and original phase order. Core phases0–8 and bounded
 Phase10 have local evidence. Phase7-B policy lives in the separate private
