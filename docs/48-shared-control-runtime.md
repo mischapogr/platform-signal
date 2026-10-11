@@ -1077,3 +1077,32 @@ Evidence: `target/shared-scoped-commit-20261011T055304+0200/`; acceptance requir
 the source-bound reviewed fixture campaign. Existing production acceptance is
 `target/shared-scoped-recovery-20261011T052009+0200/`. Synthetic host reports do
 not establish native HTTP admission, scoped reads, Main wiring or release readiness.
+
+
+## Grant-only shared WAL admission seam — 2026-10-11
+
+Authenticated ingest forwards its original native RequestGrant and monotonic
+request deadline through EventSink::admit_with_grant. The default compatibility
+method rechecks live IngestEvents permission and canonical event facts; legacy
+requests still use plain admit. The explicit SharedAdmission adapter consumes
+an owner-produced FindingScopePin only while its original stream/startup floor
+matches the WAL. It rejects plain admission, DropOldest, corruption/drops and
+invalid checkpoint/recovery bounds, and exposes a bounded single caller seat
+with accepted/rejected/active/capacity counters. No grant is serialized.
+
+Every native call rechecks live canonical scopes, operation and lease bounds,
+clamps the original deadline to grant expiry and passes that deadline into the
+existing tracked WAL worker. Cancellation releases the caller seat and retains
+the worker's existing uncertain-effects semantics. Late replies cannot create a
+fresh HTTP receipt. The host must keep this WAL admission path exclusive;
+retained producer metadata is configuration, never current credentials or proof
+that old rows at/below its captured floor were authenticated.
+
+Evidence: `target/shared-native-admission-20261011T062021+0200/`. Real TLS introspection/Axum
+regression verifies original grant/deadline forwarding to a grant-only sink.
+Real filesystem tests verify original budget, cancellation and durable replay;
+shared adapter grants are synthetic trusted-host reports. Matching source-bound
+writer review/final campaign is required. Actual native owner/provider/WAL
+composition, scoped derivation/read APIs, Main wiring and release readiness
+remain open. HTTP202 continues to mean synced local WAL, not shared publication,
+RPO0 or Standard READY.
