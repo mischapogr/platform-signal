@@ -453,6 +453,87 @@ async fn counters(
     }
     Ok(())
 }
+/// Read-only snapshot verification. Read credentials never SET ROLE to the
+/// schema owner, alter enrollment, lock writers or change readiness.
+pub(crate) async fn read_binding(
+    db: &Client,
+    binding: &crate::ScopedFindingsBinding,
+    profile: FindingScopeProfile,
+    context: &ControlContext,
+) -> Result<(), ControlError> {
+    context.check()?;
+    let owner = &binding.schema_owner;
+    let owners = db.query("SELECT pg_get_userbyid(nspowner)::text FROM pg_namespace WHERE nspname IN ('signal_control','signal_finding_scope') ORDER BY nspname LIMIT 3", &[]).await.map_err(db_error)?;
+    if owners.len() != 2
+        || owners
+            .iter()
+            .any(|row| row.try_get::<_, String>(0).ok().as_ref() != Some(owner))
+    {
+        return Err(ControlError::Corrupt);
+    }
+    crate::administration::inspect_profile(db, owner, profile.revision()).await?;
+    history(db, profile).await?;
+    supplemental(db, owner, profile).await?;
+    let head=db.query_one("SELECT store_id,generation,revision,ready,schema_sha256,routines_sha256,feed_position,feed_digest FROM signal_control.store WHERE singleton",&[]).await.map_err(db_error)?;
+    if field::<Uuid>(&head, 0)? != binding.store
+        || field::<Uuid>(&head, 1)? != binding.generation
+        || !field::<bool>(&head, 3)?
+    {
+        return Err(ControlError::Fenced);
+    }
+    if field::<i32>(&head, 2)? != i32::from(profile.revision())
+        || field::<Vec<u8>>(&head, 4)? != crate::schema_identity().0
+        || field::<Vec<u8>>(&head, 5)? != profile.routines()
+    {
+        return Err(ControlError::Corrupt);
+    }
+    let position = u64::try_from(field::<i64>(&head, 6)?).map_err(|_| ControlError::Corrupt)?;
+    prefix(
+        db,
+        binding.store,
+        position,
+        &field::<Vec<u8>>(&head, 7)?,
+        context,
+    )
+    .await?;
+    let root=db.query_one("SELECT store_id,store_generation,scope_generation,prefix_position,prefix_digest FROM signal_finding_scope.activation WHERE singleton",&[]).await.map_err(db_error)?;
+    if field::<Uuid>(&root, 0)? != binding.store
+        || field::<Uuid>(&root, 1)? != binding.generation
+        || field::<Uuid>(&root, 2)? != binding.scope_generation
+    {
+        return Err(ControlError::Fenced);
+    }
+    let floor = u64::try_from(field::<i64>(&root, 3)?).map_err(|_| ControlError::Corrupt)?;
+    if floor > position {
+        return Err(ControlError::Corrupt);
+    }
+    prefix(
+        db,
+        binding.store,
+        floor,
+        &field::<Vec<u8>>(&root, 4)?,
+        context,
+    )
+    .await?;
+    let cfg=db.query_one("SELECT artifact_sha256,max_producers,max_rows,max_bytes FROM signal_finding_scope.profile WHERE singleton",&[]).await.map_err(db_error)?;
+    if field::<Vec<u8>>(&cfg, 0)?
+        != Sha256::digest(include_bytes!(
+            "../../../schemas/shared-control/007-finding-scope.sql"
+        ))
+        .as_slice()
+    {
+        return Err(ControlError::Corrupt);
+    }
+    let limits = FindingScopeLimits {
+        producers: u32::try_from(field::<i32>(&cfg, 1)?).map_err(|_| ControlError::Corrupt)?,
+        rows: u32::try_from(field::<i64>(&cfg, 2)?).map_err(|_| ControlError::Corrupt)?,
+        bytes: u64::try_from(field::<i64>(&cfg, 3)?).map_err(|_| ControlError::Corrupt)?,
+    };
+    limits.validate().map_err(|_| ControlError::Corrupt)?;
+    counters(db, binding.scope_generation, limits, profile).await?;
+    context.check()?;
+    Ok(())
+}
 pub(crate) async fn run(
     db: &Client,
     owner: &str,

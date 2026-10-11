@@ -49,6 +49,7 @@ fn publisher(
 pub(super) async fn qualify(
     f: &Fixture,
     producer: &ProducerEnrollment,
+    identity: &signal_ingest::identity::IdentityBackend,
     wal: Arc<DurableBuffer>,
     cfg: BufferConfig,
 ) -> Result {
@@ -230,6 +231,7 @@ pub(super) async fn qualify(
         let denied = timeout(Duration::from_secs(2), db.query("SELECT * FROM signal_finding_scope.facts", &[])).await?;
         assert_eq!(denied.err().and_then(|e| e.code().cloned()), Some(tokio_postgres::error::SqlState::INSUFFICIENT_PRIVILEGE));
         timeout(Duration::from_secs(2), db.batch_execute("RESET ROLE")).await??;
+        super::scoped_read::qualify(f,producer,identity,&db,legacy,native).await?;
         control.shutdown(context()?).await?;
         reopened.shutdown().await?;
         Ok(())

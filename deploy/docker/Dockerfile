@@ -7,6 +7,7 @@ COPY crates ./crates
 COPY apps ./apps
 COPY tests ./tests
 COPY benchmarks ./benchmarks
+COPY schemas/shared-control ./schemas/shared-control
 ARG SIGNAL_SERVER_FEATURES=s3-query
 RUN cargo build --locked --release -p signal-server -p signal-agent --features "$SIGNAL_SERVER_FEATURES"
 COPY deploy/docker/healthcheck.rs /tmp/signal-healthcheck.rs
