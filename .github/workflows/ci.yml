@@ -85,6 +85,8 @@ jobs:
         run: python3 scripts/run-ci-check.py --name shared-control-fixture-build --timeout 1200 -- cargo test -p signal-control --test postgres --no-run --locked --offline
       - name: Prebuild exact default-feature shared server fixture
         run: python3 scripts/run-ci-check.py --name shared-server-fixture-build --timeout 1200 -- cargo test -p signal-server --test shared --no-run --locked --offline
+      - name: Prebuild exact default-feature native admission fixture
+        run: python3 scripts/run-ci-check.py --name native-admission-fixture-build --timeout 1200 -- cargo test -p signal-server --test native_shared_admission --no-run --locked --offline
       - name: Fetch pinned PostgreSQL fixture
         run: python3 scripts/run-ci-check.py --name shared-postgres-image --timeout 240 -- docker pull postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa
       - name: Real local PostgreSQL crash and restore matrix

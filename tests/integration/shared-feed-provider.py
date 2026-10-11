@@ -46,8 +46,8 @@ def main():
                 return
             token = fields.get('token', [''])[0]
             payload = {'active': token != 'inactive', 'iss': 'https://identity.example.test',
-                       'sub': 'reader' if token == 'expired' else token, 'aud': 'signal',
-                       'exp': int(time.time()) + (-1 if token == 'expired' else 60),
+                       'sub': 'reader' if token == 'expired' else ('producer' if token == 'short' else token), 'aud': 'signal',
+                       'exp': int(time.time()) + (-1 if token == 'expired' else (2 if token == 'short' else 60)),
                        'token_type': 'Bearer', 'roles': ['reader'], 'scope': 'admin'}
             body = json.dumps(payload).encode()
             self.send_response(200)
@@ -72,6 +72,11 @@ def main():
             '--', '--ignored', '--exact', '--nocapture'], cwd=ROOT, env=environment, timeout=25, check=False)
         if result.returncode:
             raise RuntimeError('native shared HTTP test failed')
+        result = subprocess.run(['cargo', 'test', '--locked', '--offline', '-p', 'signal-server',
+            '--test', 'native_shared_admission', 'native_owner_provider_http_wal_admission',
+            '--', '--ignored', '--exact', '--nocapture'], cwd=ROOT, env=environment, timeout=15, check=False)
+        if result.returncode:
+            raise RuntimeError('native owner/provider/HTTP/WAL admission test failed')
         if not 6 <= counters['calls'] <= 32 or counters['invalid']:
             raise RuntimeError('TLS introspection request contract or count')
     finally:

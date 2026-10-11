@@ -196,11 +196,18 @@ sys.exit(codes[min(len(calls),len(codes)-1)])
                 module.qualify_server_version(value)
 class ServerOutputGuards(unittest.TestCase):
     def test_live_shared_http_output_required(self):
-        marker='phase: actual-shared-feed-live-http-tls-provider-durable-audit-qualified'
+        markers = ['phase: actual-shared-feed-live-http-tls-provider-durable-audit-qualified',
+                   'phase: actual-owner-native-provider-http-wal-floor-deadline-expiry-replay-qualified']
+        tests = ['test finding_api::shared_http_tests::authorized_shared_feed_http_provider_audit ... ok',
+                 'test native_owner_provider_http_wal_admission ... ok']
         summary='test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 200 filtered out;'
-        module.qualify_shared_http_output(marker+'\n'+summary)
-        for output in (marker, summary, marker+'\n'+marker+'\n'+summary,
-                       marker+'\n'+summary.replace('ok.', 'FAILED.'), 'x'*65537):
+        good='\n'.join([*markers,*tests,summary,summary])
+        module.qualify_shared_http_output(good)
+        bad=[good.replace(summary,'',1),good+'\n'+summary,
+             good.replace('ok. 1 passed','FAILED. 1 passed',1), 'x'*65537]
+        for marker in [*markers,*tests]:
+            bad.extend([good.replace(marker,''),good+'\n'+marker])
+        for output in bad:
             with self.subTest(output=output), self.assertRaises(ValueError):
                 module.qualify_shared_http_output(output)
 

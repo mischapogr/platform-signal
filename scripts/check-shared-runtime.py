@@ -136,10 +136,17 @@ def qualify_server_output(output):
 
 
 def qualify_shared_http_output(output):
+    markers = ('phase: actual-shared-feed-live-http-tls-provider-durable-audit-qualified',
+               'phase: actual-owner-native-provider-http-wal-floor-deadline-expiry-replay-qualified')
+    tests = ('test finding_api::shared_http_tests::authorized_shared_feed_http_provider_audit ... ok',
+             'test native_owner_provider_http_wal_admission ... ok')
+    lines = output.splitlines()
+    summaries = [line for line in lines if line.startswith('test result:')]
     if (len(output.encode('utf-8')) > 65536
-            or output.splitlines().count('phase: actual-shared-feed-live-http-tls-provider-durable-audit-qualified') != 1
-            or not re.search(r'test result: ok\. 1 passed; 0 failed; 0 ignored;', output)):
-        raise ValueError('live shared HTTP/provider/audit qualification missing or ambiguous')
+            or any(lines.count(marker) != 1 for marker in (*markers, *tests))
+            or len(summaries) != 2
+            or any(not re.match(r'test result: ok\. 1 passed; 0 failed; 0 ignored;', s) for s in summaries)):
+        raise ValueError('live shared HTTP/provider/audit and owner/WAL qualification missing or ambiguous')
 
 
 def main():
@@ -333,9 +340,11 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
             report['server_scoped_recovery_scope']='Actual owned PostgreSQL and durable WAL original scoped schema2 draft/request through four producer SIGKILL boundaries and observed server COMMIT cancellation; byte-exact committed findings and companion claims resolve after current startup replacement, while a missing old-startup operation remains fenced with original slot and checkpoint held. Synthetic host authentication reports and emulated parent-retained object versions; no native authenticated admission, scoped reads, populated008 restore or Main readiness proof.'
             report['checks'].append('actual_shared_findings_original_wire_prefix_quota_and_cursor_classes')
             report['shared_findings_wire_scope']='Actual library adapter over PostgreSQL findings, original cursor/payload, finite caller seats and wire limit; ordinary Cargo route-denial regressions. No live authorized shared HTTP/provider roundtrip or main/scoped Standard readiness.'
-            http_output=run(['python3','tests/integration/shared-feed-provider.py'],30,env)
+            http_output=run(['python3','tests/integration/shared-feed-provider.py'],45,env)
             qualify_shared_http_output(http_output)
             report['checks'].append('actual_shared_feed_live_http_tls_introspection_and_durable_audit')
+            report['checks'].append('actual_owner_enrollment_native_tls_http_WAL_floor_deadline_expiry_and_replay')
+            report['native_shared_admission_scope']='Actual owner-produced SQL enrollment pin, native TLS introspection and loopback HTTP into grant-only durable WAL, captured legacy floor, bootstrap/raw/scope rejection, original request budget and native grant expiry, exact event replay. No Standard Main/READY, scoped publication, provider rotation or AWS/native ARM64 proof.'
             report['shared_findings_http_scope']='Actual loopback HTTP feed factory, TLS provider introspection, host policy, original PostgreSQL findings and synced audit decisions/completions. No main startup/scoped Standard readiness or external identity/destination proof.'
             report['server_publication_scope']='Owned monolith coordinator, explicit startup/WAL authority binding and durable exact request recovery through producer SIGKILL/confirmed checkpoint; emulated process-local object provider retained independently in parent. No main startup/global findings/private-consumer/custody or persistent server-object proof.'
         for path,digest in report['source_hashes'].items():
