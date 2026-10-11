@@ -20,6 +20,8 @@ pub use finding_scope::{
 pub use findings_feed::{RetainedFinding, RetainedFindingsPage};
 mod global_feed;
 pub use global_feed::AuthorizedFindingsPage;
+mod scoped_read;
+pub use scoped_read::{AuthorizedFindingsList, ScopedFindingsBinding};
 mod client;
 pub use catalog::{CatalogInput, CatalogPin, catalog_schema_identity};
 mod connection;

@@ -15,3 +15,6 @@
 !deploy/
 !deploy/docker/
 !deploy/docker/healthcheck.rs
+!schemas/
+!schemas/shared-control/
+!schemas/shared-control/**

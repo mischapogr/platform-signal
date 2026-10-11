@@ -53,6 +53,7 @@ pub struct ControlMetrics {
 enum Reply {
     FindingScope(crate::FindingScopeBinding),
     Feed(crate::AuthorizedFindingsPage),
+    ScopedList(crate::AuthorizedFindingsList),
     Restore(crate::postgres_restore::RestoreReply),
     Administration(crate::AdministrativeResult),
     Notification(NotificationResult),
@@ -71,6 +72,9 @@ enum Operation {
     },
     Feed {
         read: crate::global_feed::FeedRead,
+    },
+    ScopedList {
+        read: crate::scoped_read::ScopedRead,
     },
     Catalog {
         scope: Scope,
@@ -242,6 +246,7 @@ impl ControlClient {
                         Operation::Snapshot { .. }
                             | Operation::Catalog { .. }
                             | Operation::Feed { .. }
+                            | Operation::ScopedList { .. }
                     ) && completion.rollback_confirmed
                         && matches!(&completion.result, Err(ControlError::Retryable))
                         && rounds < 3
@@ -512,6 +517,33 @@ impl ControlClient {
             Reply::Feed(page) => {
                 page.next_cursor()?;
                 Ok(page)
+            }
+            _ => Err(ControlError::Corrupt),
+        }
+    }
+    /// Requires independently configured SELECT credentials plus a current
+    /// ReadFindings grant. Producer EXECUTE authority is insufficient. No feed
+    /// cursor is created; paired scope selection precedes user filters/limits.
+    pub async fn read_scoped_findings(
+        &self,
+        binding: crate::ScopedFindingsBinding,
+        query: signal_findings::FindingQuery,
+        grant: Arc<signal_protocol::access::RequestGrant>,
+        context: ControlContext,
+    ) -> Result<crate::AuthorizedFindingsList, ControlError> {
+        let mut read = crate::scoped_read::ScopedRead {
+            binding,
+            query,
+            grant,
+            output_context: context.clone(),
+            stopping: self.inner.stop.child_token(),
+        };
+        let context = read.budget(context)?;
+        read.output_context = context.clone();
+        match self.submit(Operation::ScopedList { read }, context).await? {
+            Reply::ScopedList(list) => {
+                list.findings()?;
+                Ok(list)
             }
             _ => Err(ControlError::Corrupt),
         }
@@ -878,7 +910,10 @@ async fn execute(
 ) -> Completion {
     let connection_context = if matches!(
         operation,
-        Operation::Snapshot { .. } | Operation::Catalog { .. } | Operation::Feed { .. }
+        Operation::Snapshot { .. }
+            | Operation::Catalog { .. }
+            | Operation::Feed { .. }
+            | Operation::ScopedList { .. }
     ) {
         ControlContext {
             deadline: transaction_deadline,
@@ -902,7 +937,10 @@ async fn execute(
     };
     let transaction_deadline = if matches!(
         operation,
-        Operation::Snapshot { .. } | Operation::Catalog { .. } | Operation::Feed { .. }
+        Operation::Snapshot { .. }
+            | Operation::Catalog { .. }
+            | Operation::Feed { .. }
+            | Operation::ScopedList { .. }
     ) {
         transaction_deadline
     } else {
@@ -922,9 +960,15 @@ async fn execute(
             .batch_execute(
                 if matches!(
                     operation,
-                    Operation::Snapshot { .. } | Operation::Catalog { .. } | Operation::Feed { .. }
+                    Operation::Snapshot { .. }
+                        | Operation::Catalog { .. }
+                        | Operation::Feed { .. }
+                        | Operation::ScopedList { .. }
                 ) {
-                    if matches!(operation, Operation::Feed { .. }) {
+                    if matches!(
+                        operation,
+                        Operation::Feed { .. } | Operation::ScopedList { .. }
+                    ) {
                         "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY"
                     } else {
                         "BEGIN ISOLATION LEVEL REPEATABLE READ"
@@ -948,6 +992,11 @@ async fn execute(
         } else if let Operation::Feed { read } = operation {
             Reply::Feed(
                 crate::global_feed::run(&connection.client, read, context, routines_identity)
+                    .await?,
+            )
+        } else if let Operation::ScopedList { read } = operation {
+            Reply::ScopedList(
+                crate::scoped_read::run(&connection.client, read, context, routines_identity)
                     .await?,
             )
         } else {
@@ -977,7 +1026,7 @@ async fn execute(
                     }
                     Operation::Administration { .. }
                     | Operation::Restore { .. }
-                    | Operation::Feed { .. }
+                    | Operation::Feed { .. } | Operation::ScopedList { .. }
                     | Operation::FindingScope { .. } => {
                         return Err(ControlError::Corrupt);
                     }
@@ -1082,7 +1131,9 @@ async fn execute(
             };
             let value: serde_json::Value = row.try_get(0).map_err(|_| ControlError::Corrupt)?;
             match operation {
-                Operation::Feed { .. } | Operation::FindingScope { .. } => {
+                Operation::Feed { .. }
+                | Operation::ScopedList { .. }
+                | Operation::FindingScope { .. } => {
                     return Err(ControlError::Corrupt);
                 }
                 Operation::Restore { action, plan, .. } => {

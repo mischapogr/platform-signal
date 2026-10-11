@@ -1215,3 +1215,48 @@ parent-retained object versions. It does not establish scoped shared HTTP reads,
 Standard Main/READY, populated scope restore, private consumers or AWS/ARM64/
 release acceptance. Existing frozen schemas001–008 and production Rust remain
 unchanged. Independent full-item review remains open.
+
+## Shared scoped finding list backend — 2026-10-11
+
+`ControlClient::read_scoped_findings` takes an explicitly configured store,
+current core/scope generations and schema owner, a bounded `FindingQuery`, and
+an original live `ReadFindings` grant. Read credentials require explicit schema
+USAGE and SELECT on core store/migrations/findings/partitions and supplemental
+activation/profile/producers/facts/requests. These are host-trusted credentials
+for the configured store, with caller permissions enforced by the library;
+they are not database principals restricted to a request's account. Producer
+EXECUTE-only credentials remain insufficient. The reader never installs ACLs,
+assumes the schema-owner role, changes readiness or locks writers.
+
+The existing bounded control workers use a read-only repeatable transaction
+under the original cancellation/deadline and grant expiry. Every read verifies
+the exact frozen core and supplemental catalogs, owners, migration history,
+current activation, complete retained findings prefix and reconciled scope
+counters/facts before returning results, including an empty list. Each permission
+must match source AND account AND resource together; SQL applies their OR before
+user time/severity/rule filters, ordering and limit. Unknown historical facts
+match only explicit `all` dimensions. This list has no cursor and does not
+post-filter a global feed page. RFC3339 nanoseconds, leap-second ordering and year-zero history retain
+the findings contract's exact inclusive-from/exclusive-to boundaries.
+
+Output metadata, individual bodies and aggregate decoded reply allocations are
+bounded. The nonserialized `AuthorizedFindingsList` retains the original grant,
+context and client stopping token and rechecks them at access. It is not durable
+read authority or a revocation cache. Full-prefix verification intentionally
+fails closed when the configured request budget/capacity cannot cover history;
+this acceptance does not establish throughput at larger history sizes.
+
+Evidence: `target/shared-scoped-read-20261011T073650+0200/`; acceptance requires
+its source-bound writer review and matching passed final campaign. The owned
+PostgreSQL/native TLS fixture checks selection before limit, complete paired
+permissions, exact unknown history, nanosecond/leap-second boundaries, denied/revoked SELECT,
+corrupt facts/counters and original cancellation/shutdown. These are library
+reads, not a scoped HTTP route or Standard Main/READY qualification. Frozen SQL
+001–008 remain unchanged; scoped HTTP/Main, populated scope restore, private
+consumers and independent/external acceptance remain open.
+
+The public CI run `38114307503` passed both native Rust jobs but failed both
+production image builds because embedded `schemas/shared-control` inputs were
+absent. The Dockerfile and its allowlisted context now include those public
+inputs. Matching public container/Kubernetes results must still be observed;
+no image publication or release version is selected by this correction.
