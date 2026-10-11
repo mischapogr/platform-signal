@@ -61,7 +61,7 @@ older report's documentation identities without rewriting accepted reports.
 
 | Gate | Remaining requirement |
 | --- | --- |
-| Standard Kubernetes | Owned local AMD64 Standard image/kind passes141.13s with native TLS/probes, regular runtime/TLS Secret files, original CRC/WAL checkpoint2/database facts and same-PVC SIGKILL/pod replacement recovery; `target/standard-kubernetes-20261012/ACCEPTANCE.json`. Native Standard cluster CI and actual EKS/AWS remain open; synthetic identity/S3, no replicas or remote DELETE |
+| Standard Kubernetes | Complete27281e3 run38246315239 and primary-digest/source/bundle/image-bound native profiles pass107.40s AMD64/114.57s ARM64: native TLS/probes, regular Secret files, original CRC/WAL checkpoint2/floor0/database facts and same-PVC SIGKILL/pod replacement recovery/cleanup; `target/standard-kind-ci-20261012/NATIVE-STANDARD-ACCEPTANCE.json`. Synthetic identity/S3; actual EKS/AWS and later current-revision CI remain open; no replicas or remote DELETE |
 | Native ARM64 | Full architecture-specific runtime/pipeline/container/Kubernetes/benchmark evidence; partial passing Rust CI is insufficient |
 | Current container/kind/supply chain | Fresh matching reviewed source/config/image; prior current-kind attempts hit PVC/host-resource exhaustion |
 | Actual EKS/AWS | Authorized environment, namespace, storage and persistent restart evidence; none is available currently; local kind cannot close this gate |

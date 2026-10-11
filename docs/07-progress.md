@@ -90,7 +90,13 @@ enrollment retains exact Rust test/phase assertions and avoids runtime Cargo.
 Current frozen local process/kind campaigns pass181.93s/170.05s, bundle guards,
 workflow lint and14workspace boundaries. A fresh build reproduces the exact
 qualified image ID. Evidence: `target/standard-kind-ci-20261012/ACCEPTANCE.json`.
-The new native workflow still requires its own successful remote evidence.
+Run38246315239 at`27281e3` now succeeds on both native architectures. Primary
+digests, producing-source/bundle/ELF/image bindings and Standard cluster recovery
+are verified:107.40s AMD64/114.57s ARM64, original WAL checkpoint2/floor0/database
+facts and owned cleanup. Evidence:
+`target/standard-kind-ci-20261012/NATIVE-STANDARD-ACCEPTANCE.json`.
+The later`cc3744a` bounded security-tool download retry fix is locally accepted;
+its full current-revision CI remains active and unqualified. Next:OBJECT-CUSTODY.
 
 Reviewed metrics revision`b9c58da` run38237870960 passes both native976-test jobs
 and five Standard process scenarios each. Primary ZIP digests, native ELF/bytes,
