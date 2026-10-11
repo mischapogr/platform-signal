@@ -199,11 +199,13 @@ class ServerOutputGuards(unittest.TestCase):
         markers = ['phase: actual-shared-feed-live-http-tls-provider-durable-audit-qualified',
                    'phase: actual-owner-native-provider-http-wal-floor-deadline-expiry-replay-qualified',
                    'phase: actual-native-http-scoped-publication-legacy-unknown-original-request-resume-qualified',
-               'phase: actual-native-TLS-shared-scoped-read-paired-before-limit-history-integrity-qualified']
+               'phase: actual-native-TLS-shared-scoped-read-paired-before-limit-history-integrity-qualified',
+                   'phase: actual-native-shared-scoped-http-TLS-paired-before-limit-unknown-history-durable-audit-qualified']
         tests = ['test finding_api::shared_http_tests::authorized_shared_feed_http_provider_audit ... ok',
-                 'test native_owner_provider_http_wal_admission ... ok']
+                 'test native_owner_provider_http_wal_admission ... ok',
+                 'test finding_api::shared_scoped_http_tests::authorized_shared_scoped_http_provider_audit ... ok']
         summary='test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 200 filtered out;'
-        good='\n'.join([*markers,*tests,summary,summary])
+        good='\n'.join([*markers,*tests,summary,summary,summary])
         module.qualify_shared_http_output(good)
         bad=[good.replace(summary,'',1),good+'\n'+summary,
              good.replace('ok. 1 passed','FAILED. 1 passed',1), 'x'*65537]

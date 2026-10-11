@@ -1260,3 +1260,45 @@ production image builds because embedded `schemas/shared-control` inputs were
 absent. The Dockerfile and its allowlisted context now include those public
 inputs. Matching public container/Kubernetes results must still be observed;
 no image publication or release version is selected by this correction.
+
+## Explicit shared scoped findings HTTP factory — 2026-10-11
+
+`SharedFindings` wraps the accepted live-grant list backend with1–32 immediate
+caller seats, depth/capacity/rejection metrics and a fixed bounded wire buffer.
+It emits the existing version1 findings response without adding a cursor,
+query language or scope union. Every incremental serialization write rechecks
+the original context and grant; rejected and abandoned active reads count once.
+The library checks again before handing bytes back to its caller.
+
+`router_with_shared_findings` explicitly composes `/v1/findings` and the separate
+global `/v1/findings/feed` route. Their configured store and core generation
+must match. Construction requires a native identity backend and rejects
+bootstrap-token mode; no local store is present in this composition. Listing
+requires `ReadFindings`, while global feed still requires all-scope
+`ReadFindingsFeed`. Existing strict URL parameters, status classes and no-store
+headers remain. SQL scope selection precedes filters and user limits, including
+mixed legacy history and leap-second boundaries.
+
+The HTTP bridge clamps the database operation to the original request deadline,
+cancels it when the HTTP future drops, and selects cancellation/deadline before
+ready output. Existing durable decision/completion audit runs under the original
+request context. A missing completion acknowledgement withholds already computed
+finding bytes. Wire overflow yields413, immediate caller exhaustion429, and a
+stale or unavailable shared backend returns a static error with no local fallback.
+
+Evidence: `target/shared-scoped-http-20261011T085430+0200/`; acceptance requires
+its source-bound writer review and matching passed final campaign. The finite
+provider harness now runs a third native test after owner/TLS/HTTP/WAL/scoped
+publication, reading that original mixed-history PostgreSQL database. It checks
+paired selection before limit, explicit-all legacy reads, following-leap boundary,
+wrong operation/token/forwarded hints, global-feed separation, wire budget, stale
+scope activation and synced audit completion/uncertainty. Owned database locks
+exercise caller exhaustion, original deadline and shutdown with no finding output.
+Caller seats are tested under an explicitly audit-disabled native fixture route;
+the selected durable audit profile independently has a single operation seat.
+The synthetic provider is capped at64 calls and the containing process at60s.
+
+This qualifies an explicit factory, not Standard Main/READY or replicas. Frozen
+SQL001–008 remain unchanged. Complete Main startup, populated scoped restore,
+private consumers, operational adapters and independent/external gates remain
+open; no release version or image publication is selected.
