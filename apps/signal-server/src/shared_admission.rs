@@ -19,6 +19,7 @@ use tokio::sync::Semaphore;
 pub struct SharedAdmission {
     wal: Arc<DurableBuffer>,
     producer: ProducerEnrollment,
+    admission_floor: u64,
     callers: Semaphore,
     accepted: AtomicU64,
     rejected: AtomicU64,
@@ -40,9 +41,32 @@ impl Drop for Attempt<'_> {
         }
     }
 }
+fn capture_floor(
+    snapshot: signal_buffer::BufferMetrics,
+    original: u64,
+    database_checkpoint: Option<u64>,
+) -> Result<u64, ControlError> {
+    let checkpoint = database_checkpoint.ok_or(ControlError::Fenced)?;
+    if original > snapshot.last_sequence
+        || snapshot.checkpoint > checkpoint
+        || checkpoint > snapshot.last_sequence
+        || snapshot.recovery_bytes != 0
+        || snapshot.command_depth != 0
+        || snapshot.operations_in_flight != 0
+        || snapshot.waiters != 0
+        || (original != snapshot.last_sequence
+            && (snapshot.checkpoint != snapshot.last_sequence
+                || checkpoint != snapshot.last_sequence
+                || snapshot.depth != 0))
+    {
+        return Err(ControlError::Fenced);
+    }
+    Ok(snapshot.last_sequence)
+}
 impl SharedAdmission {
     /// Consume a live, owner-produced enrollment binding while the WAL still
-    /// equals its captured startup floor. A copied producer record is retained
+    /// equals its original floor, or has completely reconciled that prefix.
+    /// A copied producer record is retained
     /// configuration, not credentials, fresh enrollment authority or readiness.
     pub fn new(wal: Arc<DurableBuffer>, enrollment: FindingScopePin) -> Result<Self, ControlError> {
         let binding = enrollment.binding()?;
@@ -57,13 +81,13 @@ impl SharedAdmission {
             || producer.scope.store_id != binding.store
             || producer.scope.generation != binding.store_generation
             || producer.scope_generation != binding.scope_generation
-            || producer.wal_floor != snapshot.last_sequence
             || binding
                 .checkpoint
                 .is_none_or(|c| snapshot.checkpoint > c || c > snapshot.last_sequence)
         {
             return Err(ControlError::Fenced);
         }
+        let admission_floor = capture_floor(snapshot, producer.wal_floor, binding.checkpoint)?;
         if snapshot.closed || !snapshot.worker_available {
             return Err(ControlError::Unavailable);
         }
@@ -78,6 +102,7 @@ impl SharedAdmission {
         Ok(Self {
             wal,
             producer,
+            admission_floor,
             callers: Semaphore::new(1),
             accepted: AtomicU64::new(0),
             rejected: AtomicU64::new(0),
@@ -88,6 +113,11 @@ impl SharedAdmission {
     /// a retained event was authenticated; legacy rows at/below floor stay unknown.
     pub fn enrollment(&self) -> &ProducerEnrollment {
         &self.producer
+    }
+    /// Current future-only native admission boundary, distinct from original
+    /// immutable enrollment. It grants no authentication to retained rows.
+    pub fn admission_floor(&self) -> u64 {
+        self.admission_floor
     }
     pub fn admission_metrics(&self) -> SharedAdmissionMetrics {
         SharedAdmissionMetrics {
