@@ -16,9 +16,11 @@ KIND becomes passed_local:12 passed_local,10 passed_simulated,23 pending/1in_pro
 process/bundle/kind acceptance181.93s/170.05s; exact remote results are next:
 `target/standard-kind-ci-20261012/ACCEPTANCE.json`. Local provider/custody
 simulation does not close corrected native/current CI, AWS/EKS or release gates.
-OBJECT-CUSTODY is in progress: generic contract/coordinator passes924default/
-981all-feature tests and five guards; actual object/control/API/producer retention
-is next. Evidence: `target/object-custody-coordinator-20261012/ACCEPTANCE.json`.
+OBJECT-CUSTODY remains in progress. Actual PostgreSQL TLS replay/fencing and S3
+retained-read protocol now pass924default/985all-feature tests and4wire/physical
+cancellation guards. Evidence: `target/object-custody-s3-20261012/ACCEPTANCE.json`
+and `target/object-custody-postgres-20261012/ACCEPTANCE.json`. Retention authority
+is simulated; configured control verifier/API/producer integration remains next.
 Earlier entries below retain their original historical evidence boundaries.
 
 Owner-authorized persistent Goal, frozen 2026-10-07. The machine-readable
