@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+signal_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+signal_serena="$signal_root/tools/mcp/serena-venv/bin/serena"
+if [[ ! -x "$signal_serena" ]]; then
+  echo 'Install Serena using tools/mcp/serena-requirements.txt; see docs/08-development-tooling.md.' >&2
+  exit 1
+fi
+cd -- "$signal_root"
+signal_serena_state="$signal_root/target/ai-mcp/serena"
+mkdir -p -- "$signal_serena_state"
+export SERENA_HOME
+SERENA_HOME="$(mktemp -d "$signal_serena_state/session.XXXXXXXX")"
+export SERENA_USAGE_REPORTING=false
+cp -- tools/mcp/serena-config.yml "$SERENA_HOME/serena_config.yml"
+exec python3 scripts/ai/telemetry.py --mcp serena -- "$signal_serena" start-mcp-server \
+  --project "$signal_root" --context ide --enable-web-dashboard false \
+  --open-web-dashboard false --log-level WARNING "$@"

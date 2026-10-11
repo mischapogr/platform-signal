@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+signal_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+signal_entry="$signal_root/tools/mcp/node_modules/@colbymchenry/codegraph/npm-shim.js"
+if [[ ! -f "$signal_entry" ]]; then
+  echo 'CodeGraph is not installed. Run: npm ci --prefix tools/mcp --ignore-scripts --no-fund' >&2
+  exit 1
+fi
+cd -- "$signal_root"
+export CODEGRAPH_TELEMETRY=0
+export CODEGRAPH_NO_DOWNLOAD=1
+export CODEGRAPH_MCP_TOOLS=search,callers,callees,impact,node,explore,status,files
+if [[ $# -gt 0 ]]; then
+  exec node "$signal_entry" "$@"
+fi
+exec python3 scripts/ai/telemetry.py --mcp codegraph -- node "$signal_entry" serve --mcp --path "$signal_root"

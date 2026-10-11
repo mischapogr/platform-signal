@@ -11,7 +11,7 @@ publish = false
 workspace = true
 
 [features]
-s3 = ["object_store/aws", "dep:hyper", "dep:hyper-util", "dep:http-body-util", "dep:tokio-rustls", "dep:rustls", "dep:webpki-roots", "dep:url"]
+s3 = ["object_store/aws-base", "object_store/ring", "dep:hyper", "dep:hyper-util", "dep:http-body-util", "dep:tokio-rustls", "dep:rustls", "dep:webpki-roots", "dep:url"]
 
 [dependencies]
 signal-event.workspace = true

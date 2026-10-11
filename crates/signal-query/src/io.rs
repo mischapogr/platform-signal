@@ -7,6 +7,8 @@
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures_util::{StreamExt, stream::BoxStream};
+// Match DataFusion's local-only store types; remote objects go through storage.
+use datafusion::object_store;
 use object_store::{
     CopyOptions, GetOptions, GetResult, GetResultPayload, ListResult, MultipartUpload, ObjectMeta,
     ObjectStore, PutMultipartOptions, PutOptions, PutPayload, PutResult, local::LocalFileSystem,
@@ -617,8 +619,8 @@ struct TestPause {
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
+    use datafusion::object_store::{GetRange, ObjectStoreExt};
     use futures_util::TryStreamExt;
-    use object_store::{GetRange, ObjectStoreExt};
     use std::time::Duration;
 
     fn file(bytes: &[u8]) -> (tempfile::TempDir, Path) {

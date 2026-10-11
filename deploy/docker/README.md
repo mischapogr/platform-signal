@@ -17,6 +17,12 @@ exit codes. Docker supervises it with a three-second timeout. Set
 `SIGNAL_HEALTHCHECK_ADDR=127.0.0.1:<port>` for another bind port; only numeric
 loopback targets are allowed. Kubernetes uses the same client through exec probes.
 
+Public OSS publication is prepared in
+[the GHCR release workflow](../../docs/50-ghcr-publication.md) and starts only
+when an owner-approved release is ready. Build `--target server` for the default
+monolith or `--target agent` for the agent entrypoint without the server
+healthcheck. Both targets share the locked OSS runtime and remain non-root.
+
 For native mTLS, mount private version1 server and separate probe identity/trust
 JSON files read-only, set `SIGNAL_TLS_CONFIG` and `SIGNAL_PROBE_TLS_CONFIG`, and
 include the selected loopback IP in the server certificate SAN. TLS selection

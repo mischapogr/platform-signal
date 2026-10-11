@@ -69,3 +69,43 @@ fn scope_control_fixed_roundtrip_and_every_byte_corruption_fail() {
     }
     assert!(Boundary::decode(&encoded[..encoded.len() - 1]).is_err());
 }
+
+#[test]
+fn sealed_shared_payload_binds_original_canonical_facts_and_reserved_bytes() {
+    let generation = Uuid::from_u128(22);
+    let payload = derived("a").into_scoped(generation).unwrap();
+    let original = event("a");
+    assert_eq!(payload.generation(), generation);
+    assert_eq!(payload.finding().event_ids, [original.id]);
+    assert_eq!(payload.finding(), &derived("a").annotated(generation));
+    let facts = payload.facts();
+    assert_eq!(facts.source, Some("audit"));
+    assert_eq!(facts.account, Some("a"));
+    assert_eq!(facts.resource, Some("host-a"));
+    assert_eq!(
+        payload.finding().attributes[KEY]["binding_digest"],
+        payload.binding_digest()
+    );
+    assert_eq!(payload.binding_digest().len(), 64);
+}
+
+#[test]
+fn shared_payload_refuses_unverified_replay_and_missing_activation() {
+    let original = event("a");
+    let base = Finding::for_event("rule", &original, DetectionSeverity::High, "Title").unwrap();
+    let unverified = DerivedFinding::from_event(base, &original, false).unwrap();
+    assert!(unverified.into_scoped(Uuid::from_u128(22)).is_err());
+    assert!(derived("a").into_scoped(Uuid::nil()).is_err());
+}
+
+#[test]
+fn sealed_unknown_selectors_preserve_full_binding_without_truncation() {
+    let generation = Uuid::from_u128(22);
+    let a = derived(&"a".repeat(257)).into_scoped(generation).unwrap();
+    let b = derived(&"b".repeat(257)).into_scoped(generation).unwrap();
+    assert_eq!(a.facts().account, None);
+    assert_eq!(a.finding().attributes[KEY]["account"], Value::Null);
+    assert_ne!(a.binding_digest(), b.binding_digest());
+    assert_ne!(a.finding(), b.finding());
+    assert_eq!(a.finding().id, b.finding().id);
+}

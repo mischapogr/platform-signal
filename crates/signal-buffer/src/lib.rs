@@ -128,6 +128,22 @@ pub struct BufferMetrics {
     pub waiter_capacity: usize,
     pub timeouts: u64,
     pub closed: bool,
+    pub recovery_bytes: usize,
+    pub recovery_capacity: usize,
+    pub worker_available: bool,
+}
+/// One bounded host recovery record; the digest is a compare-and-swap identity.
+#[derive(Clone, Eq, PartialEq)]
+pub struct RecoveryRecord {
+    pub sha256: [u8; 32],
+    pub bytes: Vec<u8>,
+}
+impl std::fmt::Debug for RecoveryRecord {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RecoveryRecord")
+            .field("payload", &"redacted")
+            .finish()
+    }
 }
 #[derive(Debug, Error)]
 pub enum BufferError {
@@ -155,6 +171,8 @@ pub enum BufferError {
     Sequence,
     #[error("event cannot be encoded as a valid canonical record")]
     Event,
+    #[error("WAL recovery record conflicts with the retained identity")]
+    RecoveryConflict,
 }
 impl BufferError {
     fn fatal(&self) -> bool {
@@ -218,6 +236,8 @@ enum Operation {
     Append(Vec<u8>),
     Read(usize, usize),
     Ack(u64),
+    RecoveryRead,
+    RecoveryWrite(Option<[u8; 32]>, Option<Vec<u8>>),
     #[cfg(test)]
     Pause(oneshot::Sender<()>, std::sync::mpsc::Receiver<()>),
 }
@@ -226,6 +246,7 @@ enum Reply {
     Batch(Vec<SequencedEvent>),
     /// The worker checked durable capacity without starting an append.
     Full,
+    Recovery(Option<RecoveryRecord>),
 }
 struct Command {
     operation: Operation,
@@ -284,8 +305,29 @@ pub struct DurableBuffer {
     worker: Mutex<Option<thread::JoinHandle<()>>>,
 }
 impl DurableBuffer {
+    /// Immutable admission policy, used by hosts that require contiguous replay.
+    pub fn policy(&self) -> Policy {
+        self.config.policy
+    }
+
     pub async fn open(config: BufferConfig) -> Result<Self, BufferError> {
+        Self::open_with_recovery(config, 0).await
+    }
+    /// Explicit single-slot recovery profile. Zero preserves the Small layout.
+    /// Both old and temporary slot capacity are reserved inside the WAL quota.
+    pub async fn open_with_recovery(
+        config: BufferConfig,
+        recovery_capacity: usize,
+    ) -> Result<Self, BufferError> {
         config.validate()?;
+        let reserve = wal::recovery_reserve(recovery_capacity)?;
+        if config
+            .segment_bytes
+            .checked_add(reserve)
+            .is_none_or(|minimum| minimum > config.max_wal_bytes)
+        {
+            return Err(BufferError::Config("WAL recovery reservation"));
+        }
         let shared = Arc::new(Shared {
             closed: AtomicBool::new(false),
             failed: AtomicBool::new(false),
@@ -305,7 +347,7 @@ impl DurableBuffer {
             .name("signal-wal".into())
             .spawn(move || {
                 let _exit = WorkerExit(worker_shared.clone());
-                let mut engine = match wal::Engine::open(worker_config) {
+                let mut engine = match wal::Engine::open(worker_config, recovery_capacity) {
                     Ok(engine) => engine,
                     Err(error) => {
                         let _ = ready_tx.send(Err(error));
@@ -347,6 +389,10 @@ impl DurableBuffer {
                                 engine.read(events, bytes).map(Reply::Batch)
                             }
                             Operation::Ack(seq) => engine.ack(seq).map(|()| Reply::Done),
+                            Operation::RecoveryRead => Ok(Reply::Recovery(engine.recovery.clone())),
+                            Operation::RecoveryWrite(expected, bytes) => engine
+                                .replace_recovery(expected, bytes)
+                                .map(Reply::Recovery),
                             #[cfg(test)]
                             Operation::Pause(started, release) => {
                                 let _ = started.send(());
@@ -453,6 +499,8 @@ impl DurableBuffer {
             .unwrap_or_default();
         metrics.closed = self.shared.closed.load(Ordering::Acquire)
             || self.shared.failed.load(Ordering::Acquire);
+        metrics.worker_available = !self.shared.stopping.load(Ordering::Acquire)
+            && !self.shared.failed.load(Ordering::Acquire);
         metrics.rejected = self.shared.rejected.load(Ordering::Relaxed);
         metrics.timeouts = self.shared.timeouts.load(Ordering::Relaxed);
         metrics.command_depth = self.config.command_capacity - self.sender.capacity();
@@ -464,34 +512,104 @@ impl DurableBuffer {
         metrics.waiter_capacity = self.config.max_waiters;
         metrics
     }
+    /// Cancellation is expressed by dropping this future; admitted disk work may
+    /// still finish. The retained slot must be reread, never assumed absent.
+    pub async fn read_recovery(
+        &self,
+        deadline: Instant,
+    ) -> Result<Option<RecoveryRecord>, BufferError> {
+        let result = self
+            .command(
+                Operation::RecoveryRead,
+                deadline.min(Instant::now() + self.config.operation_timeout),
+            )
+            .await
+            .and_then(|reply| match reply {
+                Reply::Recovery(record) => Ok(record),
+                _ => Err(BufferError::Unavailable),
+            });
+        if result.is_err() {
+            self.shared.rejected.fetch_add(1, Ordering::Relaxed);
+        }
+        result
+    }
+    pub async fn replace_recovery(
+        &self,
+        expected: Option<[u8; 32]>,
+        bytes: Option<Vec<u8>>,
+        deadline: Instant,
+    ) -> Result<Option<RecoveryRecord>, BufferError> {
+        if self.snapshot().recovery_capacity == 0
+            || bytes.as_ref().is_some_and(|value| {
+                value.is_empty()
+                    || value.len() > self.snapshot().recovery_capacity
+                    || value.capacity() > self.snapshot().recovery_capacity
+            })
+        {
+            self.shared.rejected.fetch_add(1, Ordering::Relaxed);
+            return Err(BufferError::Config("recovery payload bounds"));
+        }
+        let result = self
+            .command(
+                Operation::RecoveryWrite(expected, bytes),
+                deadline.min(Instant::now() + self.config.operation_timeout),
+            )
+            .await
+            .and_then(|reply| match reply {
+                Reply::Recovery(record) => Ok(record),
+                _ => Err(BufferError::Unavailable),
+            });
+        if result.is_err() {
+            self.shared.rejected.fetch_add(1, Ordering::Relaxed);
+        }
+        result
+    }
     /// Bounds include encoded payload bytes; a too-small byte limit can return an empty batch.
     pub async fn read_batch(
         &self,
         max_events: usize,
         max_bytes: usize,
     ) -> Result<Vec<SequencedEvent>, BufferError> {
+        self.read_batch_at(
+            max_events,
+            max_bytes,
+            Instant::now() + self.config.operation_timeout,
+        )
+        .await
+    }
+    /// A host may impose a stricter original deadline across multiple operations.
+    pub async fn read_batch_at(
+        &self,
+        max_events: usize,
+        max_bytes: usize,
+        deadline: Instant,
+    ) -> Result<Vec<SequencedEvent>, BufferError> {
         match self
             .command(
                 Operation::Read(max_events, max_bytes),
-                Instant::now() + self.config.operation_timeout,
+                deadline.min(Instant::now() + self.config.operation_timeout),
             )
             .await?
         {
             Reply::Batch(events) => Ok(events),
-            Reply::Done | Reply::Full => Err(BufferError::Unavailable),
+            Reply::Done | Reply::Full | Reply::Recovery(_) => Err(BufferError::Unavailable),
         }
     }
     /// Call only after persistence of every required consumer through this sequence.
     pub async fn ack(&self, sequence: u64) -> Result<(), BufferError> {
+        self.ack_at(sequence, Instant::now() + self.config.operation_timeout)
+            .await
+    }
+    pub async fn ack_at(&self, sequence: u64, deadline: Instant) -> Result<(), BufferError> {
         match self
             .command(
                 Operation::Ack(sequence),
-                Instant::now() + self.config.operation_timeout,
+                deadline.min(Instant::now() + self.config.operation_timeout),
             )
             .await?
         {
             Reply::Done => Ok(()),
-            Reply::Batch(_) | Reply::Full => Err(BufferError::Unavailable),
+            Reply::Batch(_) | Reply::Full | Reply::Recovery(_) => Err(BufferError::Unavailable),
         }
     }
     pub async fn shutdown(&self) -> Result<(), BufferError> {

@@ -850,7 +850,7 @@
     {
       "id": "SHARED-RUNTIME",
       "title": "Shared-control implementation and local PostgreSQL qualification",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "SHARED-CONTRACT"
       ],
@@ -858,12 +858,19 @@
         "Transactional monotonically fenced partition ownership, stale-owner rejection, manifest/checkpoint/outbox coherence and bounded metadata."
       ],
       "evidence": [
-        "target/goal-execution-20261007/SHARED-RUNTIME/"
+        "target/goal-execution-20261007/SHARED-RUNTIME/",
+        "target/goal-execution-20261007/SHARED-RUNTIME/postgres-lease-reviewed/report.json",
+        "target/goal-execution-20261007/SHARED-RUNTIME/fixture-guards/shared-runtime-fixture-guards.json",
+        "target/goal-execution-20261007/SHARED-RUNTIME/publication-20261010/acceptance.json",
+        "target/shared-query-20261010T205840Z/acceptance.json",
+        "target/catalog-restore-20261010T212803Z/acceptance.json",
+        "target/shared-server-publication-20261010T215920Z/"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md"
-      ]
+      ],
+      "notes": "Lease, atomic publication, fixed snapshots/retirement pins, notification history/fencing, stopped migration/restore, all18 crash cases, dynamic catalog, exact Parquet query and profile4-to5 coordinated restore have source-bound local library acceptance. The server publication coordinator has actual rule/Parquet/control/query/replay/orphan/lost-COMMIT evidence and requires matching final review/gates. Standard startup/WAL/global findings/private consumers, operational restore/retirement and independent full-item review remain unfinished. No replicas, HA or release readiness inferred."
     },
     {
       "id": "OBJECT-CUSTODY",

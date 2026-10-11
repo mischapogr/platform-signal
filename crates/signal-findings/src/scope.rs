@@ -19,6 +19,35 @@ pub struct DerivedFinding {
     pub(crate) facts: Facts,
     pub(crate) authenticated_new: bool,
 }
+/// Immutable host-derived payload for shared publication. This is evidence of
+/// canonical derivation, not a credential, current enrollment or commit permit.
+/// A shared publisher must check startup, generation, WAL floor and existing
+/// original history before adding the payload's facts atomically.
+pub struct ScopedFinding {
+    finding: Finding,
+    facts: Facts,
+    generation: Uuid,
+}
+impl ScopedFinding {
+    pub fn finding(&self) -> &Finding {
+        &self.finding
+    }
+    pub fn generation(&self) -> Uuid {
+        self.generation
+    }
+    pub fn facts(&self) -> ScopeFacts<'_> {
+        ScopeFacts {
+            source: self.facts.source.as_deref(),
+            account: self.facts.account.as_deref(),
+            resource: self.facts.resource.as_deref(),
+        }
+    }
+    /// Lowercase SHA256 of the complete canonical identities, including values
+    /// too long to retain as selectors. Never derive this from finding attributes.
+    pub fn binding_digest(&self) -> &str {
+        &self.facts.digest
+    }
+}
 pub(crate) struct Facts {
     source: Option<Box<str>>,
     account: Option<Box<str>>,
@@ -26,6 +55,21 @@ pub(crate) struct Facts {
     digest: String,
 }
 impl DerivedFinding {
+    /// Seal canonical facts and reserved bytes for a host-selected activation.
+    /// The host must establish authenticated NEW admission before construction.
+    /// This cannot upgrade retained unverified WAL or an existing unknown row.
+    pub fn into_scoped(self, generation: Uuid) -> Result<ScopedFinding, FindingError> {
+        if generation.is_nil() || !self.authenticated_new {
+            return Err(FindingError::Invalid(
+                "authenticated finding scope required",
+            ));
+        }
+        Ok(ScopedFinding {
+            finding: self.annotated(generation),
+            facts: self.facts,
+            generation,
+        })
+    }
     pub fn from_event(
         base: Finding,
         event: &SignalEvent,
