@@ -1330,3 +1330,28 @@ admission, admits sequence3 only with a fresh native TLS grant and rejects
 a subsequent constructor while that row remains uncheckpointed. SQL001–008
 are unchanged. This prerequisite does not qualify complete Standard Main/READY,
 populated scoped restore, private consumers or release readiness.
+
+
+## Read-only original enrollment bootstrap — 2026-10-11
+
+`ControlClient::inspect_existing_finding_scope` reads an existing owner-created
+producer binding using separately configured SELECT credentials. The bounded
+worker runs a read-only repeatable-read transaction without owner role switching,
+activation, enrollment or startup repair. It rejects schema CREATE, table mutation,
+owner membership and EXECUTE on shared schema routines. Exact current schema,
+owner, routine identity, migration history, feed prefix, scope activation and
+request/fact counters must validate before returning the original producer scope,
+startup UUID, WAL floor and current database checkpoint.
+
+The nonserializable pin retains the original deadline and cancellation; it grants
+no authentication to retained events and does not enable READY, publication or
+ACK. The native restart fixture uses this read-only pin to preserve enrollment
+floor1 while capturing fully reconciled admission floor2. Pending sequence3 still
+fences a subsequent admission constructor. Execute-only producer credentials,
+owner-capable credentials, foreign tenant/stream/partition, stale scope generation,
+added UPDATE or shared-function EXECUTE privileges and cancelled pins are rejected.
+
+Evidence: `target/shared-main-bootstrap-20261011T101500+0200/`; acceptance requires the matching
+passed source-bound final campaign and writer review. Frozen SQL001–008 remain
+unchanged. Complete Standard Main composition, recovery/restore/private consumers
+and independent or external release gates remain open.
