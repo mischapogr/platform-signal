@@ -11,7 +11,7 @@ use signal_server::{
     shared_recovery::{RECOVERY_BYTES, RecoveryError, SharedRecovery},
     shared_scoped::ScopedPublicationDraft,
 };
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use uuid::Uuid;
 const DB: &str = "signal_shared_scoped_recovery";
 pub(super) fn connection(f: &Fixture) -> std::result::Result<ConnectionSettings, ControlError> {
@@ -334,6 +334,124 @@ pub(super) async fn qualify(f: &Fixture) -> Result {
         control.shutdown(context()?).await?;
         wal.shutdown().await?;
     }
+    // The server loses its own COMMIT reply after the original scoped request
+    // was synced. Startup replacement must not regenerate its retained claims.
+    let wal = Arc::new(DurableBuffer::open_with_recovery(cfg.clone(), RECOVERY_BYTES).await?);
+    let input: signal_event::IngestEvent = serde_json::from_value(serde_json::json!({
+        "timestamp":chrono::Utc::now().to_rfc3339(),"source":{"type":"audit"},"message":"uncertain original",
+        "attributes":{"account":"spoof"},"resource":{"kind":"host","id":"fixture","account_id":"canonical"}
+    }))?;
+    wal.admit(input.normalize(chrono::Utc::now())?).await?;
+    let rows: Vec<_> = wal
+        .read_batch(1, 8 * 1024 * 1024)
+        .await?
+        .into_iter()
+        .map(|r| signal_storage::StoredEvent {
+            sequence: r.sequence,
+            event: r.event,
+        })
+        .collect();
+    let control = Arc::new(ControlClient::catalog(connection(f)?)?);
+    let publisher = recovery_support::publisher(control.clone(), &scope, backend, &objects)?;
+    let recovery = SharedRecovery::new(publisher.clone(), wal.clone())?;
+    let budget = context()?;
+    let prepared = recovery
+        .prepare_scoped(
+            token.clone(),
+            claims(&producer, &rows, previous)?,
+            1,
+            budget.clone(),
+        )
+        .await?;
+    let exact = prepared
+        .scoped_request()
+        .ok_or("original scoped request missing")?
+        .clone();
+    let retained = wal
+        .read_recovery(context()?.deadline())
+        .await?
+        .ok_or("original uncertain slot missing")?;
+    db.batch_execute("CREATE FUNCTION public.synthetic_scoped_recovery_commit_pause() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(.5); RETURN NEW; END $$; CREATE CONSTRAINT TRIGGER synthetic_scoped_recovery_commit_pause AFTER INSERT ON signal_control.commits DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.synthetic_scoped_recovery_commit_pause()").await?;
+    let observed = async {
+        tokio::time::timeout(Duration::from_secs(4), async {
+            loop {
+                let active:bool=db.query_one("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname=$1 AND query='COMMIT' AND wait_event='PgSleep')", &[&DB]).await?.get(0);
+                if active { budget.cancel(); return Ok::<(),tokio_postgres::Error>(()); }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        }).await
+    };
+    let (uncertain, observed) = tokio::join!(recovery.commit(prepared), observed);
+    observed??;
+    assert!(matches!(
+        uncertain,
+        Err(RecoveryError::Shared(super::SharedError::Control(
+            ControlError::Uncertain
+        )))
+    ));
+    assert_eq!(wal.snapshot().checkpoint, 4);
+    assert_eq!(
+        wal.read_recovery(context()?.deadline()).await?,
+        Some(retained.clone())
+    );
+    db.batch_execute("DROP TRIGGER synthetic_scoped_recovery_commit_pause ON signal_control.commits; DROP FUNCTION public.synthetic_scoped_recovery_commit_pause()").await?;
+    let finding = exact
+        .publication()
+        .findings
+        .first()
+        .ok_or("original scoped finding missing")?;
+    let original_claims:Vec<u8> = db.query_one("SELECT claims FROM signal_finding_scope.requests WHERE partition_id=$1 AND commit_id=$2", &[&scope.partition_id,&exact.publication().id]).await?.get(0);
+    let original_finding: Vec<u8> = db
+        .query_one(
+            "SELECT content FROM signal_control.findings WHERE id=$1",
+            &[&finding.id],
+        )
+        .await?
+        .get(0);
+    assert_eq!(original_finding, finding.bytes);
+    db.batch_execute("UPDATE signal_control.store SET ready=false")
+        .await?;
+    producer.startup = Uuid::new_v4();
+    producer.wal_floor = 5;
+    admin.enroll(producer.clone(), context()?).await?;
+    db.batch_execute("UPDATE signal_control.store SET ready=true")
+        .await?;
+    assert_eq!(
+        wal.read_recovery(context()?.deadline()).await?,
+        Some(retained)
+    );
+    let confirmed = recovery
+        .resume(token.clone(), context()?)
+        .await?
+        .ok_or("original scoped uncertain resolution missing")?;
+    assert_eq!(confirmed.id, exact.publication().id);
+    assert_eq!(confirmed.last_sequence, 5);
+    assert_eq!(wal.snapshot().checkpoint, 5);
+    assert!(wal.read_recovery(context()?.deadline()).await?.is_none());
+    assert!(recovery.resume(token.clone(), context()?).await?.is_none());
+    assert_eq!(db.query_one("SELECT claims FROM signal_finding_scope.requests WHERE partition_id=$1 AND commit_id=$2", &[&scope.partition_id,&exact.publication().id]).await?.get::<_,Vec<u8>>(0),original_claims);
+    assert_eq!(
+        db.query_one(
+            "SELECT content FROM signal_control.findings WHERE id=$1",
+            &[&finding.id]
+        )
+        .await?
+        .get::<_, Vec<u8>>(0),
+        original_finding
+    );
+    assert_eq!(
+        db.query_one("SELECT count(*) FROM signal_finding_scope.requests", &[])
+            .await?
+            .get::<_, i64>(0),
+        5
+    );
+    previous = Some(confirmed.id);
+    drop(recovery);
+    publisher.shutdown(context()?).await?;
+    control.shutdown(context()?).await?;
+    wal.shutdown().await?;
+    drop(wal);
+    eprintln!("phase: actual-server-scoped-lost-commit-original-claims-and-checkpoint-qualified");
     // A missing old operation after startup replacement cannot be recreated or
     // acknowledged. Its original bytes and WAL checkpoint remain held.
     let wal = Arc::new(DurableBuffer::open_with_recovery(cfg, RECOVERY_BYTES).await?);
@@ -369,7 +487,7 @@ pub(super) async fn qualify(f: &Fixture) -> Result {
     db.batch_execute("UPDATE signal_control.store SET ready=false")
         .await?;
     producer.startup = Uuid::new_v4();
-    producer.wal_floor = 5;
+    producer.wal_floor = 6;
     admin.enroll(producer, context()?).await?;
     db.batch_execute("UPDATE signal_control.store SET ready=true")
         .await?;
@@ -379,7 +497,7 @@ pub(super) async fn qualify(f: &Fixture) -> Result {
             ControlError::Fenced
         )))
     ));
-    assert_eq!(wal.snapshot().checkpoint, 4);
+    assert_eq!(wal.snapshot().checkpoint, 5);
     assert_eq!(
         wal.read_recovery(context()?.deadline()).await?,
         Some(original)
@@ -388,7 +506,7 @@ pub(super) async fn qualify(f: &Fixture) -> Result {
         db.query_one("SELECT count(*) FROM signal_control.commits", &[])
             .await?
             .get::<_, i64>(0),
-        4
+        5
     );
     drop(recovery);
     publisher.shutdown(context()?).await?;

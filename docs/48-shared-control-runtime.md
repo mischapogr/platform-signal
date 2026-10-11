@@ -1052,3 +1052,28 @@ the matching source-bound writer review and serial gates. Failed diagnostic
 runs remain retained. Synthetic host reports and parent-retained emulated
 object versions do not prove native authenticated admission, scoped reads,
 populated008 restore, full Main startup, private consumers or external gates.
+
+## Scoped server lost-COMMIT qualification — 2026-10-11
+
+The native server fixture observes its own deferred PostgreSQL COMMIT waiting
+in `PgSleep` before cancelling the original operation context. An uncertain
+return keeps the exact original scoped request slot and pre-operation WAL
+checkpoint. After the physical transaction finishes, the stopped owner replaces
+the producer startup and captures the next WAL floor. Recovery then reconciles
+the original committed request under current authority, retaining byte-exact
+finding content and companion claims before confirming WAL ACK and slot removal.
+Repeated recovery is empty and no request is duplicated. A subsequent missing
+request from the old startup remains fenced with its original slot and checkpoint.
+
+This extends test qualification and its required unique evidence markers;
+production Rust, dependency inputs and frozen SQL001–008 remain unchanged.
+The expanded fixture has a240-second overall harness budget,150 seconds for
+control qualification and30 seconds for the server test, retaining10 seconds
+for owned cleanup; GitHub's enclosing command has300 seconds. This follows an
+observed118.29-second control test and20.42-second server test whose combined
+run exhausted the earlier overall budget. Production request contexts and SQL
+statement/lock timeouts remain unchanged.
+Evidence: `target/shared-scoped-commit-20261011T055304+0200/`; acceptance requires
+the source-bound reviewed fixture campaign. Existing production acceptance is
+`target/shared-scoped-recovery-20261011T052009+0200/`. Synthetic host reports do
+not establish native HTTP admission, scoped reads, Main wiring or release readiness.
