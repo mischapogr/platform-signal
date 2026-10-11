@@ -850,7 +850,7 @@
     {
       "id": "SHARED-RUNTIME",
       "title": "Shared-control implementation and local PostgreSQL qualification",
-      "status": "in_progress",
+      "status": "passed_local",
       "dependencies": [
         "SHARED-CONTRACT"
       ],
@@ -866,13 +866,16 @@
         "target/catalog-restore-20261010T212803Z/acceptance.json",
         "target/shared-server-publication-20261010T215920Z/",
         "target/standard-main-20261011T104031+0200/ACCEPTANCE.json",
-        "target/stopped-retirement-20261011/ACCEPTANCE.json"
+        "target/stopped-retirement-20261011/ACCEPTANCE.json",
+        "target/shared-metrics-20261012/ACCEPTANCE.json",
+        "target/shared-runtime-refresh-20261012/ACCEPTANCE.json",
+        "target/shared-runtime-refresh-20261012/INDEPENDENT-LOCAL-ACCEPTANCE.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md"
       ],
-      "notes": "Writer-reviewed Standard integration and fresh scoped restore are accepted at1273054. Stopped lifecycle integration is accepted locally at750b004 with919default/976all-feature tests, both strict Clippy,36guards and current catalog4/restored5 process campaigns. Exclusive original WAL, pending recovery refusal, separate strict four-RPC maintenance credentials, explicit restore/replay/evidence holds/releases, exact tombstones, stale fencing and original-context retained shutdown are qualified. Local synthetic custody/policy decisions do not prove AWS authority. Independent full-item review remains. No replicas, remote DELETE, HA or release readiness inferred."
+      "notes": "Independent full-item review and source-bound correction acceptance close local SHARED-RUNTIME at b9c58da on2026-10-12. SHARED-METRICS-1 is resolved. Current919default/976all-feature tests, bothstrictClippy,fmt/workspace14,18realPostgreSQL cases plus actualserver/nativeHTTP190.91s, fiveStandard scenarios/metrics180.44s, audit53.10s, private42.80s and restored5 75.26s pass with matching current public/private source and executable identities and owned cleanup. S3/custody inputs remain laboratory simulations. Actual Standard Kubernetes is the next separate local profile; corrected native/currentCI,AWS/EKS,releaseddependencies,version/publication remain open. No replicas or remoteDELETE enabled."
     },
     {
       "id": "OBJECT-CUSTODY",

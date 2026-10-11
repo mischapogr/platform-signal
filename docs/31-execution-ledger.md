@@ -1,16 +1,17 @@
 # Finite execution ledger
 
-Current stopped lifecycle slice: writer-reviewed`750b004` passes919default/
-976all-feature tests, both strict Clippy,36guards and catalog4/restored5 process
-campaigns (181.75s/76.30s), including retained cancellation/drain, all three explicit
-hold kinds, releases, exact tombstones and stale fencing with original WAL
-checkpoints2/3 unchanged. Source binding:
-`target/stopped-retirement-20261011/ACCEPTANCE.json`. Earlier Standard integration
-is accepted at`1273054`. SHARED-RUNTIME stays **in_progress** for independent
-full-item review. All52IDs/statuses/dependencies remain unchanged:
-10passed_local,10passed_simulated,1in_progress,25pending,6external_pending.
-Older entries below retain their original historical evidence boundaries.
-
+Current local SHARED-RUNTIME acceptance: independently reviewed `b9c58da` closes
+SHARED-METRICS-1. Current source-bound 919 default / 976 all-feature tests, both
+strict Clippy modes, formatting and 14 workspace boundaries pass. Real PostgreSQL
+18-case/server/native HTTP qualification passes in 190.91s; five Standard
+scenarios and the metrics scrape pass in 180.44s. Audit/private/restored5 refreshes
+pass in 53.10s / 42.80s / 75.26s with current source/executable bindings and cleanup.
+Review: `target/shared-runtime-refresh-20261012/INDEPENDENT-LOCAL-ACCEPTANCE.json`.
+The 52 IDs and dependencies are unchanged; SHARED-RUNTIME becomes passed_local:
+11 passed_local, 10 passed_simulated, 25 pending, 6 external_pending.
+Standard Kubernetes is the next separate local profile. Local provider/custody
+simulation does not close corrected native/current CI, AWS/EKS or release gates.
+Earlier entries below retain their original historical evidence boundaries.
 
 Owner-authorized persistent Goal, frozen 2026-10-07. The machine-readable
 [ledger](31-execution-ledger.json) is the item inventory; each item records
