@@ -44,6 +44,24 @@ PostgreSQL and always-retained diagnostics. Workflow lint,36guards and14workspac
 boundaries pass. Prior local Standard code/image inputs still match. Actual new
 native executions and complete matching artifacts remain required.
 
+## Agent recovery oracle correction — 2026-10-12
+
+The Standard-enabled`f299633` run38208362422 fails ARM64 at
+`signal-agent --test process` after saturated-spool SIGKILL/restart. Its original
+log lacks actual row/ID counts. A real lost-admission reply reproduces the same
+failure with20stored rows,12original IDs and no missing events: ADR012 permits
+at-least-once delivery, while the old oracle incorrectly required one physical row.
+
+Writer-reviewed`7d5d83f` verifies complete logical delivery and immutable full
+payload per ID. It captures8synced CRC-framed originals beforeSIGKILL, verifies
+their exact restarted transmission, drops a real fully accepted HTTP reply,
+requires exact replay, and retains all12originals plus an appended13th through
+server restart. Different IDs for repeated lines, payload changes and missing
+originals still fail. Five guard tests, the real process run, both Cargo process
+tests, workflow lint and14workspace boundaries pass. No production behavior or
+deadline changes. Evidence: `target/arm64-agent-process-20261012/ACCEPTANCE.json`.
+Fresh native execution must determine whether any further remote issue remains.
+
 ## Remaining work
 
 The52-item ledger remains10passed_local,10passed_simulated,1in_progress,

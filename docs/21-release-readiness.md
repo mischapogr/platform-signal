@@ -22,13 +22,23 @@ summarized in [progress](07-progress.md).
 | Completed public CI38b3c6f (run38119398746) | Both native Rust jobs pass and production images build; verified artifacts show AMD64 query413 and ARM64 atomic diagnostic monitor race in pipeline qualification | Harness corrections under `target/native-ci-fixes-20261011T095750+0200/` require matching final acceptance and fresh complete remote CI |
 | Observed public CIc2bdf6c (run38120937629) | Both Rust jobs pass; ARM64 container job fails and AMD64 native qualification is still running at observation | Current1f2beff run38123061324 is queued; no complete reviewed-revision CI or ARM64 qualification claimed |
 
-Latest completed public CI`8f14fb0` run38146772722 passes AMD64 Rust and MCP,
-but ARM64 fails the native helper's readiness-stage assertion. Native container/
-Kubernetes jobs are skipped. The GitHub-digest-verified artifact, exact local
-reproduction and writer-reviewed correction`71e45a9` are retained under
-`target/arm64-native-helper-20261012/`. All22native helper/16CI-wrapper tests and
-14workspace boundaries pass locally. Only the test changes; actual native/current
-runtime/container/remote gates need a fresh complete run of the pushed source.
+The helper-fix`bee52db` run38206257117 passes both native Rust jobs. Verified,
+primary-digest-matched reports show976tests per architecture and successful
+PostgreSQL crash/restore; ARM64 native container, seven pipeline profiles, two
+120-second soaks, kind and supply-chain reports are verified separately under
+`target/native-ci-monitor-20261012/`. These are bounded Small/default runtime
+results at the earlier source, not current Standard-enabled or EKS/release proof.
+
+The newer Standard-enabled`f299633` run38208362422 fails ARM64 at the agent
+process gate's offline recovery expectation. Its exact primary-digest-verified log
+and a forced real accepted-reply-loss reproduction are retained under
+`target/arm64-agent-process-20261012/`. Valid duplicate delivery exposed an
+exactly-once test oracle inconsistent with ADR012; the original remote log does
+not distinguish missing versus duplicated rows. Writer-reviewed`7d5d83f` enforces
+complete logical events, stable original IDs/full payloads, original durable
+spool/physical SIGKILL, actual uncertainty/exact replay and restart retention.
+Five guard tests, full process/Cargo process tests and workflow checks pass.
+Fresh exact-head native/Standard/container qualification remains required.
 
 Earlier matrix evidence (valid only once its source-bound final campaign passes):
 `target/goal-execution-20261007/SHARED-RUNTIME/matrix-20261010/acceptance.json`
