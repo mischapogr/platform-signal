@@ -19,11 +19,14 @@ The actual owned local Kubernetes Standard profile now passes in141.13s,
 including regular runtime/TLS Secret files, original WAL/PVC recovery and cleanup:
 `target/standard-kubernetes-20261012/ACCEPTANCE.json`. Native CI wiring and checked
 compiled-fixture bundle reuse pass locally in181.93s/170.05s:
-`target/standard-kind-ci-20261012/ACCEPTANCE.json`. Next, observe the exact pushed
-workflow and verify both architectures' Standard cluster results and artifact
-source/image bindings. Prebuild stays outside runtime deadlines; executable bytes
-are retained once per architecture. Then follow ledger dependencies
-and the remaining custody/recovery gates. Preserve one replica/Recreate and explicit external configuration;
+`target/standard-kind-ci-20261012/ACCEPTANCE.json`. Run38246315239 at`27281e3`
+now passes both complete native jobs and Standard cluster profiles107.40s/114.57s
+with verified source/bundle/image/WAL/PVC bindings:
+`target/standard-kind-ci-20261012/NATIVE-STANDARD-ACCEPTANCE.json`.
+Next, implement the generic OBJECT-CUSTODY receipt contract/mechanism, then
+STANDARD-RECOVERY in ledger dependency order. Observe later`cc3744a` full CI
+separately; the bounded download retry fix does not close that gate locally.
+Preserve one replica/Recreate and explicit external configuration;
 no runtime bootstrap, inferred custody, private policy or remote DELETE.
 Corrected native/current image/CI, actual AWS/EKS, released dependencies and
 owner-selected version/publication remain separate gates. Select one reviewable
