@@ -194,11 +194,15 @@ def stop_process(process):
 
 def soak_config(directory, http_port, metrics_port):
     # Long campaigns retain more Parquet files. The bounded query budget uses
-    # QueryConfig's 256 MiB default; the short pipeline keeps its 64 MiB budget.
-    return pipeline.config(directory, http_port, metrics_port, False).replace(
+    # QueryConfig's 256 MiB default; preserve the short pipeline's own budget.
+    configured = pipeline.config(directory, http_port, metrics_port, False)
+    query_memory = f'query:\n  memory_bytes: {pipeline.QUERY_MEMORY_BYTES}\n'
+    if configured.count(query_memory) != 1:
+        raise RuntimeError('pipeline query memory field must be present exactly once')
+    return configured.replace(
         'max_files: 2048', 'max_files: 8192').replace(
         'max_disk_bytes: 67108864', 'max_disk_bytes: 268435456').replace(
-        'query:\n  memory_bytes: 67108864', f'query:\n  memory_bytes: {QUERY_MEMORY_BYTES}')
+        query_memory, f'query:\n  memory_bytes: {QUERY_MEMORY_BYTES}\n', 1)
 
 
 class QueryFailure(RuntimeError):
