@@ -41,6 +41,7 @@ fn grant(operation: &str, expired: bool) -> Result<RequestGrant> {
 // and physical WAL semantics only, never activation or HTTP authentication.
 fn synthetic(wal: Arc<DurableBuffer>) -> SharedAdmission {
     SharedAdmission {
+        admission_floor: wal.snapshot().last_sequence,
         producer: ProducerEnrollment {
             scope: Scope {
                 schema_version: 1,
@@ -189,4 +190,59 @@ async fn single_native_caller_and_cancellation_do_not_append_or_retain_caller_sl
     native.close();
     wal.shutdown().await?;
     Ok(())
+}
+
+#[test]
+fn restart_floor_requires_complete_matching_checkpoint_and_empty_quiescent_wal() {
+    let closed = signal_buffer::BufferMetrics {
+        last_sequence: 2,
+        checkpoint: 2,
+        ..Default::default()
+    };
+    assert_eq!(capture_floor(closed, 1, Some(2)).ok(), Some(2));
+    let initial = signal_buffer::BufferMetrics {
+        last_sequence: 1,
+        checkpoint: 0,
+        depth: 1,
+        ..Default::default()
+    };
+    assert_eq!(capture_floor(initial, 1, Some(0)).ok(), Some(1));
+    for held in [
+        signal_buffer::BufferMetrics {
+            checkpoint: 1,
+            ..closed
+        },
+        signal_buffer::BufferMetrics { depth: 1, ..closed },
+        signal_buffer::BufferMetrics {
+            recovery_bytes: 1,
+            ..closed
+        },
+        signal_buffer::BufferMetrics {
+            command_depth: 1,
+            ..closed
+        },
+        signal_buffer::BufferMetrics {
+            operations_in_flight: 1,
+            ..closed
+        },
+        signal_buffer::BufferMetrics {
+            waiters: 1,
+            ..closed
+        },
+    ] {
+        assert!(matches!(
+            capture_floor(held, 1, Some(2)),
+            Err(ControlError::Fenced)
+        ));
+    }
+    for checkpoint in [None, Some(1), Some(3)] {
+        assert!(matches!(
+            capture_floor(closed, 1, checkpoint),
+            Err(ControlError::Fenced)
+        ));
+    }
+    assert!(matches!(
+        capture_floor(closed, 3, Some(2)),
+        Err(ControlError::Fenced)
+    ));
 }
