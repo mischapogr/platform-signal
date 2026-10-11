@@ -85,12 +85,16 @@ jobs:
         run: python3 scripts/run-ci-check.py --name shared-control-fixture-build --timeout 1200 -- cargo test -p signal-control --test postgres --no-run --locked --offline
       - name: Prebuild exact default-feature shared server fixture
         run: python3 scripts/run-ci-check.py --name shared-server-fixture-build --timeout 1200 -- cargo test -p signal-server --test shared --no-run --locked --offline
+      - name: Prebuild exact default-feature TLS server test binary
+        run: python3 scripts/run-ci-check.py --name shared-http-fixture-build --timeout 1200 -- cargo test -p signal-server --bin signal-server --no-run --locked --offline
       - name: Prebuild exact default-feature native admission fixture
         run: python3 scripts/run-ci-check.py --name native-admission-fixture-build --timeout 1200 -- cargo test -p signal-server --test native_shared_admission --no-run --locked --offline
       - name: Fetch pinned PostgreSQL fixture
         run: python3 scripts/run-ci-check.py --name shared-postgres-image --timeout 240 -- docker pull postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa
       - name: Real local PostgreSQL crash and restore matrix
         run: python3 scripts/run-ci-check.py --name shared-postgres --timeout 300 -- python3 scripts/check-shared-runtime.py --matrix --server --image postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa --output target/ci/shared-postgres-qualification
+      - name: Restore all-feature server for process qualification
+        run: python3 scripts/run-ci-check.py --name process-server-build --timeout 1200 -- cargo build -p signal-server --all-features --locked --offline
       - name: Install locked optional identity qualification tools
         run: python3 scripts/run-ci-check.py --name idp-tools --timeout 180 -- npm ci --prefix tools/identity --engine-strict --ignore-scripts --no-audit --no-fund --fetch-retries=1 --fetch-timeout=15000 --cache target/idp-npm-cache
       - name: Install locked Chromium and runner dependencies

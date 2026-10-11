@@ -1163,3 +1163,29 @@ CI prebuilds the exact default-feature admission fixture before its finite run.
 These are actual local owner SQL/TLS-provider/HTTP/WAL effects with synthetic
 laboratory identities. Standard Main/READY, scoped derivation/publication/read
 integration, persistent managed-provider behavior and external gates remain open.
+
+
+## Verified native CI build-order corrections — 2026-10-11
+
+Public run38112482427 archives were downloaded anonymously through
+[nightly.link](https://github.com/oprypin/nightly.link) and verified against the
+official GitHub artifact SHA256 digests before reading report data; no archive
+code, credential or app installation was used. ARM64's control/server cases pass
+but the TLS helper spends its25second runtime budget compiling the exact default
+server test binary. CI now prebuilds `cargo test -p signal-server --bin signal-server
+--no-run --locked --offline` before entering the native fixture. Production and
+provider deadlines remain unchanged.
+
+AMD64's process log rejects S3 configuration because its normal server lacks the
+s3-query feature. Default-feature integration test builds overwrite the earlier
+all-feature normal executable. CI restores `cargo build -p signal-server
+--all-features --locked --offline` after all default native fixture operations
+and before IdP/S3/query process gates. The local before-restoration simulation
+reproduces the exact missing-feature failure; the corrected process simulation
+must pass under its matching source-bound campaign.
+
+Evidence: `target/ci-feature-order-20261011T070904+0200/`, with the verified archives
+retained under `target/ci-qualification-queue-20261011T070403+0200/public-artifacts/`.
+These are verified failed-run causes and local workflow corrections. Fresh remote
+AMD64/ARM64/full container/runtime qualification still needs successful observed
+jobs and retained matching reports; no current release acceptance is implied.
