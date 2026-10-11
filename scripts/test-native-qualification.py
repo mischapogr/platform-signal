@@ -461,13 +461,23 @@ time.sleep(30)
                                       'time.sleep(30)\n')
                 executable.chmod(0o755)
                 if harness == 'pipeline':
-                    wrapper = '''import itertools,runpy,socket,sys,urllib.request
+                    wrapper = '''import itertools,runpy,socket,sys,threading,time,urllib.request
 ports = itertools.count(20000)
 socket.socket.bind = lambda self, address: None
 socket.socket.getsockname = lambda self: ('127.0.0.1', next(ports))
 def unavailable(*args, **kwargs):
     raise OSError('offline readiness fixture')
 urllib.request.urlopen = unavailable
+# Reproduce slow sampler-thread setup after the server is physically owned.
+# Cancellation must still reach the intended readiness phase on native runners.
+original_thread_init = threading.Thread.__init__
+def delayed_sampler_thread(self, *args, **kwargs):
+    target = kwargs.get('target')
+    if type(getattr(target, '__self__', None)).__name__ == 'Sampler':
+        print('fixture: sampler-thread-startup-delayed', flush=True)
+        time.sleep(0.65)
+    original_thread_init(self, *args, **kwargs)
+threading.Thread.__init__ = delayed_sampler_thread
 sys.argv = sys.argv[1:]
 runpy.run_path(sys.argv[0], run_name='__main__')
 '''
@@ -482,10 +492,14 @@ runpy.run_path(sys.argv[0], run_name='__main__')
                                str(qualification.ROOT / 'scripts/check-hardening.py'), '--output-dir', str(directory / 'campaign')]
                 with (directory / 'log').open('wb') as stream:
                     with self.assertRaises(RuntimeError) as interrupted:
-                        qualification.run_bounded(command, stream, timeout=0.5, grace=3)
+                        # Include finite startup headroom before testing cleanup
+                        # from readiness, including the injected sampler delay.
+                        qualification.run_bounded(command, stream, timeout=2, grace=3)
                 self.assertRegex(str(interrupted.exception), 'deadline',
                                  msg=(directory / 'log').read_text())
                 if harness == 'pipeline':
+                    self.assertEqual((directory / 'log').read_text().splitlines().count(
+                        'fixture: sampler-thread-startup-delayed'), 1)
                     point = qualification.pipeline_diagnostics.read_diagnostic(directory / 'pipeline-diagnostic.json')
                     self.assertEqual(point, {'schema_version': 1, 'profile': '1k-100',
                         'check': 'readiness', 'kind': 'last-entered'})
