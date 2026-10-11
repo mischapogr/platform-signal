@@ -61,7 +61,7 @@ older report's documentation identities without rewriting accepted reports.
 
 | Gate | Remaining requirement |
 | --- | --- |
-| Standard Kubernetes | Local SHARED-RUNTIME accepted independently at b9c58da; actual owned Standard startup/regular-file mounts/original WAL-PVC recovery and cleanup remain required; no replicas or remote DELETE enabled |
+| Standard Kubernetes | Owned local AMD64 Standard image/kind passes141.13s with native TLS/probes, regular runtime/TLS Secret files, original CRC/WAL checkpoint2/database facts and same-PVC SIGKILL/pod replacement recovery; `target/standard-kubernetes-20261012/ACCEPTANCE.json`. Native Standard cluster CI and actual EKS/AWS remain open; synthetic identity/S3, no replicas or remote DELETE |
 | Native ARM64 | Full architecture-specific runtime/pipeline/container/Kubernetes/benchmark evidence; partial passing Rust CI is insufficient |
 | Current container/kind/supply chain | Fresh matching reviewed source/config/image; prior current-kind attempts hit PVC/host-resource exhaustion |
 | Actual EKS/AWS | Authorized environment, namespace, storage and persistent restart evidence; none is available currently; local kind cannot close this gate |

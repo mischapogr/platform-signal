@@ -151,7 +151,8 @@ spec:
               readOnly: true
             {{- end }}
             {{- if .Values.tls.existingSecret }}
-            - {name: tls, mountPath: /etc/signal/tls, readOnly: true}
+            - {name: tls, mountPath: /etc/signal/tls/server.json, subPath: server.json, readOnly: true}
+            - {name: tls, mountPath: /etc/signal/tls/probe.json, subPath: probe.json, readOnly: true}
             {{- end }}
             {{- if .Values.rules.existingConfigMap }}
             {{- range .Values.rules.keys }}

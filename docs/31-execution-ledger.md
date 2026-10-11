@@ -7,9 +7,12 @@ strict Clippy modes, formatting and 14 workspace boundaries pass. Real PostgreSQ
 scenarios and the metrics scrape pass in 180.44s. Audit/private/restored5 refreshes
 pass in 53.10s / 42.80s / 75.26s with current source/executable bindings and cleanup.
 Review: `target/shared-runtime-refresh-20261012/INDEPENDENT-LOCAL-ACCEPTANCE.json`.
-The 52 IDs and dependencies are unchanged; SHARED-RUNTIME becomes passed_local:
-11 passed_local, 10 passed_simulated, 25 pending, 6 external_pending.
-Standard Kubernetes is the next separate local profile. Local provider/custody
+The 52 IDs and dependencies are unchanged. Current local Standard Kubernetes
+passes141.13s with167source bindings, regular runtime/TLS Secret files, original
+WAL/checkpoint2/database facts and same-PVC SIGKILL/pod replacement recovery,
+plus owned cleanup: `target/standard-kubernetes-20261012/ACCEPTANCE.json`.
+KIND becomes passed_local:12 passed_local,10 passed_simulated,24 pending,
+6 external_pending. Native Standard cluster CI is next. Local provider/custody
 simulation does not close corrected native/current CI, AWS/EKS or release gates.
 Earlier entries below retain their original historical evidence boundaries.
 
