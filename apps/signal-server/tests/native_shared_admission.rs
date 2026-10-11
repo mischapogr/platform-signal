@@ -1,5 +1,5 @@
 //! Actual owned owner enrollment, TLS provider authentication, HTTP and durable WAL.
-//! Loopback laboratory only; no AWS, Standard READY or scoped publication proof.
+//! Loopback laboratory only; emulated object versions, no AWS or Standard READY.
 use signal_buffer::{BufferConfig, DurableBuffer, Policy};
 use signal_control::{
     AdministrativeScope, ConnectionSettings, ControlAdministrator, ControlContext, ControlError,
@@ -23,6 +23,10 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 const DB: &str = "signal_native_admission";
+#[path = "support/native_scoped_publication.rs"]
+mod publication;
+#[path = "support/versions.rs"]
+mod versions;
 #[derive(serde::Deserialize)]
 struct Fixture {
     port: u16,
@@ -404,7 +408,7 @@ async fn native_owner_provider_http_wal_admission() -> Result {
     drop(db);
     timeout(Duration::from_secs(2), driver).await???;
     let original = test?;
-    let replay = DurableBuffer::open_with_recovery(cfg, RECOVERY_BYTES).await?;
+    let replay = Arc::new(DurableBuffer::open_with_recovery(cfg.clone(), RECOVERY_BYTES).await?);
     let rows = replay.read_batch(2, 65536).await?;
     let replayed = rows
         .iter()
@@ -434,6 +438,7 @@ async fn native_owner_provider_http_wal_admission() -> Result {
         Some("legacy")
     );
     assert_eq!(replay.snapshot().checkpoint, 0);
+    publication::qualify(&f, &producer, replay.clone(), cfg).await?;
     replay.shutdown().await?;
     println!("phase: actual-owner-native-provider-http-wal-floor-deadline-expiry-replay-qualified");
     Ok(())
