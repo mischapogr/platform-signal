@@ -20,7 +20,8 @@
     "affinity",
     "topologySpreadConstraints",
     "limits",
-    "tls"
+    "tls",
+    "runtime"
   ],
   "properties": {
     "replicaCount": {
@@ -480,6 +481,79 @@
           "type": "string",
           "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$",
           "maxLength": 253
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "existingSecret",
+        "files",
+        "secretEnv"
+      ],
+      "properties": {
+        "existingSecret": {
+          "type": "string",
+          "maxLength": 253,
+          "pattern": "^$|^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "SIGNAL_SHARED_CONFIG": {
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+            },
+            "SIGNAL_ACCESS_CONFIG": {
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+            },
+            "SIGNAL_COVERAGE_CONFIG": {
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+            },
+            "SIGNAL_AUDIT_CONFIG": {
+              "type": "string",
+              "maxLength": 253,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+            }
+          }
+        },
+        "secretEnv": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "secret",
+              "key"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[A-Z][A-Z0-9_]*$"
+              },
+              "secret": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 253,
+                "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+              },
+              "key": {
+                "type": "string",
+                "maxLength": 253,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+              }
+            }
+          }
         }
       }
     }
