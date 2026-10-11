@@ -1302,3 +1302,31 @@ This qualifies an explicit factory, not Standard Main/READY or replicas. Frozen
 SQL001–008 remain unchanged. Complete Main startup, populated scoped restore,
 private consumers, operational adapters and independent/external gates remain
 open; no release version or image publication is selected.
+
+
+## Fully reconciled native WAL restart admission — 2026-10-11
+
+The owned PostgreSQL/TLS fixture reproduced a constructor fence after the
+original scoped request was resumed, publication confirmed, WAL checkpointed
+to2 and the recovery slot cleared: the original producer enrollment floor1
+no longer equalled the retained tail2. A fresh owner inspection now permits
+that completely reconciled prefix without changing its original enrollment,
+startup UUID or scope generation. `SharedAdmission::admission_floor()` captures
+the current tail for future native admissions; it grants no authentication to
+retained events. Main composition must use this current boundary for new
+admission provenance while preserving the original enrollment.
+
+Advancing this boundary requires matching PostgreSQL and WAL checkpoints at
+the tail, no pending WAL rows, an empty recovery slot and no queued, active or
+waiting WAL operation. Original live owner bindings, worker availability,
+recovery capacity and rejection of drop-oldest/corruption remain required.
+The host must keep WAL admission exclusive during construction. Pending or
+uncertain recovery must be reconciled under its original authority first.
+
+Evidence: `target/shared-main-restart-20261011T092414+0200/`; acceptance requires
+its source-bound writer review and matching passed final campaign. The native
+fixture preserves floor1/startup, captures admission floor2, rejects raw
+admission, admits sequence3 only with a fresh native TLS grant and rejects
+a subsequent constructor while that row remains uncheckpointed. SQL001–008
+are unchanged. This prerequisite does not qualify complete Standard Main/READY,
+populated scoped restore, private consumers or release readiness.
