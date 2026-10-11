@@ -864,13 +864,14 @@
         "target/goal-execution-20261007/SHARED-RUNTIME/publication-20261010/acceptance.json",
         "target/shared-query-20261010T205840Z/acceptance.json",
         "target/catalog-restore-20261010T212803Z/acceptance.json",
-        "target/shared-server-publication-20261010T215920Z/"
+        "target/shared-server-publication-20261010T215920Z/",
+        "target/standard-main-20261011T104031+0200/ACCEPTANCE.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md"
       ],
-      "notes": "Lease, atomic publication, fixed snapshots/retirement pins, notification history/fencing, stopped migration/restore, all18 crash cases, dynamic catalog, exact Parquet query and profile4-to5 coordinated restore have source-bound local library acceptance. The server publication coordinator has actual rule/Parquet/control/query/replay/orphan/lost-COMMIT evidence and requires matching final review/gates. Standard startup/WAL/global findings/private consumers, operational restore/retirement and independent full-item review remain unfinished. No replicas, HA or release readiness inferred."
+      "notes": "Writer-reviewed Standard startup/WAL/scoped/global findings/private outbox and fresh scoped restore/restored Main are accepted locally at pushed1273054. Matching914default/971all-feature tests, both strict Clippy,36guards, complete18case physical crash matrix and pipeline/audit/private/restore process campaigns pass with source binding and cleanup. Current-generation/custody decisions in the restore fixture are local simulation, not AWS production authority. Operational stopped retirement and independent full-item review remain. No replicas, remote DELETE, HA or release readiness inferred."
     },
     {
       "id": "OBJECT-CUSTODY",
