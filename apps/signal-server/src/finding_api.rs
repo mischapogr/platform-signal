@@ -20,6 +20,7 @@ use tokio_util::sync::CancellationToken;
 struct FindingState {
     store: Option<Arc<FindingStore>>,
     shared_feed: Option<Arc<signal_server::shared_feed::SharedFindingsFeed>>,
+    shared_findings: Option<Arc<signal_server::shared_findings::SharedFindings>>,
     auth: IngestConfig,
     limit: usize,
     response_bytes: usize,
@@ -69,6 +70,7 @@ pub fn router_with_security(
         .with_state(FindingState {
             store: Some(store),
             shared_feed: None,
+            shared_findings: None,
             auth,
             limit,
             response_bytes,
@@ -102,9 +104,46 @@ pub fn router_with_shared_feed(
         .with_state(FindingState {
             store: None,
             shared_feed: Some(feed.clone()),
+            shared_findings: None,
             auth,
             limit,
             response_bytes: feed.response_bytes(),
+            timeout,
+            stopping,
+            security,
+        }))
+}
+/// Explicit same-store scoped list and independently authorized global feed.
+/// Small/Main selection remains unchanged until complete Standard integration.
+#[allow(dead_code)]
+pub fn router_with_shared_findings(
+    findings: Arc<signal_server::shared_findings::SharedFindings>,
+    feed: Arc<signal_server::shared_feed::SharedFindingsFeed>,
+    auth: IngestConfig,
+    limit: usize,
+    timeout: Duration,
+    stopping: CancellationToken,
+    security: Security,
+) -> Result<Router, signal_control::ControlError> {
+    if findings.store_binding() != feed.store_binding()
+        || !(1..=signal_control::ITEMS).contains(&limit)
+        || timeout.is_zero()
+        || timeout > Duration::from_secs(5)
+        || security.identity.is_none()
+        || auth.api_token.is_some()
+    {
+        return Err(signal_control::ControlError::Invalid);
+    }
+    Ok(Router::new()
+        .route("/v1/findings", get(self::findings))
+        .route("/v1/findings/feed", get(feed_route))
+        .with_state(FindingState {
+            store: None,
+            shared_feed: Some(feed),
+            response_bytes: findings.response_bytes(),
+            shared_findings: Some(findings),
+            auth,
+            limit,
             timeout,
             stopping,
             security,
@@ -293,6 +332,62 @@ async fn findings_inner(
             );
         }
     };
+    if let Some(shared) = &state.shared_findings {
+        let Some(grant) = grant else {
+            return error(
+                StatusCode::FORBIDDEN,
+                "forbidden",
+                "native finding authority required",
+            );
+        };
+        let control = match signal_control::ControlContext::new(Duration::from_secs(5)) {
+            Ok(value) => value.limited_to(context.deadline),
+            Err(_) => {
+                return error(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "unavailable",
+                    "finding backend unavailable",
+                );
+            }
+        };
+        // Drop/cancel of the HTTP future must also cancel its submitted DB work.
+        let _control_guard = CancelOnDrop(control.cancellation_token());
+        let result = tokio::select! {biased;
+            ()=context.cancellation.cancelled()=>Err(signal_control::ControlError::Cancelled.into()),
+            ()=tokio::time::sleep_until(context.deadline)=>Err(signal_control::ControlError::Timeout.into()),
+            result=shared.read(query,grant.clone(),control)=>result,
+        };
+        return match result {
+            Ok(bytes) => match finish(context, Some(grant.as_ref()), Operation::ReadFindings) {
+                None => ([("content-type", "application/json")], bytes).into_response(),
+                Some(response) => response,
+            },
+            Err(signal_server::shared_findings::SharedFindingsError::WireBudget) => error(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "resource_limit",
+                "finding response limit exceeded",
+            ),
+            Err(signal_server::shared_findings::SharedFindingsError::Control(
+                signal_control::ControlError::Full,
+            )) => error(
+                StatusCode::TOO_MANY_REQUESTS,
+                "full",
+                "finding caller or backend capacity is full",
+            ),
+            Err(signal_server::shared_findings::SharedFindingsError::Control(
+                signal_control::ControlError::Timeout,
+            )) => error(
+                StatusCode::REQUEST_TIMEOUT,
+                "request_timeout",
+                "finding request deadline exceeded",
+            ),
+            Err(_) => error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "unavailable",
+                "shared finding backend unavailable",
+            ),
+        };
+    }
     let Some(store) = &state.store else {
         return error(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -601,6 +696,8 @@ fn parse(raw: &str, max_limit: usize) -> Result<FindingQuery, ()> {
 
 #[cfg(test)]
 mod shared_http_tests;
+#[cfg(test)]
+mod shared_scoped_http_tests;
 
 #[cfg(test)]
 mod tests {
@@ -645,6 +742,7 @@ mod tests {
         let state = FindingState {
             store: None,
             shared_feed: Some(shared.clone()),
+            shared_findings: None,
             auth,
             limit: 1,
             response_bytes: 1024,
