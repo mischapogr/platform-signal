@@ -10,14 +10,15 @@ phase rows and measurements; completed rows are not new implementation tasks.
 
 Read [current progress](07-progress.md), [release boundaries](21-release-readiness.md)
 and the [52-item ledger](31-execution-ledger.json). Continue the in_progress
-SHARED-RUNTIME item under [runtime contract](48-shared-control-runtime.md):
-Standard startup/WAL/global findings/private-consumer integration after the
-catalog/query, coordinated profile4 restore and server publication coordinator
-slices. Each has its own source-bound acceptance; require matching passed final
-gates before the next code slice. Keep Small authoritative and replicas disabled.
-Publication, snapshot, retirement pins, notification fencing, explicit migration
-and the complete bounded crash/restore matrix have local evidence. Operational
-restore/retirement adapters and independent full-item review remain required.
+SHARED-RUNTIME item under [runtime contract](48-shared-control-runtime.md).
+Writer-reviewed Standard startup/WAL/global findings/private-consumer and fresh
+scoped restore integration is accepted locally at pushed`1273054`; exact evidence
+and limits are in [progress](07-progress.md). Finish the reproduced CI soak-helper
+budget correction, then implement the separate operational stopped retirement
+adapter and obtain independent full-item review. Publication, snapshots,
+retirement pins, notification fencing, explicit migration and the complete bounded
+crash/restore matrix have local evidence. Keep remote DELETE and replicas disabled;
+new native/cloud/container/dependency/release qualification remains separate.
 Select one reviewable slice at a time; do not rerun unchanged campaigns.
 
 Respect ledger dependencies and original phase order. Core phases0–8 and bounded

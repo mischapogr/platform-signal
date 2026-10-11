@@ -1426,3 +1426,31 @@ outer allowance after passing the library/crash/server/HTTP checks; its stopped
 Standard run and successful owned container/volume cleanup remain diagnostic
 at `target/standard-main-20261011T104031+0200/final-postgres-standard/report.json`.
 This budget correction does not replace a matching passed full campaign.
+
+## Standard integration final local acceptance — 2026-10-11
+
+Pushed writer-reviewed`1273054` qualifies the explicit Standard executable,
+original native WAL request/checkpoint recovery, current-generation scoped reads,
+actual independent audit receiver, separate private outbox and fresh scoped
+restore/restored Main. The exact accepted task is
+`target/standard-main-20261011T104031+0200/ACCEPTANCE.json`.
+Its mandatory formatting/both strict Clippy/914default/971all-feature/14package
+results are reused only because every Rust/build input remains identical; the
+affected serial campaign passes36guards and the four current process campaigns.
+The full18case matrix plus Standard takes378.65s/51commands, with complete six-DB
+witness equality after physical SIGKILL, same container/volume and a fresh client.
+Audit53.01s, private41.48s and scoped restore36.35s pass with exact source inventories.
+
+The first combined attempt exhausted its240s parent; the next passed Standard but
+hit the30s PostgreSQL crash-recovery wait during fsync. Retained failures remain
+under the task. Combined qualification is bounded420s; only persistent abrupt
+restart accepts120probes under65s. Initial empty startup stays60probes/35s, focused
+campaigns240s and all application/SQL/context deadlines retain their limits.
+Every final owned container/volume is removed; no cleanup errors are ignored.
+
+This completes the bounded writer-reviewed Standard slice, not SHARED-RUNTIME.
+Operational stopped retirement and independent full-item review still follow.
+Local loopback current-custody adapters do not attest AWS credentials/PKI/custody;
+current native ARM64/container/cloud/remote/released-dependency/publication gates
+remain. Remote DELETE and replicas stay disabled. Earlier calibration descriptions
+retain their original source/evidence boundaries; this accepted entry is current.

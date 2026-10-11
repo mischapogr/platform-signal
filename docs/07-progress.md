@@ -3,6 +3,29 @@
 Current snapshot: 2026-10-11. Read [release boundaries](21-release-readiness.md) and [finite ledger](31-execution-ledger.json).
 Prior record: [progress history](07-progress-history-20261010.md).
 
+## Standard integration accepted locally — 2026-10-11
+
+Writer-reviewed commit `12730548265910a9fb20b8b9530d5081e36703a8` is pushed to
+`develop`. Formatting, both strict Clippy modes,914default/971all-feature tests
+and14workspace boundaries pass. Only the two corrected harness files changed
+between the mandatory Rust campaign and the final process campaign; all Rust and
+build inputs match. The latter passes36guards and all18frozen matrix cases,
+Standard native TLS/WAL/query/findings/restart, actual independent audit receiver,
+external private outbox and fresh scoped restore/restored Main. The combined
+campaign takes378.65s/51commands; audit53.01s, private41.48s and restore36.35s.
+The abrupt PostgreSQL restart retains all six complete database witnesses and a
+fresh-client probe. Every owned container/volume is removed without cleanup errors.
+
+Acceptance: `target/standard-main-20261011T104031+0200/ACCEPTANCE.json`, with
+its exact mandatory Rust and affected process campaign bindings. This is local
+AMD64 and loopback S3/private-destination simulation, not an independent full-item,
+AWS, native ARM64, released-dependency or release qualification. SHARED-RUNTIME
+stays **in_progress** for operational retirement and independent full-item review.
+No replicas are enabled and no release version is selected.
+
+<details>
+<summary>Earlier Standard prerequisite evidence</summary>
+
 ## Standard server startup, publication and WAL recovery — 2026-10-11
 The server component binds Parquet uploads to fenced atomic manifest/finding/state/work/receipt publication.
 Exact replay preserves results; lost COMMIT resolves only the retained request. Host scope/backend, bounded admission and original budgets remain explicit.
@@ -12,6 +35,9 @@ Native CI prebuilds default-feature fixtures and includes `--server` on both arc
 CI dependency cache/budget qualification: `target/free-ci-cache-20261011T063641+0200/`; downloads only, one240second fixture budget and1day artifacts; matching final gates required. Verified publicfc4d732 failures: missing S3 runtime feature/default TLS test compilation; build-order correction: `target/ci-feature-order-20261011T070904+0200/`, matching local campaign required. Fresh remote CI/ARM64 proof remains open.
 Global feed library/restore/restart: `target/shared-global-feed-20261011T015956+0200/`; [read authority](48-shared-control-runtime.md#global-findings-database-reads--2026-10-11), matching final gates required. HTTP/scoped integration remains open.
 Shared feed wire/explicit HTTP route: `target/shared-feed-http-20261011T022929+0200/`; authorized live HTTP/TLS/audit: `target/shared-feed-roundtrip-20261011T025437+0200/`; matching final gates required. Scope schema: `target/shared-finding-scope-schema-20261011T031740+0200/`; host API: `target/shared-finding-scope-host-20261011T034549+0200/`; matching final gates required. Sealed canonical payload: `target/shared-scoped-payload-20261011T042000+0200/`; matching final gates required. Atomic scoped publication: `target/shared-scoped-publication-20261011T043519+0200/`; matching final gates required. Original scoped server/WAL recovery: `target/shared-scoped-recovery-20261011T052009+0200/`; corrected native crash qualification passed, matching final gates required. Grant-only admission seam: `target/shared-native-admission-20261011T062021+0200/`; native TLS forwarding and synthetic adapter/WAL tests, matching final gates required. Native owner/TLS-provider/HTTP/WAL qualification: `target/native-owner-http-wal-20261011T064743+0200/`; matching final gates required. Native authenticated mixed-history rules/scoped publication and original WAL resume: `target/native-scoped-publication-20261011T072254+0200/`; matching final gates required. Scoped finding list backend: `target/shared-scoped-read-20261011T073650+0200/`; matching source-bound final gates required. Explicit scoped HTTP factory: `target/shared-scoped-http-20261011T085430+0200/`; matching source-bound final gates required. Fully reconciled native WAL restart admission: `target/shared-main-restart-20261011T092414+0200/`; matching source-bound final gates required; original enrollment is preserved and pending tails remain fenced. Main/private consumers, operational restore/retirement and independent/external gates remain open; no replicas enabled.
+
+
+</details>
 
 ## Public OSS image publication prepared — 2026-10-10
 
@@ -143,6 +169,16 @@ remain open. See [runtime contract](48-shared-control-runtime.md).
 
 ## Next runnable work
 
+Finish the reproduced native CI soak-helper budget correction, then continue
+SHARED-RUNTIME with the operational stopped retirement adapter and independent
+full-item review. The Standard integration and fresh scoped restore above are
+accepted local slices; OBJECT-CUSTODY and STANDARD-RECOVERY retain their separate
+ledger dependencies and acceptance. Keep remote DELETE disabled and replicas
+disabled. Current provider/cloud/native/container/dependency/release gates remain.
+
+<details>
+<summary>Earlier Standard calibrations before final acceptance</summary>
+
 Standard executable composition is currently **in progress**, with an unaccepted
 implementation checkpoint at `target/standard-main-20261011T104031+0200/`.
 Focused executable tests and the Small process regression pass. The owned Standard
@@ -202,6 +238,9 @@ under independently current authority and a fresh generation, and full crash/res
 qualification. Prepare one bounded task packet and read the relevant
 contract before choosing the exact next slice. No server replicas or shared
 readiness are enabled by the library acceptance.
+
+
+</details>
 
 The unchanged 52-item ledger has 10 passed_local, 10 passed_simulated,
 1 in_progress, 25 pending and 6 external_pending. Item statuses and dependencies
