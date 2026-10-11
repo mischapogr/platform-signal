@@ -10,7 +10,8 @@ summarized in [progress](07-progress.md).
 
 | Scope | Accepted evidence | Limit |
 | --- | --- | --- |
-| Standard executable and fresh scoped restore | Writer-reviewed pushed1273054;914default/971all-feature tests, both strict Clippy modes,36guards, all18matrix cases and actual pipeline/audit/private/restore process campaigns; exact binding at`target/standard-main-20261011T104031+0200/ACCEPTANCE.json` | Local AMD64/loopback S3 and private-destination simulation; operational retirement, independent full-item and current external/release gates remain |
+| Stopped Standard lifecycle | Writer-reviewed750b004;919default/976all-feature tests, both strict Clippy,36guards, catalog4/restored5 campaigns181.75s/76.30s; source binding at`target/stopped-retirement-20261011/ACCEPTANCE.json` | Local AMD64/owned simulation; independent full-item review, external retention/custody and current release gates remain; no remote DELETE |
+| Standard executable and fresh scoped restore | Writer-reviewed pushed1273054;914default/971all-feature tests, both strict Clippy modes,36guards, all18matrix cases and actual pipeline/audit/private/restore process campaigns; exact binding at`target/standard-main-20261011T104031+0200/ACCEPTANCE.json` | Local AMD64/loopback S3 and private-destination simulation; independent full-item and current external/release gates remain |
 | Server publication coordinator | Actual rule/Parquet/atomic control/query, exact replay, cancellation/stale-owner orphan-only and observed lost COMMIT resolution; matching final gates required | Application component with emulated process-local versions; no Standard startup/WAL/custody/private-consumer qualification |
 | Shared catalog restore/query | Explicit4-to5 restore, current authority/custody, original notification history/fencing, exact catalog checkpoints and actual Parquet/DataFusion after PostgreSQL restart; all18 cases/46commands; matching final campaign required | Local AMD64 library and emulated durable object versions; Standard integration and operational retirement remain open |
 | Latest bounded crash/restore matrix | All18 frozen cases; actual producer SIGKILL/rollback/COMMIT resolution, timeout/takeover, synthetic accepted reply loss and persistent PostgreSQL restart/fresh client | Local AMD64/synthetic effects; matching writer review/final campaign required; Standard integration and independent full-item review remain open |
@@ -21,11 +22,12 @@ summarized in [progress](07-progress.md).
 | Completed public CI38b3c6f (run38119398746) | Both native Rust jobs pass and production images build; verified artifacts show AMD64 query413 and ARM64 atomic diagnostic monitor race in pipeline qualification | Harness corrections under `target/native-ci-fixes-20261011T095750+0200/` require matching final acceptance and fresh complete remote CI |
 | Observed public CIc2bdf6c (run38120937629) | Both Rust jobs pass; ARM64 container job fails and AMD64 native qualification is still running at observation | Current1f2beff run38123061324 is queued; no complete reviewed-revision CI or ARM64 qualification claimed |
 
-Current pushed Standard revision`1273054` has public CIrun38141354614 in progress
-at the retained observation `target/ci-soak-config-20261011T144128+0200/standard-commit-remote-runs.json`.
-The preceding5d560e0 run38125470201 failed`test-soak.py` on both native architectures.
-The exact local reproduction and correction are retained under that task; no full
-remote CI or native runtime gate is closed by helper checks.
+Latest observed public CI`84eb26b` run38142851057 was in progress at
+`target/stopped-retirement-20261011/current-remote-runs.json`. This observation
+precedes the accepted stopped-lifecycle commit`750b004`; the newly pushed revision
+needs fresh complete qualification. The older5d560e0 run38125470201 failed the
+soak helper; its correction is accepted at`b42501d`. No full remote gate is closed
+by local helper checks or an in-progress observation.
 
 Earlier matrix evidence (valid only once its source-bound final campaign passes):
 `target/goal-execution-20261007/SHARED-RUNTIME/matrix-20261010/acceptance.json`
@@ -43,11 +45,11 @@ older report's documentation identities without rewriting accepted reports.
 
 | Gate | Remaining requirement |
 | --- | --- |
-| SHARED-RUNTIME | Operational stopped retirement integration and independent full-item review after accepted Standard/fresh scoped restore slice; no replicas or remote DELETE enabled |
+| SHARED-RUNTIME | Independent full-item review after accepted Standard/scoped restore/stopped lifecycle slices; no replicas or remote DELETE enabled |
 | Native ARM64 | Full architecture-specific runtime/pipeline/container/Kubernetes/benchmark evidence; partial passing Rust CI is insufficient |
 | Current container/kind/supply chain | Fresh matching reviewed source/config/image; prior current-kind attempts hit PVC/host-resource exhaustion |
 | Actual EKS/AWS | Authorized environment, namespace, storage and persistent restart evidence; none is available currently; local kind cannot close this gate |
-| Reviewed-revision remote CI | All required jobs and retained matching report artifacts;1273054 remains in progress at observation and the preceding revision failed the soak helper |
+| Reviewed-revision remote CI | All required jobs and retained matching artifacts for the newly reviewed/pushed source; latest retained84eb26b observation is earlier and in progress |
 | Released external dependency | Private application against the actual released version and locked dependency graph |
 | Release review/version/publication | Applicable trust/security/restore/package/SBOM review, owner-selected version and explicit release authority |
 

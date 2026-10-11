@@ -3,6 +3,28 @@
 Current snapshot: 2026-10-11. Read [release boundaries](21-release-readiness.md) and [finite ledger](31-execution-ledger.json).
 Prior record: [progress history](07-progress-history-20261010.md).
 
+## Stopped Standard lifecycle accepted locally — 2026-10-11
+
+Writer-reviewed commit `750b004` adds an explicit stopped-host adapter which
+retains the original WAL exclusively, rejects pending events/recovery and uses
+separate maintenance credentials. Its strict four-RPC allowlist permits acquire,
+renew, catalog and object control; namespace USAGE on both control and finding-scope
+permits exact privilege inspection. Producer permissions remain five RPCs.
+Explicit restore/replay/evidence holds, audited release, exact-version tombstones,
+replay and stale fences are exercised on catalog4 and restored catalog5. Remote
+DELETE remains disabled; external retention/custody decisions are not inferred.
+
+All10source-bound serial gates pass: formatting, both strict Clippy modes,
+919default/976all-feature tests,14workspace boundaries,36guards and explicit
+all-feature prebuild. Catalog4 passes181.75s/28commands; restored5 passes76.30s/
+28commands, with owned cleanup and original WAL checkpoints2/3 preserved. Five
+real-WAL regressions include pending recovery and cancelled shutdown/drain retry.
+Acceptance: `target/stopped-retirement-20261011/ACCEPTANCE.json`.
+
+SHARED-RUNTIME remains **in_progress** for independent full-item review. This is
+local AMD64 and owned PostgreSQL/S3/private-destination simulation. Current native,
+container, cloud, remote-CI, dependency and release qualification remain separate.
+
 ## Standard integration accepted locally — 2026-10-11
 
 Writer-reviewed commit `12730548265910a9fb20b8b9530d5081e36703a8` is pushed to
