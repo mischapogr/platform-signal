@@ -1132,3 +1132,34 @@ review/final native campaign is required. Public run38110565434 on73e0cd5 fails
 AMD64 query-retirement and ARM64 PostgreSQL; the budget mismatch is a concrete
 local bug, not a confirmed remote root cause. Actual remote acceptance, cache
 hits/speed measurements, native ARM64 runtime and release gates remain open.
+
+
+## Native owner/provider/HTTP/WAL composition — 2026-10-11
+
+The owned native admission fixture creates a real stopped Catalog4Scoped store,
+activates scope generation through the owner API and captures a preexisting
+legacy WAL row at floor1. SharedAdmission's public constructor consumes the real
+owner-produced enrollment pin. Activation-only or canceled pins, foreign streams,
+missing recovery capacity and later reuse after the WAL advances beyond the
+captured floor fail. Owner inspection verifies the original enrolled startup/floor
+and can initialize admission while that floor still matches. No fixture bypass
+or synthetic grant constructor is used here.
+
+The existing finite TLS introspection provider supplies native backend-verified
+request grants. Actual loopback HTTP rejects absent/inactive/expired/unbound and
+query-only actors, spoofed forwarding/role headers and canonical account mismatch.
+Plain admission and bootstrap-token routing cannot append to the shared adapter.
+An authorized request receives202 only after synced WAL, preserving the captured
+floor. An expired original deadline cannot append; a full WAL respects the HTTP
+request budget and real short-lived provider grant expiry without renewed worker
+deadlines. Counters/caller seats settle, shutdown joins workers and WAL replay
+compares complete canonical serialized events and exact original sequences.
+
+Evidence: `target/native-owner-http-wal-20261011T064743+0200/`; matching source-bound writer
+review/final native campaign is required. The harness requires both feed/audit
+and native admission test identities, unique qualification markers and exact
+successful result counts; missing/duplicate markers cannot close acceptance.
+CI prebuilds the exact default-feature admission fixture before its finite run.
+These are actual local owner SQL/TLS-provider/HTTP/WAL effects with synthetic
+laboratory identities. Standard Main/READY, scoped derivation/publication/read
+integration, persistent managed-provider behavior and external gates remain open.
