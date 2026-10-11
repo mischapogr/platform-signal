@@ -138,7 +138,8 @@ def qualify_server_output(output):
 def qualify_shared_http_output(output):
     markers = ('phase: actual-shared-feed-live-http-tls-provider-durable-audit-qualified',
                'phase: actual-owner-native-provider-http-wal-floor-deadline-expiry-replay-qualified',
-               'phase: actual-native-http-scoped-publication-legacy-unknown-original-request-resume-qualified')
+               'phase: actual-native-http-scoped-publication-legacy-unknown-original-request-resume-qualified',
+               'phase: actual-native-TLS-shared-scoped-read-paired-before-limit-history-integrity-qualified')
     tests = ('test finding_api::shared_http_tests::authorized_shared_feed_http_provider_audit ... ok',
              'test native_owner_provider_http_wal_admission ... ok')
     lines = output.splitlines()
@@ -346,8 +347,9 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
             report['checks'].append('actual_shared_feed_live_http_tls_introspection_and_durable_audit')
             report['checks'].append('actual_owner_enrollment_native_tls_http_WAL_floor_deadline_expiry_and_replay')
             report['checks'].append('actual_native_HTTP_rules_scoped_publication_legacy_unknown_original_request_WAL_resume')
+            report['checks'].append('actual_native_TLS_scoped_read_explicit_SELECT_paired_before_limit_unknown_history_integrity_cancellation')
             report['native_scoped_publication_scope']='Actual owner enrollment/native TLS HTTP admission, canonical rule findings, two-row legacy/new batch, real WAL saved scoped request/reopen, original missing-request reconciliation and atomic PostgreSQL facts before checkpoint2. Legacy finding bytes remain unknown; only canonical audit/account/resource facts from the authenticated new event are retained. Object versions are emulated and parent-retained; no Standard Main/READY, scoped reads, populated restore, actual AWS or native ARM64 claim.'
-            report['native_shared_admission_scope']='Actual owner-produced SQL enrollment pin, native TLS introspection and loopback HTTP into grant-only durable WAL, captured legacy floor, bootstrap/raw/scope rejection, original request budget and native grant expiry, exact event replay. No Standard Main/READY, scoped publication, provider rotation or AWS/native ARM64 proof.'
+            report['native_shared_admission_scope']='Actual owner-produced SQL enrollment pin, native TLS introspection and loopback HTTP into grant-only durable WAL, captured legacy floor, bootstrap/raw/scope rejection, original request budget and native grant expiry, exact event replay. Continuation qualifies scoped rules/publication, exact original WAL request resume and explicitly SELECT-authorized scoped reads with native TLS grants. No Standard Main/READY, provider rotation or AWS/native ARM64 proof.'
             report['shared_findings_http_scope']='Actual loopback HTTP feed factory, TLS provider introspection, host policy, original PostgreSQL findings and synced audit decisions/completions. No main startup/scoped Standard readiness or external identity/destination proof.'
             report['server_publication_scope']='Owned monolith coordinator, explicit startup/WAL authority binding and durable exact request recovery through producer SIGKILL/confirmed checkpoint; emulated process-local object provider retained independently in parent. No main startup/global findings/private-consumer/custody or persistent server-object proof.'
         for path,digest in report['source_hashes'].items():

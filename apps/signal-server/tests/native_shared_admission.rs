@@ -25,6 +25,8 @@ type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 const DB: &str = "signal_native_admission";
 #[path = "support/native_scoped_publication.rs"]
 mod publication;
+#[path = "support/native_scoped_read.rs"]
+mod scoped_read;
 #[path = "support/versions.rs"]
 mod versions;
 #[derive(serde::Deserialize)]
@@ -129,7 +131,8 @@ async fn native_owner_provider_http_wal_admission() -> Result {
     let wal = Arc::new(DurableBuffer::open_with_recovery(cfg.clone(), RECOVERY_BYTES).await?);
     // An existing pre-enrollment row remains legacy; startup must capture it.
     let legacy: IngestEvent = serde_json::from_value(input(801, "legacy"))?;
-    wal.admit(legacy.normalize(chrono::Utc::now())?).await?;
+    wal.admit(legacy.normalize("0000-01-01T00:00:60.999999999Z".parse()?)?)
+        .await?;
     let producer = ProducerEnrollment {
         scope: Scope {
             schema_version: 1,
@@ -265,7 +268,7 @@ async fn native_owner_provider_http_wal_admission() -> Result {
         owner.enroll(producer.clone(), context()?).await?,
     )?);
     assert_eq!(native.enrollment().wal_floor, 1);
-    let policy=AccessPolicy::from_json(br#"{"schema_version":1,"roles":[{"id":"producer","permissions":[{"operation":"ingest_events","scope":{"sources":{"mode":"only","values":["audit"]},"accounts":{"mode":"only","values":["a"]},"resources":{"mode":"only","values":["host-a"]}}}]},{"id":"reader","permissions":[{"operation":"query_events","scope":{"sources":{"mode":"all"},"accounts":{"mode":"all"},"resources":{"mode":"all"}}}]}],"bindings":[{"issuer":"https://identity.example.test","subject":"producer","roles":["producer"]},{"issuer":"https://identity.example.test","subject":"reader","roles":["reader"]}]}"#)?.compile()?;
+    let policy = AccessPolicy::from_json(br#"{"schema_version":1,"roles":[{"id":"producer","permissions":[{"operation":"ingest_events","scope":{"sources":{"mode":"only","values":["audit"]},"accounts":{"mode":"only","values":["a"]},"resources":{"mode":"only","values":["host-a"]}}}]},{"id":"reader","permissions":[{"operation":"query_events","scope":{"sources":{"mode":"all"},"accounts":{"mode":"all"},"resources":{"mode":"all"}}},{"operation":"read_findings","scope":{"sources":{"mode":"only","values":["audit"]},"accounts":{"mode":"only","values":["a"]},"resources":{"mode":"only","values":["host-a"]}}}]},{"id":"all-reader","permissions":[{"operation":"read_findings","scope":{"sources":{"mode":"all"},"accounts":{"mode":"all"},"resources":{"mode":"all"}}}]},{"id":"paired-one","permissions":[{"operation":"read_findings","scope":{"sources":{"mode":"only","values":["audit"]},"accounts":{"mode":"only","values":["b"]},"resources":{"mode":"all"}}}]},{"id":"paired-two","permissions":[{"operation":"read_findings","scope":{"sources":{"mode":"all"},"accounts":{"mode":"only","values":["a"]},"resources":{"mode":"only","values":["host-b"]}}}]}],"bindings":[{"issuer":"https://identity.example.test","subject":"producer","roles":["producer"]},{"issuer":"https://identity.example.test","subject":"reader","roles":["reader"]},{"issuer":"https://identity.example.test","subject":"all-reader","roles":["all-reader"]},{"issuer":"https://identity.example.test","subject":"paired-reader","roles":["paired-one","paired-two"]}]}"#)?.compile()?;
     let identity = IdentityBackend::new(
         IdentityConfig {
             endpoint: std::env::var("SIGNAL_SHARED_HTTP_PROVIDER")?,
@@ -400,9 +403,6 @@ async fn native_owner_provider_http_wal_admission() -> Result {
     .await;
     stopping.cancel();
     timeout(Duration::from_secs(3), server).await???;
-    identity
-        .shutdown(Instant::now() + Duration::from_secs(2))
-        .await?;
     owner.shutdown(context()?).await?;
     wal.shutdown().await?;
     drop(db);
@@ -438,7 +438,10 @@ async fn native_owner_provider_http_wal_admission() -> Result {
         Some("legacy")
     );
     assert_eq!(replay.snapshot().checkpoint, 0);
-    publication::qualify(&f, &producer, replay.clone(), cfg).await?;
+    publication::qualify(&f, &producer, &identity, replay.clone(), cfg).await?;
+    identity
+        .shutdown(Instant::now() + Duration::from_secs(2))
+        .await?;
     replay.shutdown().await?;
     println!("phase: actual-owner-native-provider-http-wal-floor-deadline-expiry-replay-qualified");
     Ok(())
