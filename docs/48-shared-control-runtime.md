@@ -1106,3 +1106,29 @@ writer review/final campaign is required. Actual native owner/provider/WAL
 composition, scoped derivation/read APIs, Main wiring and release readiness
 remain open. HTTP202 continues to mean synced local WAL, not shared publication,
 RPO0 or Standard READY.
+
+
+## Free public CI cache and fixture budget consistency — 2026-10-11
+
+Public CI keeps standard GitHub-hosted AMD64/ARM64 runners. Immutable official
+cache-action v6.1.0 restores only Cargo registry index/archive and Git dependency
+databases, keyed by OS, architecture and Cargo.lock. A successful develop push
+build saves those downloads before later qualification, so a failing runtime
+check does not discard reusable dependencies. No target binaries/evidence,
+credentials/config, paid settings or validation bypass are included. Artifact
+retention is1day, matching the repository limit observed in remote annotations.
+Official documentation: [dependency caching](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching)
+and [pinned action](https://github.com/actions/cache/tree/55cc8345863c7cc4c66a329aec7e433d2d1c52a9).
+
+The native PostgreSQL harness had an expanded240second execution budget but a
+remaining180second final rejection threshold. One FIXTURE_SECONDS constant now
+controls both; tests accept complete180.5/240second reports and reject over-budget,
+negative/nonfinite or invalid elapsed values. Existing10second cleanup reserve,
+150second control/30second server fixture limits and production operation/SQL
+deadlines remain intact. All18 frozen cases and owned cleanup are still required.
+
+Evidence: `target/free-ci-cache-20261011T063641+0200/`; matching source-bound writer
+review/final native campaign is required. Public run38110565434 on73e0cd5 fails
+AMD64 query-retirement and ARM64 PostgreSQL; the budget mismatch is a concrete
+local bug, not a confirmed remote root cause. Actual remote acceptance, cache
+hits/speed measurements, native ARM64 runtime and release gates remain open.
