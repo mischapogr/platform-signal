@@ -20,7 +20,7 @@ summarized in [progress](07-progress.md).
 | Prior stopped restore slice | 36 control unit tests, actual PostgreSQL17.5/immutable-file restore and synthetic current-authority fixture; source-bound writer review/final campaign required | Local Linux AMD64 library; bounded crash/restore now recorded above; Standard integration and independent full-item review remain open |
 | Prior shared administrative migration slice | Source-bound workspace acceptance; 26 control unit tests, actual PostgreSQL17.5 initialization/populated upgrade/rollback fixture and writer review | Earlier local Linux AMD64 library slice; current local SHARED-RUNTIME acceptance recorded above |
 | Core phases 0–8 and bounded Phase 10 | Prior source-bound process/container/kind/scans/finite soaks and offline restore | Historical inputs; no automatic current-image or prolonged stability claim |
-| Finite implementation ledger | 52 items: 11 passed_local, 10 passed_simulated, 25 pending, 6 external_pending | Simulated and local proof remain distinct from actual external acceptance |
+| Finite implementation ledger | 52 items: 12 passed_local, 10 passed_simulated, 24 pending, 6 external_pending | Whole implementation inventory, including later product work; not a release-readiness percentage. Simulated and local proof remain distinct from actual external acceptance |
 | Completed public CI38b3c6f (run38119398746) | Both native Rust jobs pass and production images build; verified artifacts show AMD64 query413 and ARM64 atomic diagnostic monitor race in pipeline qualification | Harness corrections under `target/native-ci-fixes-20261011T095750+0200/` require matching final acceptance and fresh complete remote CI |
 | Observed public CIc2bdf6c (run38120937629) | Both Rust jobs pass; ARM64 container job fails and AMD64 native qualification is still running at observation | Current1f2beff run38123061324 is queued; no complete reviewed-revision CI or ARM64 qualification claimed |
 
@@ -65,7 +65,7 @@ older report's documentation identities without rewriting accepted reports.
 | Native ARM64 | Full architecture-specific runtime/pipeline/container/Kubernetes/benchmark evidence; partial passing Rust CI is insufficient |
 | Current container/kind/supply chain | Fresh matching reviewed source/config/image; prior current-kind attempts hit PVC/host-resource exhaustion |
 | Actual EKS/AWS | Authorized environment, namespace, storage and persistent restart evidence; none is available currently; local kind cannot close this gate |
-| Reviewed-revision remote CI | Reviewed metrics revision b9c58da run38237870960 succeeds; native976-test/Standard process and Small container/kind/supply-chain artifacts verified. New direct-fixture/bundle/Standard cluster workflow is locally accepted but needs exact pushed-revision remote results |
+| Reviewed-revision remote CI | Reviewed metrics revision b9c58da run38237870960 succeeds. Later0c73951 run38243101139 passes both976-test/five Standard process jobs and AMD64 full native qualification; ARM64 passes container/pipeline/soak/kind but a pinned security-tool download returns HTTP504, leaving supply-chain/full CI unqualified. New Standard cluster workflow27281e3 run38246315239 is active and requires matching results |
 | Released external dependency | Private application against the actual released version and locked dependency graph |
 | Release review/version/publication | Applicable trust/security/restore/package/SBOM review, owner-selected version and explicit release authority |
 
