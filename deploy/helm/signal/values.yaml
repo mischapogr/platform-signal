@@ -19,6 +19,10 @@ tls:
   existingSecret: ""
   serverKey: server.json
   probeKey: probe.json
+runtime:
+  existingSecret: ""
+  files: {}
+  secretEnv: []
 rules:
   existingConfigMap: ""
   keys: []
