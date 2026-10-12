@@ -102,3 +102,22 @@ prevent insecure health bypass. See [Docker](../deploy/docker/README.md),
 [Helm](../deploy/helm/signal/README.md) and [transport](44-transport-security.md).
 Existing development images need rebuilding. Focused mounted-current-binary
 adapter proof does not qualify an older full image or a cloud cluster.
+
+
+## Explicit Standard runtime Secret selection — 2026-10-12
+
+Writer-reviewed`0addc76` adds optional externally created runtime Secret references
+to the existing one-replica Helm deployment. Four supported configuration selectors
+mount individual Secret keys as read-only regular subPath files; bounded explicit
+environment Secret references supply database/S3 settings without rendering values.
+Standard query cache stays on the retained data PVC. Duplicate/reserved environment
+names, missing configuration Secret references and unsupported/unsafe keys fail
+rendering. The default Small deployment remains byte-identical.
+
+Default/selected Helm lint, twelve negative cases, manifest AST checks, five cluster
+helper guards and14workspace boundaries pass. Evidence:
+`target/helm-runtime-config-20261012/`. This prepares deployment configuration;
+it does not prove Standard startup or recovery in Kubernetes. The actual owned
+local Standard cluster profile, independent full-item review, current native/
+container/source matching, EKS/AWS and release gates remain separate. No replicas,
+private policy, database installation/migration or publication is introduced.
