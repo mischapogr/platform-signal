@@ -23,7 +23,7 @@ def check(root=ROOT):
                 assert any(re.sub(r'[^\w -]', '', line.lstrip('# ').lower()).replace(' ', '-') == slug
                            for line in current.splitlines() if line.startswith('#')), slug
     assert (root / 'docs/49-ai-execution-workflow.md').is_file()
-    print('AI workflow: 3 exact historical snapshots, compact current pages and heading redirects passed')
+    print(f"AI workflow: {len(manifest['snapshots'])} exact historical snapshots, compact current pages and heading redirects passed")
 
 
 if __name__ == '__main__':
