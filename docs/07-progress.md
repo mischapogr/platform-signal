@@ -84,6 +84,12 @@ their later local acceptance is recorded below. EKS/release gates remain open.
 
 ## Actual local Standard Kubernetes accepted — 2026-10-12
 
+Generic OBJECT-CUSTODY description/coordinator now passes924default/981all-feature
+tests, both strict Clippy modes and five uncertainty/fencing/retention guards.
+See [contract51](51-object-custody.md) and
+`target/object-custody-coordinator-20261012/ACCEPTANCE.json`. The item is in
+progress: real object/control/API/producer retention integration remains required.
+
 Native CI now prepares one source/revision/architecture-bound executable bundle
 per architecture and reuses it for the Standard cluster gate. Direct compiled
 enrollment retains exact Rust test/phase assertions and avoids runtime Cargo.
@@ -133,7 +139,7 @@ the retained observation; Standard Kubernetes and external release gates remain.
 
 ## Remaining work
 
-The 52-item ledger now records12passed_local,10passed_simulated,24pending
+The 52-item ledger now records12passed_local,10passed_simulated,23pending/1in_progress
 and6external_pending:22accepted within their recorded scope and30unfinished.
 Independent review closes local SHARED-RUNTIME at `b9c58da`. Continue with the
 native Standard Kubernetes CI profile, then dependency/phase order.
