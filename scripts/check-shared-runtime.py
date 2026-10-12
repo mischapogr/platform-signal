@@ -335,6 +335,7 @@ def main():
     parser.add_argument('--image', default='postgres:17.5-alpine')
     parser.add_argument('--matrix', action='store_true', help='owned persistent volume and abrupt database restart qualification')
     parser.add_argument('--custody-only', action='store_true', help='focused actual PostgreSQL/object-file custody coordinator; simulated retention authority')
+    parser.add_argument('--custody-server-only', action='store_true', help='composed configured server custody with PostgreSQL TLS and signed S3; simulated retention authority')
     parser.add_argument('--server', action='store_true', help='actual monolithic server publication/rules/query coordinator qualification')
     parser.add_argument('--standard', action='store_true', help='actual Standard executable with owned TLS and persistent S3 protocol fixture')
     parser.add_argument('--standard-only', action='store_true', help='focused Standard process calibration; excludes library and crash matrices')
@@ -346,10 +347,11 @@ def main():
     parser.add_argument('--standard-restore-only',action='store_true',help='fresh scoped destination and actual restored Standard/private progress; excludes full matrices')
     parser.add_argument('--private-checkout',type=Path,default=ROOT.parent/'platform-signal-private')
     args = parser.parse_args()
-    if args.custody_only and (args.matrix or args.server or args.standard or args.standard_only
+    if (args.custody_only or args.custody_server_only) and (args.matrix or args.server or args.standard or args.standard_only
                              or args.standard_kubernetes_image or args.standard_offline_fixture
-                             or args.standard_audit_only or args.standard_private_only or args.standard_restore_only):
-        parser.error('--custody-only excludes other profiles')
+                             or args.standard_audit_only or args.standard_private_only or args.standard_restore_only
+                             or (args.custody_only and args.custody_server_only)):
+        parser.error('custody profiles exclude each other and other profiles')
     if args.standard_kubernetes_image and not args.standard_only:
         parser.error('--standard-kubernetes-image requires --standard-only')
     if args.standard_restore_only:
@@ -518,12 +520,25 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
                                *list((ROOT/'crates/signal-storage/src').rglob('*.rs')),ROOT/'crates/signal-storage/Cargo.toml',
                                *list((ROOT/'crates/signal-query/src').rglob('*.rs')),ROOT/'crates/signal-query/Cargo.toml',
                                ROOT/'schemas/shared-control/v1.json',ROOT/'schemas/shared-control/001.sql',ROOT/'schemas/shared-control/002-functions.sql',ROOT/'schemas/shared-control/003-administration.sql',ROOT/'schemas/shared-control/004-restore.sql',ROOT/'schemas/shared-control/005-catalog.sql',ROOT/'schemas/shared-control/005-catalog.sha256',ROOT/'schemas/shared-control/007-finding-scope.sql',ROOT/'schemas/shared-control/007-finding-scope-catalog.sha256',ROOT/'schemas/shared-control/008-scoped-publication.sql',ROOT/'schemas/shared-control/008-scoped-publication-catalog.sha256',ROOT/'schemas/shared-control/008-scoped-publication-functions.sha256',ROOT/'schemas/shared-control/006-catalog-restore.sql',ROOT/'schemas/shared-control/006-catalog.sha256',ROOT/'schemas/shared-control/003-catalog.sha256',ROOT/'schemas/shared-control/004-catalog.sha256',ROOT/'schemas/shared-control/catalog-query.sql',ROOT/'schemas/shared-control/002-catalog.sha256'])}
-        if args.server or args.standard:
+        if args.server or args.standard or args.custody_server_only:
             for source_name in ('tests/integration/shared-feed-provider.py', 'tests/integration/access-server-process.py', 'scripts/check-object-query.py','scripts/check-audit-role-composition.py','scripts/check-audit-receiver-permissions.py'):
                 report['source_hashes'][source_name]=hashlib.sha256((ROOT/source_name).read_bytes()).hexdigest()
             for path in sorted([ROOT/'apps/signal-server/Cargo.toml', *list((ROOT/'apps/signal-server/src').rglob('*.rs')), *list((ROOT/'apps/signal-server/tests').rglob('*.rs')), ROOT/'crates/signal-buffer/Cargo.toml', *list((ROOT/'crates/signal-buffer/src').rglob('*.rs'))]):
                 report['source_hashes'][str(path.relative_to(ROOT))]=hashlib.sha256(path.read_bytes()).hexdigest()
-        if args.custody_only:
+        if args.custody_server_only:
+            test_output=run(['cargo','test','--locked','--offline','-p','signal-server','--features','s3-query',
+                            '--test','shared','custody::runtime::postgres_tls_s3_configured_custody',
+                            '--','--ignored','--exact','--nocapture'],60,env)
+            expected=['composed-custody-real-PG-TLS-signed-S3-exact-replay-conflict-qualified',
+                      'composed-custody-postcommit-denial-governance-quota-original-retained-qualified',
+                      'composed-custody-observed-COMMIT-physical-drain-same-id-authority-qualified',
+                      'composed-custody-current-owner-reopen-checked-permit-independent-original-qualified']
+            if (any(test_output.splitlines().count('phase: '+name)!=1 for name in expected)
+                    or len(re.findall(r'^test result: ok\. 1 passed; 0 failed; 0 ignored;',test_output,re.MULTILINE))!=1):
+                raise ValueError('exact composed server custody qualification missing')
+            report['checks'].extend(expected)
+            report['scope']='Configured server verifier with actual PostgreSQL TLS and signed exact-version S3 protocol; replay/conflict/quota/postcommit denial/governance/observed uncertain COMMIT/authority/takeover/reopen and checked test-only original release; provider retention simulated; no authenticated server API/producer network/AWS proof'
+        elif args.custody_only:
             test_output=run(['cargo','test','--locked','--offline','-p','signal-control','--test','postgres',
                             'postgres_object_custody_coordinator','--','--ignored','--exact','--nocapture'],60,env)
             expected=['custody-real-postgres-TLS-exact-replay-conflict-original-copy-qualified',

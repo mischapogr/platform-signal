@@ -30,9 +30,12 @@ actual PostgreSQL TLS replay/conflict/quota/observed COMMIT/takeover/reopen pass
 `target/object-custody-postgres-20261012/ACCEPTANCE.json`. Independent archive files
 use simulated retention authority. S3 exact-version compliance readback now passes
 924default/985all-feature tests and4wire/cancellation guards:
-`target/object-custody-s3-20261012/ACCEPTANCE.json`. Next, bind its retained-read
-adapter to configured control scope/backend/authority, then implement authenticated
-server/API/producer-copy retention; keep the full item in progress. Then STANDARD-RECOVERY follows
+`target/object-custody-s3-20261012/ACCEPTANCE.json`. Configured server binding now
+passes926default/987all-feature tests and actual composed PostgreSQL TLS/S3 runtime
+8.13s: `target/object-custody-server-20261012/ACCEPTANCE.json`. Scope/backend/prefix/
+minimum horizon/authority are host-owned; uncertain COMMIT retries the original ID.
+Next, implement authenticated server/API and producer-copy retention; keep the full
+item in progress. Then STANDARD-RECOVERY follows
 ledger dependency order. Observe later`cc3744a` full CI
 separately; the bounded download retry fix does not close that gate locally.
 Preserve one replica/Recreate and explicit external configuration;

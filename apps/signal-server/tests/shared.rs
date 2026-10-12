@@ -12,6 +12,8 @@ use signal_storage::{
 use std::{sync::Arc, time::Duration};
 use uuid::Uuid;
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+#[path = "support/shared_custody.rs"]
+mod custody;
 fn context() -> std::result::Result<ControlContext, ControlError> {
     ControlContext::new(Duration::from_secs(5))
 }
