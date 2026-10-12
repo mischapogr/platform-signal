@@ -6,6 +6,7 @@ use tokio::{
     net::TcpListener,
     task::JoinHandle,
 };
+mod custody;
 mod publication;
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 #[derive(Debug)]
