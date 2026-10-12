@@ -875,7 +875,7 @@
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md"
       ],
-      "notes": "Independent full-item review and source-bound correction acceptance close local SHARED-RUNTIME at b9c58da on2026-10-12. SHARED-METRICS-1 is resolved. Current919default/976all-feature tests, bothstrictClippy,fmt/workspace14,18realPostgreSQL cases plus actualserver/nativeHTTP190.91s, fiveStandard scenarios/metrics180.44s, audit53.10s, private42.80s and restored5 75.26s pass with matching current public/private source and executable identities and owned cleanup. S3/custody inputs remain laboratory simulations. Actual Standard Kubernetes is the next separate local profile; corrected native/currentCI,AWS/EKS,releaseddependencies,version/publication remain open. No replicas or remoteDELETE enabled."
+      "notes": "Independent full-item review and source-bound correction acceptance close local SHARED-RUNTIME at b9c58da on2026-10-12. SHARED-METRICS-1 is resolved. Current919default/976all-feature tests, bothstrictClippy,fmt/workspace14,18realPostgreSQL cases plus actualserver/nativeHTTP190.91s, fiveStandard scenarios/metrics180.44s, audit53.10s, private42.80s and restored5 75.26s pass with matching current public/private source and executable identities and owned cleanup. S3/custody inputs remain laboratory simulations. Actual Standard Kubernetes is now accepted locally under KIND; corrected native/currentCI,AWS/EKS,releaseddependencies,version/publication remain open. No replicas or remoteDELETE enabled."
     },
     {
       "id": "OBJECT-CUSTODY",
@@ -1257,7 +1257,7 @@
     {
       "id": "KIND",
       "title": "Current-revision local Kubernetes persistence/restart gate",
-      "status": "pending",
+      "status": "passed_local",
       "dependencies": [
         "CORE"
       ],
@@ -1265,12 +1265,14 @@
         "Repair only owned/local resource preconditions; pass chart PVC/persistence/restart using qualified current image."
       ],
       "evidence": [
-        "target/goal-execution-20261007/KIND/"
+        "target/goal-execution-20261007/KIND/",
+        "target/standard-kubernetes-20261012/ACCEPTANCE.json"
       ],
       "references": [
         "docs/21-release-readiness.md",
         "docs/19-packaging.md"
-      ]
+      ],
+      "notes": "Actual current S3-enabled Standard image in owned local AMD64 kind passes141.13s: native TLS/probes, regular runtime/TLS Secret documents, explicit offline original enrollment/coverage, authenticated ingest and object query/findings, original CRC-protected WAL checkpoint2/floor0 and database facts, server SIGKILL and serial replacement on the same PVC. Synthetic identity/S3 and real PostgreSQL TLS; all owned cluster/container resources removed. Source-bound writer review and167runtime hashes retained. Native Standard cluster CI, actual EKS/AWS and publication remain separate."
     },
     {
       "id": "RELEASE-REVIEW",

@@ -15,11 +15,13 @@ bound 919 default / 976 all-feature tests, both strict Clippy modes and actual
 PostgreSQL/Standard/audit/private/restored5 campaigns pass. Exact review and
 limits: `target/shared-runtime-refresh-20261012/INDEPENDENT-LOCAL-ACCEPTANCE.json`.
 
-Qualify the actual owned local Kubernetes Standard profile next, as ordered by
-[the finite runtime acceptance](47-shared-control-contract.md#finite-acceptance-and-next-work).
-Generic Helm runtime Secret selectors are prepared at `0addc76`; render proof
-requires actual startup, regular-file mounts, original WAL/PVC recovery and
-owned cleanup. Preserve one replica/Recreate and explicit external configuration;
+The actual owned local Kubernetes Standard profile now passes in141.13s,
+including regular runtime/TLS Secret files, original WAL/PVC recovery and cleanup:
+`target/standard-kubernetes-20261012/ACCEPTANCE.json`. Next, wire this bounded
+profile into native public GitHub qualification. Reuse each architecture's
+compiled offline enrollment fixture and tested production image; prebuild outside
+runtime deadlines and retain matching artifacts. Then follow ledger dependencies
+and the remaining custody/recovery gates. Preserve one replica/Recreate and explicit external configuration;
 no runtime bootstrap, inferred custody, private policy or remote DELETE.
 Corrected native/current image/CI, actual AWS/EKS, released dependencies and
 owner-selected version/publication remain separate gates. Select one reviewable

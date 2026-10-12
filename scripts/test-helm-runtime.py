@@ -12,10 +12,13 @@ HELM = "helm"
 
 
 class RuntimeTests(unittest.TestCase):
-    def render(self, runtime):
+    def render(self, runtime, tls=None):
         with tempfile.TemporaryDirectory(prefix="signal-helm-runtime-") as directory:
             values = Path(directory) / "values.json"
-            values.write_text(json.dumps({"runtime": runtime}))
+            selected = {"runtime": runtime}
+            if tls is not None:
+                selected['tls'] = tls
+            values.write_text(json.dumps(selected))
             return subprocess.run(
                 [HELM, "template", "proof", str(ROOT / "deploy/helm/signal"),
                  "--show-only", "templates/deployment.yaml", "--values", str(values)],
@@ -63,6 +66,13 @@ class RuntimeTests(unittest.TestCase):
         result = self.render({"secretEnv": [entry, entry]})
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("duplicate environment name", result.stderr)
+
+    def test_tls_documents_are_regular_subpath_mounts(self):
+        result = self.render({}, {'existingSecret': 'tls-config'})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for name in ('server', 'probe'):
+            self.assertIn(f'mountPath: /etc/signal/tls/{name}.json, subPath: {name}.json, readOnly: true', result.stdout)
+        self.assertNotIn('mountPath: /etc/signal/tls,', result.stdout)
 
 
 if __name__ == "__main__":
