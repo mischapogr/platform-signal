@@ -101,6 +101,15 @@ jobs:
         run: python3 scripts/run-ci-check.py --name standard-fixture-build --timeout 1200 -- cargo test -p signal-server --all-features --test standard_main --no-run --locked --offline
       - name: Native Standard executable and stopped lifecycle qualification
         run: python3 scripts/run-ci-check.py --name standard-postgres --timeout 300 -- python3 scripts/check-shared-runtime.py --standard-only --image postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa --output target/ci/standard-postgres-qualification
+      - name: Prepare qualified Standard executables for native Kubernetes
+        run: python3 scripts/run-ci-check.py --name standard-bundle --timeout 180 -- python3 scripts/standard-runtime-bundle.py prepare --architecture ${{ matrix.arch }} --qualification target/ci/standard-postgres-qualification --output target/standard-kind-bundle
+      - name: Retain source-bound Standard executable bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: standard-kind-${{ matrix.arch }}
+          path: target/standard-kind-bundle/
+          retention-days: 1
+          if-no-files-found: error
       - name: Install locked optional identity qualification tools
         run: python3 scripts/run-ci-check.py --name idp-tools --timeout 180 -- npm ci --prefix tools/identity --engine-strict --ignore-scripts --no-audit --no-fund --fetch-retries=1 --fetch-timeout=15000 --cache target/idp-npm-cache
       - name: Install locked Chromium and runner dependencies
@@ -156,6 +165,7 @@ jobs:
           name: rust-${{ matrix.arch }}
           path: |
             target/ci/
+            !target/ci/standard-postgres-qualification/standard-server
           retention-days: 1
           if-no-files-found: error
 
@@ -182,6 +192,12 @@ jobs:
         run: python3 scripts/run-ci-check.py --name helm-default --timeout 60 -- target/kubernetes-tools/helm lint --strict deploy/helm/signal
       - name: Helm optional lint
         run: python3 scripts/run-ci-check.py --name helm-optional --timeout 60 -- target/kubernetes-tools/helm lint --strict deploy/helm/signal --set pdb.enabled=true,serviceMonitor.enabled=true
+      - name: Helm runtime selection regressions
+        run: python3 scripts/run-ci-check.py --name helm-runtime --timeout 120 -- python3 scripts/test-helm-runtime.py --helm target/kubernetes-tools/helm
+      - name: Standard fixture and bundle guards
+        run: |
+          python3 scripts/run-ci-check.py --name standard-fixture-guards --timeout 60 -- python3 scripts/test-standard-kubernetes.py
+          python3 scripts/run-ci-check.py --name standard-bundle-guards --timeout 60 -- python3 scripts/test-standard-runtime-bundle.py
       - name: Render default chart
         run: python3 scripts/run-ci-check.py --name helm-render --timeout 60 -- target/kubernetes-tools/helm template proof deploy/helm/signal
       - name: Render optional chart
@@ -194,6 +210,19 @@ jobs:
         run: python3 scripts/run-ci-check.py --name native --timeout 1800 -- python3 scripts/check-native-qualification.py --image platform-signal:phase8 --expect-architecture ${{ matrix.arch }} --soak-seconds 120
       - name: Kubernetes persistence and restart
         run: python3 scripts/run-ci-check.py --name kind --timeout 900 -- python3 scripts/check-kubernetes.py --image platform-signal:phase8 --helm target/kubernetes-tools/helm --kind target/kubernetes-tools/kind --kubectl target/kubernetes-tools/kubectl
+      - name: Download this architecture's Standard executables
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: standard-kind-${{ matrix.arch }}
+          path: target/standard-kind-bundle/
+      - name: Verify source, native architecture and executable hashes
+        run: python3 scripts/run-ci-check.py --name standard-bundle-verify --timeout 120 -- python3 scripts/standard-runtime-bundle.py verify --architecture ${{ matrix.arch }} --output target/standard-kind-bundle
+      - name: Prepare pinned synthetic PostgreSQL image
+        run: python3 scripts/run-ci-check.py --name standard-postgres-image --timeout 300 -- docker pull postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa
+      - name: Prepare versioned synthetic dependency image
+        run: python3 scripts/run-ci-check.py --name standard-python-image --timeout 300 -- docker pull python:3.13.5-alpine
+      - name: Native Standard Kubernetes original WAL and PVC recovery
+        run: python3 scripts/run-ci-check.py --name standard-kind --timeout 660 -- python3 scripts/check-shared-runtime.py --standard-only --standard-kubernetes-image platform-signal:phase8 --standard-server target/standard-kind-bundle/server --standard-offline-fixture target/standard-kind-bundle/offline-fixture --image postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa --output target/ci/standard-kind-qualification
       - name: Audit, SBOMs and image vulnerabilities
         run: python3 scripts/run-ci-check.py --name supply-chain --timeout 1200 -- python3 scripts/check-supply-chain.py --image platform-signal:phase8
       - name: Prepare unsigned native candidate from the tested image
@@ -219,6 +248,8 @@ jobs:
             target/ci-candidate/candidate.json
             target/ci-candidate/packaging.log
             target/ci-candidate/cleanup.log
+            !target/ci/standard-kind-qualification/standard-server
+            !target/ci/standard-kind-qualification/standard-offline-fixture
           retention-days: 1
           if-no-files-found: error
 

@@ -1266,13 +1266,14 @@
       ],
       "evidence": [
         "target/goal-execution-20261007/KIND/",
-        "target/standard-kubernetes-20261012/ACCEPTANCE.json"
+        "target/standard-kubernetes-20261012/ACCEPTANCE.json",
+        "target/standard-kind-ci-20261012/ACCEPTANCE.json"
       ],
       "references": [
         "docs/21-release-readiness.md",
         "docs/19-packaging.md"
       ],
-      "notes": "Actual current S3-enabled Standard image in owned local AMD64 kind passes141.13s: native TLS/probes, regular runtime/TLS Secret documents, explicit offline original enrollment/coverage, authenticated ingest and object query/findings, original CRC-protected WAL checkpoint2/floor0 and database facts, server SIGKILL and serial replacement on the same PVC. Synthetic identity/S3 and real PostgreSQL TLS; all owned cluster/container resources removed. Source-bound writer review and167runtime hashes retained. Native Standard cluster CI, actual EKS/AWS and publication remain separate."
+      "notes": "Actual current S3-enabled Standard image in owned local AMD64 kind passes141.13s: native TLS/probes, regular runtime/TLS Secret documents, explicit offline original enrollment/coverage, authenticated ingest and object query/findings, original CRC-protected WAL checkpoint2/floor0 and database facts, server SIGKILL and serial replacement on the same PVC. Synthetic identity/S3 and real PostgreSQL TLS; all owned cluster/container resources removed. Source-bound writer review and167runtime hashes retained. Native Standard cluster CI, actual EKS/AWS and publication remain separate. Native CI executable bundle/direct-fixture wiring is now locally accepted: full process181.93s and transferred-executable kind170.05s, with current fresh image reproducing the qualified ID. Exact pushed native Standard cluster results remain unqualified."
     },
     {
       "id": "RELEASE-REVIEW",
