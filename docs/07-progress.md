@@ -82,12 +82,24 @@ Evidence: `target/helm-runtime-config-20261012/`. Actual owned local Kubernetes
 Standard startup/recovery/cleanup and independent full-item review remain required;
 rendering does not close Kubernetes, EKS or release gates.
 
+## Local SHARED-RUNTIME accepted independently — 2026-10-12
+
+Independent review closes local SHARED-RUNTIME at `b9c58da`; the metrics finding
+is resolved. Worker fence/deadline/lease accounting, prepared-reference candidate
+outcomes and the complete Standard scrape are qualified without private labels.
+Current 919 default / 976 all-feature tests, both strict Clippy modes and workspace
+checks pass. PostgreSQL/server/native HTTP (18 cases) passes in 190.91s; five
+Standard scenarios/scrape in 180.44s; audit/private/restored5 in 53.10s/42.80s/75.26s.
+Exact review: `target/shared-runtime-refresh-20261012/INDEPENDENT-LOCAL-ACCEPTANCE.json`.
+S3/custody remain simulated. Corrected native CI run38237870960 is in progress at
+the retained observation; Standard Kubernetes and external release gates remain.
+
 ## Remaining work
 
-The52-item ledger remains10passed_local,10passed_simulated,1in_progress,
-25pending and6external_pending:20accepted within their recorded scope and
-32unfinished. SHARED-RUNTIME remainsin_progress for independent full-item review;
-reviewer delegation authorization is pending. Continue in dependency/phase order.
+The 52-item ledger now records 11 passed_local, 10 passed_simulated, 25 pending
+and 6 external_pending: 21 accepted within their recorded scope and 31 unfinished.
+Independent review closes local SHARED-RUNTIME at `b9c58da`. Continue with the
+separate owned Standard Kubernetes profile, then dependency/phase order.
 Current native/container/kind/supply-chain, actual EKS/AWS, complete remote CI,
 released private dependency and owner-selected release/publication gates remain
 open. Finite soaks and synthetic proof do not establish prolonged stability or
