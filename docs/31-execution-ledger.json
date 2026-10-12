@@ -893,14 +893,15 @@
         "target/goal-execution-20261007/OBJECT-CUSTODY/",
         "target/object-custody-coordinator-20261012/ACCEPTANCE.json",
         "target/object-custody-postgres-20261012/ACCEPTANCE.json",
-        "target/object-custody-s3-20261012/ACCEPTANCE.json"
+        "target/object-custody-s3-20261012/ACCEPTANCE.json",
+        "target/object-custody-server-20261012/ACCEPTANCE.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md",
         "docs/51-object-custody.md"
       ],
-      "notes": "Generic coordinator and actual PostgreSQL TLS fixture accepted locally. S3 retained-version adapter passes924default/985all-feature tests, both strict Clippy modes and4actual loopback wire/abort/deadline tests. Signed expected bucket owner and exact version, full length/hash and singleton COMPLIANCE horizon checked under fixed physical ObjectIo ownership; governance/missing/substituted/shortened/denied evidence refuses observation. Provider retention is simulated; no actual AWS/account isolation proof. Configured control verifier, authenticated API and producer retention integration remain required. HTTP202 remains M2; full item remains in_progress."
+      "notes": "Configured server verifier binds scope/backend/prefix/minimum horizon/authority before object I/O and preserves control deadline/cancellation. Source-bound926default/987all-feature tests, both strict Clippy modes,36helper tests and actual composed PostgreSQL TLS/signed S3 fixture8.13s pass. Exact replay/conflict/quota, postcommit object denial, governance refusal, observed uncertain COMMIT/physical drain/original-ID reconciliation, authority substitution and fresh current-owner reopen retain independent producer copy until checked test-only release. Provider retention simulated; actual AWS/account isolation and authenticated API/producer protocol remain open. HTTP202 remains M2; full item remains in_progress."
     },
     {
       "id": "STANDARD-RECOVERY",

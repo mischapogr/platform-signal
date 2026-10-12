@@ -85,14 +85,14 @@ their later local acceptance is recorded below. EKS/release gates remain open.
 ## Actual local Standard Kubernetes accepted — 2026-10-12
 
 Generic OBJECT-CUSTODY description/coordinator now passes924default/981all-feature
-tests, both strict Clippy modes and five uncertainty/fencing/retention guards.
-Independent review and actual PostgreSQL TLS custody qualification now pass8.86s:
+tests, both strict Clippy modes and five guards. Independent review and actual PostgreSQL TLS custody qualification now pass8.86s:
 `target/object-custody-postgres-20261012/ACCEPTANCE.json`; exact replay/conflict,
 observed COMMIT cancellation, quota, takeover and reopen retain the original copy.
 S3 exact-version compliance readback now passes924default/985all-feature tests
 and4wire/cancellation guards: `target/object-custody-s3-20261012/ACCEPTANCE.json`.
-Retention is simulated; [contract51](51-object-custody.md) still needs configured
-control verifier and authenticated API/producer integration.
+Configured server verifier now passes926default/987all-feature tests and8.13s
+composed PostgreSQL TLS/S3 runtime: `target/object-custody-server-20261012/ACCEPTANCE.json`.
+Retention is simulated; [contract51](51-object-custody.md) still needs authenticated API/producer integration.
 
 Native CI now prepares one source/revision/architecture-bound executable bundle
 per architecture and reuses it for the Standard cluster gate. Direct compiled
