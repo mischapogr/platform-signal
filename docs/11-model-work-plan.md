@@ -25,9 +25,12 @@ with verified source/bundle/image/WAL/PVC bindings:
 `target/standard-kind-ci-20261012/NATIVE-STANDARD-ACCEPTANCE.json`.
 Generic OBJECT-CUSTODY description/coordinator now passes924default/981all-feature
 tests and five focused guards: [contract51](51-object-custody.md),
-`target/object-custody-coordinator-20261012/ACCEPTANCE.json`. Next, qualify its
-real PostgreSQL/pinned-object adapter and authenticated server/API/producer-copy
-retention path; keep the full item in progress. Then STANDARD-RECOVERY follows
+`target/object-custody-coordinator-20261012/ACCEPTANCE.json`. Independently reviewed
+actual PostgreSQL TLS replay/conflict/quota/observed COMMIT/takeover/reopen pass8.86s:
+`target/object-custody-postgres-20261012/ACCEPTANCE.json`. Independent archive files
+use simulated retention authority. Next, implement the concrete retained-object
+verifier and authenticated server/API/producer-copy retention path; keep the full
+item in progress. Then STANDARD-RECOVERY follows
 ledger dependency order. Observe later`cc3744a` full CI
 separately; the bounded download retry fix does not close that gate locally.
 Preserve one replica/Recreate and explicit external configuration;
