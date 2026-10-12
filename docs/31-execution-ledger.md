@@ -20,7 +20,9 @@ OBJECT-CUSTODY remains in progress. Actual PostgreSQL TLS replay/fencing and S3
 retained-read protocol now pass924default/985all-feature tests and4wire/physical
 cancellation guards. Evidence: `target/object-custody-s3-20261012/ACCEPTANCE.json`
 and `target/object-custody-postgres-20261012/ACCEPTANCE.json`. Retention authority
-is simulated; configured control verifier/API/producer integration remains next.
+is simulated. Configured server verifier now passes926default/987all-feature tests
+and8.13s composed runtime: `target/object-custody-server-20261012/ACCEPTANCE.json`.
+Authenticated API/producer integration remains next.
 Earlier entries below retain their original historical evidence boundaries.
 
 Owner-authorized persistent Goal, frozen 2026-10-07. The machine-readable
