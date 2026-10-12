@@ -35,14 +35,22 @@ reproduction are retained under`target/arm64-native-helper-20261012/`.
 Writer-reviewed`71e45a9` fixes the test-only startup interval while preserving
 strict readiness, injected-delay witness and physical child-reaping assertions.
 All22native helper/16CI-wrapper tests and14workspace boundaries pass. Production
-deadlines and Rust/build inputs are unchanged. The pushed`bee52db` run38206257117
-was in progress at the retained observation; no complete remote gate is claimed.
+deadlines and Rust/build inputs are unchanged. The subsequent`bee52db`
+run38206257117 completed successfully; its retained ARM64 qualification verifies
+the earlier Small/default runtime scope, not the current Standard deployment.
 
 Pushed`6fdc163` adds exact all-feature Standard prebuild and bounded pipeline/
 stopped-lifecycle qualification to both native Rust jobs, with existing pinned
 PostgreSQL and always-retained diagnostics. Workflow lint,36guards and14workspace
-boundaries pass. Prior local Standard code/image inputs still match. Actual new
-native executions and complete matching artifacts remain required.
+boundaries pass. Run38212500862 at`16ca254` now passes both native Rust jobs.
+GitHub-digest-verified artifacts bind five Standard executable scenarios per
+architecture, native ELF/binary identities,159current runtime source hashes and
+owned container cleanup. Runtime totals are170.97s AMD64 and168.97s ARM64.
+Real PostgreSQL TLS and simulated versioned S3 qualify this process scope;
+Standard Kubernetes, private consumer/restore and AWS remain separate gates.
+Evidence: `target/native-ci-monitor-20261012/VERIFIED-NATIVE-STANDARD.json`.
+Both container/Kubernetes jobs were still building production images at the
+retained observation. Full current-revision remote acceptance remains open.
 
 ## Agent recovery oracle correction — 2026-10-12
 
@@ -60,7 +68,8 @@ server restart. Different IDs for repeated lines, payload changes and missing
 originals still fail. Five guard tests, the real process run, both Cargo process
 tests, workflow lint and14workspace boundaries pass. No production behavior or
 deadline changes. Evidence: `target/arm64-agent-process-20261012/ACCEPTANCE.json`.
-Fresh native execution must determine whether any further remote issue remains.
+Both native Rust jobs now pass at`16ca254`; complete container/Kubernetes and
+latest-revision CI still require their own matching evidence.
 
 ## Standard Helm runtime configuration prepared — 2026-10-12
 
