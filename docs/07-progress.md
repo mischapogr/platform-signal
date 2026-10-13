@@ -346,3 +346,7 @@ physical-device throughput. GHCR publication is prepared in
 - <a id="ai-execution-workflow"></a>[ai-execution-workflow](07-progress-history-20261012.md#ai-execution-workflow)
 - <a id="fresh-scoped-restore-and-restored-standard-main--2026-10-11"></a>[fresh-scoped-restore-and-restored-standard-main--2026-10-11](07-progress-history-20261012.md#fresh-scoped-restore-and-restored-standard-main--2026-10-11)
 - <a id="scoped-restore-rollback-and-uncertain-commit-resolution--2026-10-11"></a>[scoped-restore-rollback-and-uncertain-commit-resolution--2026-10-11](07-progress-history-20261012.md#scoped-restore-rollback-and-uncertain-commit-resolution--2026-10-11)
+
+## UPGRADE local acceptance — 2026-10-14
+
+UPGRADE passes local simulated acceptance — 2026-10-14. The explicit development compatibility matrix binds supported exact schema migrations, fresh-generation restore and refusal of unknown/divergent history. Actual PostgreSQL 18-case matrix, isolated stopped Small WAL/spool/Parquet/findings restore and current native Standard restored custody pass with owned cleanup. Original/backup remain unchanged; the Small fixture ends at 9 events, 2 findings and checkpoint9. Evidence: `target/upgrade-20261014/ACCEPTANCE.json`; [compatibility contract](56-upgrade-compatibility.md). Current inventory:27 accepted/25 unfinished (13local/14simulated/19pending/6external). Released-to-released upgrade, actual AWS/EKS/provider and publication remain unqualified. Next release slice: current-revision KIND/remote CI qualification.

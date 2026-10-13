@@ -1343,7 +1343,7 @@
     {
       "id": "UPGRADE",
       "title": "Supported migration/rollback/restore local rehearsals",
-      "status": "pending",
+      "status": "passed_simulated",
       "dependencies": [
         "SHARED-RUNTIME",
         "STANDARD-RECOVERY"
@@ -1352,12 +1352,15 @@
         "Explicit version/state compatibility and consistent restore; fail closed on incompatible or divergent history."
       ],
       "evidence": [
-        "target/goal-execution-20261007/UPGRADE/"
+        "target/goal-execution-20261007/UPGRADE/",
+        "target/upgrade-20261014/ACCEPTANCE.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
-        "docs/04-implementation-plan.md"
-      ]
+        "docs/04-implementation-plan.md",
+        "docs/56-upgrade-compatibility.md"
+      ],
+      "notes": "2026-10-14 explicit supported development compatibility matrix and current real local PostgreSQL/Small/Standard rehearsal accepted. Exact stopped state, unknown/divergent schema rejection, rollback/uncertain COMMIT, fresh-generation authority and unchanged originals audited. No automatic downgrade or released-to-released/AWS/EKS qualification."
     },
     {
       "id": "LOCAL-CANDIDATE",

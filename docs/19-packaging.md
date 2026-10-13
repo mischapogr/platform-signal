@@ -121,3 +121,7 @@ it does not prove Standard startup or recovery in Kubernetes. The actual owned
 local Standard cluster profile, independent full-item review, current native/
 container/source matching, EKS/AWS and release gates remain separate. No replicas,
 private policy, database installation/migration or publication is introduced.
+
+Development schema upgrade and stopped restore compatibility are specified in
+[the compatibility matrix](56-upgrade-compatibility.md). Automatic startup
+migration and binary downgrade after committed schema changes are unsupported.
