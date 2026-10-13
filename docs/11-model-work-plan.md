@@ -31,9 +31,11 @@ passes38.34s with owned cleanup. [Contract51](51-object-custody.md), exact evide
 `target/object-custody-api-20261012/ACCEPTANCE.json`. Provider retention is simulated.
 STANDARD-RECOVERY is in progress. The37.90s actual server-local-loss guard
 recovers the exact independent original, while missing enrolled WAL identity
-correctly holds replacement startup. Next:explicit consistent control/object/WAL
-checkpoint and trusted replacement initialization, then stale-owner and full
-restore qualification. Evidence:`target/standard-recovery-20261014/ACCEPTANCE.json`.
+correctly holds replacement startup. Complete stopped-WAL checkpoint recovery
+now passes75.16s with17.47s replacement and fresh custody, corrupt backup refusal
+and exact original bytes. Evidence:`target/standard-checkpoint-recovery-20261014/ACCEPTANCE.json`.
+Next:consistent control-domain backup/restore, stale owners and production restore
+authority. This4byte fixture preserves independent PostgreSQL/object domains.
 Reuse prior original-WAL/current-authority/restore inputs only while they match.
 Observe current native/public CI separately; no release qualification follows
 from these local fixtures.

@@ -490,9 +490,86 @@ class CustodyRun(Run):
         if first['request_nonce']==fresh['request_nonce'] or first['description_sha256']!=fresh['description_sha256'] or original.exists():raise RuntimeError('original-ID fresh producer restart/release')
         status,metrics=self.request('/metrics/shared')
         if status!=200 or b'signal_shared_custody_requests_capacity 4' not in metrics:raise RuntimeError('actual Main custody metrics')
+        if getattr(self,'checkpoint_recovery_mode',False):self.retain_checkpoint(description,fresh)
         if getattr(self,'recovery_mode',False):self.recover_server_loss(description)
         else:self.stop('server')
         self.record('actual_Standard_Main_selected_custody_mTLS_SDK_explicit_permission_stopped_original_restart_fresh_release',receipt_id=description['id'],description_sha256=fresh['description_sha256'])
+
+    def retain_checkpoint(self,description,confirmation):
+        # Local synthetic trusted operator fixture, not a production restore API.
+        # The independent control/object domains remain live and unchanged.
+        self.stop('server')
+        self.checkpoint_root=self.out/'independent-stopped-checkpoint'
+        self.checkpoint_root.mkdir(mode=0o700)
+        entries={}
+        for path in sorted((self.server_root/'wal').iterdir()):
+            if path.is_symlink() or not path.is_file() or path.stat().st_size>4*1024*1024:
+                raise RuntimeError('stopped checkpoint member shape')
+            data=path.read_bytes()
+            if len(entries)>=16 or sum(e['bytes'] for e in entries.values())+len(data)>4*1024*1024:
+                raise RuntimeError('stopped checkpoint bounded inventory')
+            entries[path.name]={'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()}
+            (self.checkpoint_root/path.name).write_bytes(data)
+        if (self.checkpoint_root/'identity').read_text()!=description['scope']['stream']:
+            raise RuntimeError('checkpoint enrolled stream binding')
+        self.checkpoint_manifest={'schema_version':1,'scope':description['scope'],
+            'description':description,'description_sha256':confirmation['description_sha256'],
+            'server_sha256':binary_digest(self.binary),'members':entries}
+        BASE.write_json(self.out/'independent-checkpoint.json',self.checkpoint_manifest)
+        self.saved_confirmation=confirmation
+        time.sleep(16);self.start_server()
+
+    def checked_checkpoint(self):
+        # Verify every member before handing any bytes to the restore operation.
+        expected=self.checkpoint_manifest['members'];actual=list(self.checkpoint_root.iterdir())
+        if len(actual)!=len(expected) or {p.name for p in actual}!=set(expected):
+            raise RuntimeError('checkpoint inventory mismatch')
+        result={}
+        for path in actual:
+            entry=expected[path.name]
+            if path.is_symlink() or not path.is_file() or path.stat().st_size!=entry['bytes']:
+                raise RuntimeError('checkpoint member shape mismatch')
+            data=path.read_bytes()
+            if hashlib.sha256(data).hexdigest()!=entry['sha256']:
+                raise RuntimeError('checkpoint member digest mismatch')
+            result[path.name]=data
+        return result
+
+    def restore_checkpoint(self,description,began):
+        # Corruption refuses before altering the held replacement WAL.
+        identity=self.checkpoint_root/'identity';saved=identity.read_bytes()
+        before={p.name:p.read_bytes() for p in (self.server_root/'wal').iterdir()}
+        identity.write_bytes(b'x'*len(saved))
+        try:
+            try:self.checked_checkpoint()
+            except RuntimeError:pass
+            else:raise RuntimeError('corrupt retained identity was accepted')
+            if {p.name:p.read_bytes() for p in (self.server_root/'wal').iterdir()}!=before:
+                raise RuntimeError('checkpoint validation changed held replacement')
+        finally:identity.write_bytes(saved)
+        data=self.checked_checkpoint()
+        shutil.rmtree(self.server_root/'wal')
+        (self.server_root/'wal').mkdir(mode=0o700)
+        for name,body in data.items():
+            with (self.server_root/'wal'/name).open('xb') as stream:
+                stream.write(body);stream.flush();os.fsync(stream.fileno())
+        directory=os.open(self.server_root/'wal',os.O_RDONLY|os.O_DIRECTORY)
+        try:os.fsync(directory)
+        finally:os.close(directory)
+        if {p.name:p.read_bytes() for p in (self.server_root/'wal').iterdir()}!=data:
+            raise RuntimeError('restored checkpoint bytes differ')
+        time.sleep(16);self.start_server();self.sdk('release','restart-fresh','checkpoint-replacement-fresh')
+        fresh=BASE.read_json(self.out/'custody-restart-fresh.json')
+        if (fresh['request_nonce']==self.saved_confirmation['request_nonce'] or fresh['description']!=description
+                or fresh['description_sha256']!=self.saved_confirmation['description_sha256']
+                or (self.out/'producer-original').exists()):
+            raise RuntimeError('checkpoint replacement fresh original receipt')
+        self.recovery_seconds=time.monotonic()-began
+        if not 0<self.recovery_seconds<900:raise RuntimeError('local replacement recovery objective')
+        self.checkpoint_restored=True;self.stop('server')
+        self.record('actual_Standard_complete_stopped_WAL_checkpoint_corruption_refusal_replacement_fresh_custody',
+                    receipt_id=description['id'],recovery_seconds=self.recovery_seconds,recovered_bytes=4,
+                    custody_rpo_bytes=0,checkpoint_manifest_sha256=binary_digest(self.out/'independent-checkpoint.json'))
 
     def recover_server_loss(self,description):
         # Only explicitly owned local server state is removed. Independent object
@@ -537,6 +614,7 @@ class CustodyRun(Run):
         self.record('actual_Standard_server_local_loss_exact_retained_original_missing_WAL_identity_held',
                     receipt_id=description['id'],recovered_bytes=len(body),replacement_held=True,
                     recovery_completed=False,guard_seconds=self.guard_seconds)
+        if getattr(self,'checkpoint_recovery_mode',False):self.restore_checkpoint(description,began)
 
 class PrivateRun(Run):
     """External private application consumes the actual native Standard feed."""
@@ -806,18 +884,21 @@ class AuditRun(Run):
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--server',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
-    parser.add_argument('--scenario',choices=('pipeline','audit','private','restore','custody','recovery'),default='pipeline')
+    parser.add_argument('--scenario',choices=('pipeline','audit','private','restore','custody','recovery','checkpoint-recovery'),default='pipeline')
     args=parser.parse_args();args.output.mkdir(parents=True,mode=0o700)
-    fixture=Path(os.environ['SIGNAL_CONTROL_FIXTURE']);run=({'audit':AuditRun,'private':PrivateRun,'restore':PrivateRun,'custody':CustodyRun,'recovery':CustodyRun}.get(args.scenario,Run))(args.output.resolve(),args.server.resolve(),fixture.resolve())
+    fixture=Path(os.environ['SIGNAL_CONTROL_FIXTURE']);run=({'audit':AuditRun,'private':PrivateRun,'restore':PrivateRun,'custody':CustodyRun,'recovery':CustodyRun,'checkpoint-recovery':CustodyRun}.get(args.scenario,Run))(args.output.resolve(),args.server.resolve(),fixture.resolve())
     run.restore_mode=args.scenario=='restore'
-    run.recovery_mode=args.scenario=='recovery'
+    run.recovery_mode=args.scenario in ('recovery','checkpoint-recovery')
+    run.checkpoint_recovery_mode=args.scenario=='checkpoint-recovery'
     report={'schema_version':1,'status':'failed','scope':'actual Standard executable, owned PostgreSQL TLS and persistent S3 protocol simulation; no AWS/ARM64/release proof'}
     try:
         run.run()
-        if args.scenario in ('custody','recovery'):
+        if args.scenario in ('custody','recovery','checkpoint-recovery'):
             report.update(status='passed_simulated',scope='Actual Standard Main selected custody API with native mTLS SDK, explicit identity permission, stopped-original retention and fresh same-description restart/release; PostgreSQL TLS and S3 retention simulation; no AWS/HA/ARM64/release proof',scenarios=run.scenarios,binary_sha256=binary_digest(run.binary),provider_calls=run.provider_calls,child_capacity=3,log_capacity=24)
             if run.recovery_mode:
                 report.update(scope='Actual Standard server-local directory loss after checked producer release; exact independently retained object reconstructed and kept. Missing enrolled WAL identity correctly holds replacement startup. Recovery/RPO/RTO are not qualified; no AWS/AZ/HA/consistent backup/restore proof',guard_seconds=run.guard_seconds,recovered_bytes=run.recovered_bytes,replacement_held=run.replacement_held,recovery_completed=False,server_local_state_removed=True)
+            if run.checkpoint_recovery_mode:
+                report.update(scope='Actual Standard server-local loss restored from complete independently retained stopped-WAL bytes, exact pinned original and fresh same-receipt custody; corrupt checkpoint refuses. Independent PostgreSQL/object domains survive; no control-domain/AZ/AWS/HA/general restore authority qualification',checkpoint_restored=run.checkpoint_restored,recovery_completed=True,recovery_seconds=run.recovery_seconds,custody_rpo_bytes=0)
         elif args.scenario in ('private','restore'):
             report['scope']='Actual native Standard feed, external private SQLite outbox and bounded loopback notification uncertainty/retries; no restore/AWS/ARM64/release claim'
             report.update(status='passed_simulated',scenarios=run.scenarios,binary_sha256=binary_digest(run.binary),child_capacity=3,log_capacity=24,

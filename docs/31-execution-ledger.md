@@ -13,8 +13,10 @@ WAL/checkpoint2/database facts and same-PVC SIGKILL/pod replacement recovery,
 plus owned cleanup: `target/standard-kubernetes-20261012/ACCEPTANCE.json`.
 STANDARD-RECOVERY is in progress: the2026-10-14 server-local-loss guard
 recovers the exact independent original and correctly holds replacement with a
-missing enrolled WAL identity. Explicit consistent checkpoint/replacement
-initialization and completed failover/restore qualification remain next.
+missing enrolled WAL identity. The follow-up complete stopped-WAL checkpoint
+restores replacement in17.47s, passes corruption refusal and fresh same-receipt
+custody. Consistent control-domain restore/stale-owner/production authority
+qualification remains next; the4byte fixture keeps PostgreSQL/object domains live.
 
 Current local inventory:12 passed_local,11 passed_simulated,22 pending/1in_progress,
 6 external_pending. Native Standard cluster CI wiring now passes local direct
