@@ -31,7 +31,7 @@ hyper = { workspace = true, features = ["client"], optional = true }
 hyper-util = { workspace = true, optional = true }
 http-body-util = { workspace = true, optional = true }
 tokio-rustls = { version = "=0.26.6", default-features = false, features = ["ring", "tls12"], optional = true }
-rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"], optional = true }
+rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std", "tls12"], optional = true }
 webpki-roots = { version = "=1.0.9", optional = true }
 url = { workspace = true, optional = true }
 serde.workspace = true
