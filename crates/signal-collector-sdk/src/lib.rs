@@ -17,6 +17,7 @@ use tokio_util::sync::CancellationToken;
 pub mod audit;
 pub mod cloudtrail;
 pub mod coverage;
+pub mod host_auth;
 pub mod object_custody;
 mod providers;
 pub mod receipt;

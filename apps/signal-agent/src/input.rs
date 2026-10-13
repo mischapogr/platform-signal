@@ -27,6 +27,7 @@ pub enum ParseMode {
     Plain,
     Json,
     Auto,
+    AuthenticationJson,
 }
 #[derive(Clone, Debug)]
 pub enum InputKind {
@@ -399,6 +400,14 @@ fn read_anchor(file: &File, offset: u64) -> Result<Vec<u8>, InputError> {
     Ok(anchor)
 }
 fn parse_line(bytes: &[u8], mode: ParseMode, source: &Source) -> Option<SignalEvent> {
+    if matches!(mode, ParseMode::AuthenticationJson) {
+        return signal_collector_sdk::host_auth::normalize_authentication_json(
+            bytes,
+            source.clone(),
+            Utc::now(),
+        )
+        .ok();
+    }
     let text = std::str::from_utf8(bytes).ok()?.trim_end_matches('\r');
     if text.trim().is_empty() {
         return None;
@@ -416,6 +425,7 @@ fn parse_line(bytes: &[u8], mode: ParseMode, source: &Source) -> Option<SignalEv
             }
         }
         ParseMode::Auto => Map::new(),
+        ParseMode::AuthenticationJson => return None,
     };
     let message = attributes
         .get("message")
