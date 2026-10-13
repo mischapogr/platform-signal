@@ -179,6 +179,11 @@ async fn standard_offline_fixture() -> Result {
                     objects.insert(object.digest()?,RestoreObject{object,sha256:reference.sha256,bytes:reference.bytes});
                 }
             }
+            if document.get("custody").is_some(){
+                let bytes=fs::read(root.join("custody-description.json"))?;assert!(bytes.len()<=4096);
+                let description:signal_control::ObjectCustodyDescription=serde_json::from_slice(&bytes)?;description.validate()?;assert_eq!(description.scope,scope);
+                objects.insert(description.object.digest()?,RestoreObject{object:description.object,sha256:description.sha256,bytes:description.bytes});
+            }
             assert!(!objects.is_empty());let objects:Vec<_>=objects.into_values().collect();
             let destination=RestoreDestination{id:Uuid::new_v4(),credential_binding_sha256:Sha256::digest(b"separately owned stage-only destination credential").into()};
             let connection=ConnectionSettings::fixture_loopback("127.0.0.1".parse()?,f.port,DB.into(),"signal_migrator".into(),f.password.as_bytes().to_vec())?;

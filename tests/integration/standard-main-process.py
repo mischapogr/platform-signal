@@ -468,8 +468,7 @@ class CustodyRun(Run):
         text=(self.out/('custody-sdk-'+log_label+'.log')).read_text()
         if text.splitlines().count('phase: actual-Standard-mounted-custody-SDK-mTLS-original-retention-qualified')!=1 or len(re.findall(r'^test result: ok\. 1 passed; 0 failed; 0 ignored;',text,re.MULTILINE))!=1:
             raise RuntimeError('actual SDK custody proof marker/summary')
-    def run(self):
-        self.start_fixture();self.start_provider();self.offline('prepare');self.bootstrap_coverage()
+    def prepare_archive(self):
         doc=json.loads((self.out/'shared.json').read_text());key=f'query/{doc["scope"]["stream"]}/original/body'
         until=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=1)).isoformat().replace('+00:00','Z')
         doc['custody']={'schema_version':1,'key_prefix':key.rsplit('/',1)[0]+'/', 'expected_bucket_owner':'123456789012','authority_revision':[7]*32,'required_until':until}
@@ -482,6 +481,11 @@ class CustodyRun(Run):
         description={'schema_version':1,'id':str(uuid.uuid4()),'scope':doc['scope'],'object':{'schema_version':1,'backend_id':doc['backend_id'],'key':key,'version':version},'bytes':4,'sha256':list(hashlib.sha256(b'body').digest()),'retain_until':until}
         BASE.write_json(self.out/'custody-description.json',description)
         original=self.out/'producer-original';original.write_bytes(b'body')
+        return description
+    def run(self):
+        self.start_fixture();self.start_provider();self.offline('prepare');self.bootstrap_coverage()
+        description=self.prepare_archive()
+        original=self.out/'producer-original'
         self.sdk('offline','put-only-copy-held')
         self.start_server();self.sdk('deny','ingest-role-denied');self.sdk('confirm','first')
         self.stop('server');self.sdk('offline','stopped-original-held');time.sleep(16)
@@ -671,7 +675,10 @@ class PrivateRun(Run):
             if child.poll() is None:child.kill();child.wait(timeout=2);self.reap_log(child);self.reaped(child)
 
     def run(self):
-        self.start_fixture();self.start_provider();self.offline('prepare');self.bootstrap_coverage();self.start_notifications();self.start_server()
+        self.start_fixture();self.start_provider();self.offline('prepare');self.bootstrap_coverage()
+        if getattr(self,'custody_mode',False):CustodyRun.prepare_archive(self)
+        self.start_notifications();self.start_server()
+        if getattr(self,'custody_mode',False):self.sdk('confirm','first')
         self.check_coverage();ids=[]
         for account in ('a','b'):
             event={'id':str(uuid.uuid4()),'timestamp':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),
@@ -734,6 +741,18 @@ class PrivateRun(Run):
             self.restored_old_generation_startup_fenced=True
         else:time.sleep(16)
         self.start_server();self.check_coverage();self.consume('resume')
+        if getattr(self,'custody_mode',False):
+            self.sdk('deny','ingest-role-restored-denied')
+            policy=BASE.read_json(self.fixture_root/'custody-policy.json');saved=dict(policy);policy['mode']='GOVERNANCE';BASE.write_json(self.fixture_root/'custody-policy.json',policy)
+            self.sdk('offline','restored-retention-denied')
+            BASE.write_json(self.fixture_root/'custody-policy.json',saved)
+            self.sdk('release','restart-fresh')
+            first=BASE.read_json(self.out/'custody-first.json');fresh=BASE.read_json(self.out/'custody-restart-fresh.json')
+            if first['description']!=fresh['description'] or first['description_sha256']!=fresh['description_sha256'] or first['request_nonce']==fresh['request_nonce'] or (self.out/'producer-original').exists():
+                raise RuntimeError('restored native original identity/fresh custody release')
+            if fresh['description']['scope']['generation']!=self.restore_receipt['old_generation']:raise RuntimeError('original historical generation rewritten')
+            self.restored_custody_qualified=True
+
         if self.notification_calls!=6:raise RuntimeError('private restart dispatched historical delivery again')
         if getattr(self,'restore_mode',False):
             restored=self.events()['events']
@@ -756,6 +775,10 @@ class PrivateRun(Run):
         try:super().cleanup_all()
         finally:
             if self.notifications is not None:ACCESS.stop_provider(self.notifications,self.notification_thread)
+
+class RestoredCustodyRun(PrivateRun):
+    custody_mode=True
+    sdk=CustodyRun.sdk
 
 class AuditRun(Run):
     """Actual dedicated receiver; retained protocol proof, no DAC/AWS claim."""
@@ -884,10 +907,10 @@ class AuditRun(Run):
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--server',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
-    parser.add_argument('--scenario',choices=('pipeline','audit','private','restore','custody','recovery','checkpoint-recovery'),default='pipeline')
+    parser.add_argument('--scenario',choices=('pipeline','audit','private','restore','custody','recovery','checkpoint-recovery','restored-custody'),default='pipeline')
     args=parser.parse_args();args.output.mkdir(parents=True,mode=0o700)
-    fixture=Path(os.environ['SIGNAL_CONTROL_FIXTURE']);run=({'audit':AuditRun,'private':PrivateRun,'restore':PrivateRun,'custody':CustodyRun,'recovery':CustodyRun,'checkpoint-recovery':CustodyRun}.get(args.scenario,Run))(args.output.resolve(),args.server.resolve(),fixture.resolve())
-    run.restore_mode=args.scenario=='restore'
+    fixture=Path(os.environ['SIGNAL_CONTROL_FIXTURE']);run=({'audit':AuditRun,'private':PrivateRun,'restore':PrivateRun,'custody':CustodyRun,'recovery':CustodyRun,'checkpoint-recovery':CustodyRun,'restored-custody':RestoredCustodyRun}.get(args.scenario,Run))(args.output.resolve(),args.server.resolve(),fixture.resolve())
+    run.restore_mode=args.scenario in ('restore','restored-custody')
     run.recovery_mode=args.scenario in ('recovery','checkpoint-recovery')
     run.checkpoint_recovery_mode=args.scenario=='checkpoint-recovery'
     report={'schema_version':1,'status':'failed','scope':'actual Standard executable, owned PostgreSQL TLS and persistent S3 protocol simulation; no AWS/ARM64/release proof'}
@@ -899,13 +922,13 @@ def main():
                 report.update(scope='Actual Standard server-local directory loss after checked producer release; exact independently retained object reconstructed and kept. Missing enrolled WAL identity correctly holds replacement startup. Recovery/RPO/RTO are not qualified; no AWS/AZ/HA/consistent backup/restore proof',guard_seconds=run.guard_seconds,recovered_bytes=run.recovered_bytes,replacement_held=run.replacement_held,recovery_completed=False,server_local_state_removed=True)
             if run.checkpoint_recovery_mode:
                 report.update(scope='Actual Standard server-local loss restored from complete independently retained stopped-WAL bytes, exact pinned original and fresh same-receipt custody; corrupt checkpoint refuses. Independent PostgreSQL/object domains survive; no control-domain/AZ/AWS/HA/general restore authority qualification',checkpoint_restored=run.checkpoint_restored,recovery_completed=True,recovery_seconds=run.recovery_seconds,custody_rpo_bytes=0)
-        elif args.scenario in ('private','restore'):
+        elif args.scenario in ('private','restore','restored-custody'):
             report['scope']='Actual native Standard feed, external private SQLite outbox and bounded loopback notification uncertainty/retries; no restore/AWS/ARM64/release claim'
             report.update(status='passed_simulated',scenarios=run.scenarios,binary_sha256=binary_digest(run.binary),child_capacity=3,log_capacity=24,
                           provider_calls=run.provider_calls,event_ids=run.private_event_ids,raw_feed_sha256=run.private_feed_sha256,
                           notification_calls=run.notification_calls,notification_deliveries=len(run.notification_rows),private_original_cursor_restart_qualified=True,populated_scope_restore_stage_qualified=True,
                           notification_witness_sha256=run.notification_witness_sha256,private_binary_sha256=run.private_binary_sha256)
-            if args.scenario=='restore':
+            if args.scenario in ('restore','restored-custody'):
                 report['scope']='Actual fresh compiled-DDL stopped scoped restore, current pinned object custody and private progress, generation fencing, restored native Standard query and new publication; local simulation only'
                 report.update(scoped_restore_generation_qualified=True,restored_native_publication_qualified=True,restored_retirement_qualified=run.restored_retirement_qualified,
                               restore_receipt=run.restore_receipt,restored_event_id=run.restored_event_id,
@@ -929,6 +952,7 @@ def main():
                                 invalid_cache_failure_qualified=True,invalid_cache_failure_seconds=run.invalid_cache_failure_seconds,
                                 startup_denials=['owner-capable-producer','direct-reader-as-producer'],
                                 binary_sha256=binary_digest(run.binary))
+        if args.scenario=='restored-custody':report['restored_custody_qualified']=run.restored_custody_qualified
     finally:
         try:
             if hasattr(run, 'offline_binary'):

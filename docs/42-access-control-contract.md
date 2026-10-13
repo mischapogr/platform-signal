@@ -533,3 +533,11 @@ before disclosing bounded no-store confirmation. Producer permission is fresh,
 nonce-bound and finite; receipt metadata cannot serve as a durable grant.
 See [object custody](51-object-custody.md) for configuration, SDK and local
 simulated acceptance. Actual AWS and release qualification remain separate.
+
+Historical custody confirmation is explicitly selected by restored Standard
+configuration. The same native identity and all-dimensions custody capability
+apply; a serialized original generation never grants lineage authority. The
+existing-only RPC validates sealed old/new generation and current ownership
+before/after fresh retention reads. The response keeps original description and
+fresh nonce/context/identity expiry bounds. Current local native acceptance:
+[configured restored receipts](51-object-custody.md#configured-native-restored-receipts--2026-10-14).
