@@ -11,7 +11,7 @@ use axum::{
 use chrono::Utc;
 use signal_control::{
     ControlClient, ControlContext, ControlError, LeaseToken, ObjectCustodyDescription,
-    coordinate_object_custody,
+    coordinate_object_custody, coordinate_restored_object_custody,
 };
 use signal_ingest::identity::{IdentityBackend, IdentityContext, IdentityError};
 use signal_protocol::{
@@ -131,15 +131,28 @@ impl CustodyApi {
         wire.validate().map_err(|_| StatusCode::BAD_REQUEST)?;
         let description =
             ObjectCustodyDescription::try_from(wire.description.clone()).map_err(control_error)?;
-        let permit = coordinate_object_custody(
-            self.control.as_ref(),
-            self.verifier.as_ref(),
-            self.token.clone(),
-            description,
-            self.verifier.authority_revision(),
-            context.clone(),
-        )
-        .await
+        let historical = description.scope.generation != self.token.scope.generation;
+        let permit = if historical && self.verifier.restored_enabled() {
+            coordinate_restored_object_custody(
+                self.control.as_ref(),
+                self.verifier.as_ref(),
+                self.token.clone(),
+                description,
+                self.verifier.authority_revision(),
+                context.clone(),
+            )
+            .await
+        } else {
+            coordinate_object_custody(
+                self.control.as_ref(),
+                self.verifier.as_ref(),
+                self.token.clone(),
+                description,
+                self.verifier.authority_revision(),
+                context.clone(),
+            )
+            .await
+        }
         .map_err(control_error)?;
         context.check().map_err(control_error)?;
         if !authorized(&grant) {

@@ -23,9 +23,28 @@ pub struct CustodyBinding {
 pub struct ConfiguredCustodyVerifier {
     binding: CustodyBinding,
     objects: Arc<ObjectIo>,
+    restored: bool,
 }
 impl ConfiguredCustodyVerifier {
     pub fn new(binding: CustodyBinding, objects: Arc<ObjectIo>) -> Result<Self, ControlError> {
+        Self::configured(binding, objects, false)
+    }
+    /// Trusted host opt-in. Observations grant no release authority; historical
+    /// calls must use the existing-only restored coordinator before object I/O.
+    pub fn new_restored(
+        binding: CustodyBinding,
+        objects: Arc<ObjectIo>,
+    ) -> Result<Self, ControlError> {
+        Self::configured(binding, objects, true)
+    }
+    pub fn restored_enabled(&self) -> bool {
+        self.restored
+    }
+    fn configured(
+        binding: CustodyBinding,
+        objects: Arc<ObjectIo>,
+        restored: bool,
+    ) -> Result<Self, ControlError> {
         binding.scope.validate()?;
         if binding.backend.is_nil()
             || binding.authority_revision == [0; 32]
@@ -46,7 +65,11 @@ impl ConfiguredCustodyVerifier {
         {
             return Err(ControlError::Invalid);
         }
-        Ok(Self { binding, objects })
+        Ok(Self {
+            binding,
+            objects,
+            restored,
+        })
     }
     pub fn authority_revision(&self) -> [u8; 32] {
         self.binding.authority_revision
@@ -56,7 +79,11 @@ impl ConfiguredCustodyVerifier {
     }
     fn bound(&self, description: &ObjectCustodyDescription) -> Result<(), ControlError> {
         description.validate()?;
-        if description.scope != self.binding.scope
+        let mut expected = self.binding.scope.clone();
+        if self.restored {
+            expected.generation = description.scope.generation;
+        }
+        if description.scope != expected
             || description.object.backend_id != self.binding.backend
             || !description.object.key.starts_with(&self.binding.key_prefix)
             || description.object.key.len() <= self.binding.key_prefix.len()

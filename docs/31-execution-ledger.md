@@ -11,14 +11,13 @@ The 52 IDs and dependencies are unchanged. Current local Standard Kubernetes
 passes141.13s with167source bindings, regular runtime/TLS Secret files, original
 WAL/checkpoint2/database facts and same-PVC SIGKILL/pod replacement recovery,
 plus owned cleanup: `target/standard-kubernetes-20261012/ACCEPTANCE.json`.
-STANDARD-RECOVERY is in progress: the2026-10-14 server-local-loss guard
-recovers the exact independent original and correctly holds replacement with a
-missing enrolled WAL identity. The follow-up complete stopped-WAL checkpoint
-restores replacement in17.47s, passes corruption refusal and fresh same-receipt
-custody. Consistent control-domain restore/stale-owner/production authority
-qualification remains next; the4byte fixture keeps PostgreSQL/object domains live.
+STANDARD-RECOVERY passes local simulation on2026-10-14:12frozen gates,935default/
+996all-feature tests and native historical restore79.66s/PG matrix122.76s/actual
+server-local loss75.55s. Replacement17.61s/RPO0 applies only to the4byte custody
+fixture. Source/binary/cleanup and exact original receipt/control/object/WAL/
+private progress are audited. Next:ONBOARDING; external/production gates remain.
 
-Current local inventory:12 passed_local,11 passed_simulated,22 pending/1in_progress,
+Current local inventory:12 passed_local,12 passed_simulated,22 pending/0in_progress,
 6 external_pending. Native Standard cluster CI wiring now passes local direct
 process/bundle/kind acceptance181.93s/170.05s; exact remote results are next:
 `target/standard-kind-ci-20261012/ACCEPTANCE.json`. Local provider/custody

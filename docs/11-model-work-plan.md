@@ -29,35 +29,24 @@ Actual PostgreSQL TLS/S3/native identity/mTLS API/SDK passes13.56s; actual selec
 Standard Main/SDK PUT-only hold, stopped-copy retention and fresh restart/release
 passes38.34s with owned cleanup. [Contract51](51-object-custody.md), exact evidence:
 `target/object-custody-api-20261012/ACCEPTANCE.json`. Provider retention is simulated.
-STANDARD-RECOVERY is in progress. The37.90s actual server-local-loss guard
-recovers the exact independent original, while missing enrolled WAL identity
-correctly holds replacement startup. Complete stopped-WAL checkpoint recovery
-now passes75.16s with17.47s replacement and fresh custody, corrupt backup refusal
-and exact original bytes. Evidence:`target/standard-checkpoint-recovery-20261014/ACCEPTANCE.json`.
-Custody-only protected restore roots now pass933default/994all-feature tests
-and18-case PostgreSQL matrix121.29s: exact object omission/missing bytes refuses
-restore and original custody receipt bytes survive data-only control copying.
-Evidence:`target/restore-custody-roots-20261014/ACCEPTANCE.json`.
-Existing-only sealed lineage resolution now passes7gates933default/994all-feature
-and PostgreSQL matrix137.01s without insertion or receipt/quota mutation:
-`target/restored-custody-lineage-20261014/ACCEPTANCE.json`.
-Fresh existing-only restored confirmation now passes935default/996all-feature
-and PostgreSQL matrix124.66s, preserving original identity through three lineage
-checks and two fresh retained reads:
-`target/restored-custody-confirmation-20261014/ACCEPTANCE.json`.
-Selected startup profile now passes10gates, PostgreSQL143.37s and actual native
-restored Standard77.36s with exact grants, ordinary-mode denial and cleanup:
-`target/restored-custody-startup-20261014/ACCEPTANCE.json`.
-Next:configured native authenticated API/SDK restored reconfirmation, then full
-consistent restore acceptance. Provider retention/authority remain simulated.
-Reuse prior original-WAL/current-authority/restore inputs only while they match.
-Observe current native/public CI separately; no release qualification follows
-from these local fixtures.
-Preserve one replica/Recreate and explicit external configuration;
-no runtime bootstrap, inferred custody, private policy or remote DELETE.
-Corrected native/current image/CI, actual AWS/EKS, released dependencies and
-owner-selected version/publication remain separate gates. Select one reviewable
-slice at a time; reuse qualified evidence only while its inputs still match.
+STANDARD-RECOVERY now passes its complete local simulation boundary — 2026-10-14.
+12current-source frozen gates935default/996all-feature tests, both Clippy modes,
+36helper checks; native mTLS historical restore79.66s,18-case PG matrix122.76s
+and actual server-local-loss/checkpoint recovery75.55s. Replacement17.61s/RPO0
+cover the4byte custody fixture only. Original generation/description/digest and
+private cursor remain exact, fresh SDK confirmation and stale-owner/object/
+backup/authority/cancellation refusals are qualified. No replicas or remote DELETE.
+Exact audit:`target/native-restored-custody-20261014/ACCEPTANCE.json`.
+
+Next:ONBOARDING in ledger dependency order. Read its product/coverage/access
+contracts and existing API/UI mechanisms; implement connected/verified coverage/
+active detections with visible missing-permission/category/state blockers.
+Phase9 live AWS collection remains separately scoped.
+Native run38529644808 at0991cdf passes both complete Rust/container/Standard kind
+architectures with verified artifacts, source/bundle/image/WAL/PVC bindings and
+cleanup; later restored-custody source is not qualified by that older revision.
+AWS/AZ/account/HA, physical/prolonged load, current CI/images/EKS/released
+dependencies and owner-selected version/publication remain separate gates.
 
 Respect ledger dependencies and original phase order. Core phases0–8 and bounded
 Phase10 have local evidence. Phase7-B policy lives in the separate private

@@ -180,3 +180,28 @@ Standard/private-consumer77.36s with matching native identities and cleanup.
 The real restored producer accepts exact selected grants, ordinary profiles
 refuse, and normal startup resumes after test-only revocation. Native configured
 API/SDK historical reconfirmation remains the following integration requirement.
+
+## Configured native restored receipts — 2026-10-14
+
+Private Standard custody configuration may set `restored_receipts: true` only
+with `restored_catalog5`; the default is false. Selected startup validates the
+complete producer/addon profile before WAL admission or readiness. Installation
+remains an explicit stopped-owner operation. Configured backend/key prefix/
+retention floor/authority and all non-generation scope fields stay mandatory.
+Historical generation observations are accepted only by the opted-in host
+verifier; the authenticated API invokes the existing-only sealed-lineage
+coordinator before any historical object I/O. Current-generation confirmation
+continues through the ordinary inserting/idempotent coordinator.
+
+The native SDK retains the unchanged historical description/generation/digest
+across scoped restore, requests a fresh nonce and checks the finite permission
+again before explicit original-copy release. Ingest-only permission and shortened
+provider guarantees keep the original. HTTP202 remains synced WAL admission;
+no source ACK, automatic deletion, replica increase or M3 reinterpretation.
+
+The current full STANDARD-RECOVERY simulation audit is
+`target/native-restored-custody-20261014/ACCEPTANCE.json`:12frozen gates,935default/
+996all-feature tests, native historical restore79.66s,18-case PostgreSQL122.76s
+and server-local-loss/checkpoint75.55s. Replacement17.61s/RPO0 covers only the
+4byte fixture. Provider/authority retention remains simulated; actual AWS/AZ/
+account/HA, physical/prolonged load and current release gates remain separate.

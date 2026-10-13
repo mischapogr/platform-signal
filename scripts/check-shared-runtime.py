@@ -348,9 +348,13 @@ def main():
     parser.add_argument('--standard-offline-fixture', type=Path, help='prebuilt exact Standard enrollment test executable; skips runtime Cargo')
     parser.add_argument('--standard-audit-only',action='store_true',help='focused actual Standard independent audit receiver lifecycle; excludes pipeline/library/crash matrices')
     parser.add_argument('--standard-private-only',action='store_true',help='actual Standard feed/private outbox and notification qualification; excludes restore/full matrices')
+    parser.add_argument('--standard-restored-custody-only',action='store_true',help='actual restored Standard historical custody API/SDK with separate private consumer; excludes other profiles')
     parser.add_argument('--standard-restore-only',action='store_true',help='fresh scoped destination and actual restored Standard/private progress; excludes full matrices')
     parser.add_argument('--private-checkout',type=Path,default=ROOT.parent/'platform-signal-private')
     args = parser.parse_args()
+    if args.standard_restored_custody_only:
+        if any((args.matrix,args.server,args.standard,args.standard_only,args.standard_audit_only,args.standard_private_only,args.standard_restore_only,args.standard_custody_only,args.standard_recovery_only,args.standard_checkpoint_recovery_only,args.custody_only,args.custody_server_only,args.custody_api_only,args.standard_kubernetes_image)):parser.error('--standard-restored-custody-only excludes other profiles')
+        args.standard_restore_only=True
     if args.standard_checkpoint_recovery_only:
         if args.standard_recovery_only:parser.error('recovery profiles exclude each other')
         args.standard_recovery_only=True
@@ -650,7 +654,7 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
                 for path in sorted((ROOT/component).rglob('*.rs')):report['source_hashes'][str(path.relative_to(ROOT))]=hashlib.sha256(path.read_bytes()).hexdigest()
             for source_name in ('crates/signal-collector-sdk/src/audit.rs','crates/signal-protocol/src/audit.rs'):
                 report['source_hashes'][source_name]=hashlib.sha256((ROOT/source_name).read_bytes()).hexdigest()
-            scenario='checkpoint-recovery' if args.standard_checkpoint_recovery_only else 'recovery' if args.standard_recovery_only else 'custody' if args.standard_custody_only else 'restore' if args.standard_restore_only else 'private' if args.standard_private_only else 'audit' if args.standard_audit_only else 'pipeline'
+            scenario='restored-custody' if args.standard_restored_custody_only else 'checkpoint-recovery' if args.standard_checkpoint_recovery_only else 'recovery' if args.standard_recovery_only else 'custody' if args.standard_custody_only else 'restore' if args.standard_restore_only else 'private' if args.standard_private_only else 'audit' if args.standard_audit_only else 'pipeline'
             if args.standard_kubernetes_image:
                 for source in ('scripts/check-standard-kubernetes.py', 'scripts/check-kubernetes.py', 'scripts/fixtures/standard-kubernetes.py',
                                'deploy/helm/signal/templates/deployment.yaml', 'deploy/helm/signal/templates/configmap.yaml',
@@ -699,6 +703,9 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
                         report['checks'].append('actual_Standard_complete_stopped_WAL_checkpoint_corruption_refusal_replacement_fresh_custody')
             elif args.standard_restore_only:
                 qualify_standard_restore_report(standard_report,report['standard_binary_sha256'])
+                if args.standard_restored_custody_only:
+                    if standard_report.get('restored_custody_qualified') is not True:raise ValueError('native historical custody confirmation missing')
+                    report['checks'].append('actual_native_restored_custody_original_description_fresh_nonce_permission_retention_hold_release')
                 if private_source_hashes(args.private_checkout)!=report['private_source_hashes']:raise RuntimeError('private consumer source changed during restore qualification')
                 report['checks'].append('actual_fresh_scoped_restore_current_custody_private_cursor_generation_fencing_restored_native_publication')
                 report['checks'].append('actual_restored_Standard_stopped_WAL_restricted_maintenance_holds_retirement_stale_fence')
