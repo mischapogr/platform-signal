@@ -125,10 +125,10 @@ class Run(BASE.Run):
                 owner.provider_calls += 1
                 size = int(self.headers.get('Content-Length','0'))
                 expected = 'Basic '+base64.b64encode(b'synthetic-standard:synthetic-standard-idp-secret').decode()
-                if owner.provider_calls>64 or self.path!='/token' or not 0<size<=16384 or self.headers.get('Authorization')!=expected:
+                if owner.provider_calls>(128 if getattr(owner,'onboarding_mode',False) else 64) or self.path!='/token' or not 0<size<=16384 or self.headers.get('Authorization')!=expected:
                     self.send_error(400);return
                 token = urllib.parse.parse_qs(self.rfile.read(size).decode()).get('token',[''])[0]
-                payload = {'active':token in ('global','read-a','read-b') or (getattr(owner,'custody_mode',False) and token=='custodian'),'iss':'https://identity.example.test',
+                payload = {'active':(token in ('global','read-a','read-b') or (getattr(owner,'custody_mode',False) and token=='custodian')) and not getattr(owner,'onboarding_revoked',False),'iss':'https://identity.example.test',
                            'sub':token,'aud':'signal','exp':int(time.time())+60,'token_type':'Bearer','roles':['ignored'],'scope':'admin'}
                 body = json.dumps(payload).encode()
                 self.send_response(200);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
@@ -449,6 +449,109 @@ class Run(BASE.Run):
         except BaseException:errors.append('provider cleanup')
         shutil.rmtree(self.pki.private)
         if errors:raise RuntimeError(', '.join(errors))
+
+class OnboardingRun(Run):
+    onboarding_mode=True
+
+    def env(self):
+        environment=super().env()
+        if hasattr(self,'host_evidence'):
+            environment['SIGNAL_ONBOARDING_CONFIG']=str(self.host_evidence.policy)
+        return environment
+
+    def readiness(self,token='global',scope='standard-coverage'):
+        status,body=self.request('/v1/coverage/onboarding',token=token,
+                                 extra_headers={'x-signal-coverage-scope':scope})
+        return status,json.loads(body)
+
+    def admit_checked(self,active,resource='host-a'):
+        before=self.checkpoint()
+        event={'id':str(uuid.uuid4()),'timestamp':datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00','Z'),
+               'source':{'type':'query-simulation'},'message':'onboarding native fixture',
+               'resource':{'kind':'host','id':resource,'account_id':'a'},
+               'attributes':{'claimed_scope':'host-a'}}
+        status,_=self.request('/v1/events',method='POST',body=event)
+        if status!=202:raise RuntimeError('Standard onboarding admission failed')
+        self.wait(lambda:self.checkpoint()==before+1)
+        status,body=self.request('/v1/findings?limit=100')
+        rows=[f for f in json.loads(body).get('findings',[]) if f['event_ids']==[event['id']]]
+        if status!=200 or len(rows)!=int(active):raise RuntimeError('Standard did not enforce actual readiness after checkpoint')
+        self.onboarding_events.append(event['id'])
+
+    def run(self):
+        self.start_fixture();self.start_provider();self.offline('prepare');self.bootstrap_coverage()
+        host_module=module('standard_signed_host','scripts/fixtures/onboarding-host.py')
+        vectors=BASE.read_json(ROOT/'tests/fixtures/source-coverage/backend-vectors.json')
+        self.host_evidence=host_module.Host(self.out,ROOT,'standard-coverage',vectors['bindings'][0]['input'],
+            vectors['profiles'][0]['input'],'generic.object-query',{'source':'query-simulation','account':'a','resource':'host-a'})
+        self.onboarding_events=[]
+        try:
+            self.start_server()
+            if self.readiness()[1]['stage']!='disconnected':raise RuntimeError('missing Standard proof activated source')
+            self.admit_checked(False);self.record('Standard_missing_host_proof_matching_rule_suppressed_checkpointed')
+            payload=self.host_evidence.evidence();payload['observer_status']='unhealthy';self.host_evidence.publish(payload)
+            if self.readiness()[1]['stage']!='connected':raise RuntimeError('Standard connected-but-unverified state missing')
+            self.admit_checked(False);self.record('Standard_connected_unhealthy_coverage_matching_rule_suppressed')
+            self.host_evidence.publish()
+            if self.readiness()[1]['stage']!='detections_active':raise RuntimeError('valid Standard proof did not activate')
+            self.admit_checked(True);self.record('Standard_current_signed_verified_coverage_actual_finding')
+            for category,name in [('permissions','read-audit'),('categories','audit'),('state','baseline')]:
+                payload=self.host_evidence.evidence();payload[category][name]='missing';self.host_evidence.publish(payload)
+                status,report=self.readiness()
+                if status!=200 or report['detections'][0]['active'] or not any(b.get('requirement')==name for b in report['detections'][0]['blockers']):raise RuntimeError('Standard missing prerequisite not visible')
+                self.admit_checked(False);self.record('Standard_missing_'+category+'_visible_and_matching_rule_suppressed')
+            self.host_evidence.publish(forged=True);self.admit_checked(False)
+            self.record('Standard_forged_signature_matching_rule_suppressed')
+            payload=self.host_evidence.evidence();payload['expires_at']=(datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(seconds=1)).isoformat().replace('+00:00','Z');self.host_evidence.publish(payload)
+            self.admit_checked(False);self.record('Standard_expired_attestation_matching_rule_suppressed')
+            self.host_evidence.publish();self.admit_checked(False,resource='host-b')
+            self.record('Standard_canonical_scope_mismatch_not_overridden_by_attributes')
+            if self.readiness(token='read-a')[0]!=403 or self.readiness(scope='other-scope')[0]!=403:raise RuntimeError('Standard readiness permission or scope bypass')
+            self.onboarding_revoked=True
+            if self.readiness()[0]!=403:raise RuntimeError('Standard readiness ignored live revocation')
+            self.onboarding_revoked=False
+            self.record('Standard_readiness_current_permission_scope_and_revocation')
+            config={'port':self.server_port,'cert':str(self.pki.private/'standard/client.pem'),
+                    'key':str(self.pki.private/'standard/client.key'),'ca':str(self.pki.private/'standard/ca.pem'),
+                    'signing_key':str(self.host_evidence.key),'report_path':str(self.host_evidence.report),
+                    'payload':self.host_evidence.evidence(),'scope':'standard-coverage'}
+            config_path=self.out/'browser-config.json';BASE.write_json(config_path,config);config_path.chmod(0o600)
+            child=self.spawn(['node',str(ROOT/'scripts/test-onboarding-native-browser.cjs'),str(config_path),str(self.out/'browser-report.json')],self.env(),'onboarding-browser')
+            try:
+                child.wait(timeout=60)
+                if child.returncode:raise RuntimeError('composed native Standard browser failed')
+            finally:
+                if child.poll() is None:child.kill();child.wait(timeout=3)
+                self.reap_log(child);self.reaped(child)
+            self.browser_report=BASE.read_json(self.out/'browser-report.json')
+            self.record('Standard_composed_browser_verified_mTLS_actual_readiness_and_expiry')
+            self.stop('server');self.host_evidence.report.unlink(missing_ok=True)
+            policy=BASE.read_json(self.host_evidence.policy);policy['detections'][0]['supported']=False
+            BASE.write_json(self.host_evidence.policy,policy)
+            time.sleep(16)
+            self.start_server()
+            if self.readiness()[1]['stage']!='disconnected':raise RuntimeError('Standard restart inherited readiness')
+            self.admit_checked(False);self.record('Standard_restart_no_cached_activation_original_WAL_retained')
+            self.host_evidence.publish()
+            status,report=self.readiness()
+            if status!=200 or report['stage']!='coverage_verified' or not any(b['code']=='unsupported_detection' for b in report['detections'][0]['blockers']):raise RuntimeError('Standard unsupported detection incorrectly active')
+            self.admit_checked(False);self.record('Standard_verified_coverage_unsupported_loaded_rule_remains_disabled')
+            config['port']=self.server_port;config['payload']=self.host_evidence.evidence();config['unsupported']=True
+            BASE.write_json(config_path,config)
+            child=self.spawn(['node',str(ROOT/'scripts/test-onboarding-native-browser.cjs'),str(config_path),str(self.out/'unsupported-browser-report.json')],self.env(),'unsupported-onboarding-browser')
+            try:
+                child.wait(timeout=60)
+                if child.returncode:raise RuntimeError('actual native unsupported detection browser failed')
+            finally:
+                if child.poll() is None:child.kill();child.wait(timeout=3)
+                self.reap_log(child);self.reaped(child)
+            self.unsupported_browser_report=BASE.read_json(self.out/'unsupported-browser-report.json')
+            self.record('Standard_composed_browser_verified_coverage_unsupported_detection_blocked')
+            self.stop('server')
+            self.onboarding_checkpoint=self.checkpoint()
+        finally:
+            self.onboarding_revoked=False
+            self.host_evidence.close()
 
 class CustodyRun(Run):
     custody_mode=True
@@ -907,16 +1010,18 @@ class AuditRun(Run):
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--server',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
-    parser.add_argument('--scenario',choices=('pipeline','audit','private','restore','custody','recovery','checkpoint-recovery','restored-custody'),default='pipeline')
+    parser.add_argument('--scenario',choices=('pipeline','audit','private','restore','custody','recovery','checkpoint-recovery','restored-custody','onboarding'),default='pipeline')
     args=parser.parse_args();args.output.mkdir(parents=True,mode=0o700)
-    fixture=Path(os.environ['SIGNAL_CONTROL_FIXTURE']);run=({'audit':AuditRun,'private':PrivateRun,'restore':PrivateRun,'custody':CustodyRun,'recovery':CustodyRun,'checkpoint-recovery':CustodyRun,'restored-custody':RestoredCustodyRun}.get(args.scenario,Run))(args.output.resolve(),args.server.resolve(),fixture.resolve())
+    fixture=Path(os.environ['SIGNAL_CONTROL_FIXTURE']);run=({'onboarding':OnboardingRun,'audit':AuditRun,'private':PrivateRun,'restore':PrivateRun,'custody':CustodyRun,'recovery':CustodyRun,'checkpoint-recovery':CustodyRun,'restored-custody':RestoredCustodyRun}.get(args.scenario,Run))(args.output.resolve(),args.server.resolve(),fixture.resolve())
     run.restore_mode=args.scenario in ('restore','restored-custody')
     run.recovery_mode=args.scenario in ('recovery','checkpoint-recovery')
     run.checkpoint_recovery_mode=args.scenario=='checkpoint-recovery'
     report={'schema_version':1,'status':'failed','scope':'actual Standard executable, owned PostgreSQL TLS and persistent S3 protocol simulation; no AWS/ARM64/release proof'}
     try:
         run.run()
-        if args.scenario in ('custody','recovery','checkpoint-recovery'):
+        if args.scenario=='onboarding':
+            report.update(status='passed_simulated',scope='Actual onboarding-enabled Standard Main, PostgreSQL TLS/S3 simulation, mTLS native identity, signed synthetic host checks and real Chromium through verified backend mTLS relay; no actual vendor/AWS/ARM64/release proof',scenarios=run.scenarios,binary_sha256=binary_digest(run.binary),provider_calls=run.provider_calls,child_capacity=3,log_capacity=24,onboarding_qualified=True,wal_checkpoint=run.onboarding_checkpoint,event_ids=run.onboarding_events,browser=run.browser_report,unsupported_browser=run.unsupported_browser_report)
+        elif args.scenario in ('custody','recovery','checkpoint-recovery'):
             report.update(status='passed_simulated',scope='Actual Standard Main selected custody API with native mTLS SDK, explicit identity permission, stopped-original retention and fresh same-description restart/release; PostgreSQL TLS and S3 retention simulation; no AWS/HA/ARM64/release proof',scenarios=run.scenarios,binary_sha256=binary_digest(run.binary),provider_calls=run.provider_calls,child_capacity=3,log_capacity=24)
             if run.recovery_mode:
                 report.update(scope='Actual Standard server-local directory loss after checked producer release; exact independently retained object reconstructed and kept. Missing enrolled WAL identity correctly holds replacement startup. Recovery/RPO/RTO are not qualified; no AWS/AZ/HA/consistent backup/restore proof',guard_seconds=run.guard_seconds,recovered_bytes=run.recovered_bytes,replacement_held=run.replacement_held,recovery_completed=False,server_local_state_removed=True)
