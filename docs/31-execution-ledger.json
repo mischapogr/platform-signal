@@ -946,12 +946,14 @@
       ],
       "evidence": [
         "target/goal-execution-20261007/ONBOARDING/",
-        "target/onboarding-sdk-20261014/ACCEPTANCE.json"
+        "target/onboarding-sdk-20261014/ACCEPTANCE.json",
+        "target/onboarding-rules-20261014/ACCEPTANCE.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md",
-        "docs/52-onboarding-readiness.md"
+        "docs/52-onboarding-readiness.md",
+        "docs/53-onboarding-rule-gate.md"
       ]
     },
     {
