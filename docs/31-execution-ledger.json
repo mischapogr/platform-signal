@@ -1491,7 +1491,8 @@
         "target/goal-execution-20261007/EXT-CI/native-stage-remote-jobs-4.json",
         "target/goal-execution-20261007/EXT-CI/native-stage-annotations.json",
         "target/standard-kind-ci-20261012/NATIVE-STANDARD-ACCEPTANCE.json",
-        "target/release-ci-20261014/ACCEPTANCE.json"
+        "target/release-ci-20261014/ACCEPTANCE.json",
+        "target/rustls-security-20261014/ACCEPTANCE.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
@@ -1510,13 +1511,18 @@
         "evidence": "target/goal-execution-20261007/EXT-CI/pipeline-diagnostic-acceptance.json"
       },
       "latest_observation": "target/release-ci-20261014/observation.json",
-      "latest_notes": "8d4dc06 native AMD64 and ARM64 tests fail the same two positive onboarding assertions while the deliberate retained configuration worker fixture runs concurrently. GitHub primary artifact digests verified. Corrected test-only shared worker guards pass 954 default workspace and 84 all-feature server tests with16threads, both strict Clippy modes/fmt/14boundaries. Production behavior unchanged; exact corrected producing-revision CI remains unqualified.",
+      "latest_notes": "c1535f1 both native Rust jobs pass47gates/1015tests; primary-digest and155/173nested source hashes verified. ARM container/Kubernetes passes runtime/pipeline/soak/Small and Standard kind, but supply-chain fails four newly published Rustls0.23.45 advisories. Exact pins/lock corrected to0.23.46, no feature changes/ignores; current unfiltered Cargo audit0 and11frozen local gates pass958/1019 plus native mTLS/PG/S3/Standard. Matching patched producing-revision native CI/image/scan qualification remains open.",
       "browser_readiness_evidence": [
         "target/goal-execution-20261007/EXT-CI/idp-browser-start-acceptance.json"
       ],
       "config_worker_fixture_isolation": {
         "status": "passed_local",
         "evidence": "target/release-ci-20261014/ACCEPTANCE.json"
+      },
+      "rustls_security_patch": {
+        "status": "passed_local",
+        "version": "0.23.46",
+        "evidence": "target/rustls-security-20261014/ACCEPTANCE.json"
       }
     },
     {

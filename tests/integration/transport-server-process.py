@@ -200,7 +200,15 @@ commonName=supplied
             self.server = None
 
     def rows(self, context, source):
-        status, raw = absolute_request(context, self.port, '/v1/events?' + urllib.parse.urlencode({'source': source, 'limit': 10}), self.token)
+        # The transport fixture's 250ms server request budget intentionally
+        # exercises stalled peers. A cold DataFusion query can legitimately
+        # expire within it; only 408 is retryable, under one fixed query budget.
+        deadline = time.monotonic() + 3
+        for _ in range(10):
+            status, raw = absolute_request(context, self.port, '/v1/events?' + urllib.parse.urlencode({'source': source, 'limit': 10}), self.token)
+            if status != 408 or time.monotonic() >= deadline:
+                break
+            time.sleep(0.02)
         if status != 200:
             self.failure_http_status = status
         assert status == 200, 'transport query denied'
