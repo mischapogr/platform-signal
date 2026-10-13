@@ -377,3 +377,121 @@ async fn stale_substituted_or_shortened_observation_never_submits_control()
     }
     Ok(())
 }
+
+impl RestoredObjectCustodyResolver for Backend {
+    fn resolve<'a>(
+        &'a self,
+        token: LeaseToken,
+        description: ObjectCustodyDescription,
+        _context: ControlContext,
+    ) -> CustodyFuture<'a, ReceiptResult> {
+        Box::pin(async move {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            if token.epoch != self.epoch.load(Ordering::SeqCst) {
+                return Err(ControlError::Fenced);
+            }
+            let input = description.input()?;
+            {
+                let records = self.records.lock().map_err(|_| ControlError::Corrupt)?;
+                let old = records
+                    .iter()
+                    .find(|r| r.id == input.id)
+                    .ok_or(ControlError::Fenced)?;
+                if *old != input {
+                    return Err(ControlError::Conflict);
+                }
+            }
+            if self.stall {
+                std::future::pending::<()>().await;
+            }
+            Ok(ReceiptResult {
+                schema_version: 1,
+                id: description.id,
+                prepared_count: 0,
+                source_record_count: 0,
+                verified_prefix: 0,
+            })
+        })
+    }
+}
+fn restored_token(description: &ObjectCustodyDescription) -> LeaseToken {
+    let mut result = token(description);
+    result.scope.generation = Uuid::from_u128(99);
+    result
+}
+#[tokio::test]
+async fn restored_custody_fresh_reads_preserve_original_identity_and_expire()
+-> Result<(), Box<dyn std::error::Error>> {
+    let backend = backend(false, false);
+    let description = description();
+    backend
+        .records
+        .lock()
+        .map_err(|_| "lock")?
+        .push(description.input()?);
+    let verifier = verifier(&backend);
+    let ctx = context()?;
+    let permit = coordinate_restored_object_custody(
+        &backend,
+        &verifier,
+        restored_token(&description),
+        description.clone(),
+        [1; 32],
+        ctx.clone(),
+    )
+    .await?;
+    assert_eq!(permit.checked_receipt()?.description, description);
+    assert_eq!(
+        permit.checked_receipt()?.description_sha256,
+        description.digest()?
+    );
+    assert_eq!(backend.calls.load(Ordering::SeqCst), 3);
+    assert_eq!(verifier.calls.load(Ordering::SeqCst), 2);
+    assert_eq!(
+        backend.records.lock().map_err(|_| "lock")?.as_slice(),
+        [description.input()?]
+    );
+    ctx.cancel();
+    assert!(permit.checked_receipt().is_err());
+    Ok(())
+}
+#[tokio::test]
+async fn restored_custody_missing_history_changed_owner_and_retention_never_grant()
+-> Result<(), Box<dyn std::error::Error>> {
+    for case in 0..5 {
+        let backend = backend(false, false);
+        let description = description();
+        if case != 0 {
+            backend
+                .records
+                .lock()
+                .map_err(|_| "lock")?
+                .push(description.input()?);
+        }
+        let mut verifier = verifier(&backend);
+        verifier.takeover = case == 1;
+        verifier.fail_after_commit = case == 2;
+        verifier.substitute_authority = case == 3;
+        verifier.invalid_observation = if case == 4 { 3 } else { 0 };
+        assert!(
+            coordinate_restored_object_custody(
+                &backend,
+                &verifier,
+                restored_token(&description),
+                description.clone(),
+                [1; 32],
+                context()?
+            )
+            .await
+            .is_err()
+        );
+        assert_eq!(
+            backend.records.lock().map_err(|_| "lock")?.len(),
+            usize::from(case != 0)
+        );
+        if case == 0 {
+            assert_eq!(verifier.calls.load(Ordering::SeqCst), 0);
+        }
+    }
+    Ok(())
+}

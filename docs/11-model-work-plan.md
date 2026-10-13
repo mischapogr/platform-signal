@@ -41,8 +41,12 @@ Evidence:`target/restore-custody-roots-20261014/ACCEPTANCE.json`.
 Existing-only sealed lineage resolution now passes7gates933default/994all-feature
 and PostgreSQL matrix137.01s without insertion or receipt/quota mutation:
 `target/restored-custody-lineage-20261014/ACCEPTANCE.json`.
-Next:wire fresh object verification and native API/SDK restored reconfirmation,
-then full consistent restore acceptance. Metadata alone grants no release permit.
+Fresh existing-only restored confirmation now passes935default/996all-feature
+and PostgreSQL matrix124.66s, preserving original identity through three lineage
+checks and two fresh retained reads:
+`target/restored-custody-confirmation-20261014/ACCEPTANCE.json`.
+Next:configured native authenticated API/SDK restored reconfirmation, then full
+consistent restore acceptance. Provider retention/authority remain simulated.
 Reuse prior original-WAL/current-authority/restore inputs only while they match.
 Observe current native/public CI separately; no release qualification follows
 from these local fixtures.

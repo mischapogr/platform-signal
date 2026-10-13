@@ -156,6 +156,27 @@ impl ObjectCustodyRecorder for ControlClient {
     }
 }
 
+/// Trusted existing-only restored lineage adapter. Resolution must check the
+/// current owner and sealed origin generation; it must never insert a receipt.
+pub trait RestoredObjectCustodyResolver: Send + Sync {
+    fn resolve<'a>(
+        &'a self,
+        token: LeaseToken,
+        description: ObjectCustodyDescription,
+        context: ControlContext,
+    ) -> CustodyFuture<'a, ReceiptResult>;
+}
+impl RestoredObjectCustodyResolver for ControlClient {
+    fn resolve<'a>(
+        &'a self,
+        token: LeaseToken,
+        description: ObjectCustodyDescription,
+        context: ControlContext,
+    ) -> CustodyFuture<'a, ReceiptResult> {
+        Box::pin(self.resolve_restored_custody(token, description, context))
+    }
+}
+
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ObjectCustodyReceipt {
@@ -289,6 +310,51 @@ pub async fn coordinate_object_custody(
         .await?,
         description.id,
     )?;
+    let permit = ObjectCustodyPermit {
+        receipt: ObjectCustodyReceipt {
+            schema_version: 1,
+            description_sha256: description.digest()?,
+            description,
+        },
+        context,
+    };
+    permit.checked_receipt()?;
+    Ok(permit)
+}
+
+/// Fresh restored confirmation retains the original description and digest.
+/// An existing current-owner lineage record must resolve before either retained
+/// read and again after the last read. Metadata alone cannot mint this permit.
+pub async fn coordinate_restored_object_custody(
+    resolver: &dyn RestoredObjectCustodyResolver,
+    verifier: &dyn ObjectCustodyVerifier,
+    token: LeaseToken,
+    description: ObjectCustodyDescription,
+    authority_revision: [u8; 32],
+    context: ControlContext,
+) -> Result<ObjectCustodyPermit, ControlError> {
+    context.check()?;
+    crate::restored_custody::validate(&crate::restored_custody::Action::Resolve {
+        token: token.clone(),
+        description: Box::new(description.clone()),
+    })?;
+    if authority_revision == [0; 32] || description.retain_until <= Utc::now() {
+        return Err(ControlError::Fenced);
+    }
+    for read in 0..=2 {
+        confirmation(
+            bounded(
+                &context,
+                false,
+                resolver.resolve(token.clone(), description.clone(), context.clone()),
+            )
+            .await?,
+            description.id,
+        )?;
+        if read < 2 {
+            verify(verifier, &description, authority_revision, &context).await?;
+        }
+    }
     let permit = ObjectCustodyPermit {
         receipt: ObjectCustodyReceipt {
             schema_version: 1,
