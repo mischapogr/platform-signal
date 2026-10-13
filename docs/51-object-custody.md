@@ -158,3 +158,25 @@ retention refuse without insertion or receipt/quota mutation.
 `target/restored-custody-confirmation-20261014/ACCEPTANCE.json` binds935default/
 996all-feature tests and actual PostgreSQL matrix124.66s. File retention/authority
 are simulated; configured native API/SDK reconfirmation is the next integration.
+
+## Selected restored startup access — 2026-10-14
+
+`verify_restored_custody_producer_credentials` is an explicit extension of the
+producer/receipt profile. It permits the existing-only resolver and SELECT only
+on the singleton `signal_custody_restore.contract` metadata table. Workflow
+table/column writes, inherited ownership/DDL/unsafe role powers and function
+grant options remain denied. Ordinary producer/custody/lifecycle profiles reject
+addon privileges.
+
+`verify_restored_custody_access` checks addon access and its compiled artifact,
+routine hash, namespace/table/function ownership under a bounded readonly
+inspection; it is an addon-only check and does not replace the full producer
+profile. Neither check performs initialization or DDL. Missing metadata/execute
+grants, metadata column writes and artifact mismatch refuse.
+
+`target/restored-custody-startup-20261014/ACCEPTANCE.json` binds10frozen gates,
+935default/996all-feature tests, PostgreSQL matrix143.37s and actual restored
+Standard/private-consumer77.36s with matching native identities and cleanup.
+The real restored producer accepts exact selected grants, ordinary profiles
+refuse, and normal startup resumes after test-only revocation. Native configured
+API/SDK historical reconfirmation remains the following integration requirement.

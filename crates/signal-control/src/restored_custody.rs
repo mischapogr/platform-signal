@@ -5,6 +5,9 @@ use tokio_postgres::Client;
 
 const SQL: &str = include_str!("../../../schemas/shared-control/009-restored-custody.sql");
 pub(crate) enum Action {
+    Inspect {
+        owner: String,
+    },
     Install {
         owner: String,
     },
@@ -22,8 +25,12 @@ fn owner_valid(owner: &str) -> bool {
 }
 pub(crate) fn validate(action: &Action) -> Result<(), ControlError> {
     match action {
-        Action::Install { owner } if owner_valid(owner) && owner.capacity() <= 63 => Ok(()),
-        Action::Install { .. } => Err(ControlError::Invalid),
+        Action::Install { owner } | Action::Inspect { owner }
+            if owner_valid(owner) && owner.capacity() <= 63 =>
+        {
+            Ok(())
+        }
+        Action::Install { .. } | Action::Inspect { .. } => Err(ControlError::Invalid),
         Action::Resolve { token, description } => {
             token.validate()?;
             description.validate()?;
@@ -96,4 +103,23 @@ pub(crate) async fn resolve(
     }
     context.check()?;
     Ok(result)
+}
+
+/// One singleton contract is public mechanism metadata, never a workflow row.
+pub(crate) async fn inspect(
+    db: &Client,
+    owner: &str,
+    context: &ControlContext,
+) -> Result<(), ControlError> {
+    context.check()?;
+    let allowed:bool=db.query_one("SELECT NOT pg_has_role(session_user,$1::name,'MEMBER') AND coalesce(has_schema_privilege(session_user,to_regnamespace('signal_custody_restore'),'USAGE'),false) AND coalesce(has_table_privilege(session_user,to_regclass('signal_custody_restore.contract'),'SELECT'),false) AND coalesce(has_function_privilege(session_user,to_regprocedure('signal_custody_restore.resolve(jsonb,bytea,bytea,bytea,bytea)'),'EXECUTE'),false) AND NOT EXISTS(SELECT 1 FROM pg_roles r WHERE pg_has_role(session_user,r.oid,'MEMBER') AND (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname='signal_custody_restore' AND (pg_has_role(r.oid,n.nspowner,'MEMBER') OR has_schema_privilege(r.oid,n.oid,'CREATE'))) OR EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='signal_custody_restore' AND (has_function_privilege(r.oid,p.oid,'EXECUTE WITH GRANT OPTION') OR (has_function_privilege(r.oid,p.oid,'EXECUTE') AND p.oid<>to_regprocedure('signal_custody_restore.resolve(jsonb,bytea,bytea,bytea,bytea)')))) OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='signal_custody_restore' AND (pg_has_role(r.oid,c.relowner,'MEMBER') OR (c.relkind IN ('r','p','v','m','f') AND (has_table_privilege(r.oid,c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN') OR has_any_column_privilege(r.oid,c.oid,'INSERT,UPDATE,REFERENCES') OR (c.relname<>'contract' AND (has_table_privilege(r.oid,c.oid,'SELECT') OR has_any_column_privilege(r.oid,c.oid,'SELECT'))))) OR (c.relkind='S' AND has_sequence_privilege(r.oid,c.oid,'USAGE,SELECT,UPDATE'))))))",&[&owner]).await.map_err(crate::client::database_error)?.try_get(0).map_err(|_|ControlError::Corrupt)?;
+    if !allowed {
+        return Err(ControlError::Fenced);
+    }
+    let artifact: Vec<u8> = Sha256::digest(SQL).to_vec();
+    let valid:bool=db.query_one("SELECT EXISTS(SELECT 1 FROM signal_custody_restore.contract cfg JOIN pg_namespace n ON n.nspname='signal_custody_restore' JOIN pg_roles role ON role.oid=n.nspowner JOIN pg_class c ON c.relnamespace=n.oid AND c.relname='contract' JOIN pg_proc p ON p.pronamespace=n.oid AND p.oid='signal_custody_restore.resolve(jsonb,bytea,bytea,bytea,bytea)'::regprocedure WHERE cfg.singleton AND cfg.schema_version=1 AND cfg.owner=$1::name AND role.rolname=$1::name AND c.relowner=n.nspowner AND p.proowner=n.nspowner AND p.prosecdef AND cfg.artifact_sha256=$2 AND cfg.routine_sha256=sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')))",&[&owner,&artifact]).await.map_err(crate::client::database_error)?.try_get(0).map_err(|_|ControlError::Corrupt)?;
+    if !valid {
+        return Err(ControlError::Fenced);
+    }
+    context.check()
 }

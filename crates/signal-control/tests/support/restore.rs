@@ -993,6 +993,76 @@ pub async fn qualify(root: &Client, f: &super::Fixture) -> Result<(), Error> {
             .is_err()
     );
     destination.batch_execute("GRANT USAGE ON SCHEMA signal_custody_restore TO signal_runtime; GRANT EXECUTE ON FUNCTION signal_custody_restore.resolve(jsonb,bytea,bytea,bytea,bytea) TO signal_runtime").await?;
+    let role_sql: String = destination
+        .query_one(
+            "SELECT format('CREATE ROLE signal_restored_custody_check LOGIN PASSWORD %L',$1::text)",
+            &[&f.password],
+        )
+        .await?
+        .get(0);
+    destination.batch_execute(&role_sql).await?;
+    let access = ControlClient::restored(settings(
+        f,
+        "signal_restore_destination",
+        "signal_restored_custody_check",
+    )?)?;
+    assert!(
+        access
+            .verify_restored_custody_access("signal_control_owner".into(), super::context()?)
+            .await
+            .is_err()
+    );
+    destination.batch_execute("GRANT USAGE ON SCHEMA signal_custody_restore TO signal_restored_custody_check; GRANT SELECT ON signal_custody_restore.contract TO signal_restored_custody_check").await?;
+    assert!(
+        access
+            .verify_restored_custody_access("signal_control_owner".into(), super::context()?)
+            .await
+            .is_err()
+    );
+    destination.batch_execute("GRANT EXECUTE ON FUNCTION signal_custody_restore.resolve(jsonb,bytea,bytea,bytea,bytea) TO signal_restored_custody_check").await?;
+    access
+        .verify_restored_custody_access("signal_control_owner".into(), super::context()?)
+        .await?;
+    destination.batch_execute("GRANT UPDATE(artifact_sha256) ON signal_custody_restore.contract TO signal_restored_custody_check").await?;
+    assert!(
+        access
+            .verify_restored_custody_access("signal_control_owner".into(), super::context()?)
+            .await
+            .is_err()
+    );
+    destination.batch_execute("REVOKE UPDATE(artifact_sha256) ON signal_custody_restore.contract FROM signal_restored_custody_check").await?;
+    let artifact: Vec<u8> = destination
+        .query_one(
+            "SELECT artifact_sha256 FROM signal_custody_restore.contract WHERE singleton",
+            &[],
+        )
+        .await?
+        .get(0);
+    destination
+        .execute(
+            "UPDATE signal_custody_restore.contract SET artifact_sha256=$1",
+            &[&vec![0u8; 32]],
+        )
+        .await?;
+    assert!(
+        access
+            .verify_restored_custody_access("signal_control_owner".into(), super::context()?)
+            .await
+            .is_err()
+    );
+    destination
+        .execute(
+            "UPDATE signal_custody_restore.contract SET artifact_sha256=$1",
+            &[&artifact],
+        )
+        .await?;
+    access
+        .verify_restored_custody_access("signal_control_owner".into(), super::context()?)
+        .await?;
+    access.shutdown(super::context()?).await?;
+    eprintln!(
+        "phase: restored-custody-readonly-addon-startup-capability-missing-write-artifact-refusal-qualified"
+    );
     let custody_rows:serde_json::Value=destination.query_one("SELECT jsonb_build_object('rows',(SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM signal_control.receipts r),'quota',(SELECT jsonb_build_array(used_rows,used_bytes) FROM signal_control.store WHERE singleton))",&[]).await?.get(0);
     eprintln!("phase: lineage-granted-resolution-begins");
     let resolved = current

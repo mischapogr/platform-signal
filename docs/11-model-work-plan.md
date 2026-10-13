@@ -45,6 +45,9 @@ Fresh existing-only restored confirmation now passes935default/996all-feature
 and PostgreSQL matrix124.66s, preserving original identity through three lineage
 checks and two fresh retained reads:
 `target/restored-custody-confirmation-20261014/ACCEPTANCE.json`.
+Selected startup profile now passes10gates, PostgreSQL143.37s and actual native
+restored Standard77.36s with exact grants, ordinary-mode denial and cleanup:
+`target/restored-custody-startup-20261014/ACCEPTANCE.json`.
 Next:configured native authenticated API/SDK restored reconfirmation, then full
 consistent restore acceptance. Provider retention/authority remain simulated.
 Reuse prior original-WAL/current-authority/restore inputs only while they match.
