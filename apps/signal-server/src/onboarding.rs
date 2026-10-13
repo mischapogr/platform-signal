@@ -177,6 +177,7 @@ mod tests {
 
     #[tokio::test]
     async fn onboarding_validity_is_capped_by_source_coverage_not_only_host_expiry() -> Result {
+        let _worker_fixture = config::FILE_WORKER_TEST_LOCK.lock().await;
         let dir = tempfile::tempdir()?;
         let at = Utc::now();
         let path = dir.path().join("report.json");
@@ -196,6 +197,7 @@ mod tests {
 
     #[tokio::test]
     async fn onboarding_account_restricted_coverage_must_match_event_account() -> Result {
+        let _worker_fixture = config::FILE_WORKER_TEST_LOCK.lock().await;
         let dir = tempfile::tempdir()?;
         let (host, _, _) = setup(&dir.path().join("report.json"), Utc::now())?;
         let mut binding = host.template["binding"].clone();
@@ -222,18 +224,9 @@ mod tests {
                         "writer_issuer":"https://identity.fixture.test","writer_subject":"fixture"},
                     "max_report_age_seconds":60,"max_clock_skew_seconds":2,"payload_retention_seconds":300,"identity_retention_seconds":600}]});
             std::fs::write(&path, serde_json::to_vec(&config)?)?;
-            // Parallel tests also exercise the process-wide, single-slot
-            // configuration worker. Retry only setup contention, with a fixed
-            // test deadline; schema and validation failures must still surface.
-            let deadline = Instant::now() + Duration::from_secs(5);
-            let config = loop {
-                match crate::coverage_api::Configuration::load(&settings).await {
-                    Err(ConfigError::Full) if Instant::now() < deadline => {
-                        tokio::time::sleep(Duration::from_millis(5)).await;
-                    }
-                    result => break result?.ok_or_else(invalid)?,
-                }
-            };
+            let config = crate::coverage_api::Configuration::load(&settings)
+                .await?
+                .ok_or_else(invalid)?;
             let result = config.validate_onboarding(&host);
             if account == Some("different-account") {
                 assert!(matches!(
@@ -278,6 +271,7 @@ mod tests {
     #[tokio::test]
     async fn onboarding_actual_file_evaluation_is_fresh_scoped_and_authentication_bound() -> Result
     {
+        let _worker_fixture = config::FILE_WORKER_TEST_LOCK.lock().await;
         let dir = tempfile::tempdir()?;
         let path = dir.path().join("report.json");
         let at = Utc::now();
