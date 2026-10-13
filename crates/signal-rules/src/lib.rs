@@ -4,7 +4,7 @@ use serde_json::Value;
 use signal_event::{SignalEvent, lookup_attribute_path};
 use signal_findings::{DetectionSeverity, Finding};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs,
     io::Read,
     path::PathBuf,
@@ -210,6 +210,11 @@ pub struct RuleSet {
 }
 static LOADER: LazyLock<Arc<Semaphore>> = LazyLock::new(|| Arc::new(Semaphore::new(1)));
 impl RuleSet {
+    /// Exact immutable loaded inventory for trusted host readiness assessment.
+    pub fn rule_ids(&self) -> impl ExactSizeIterator<Item = &str> {
+        self.rules.iter().map(|rule| rule.metadata.id.as_str())
+    }
+
     pub fn len(&self) -> usize {
         self.rules.len()
     }
@@ -298,6 +303,54 @@ impl RuleSet {
         event: &SignalEvent,
         context: &RuleContext,
     ) -> Result<Vec<Finding>, RuleError> {
+        self.evaluate_selected(event, context, |_| true)
+    }
+
+    /// Evaluate only host-approved rules for this exact loaded inventory.
+    ///
+    /// The host must freshly assess scope, connection, coverage and prerequisites
+    /// before constructing readiness. Never use producer fields or deserialize a
+    /// prior report as authority. Every loaded rule needs exactly one decision;
+    /// missing, duplicate or foreign IDs fail before any predicate evaluation.
+    /// This method does not authenticate the host's decisions or retain them.
+    pub fn evaluate_ready_with_context(
+        &self,
+        event: &SignalEvent,
+        context: &RuleContext,
+        readiness: &[(&str, bool)],
+    ) -> Result<Vec<Finding>, RuleError> {
+        context.check()?;
+        if readiness.len() != self.rules.len() {
+            return Err(RuleError::Invalid("rule readiness inventory"));
+        }
+        let mut decisions = HashMap::with_capacity(readiness.len());
+        for &(id, enabled) in readiness {
+            context.check()?;
+            if id.is_empty() || id.len() > 256 || decisions.insert(id, enabled).is_some() {
+                return Err(RuleError::Invalid("rule readiness inventory"));
+            }
+        }
+        if self
+            .rules
+            .iter()
+            .any(|rule| !decisions.contains_key(rule.metadata.id.as_str()))
+        {
+            return Err(RuleError::Invalid("rule readiness inventory"));
+        }
+        self.evaluate_selected(event, context, |rule| {
+            decisions
+                .get(rule.metadata.id.as_str())
+                .copied()
+                .unwrap_or(false)
+        })
+    }
+
+    fn evaluate_selected(
+        &self,
+        event: &SignalEvent,
+        context: &RuleContext,
+        enabled: impl Fn(&Rule) -> bool,
+    ) -> Result<Vec<Finding>, RuleError> {
         context.check()?;
         event.validate().map_err(|_| RuleError::Invalid("event"))?;
         let mut findings = Vec::new();
@@ -305,6 +358,9 @@ impl RuleSet {
             let matches = &rule.spec.matches;
             // When both groups are present, all must hold AND any must hold.
             context.check()?;
+            if !enabled(rule) {
+                continue;
+            }
             if group_matches(&matches.all, event, context, true)?
                 && group_matches(&matches.any, event, context, false)?
             {

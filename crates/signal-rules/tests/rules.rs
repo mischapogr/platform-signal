@@ -100,6 +100,129 @@ fn replay_findings_and_sorted_multiple_rules() -> Result {
     assert_ne!(findings[0].id, findings[1].id);
     Ok(())
 }
+
+#[test]
+fn readiness_suppresses_matching_rules_and_preserves_enabled_finding_identity() -> Result {
+    let a = yaml("    all:\n      - field: message\n        exists: true");
+    let b = a.replace("id: auth.failure", "id: b.failure");
+    let rules = RuleSet::from_yaml_documents([b, a], RuleLimits::default())?;
+    assert_eq!(
+        rules.rule_ids().collect::<Vec<_>>(),
+        ["auth.failure", "b.failure"]
+    );
+    let event = event()?;
+    let ordinary = rules.evaluate(&event)?;
+    let context = RuleContext::new(Duration::from_secs(5));
+    let selected = rules.evaluate_ready_with_context(
+        &event,
+        &context,
+        &[("b.failure", false), ("auth.failure", true)],
+    )?;
+    assert_eq!(selected, vec![ordinary[0].clone()]);
+    assert!(
+        rules
+            .evaluate_ready_with_context(
+                &event,
+                &context,
+                &[("auth.failure", false), ("b.failure", false)]
+            )?
+            .is_empty()
+    );
+    assert_eq!(
+        rules.evaluate_ready_with_context(
+            &event,
+            &context,
+            &[("auth.failure", true), ("b.failure", true)]
+        )?,
+        ordinary
+    );
+    // A new blocked decision is applied immediately; the engine caches no permit.
+    assert!(
+        rules
+            .evaluate_ready_with_context(
+                &event,
+                &context,
+                &[("auth.failure", false), ("b.failure", false)]
+            )?
+            .is_empty()
+    );
+    Ok(())
+}
+
+#[test]
+fn incomplete_duplicate_foreign_and_oversized_readiness_fail_closed() -> Result {
+    let a = yaml("    all:\n      - field: message\n        exists: true");
+    let b = a.replace("id: auth.failure", "id: b.failure");
+    let rules = RuleSet::from_yaml_documents([a, b], RuleLimits::default())?;
+    let event = event()?;
+    let context = RuleContext::new(Duration::from_secs(5));
+    let oversized = "x".repeat(257);
+    for readiness in [
+        vec![],
+        vec![("auth.failure", true)],
+        vec![("auth.failure", true), ("foreign", true)],
+        vec![("auth.failure", true), ("auth.failure", true)],
+        vec![("auth.failure", true), ("", true)],
+        vec![("auth.failure", true), (oversized.as_str(), true)],
+        vec![
+            ("auth.failure", true),
+            ("b.failure", true),
+            ("foreign", true),
+        ],
+    ] {
+        assert!(matches!(
+            rules.evaluate_ready_with_context(&event, &context, &readiness),
+            Err(RuleError::Invalid("rule readiness inventory"))
+        ));
+    }
+    Ok(())
+}
+
+#[test]
+fn readiness_keeps_cancellation_and_deadline_checks_even_when_all_rules_blocked() -> Result {
+    let rules = RuleSet::from_yaml_documents(
+        [yaml(
+            "    all:\n      - field: message\n        exists: true",
+        )],
+        RuleLimits::default(),
+    )?;
+    let event = event()?;
+    let context = RuleContext::new(Duration::from_secs(5));
+    context.cancellation.cancel();
+    assert!(matches!(
+        rules.evaluate_ready_with_context(&event, &context, &[("auth.failure", false)]),
+        Err(RuleError::Cancelled)
+    ));
+    let expired = RuleContext::new(Duration::ZERO);
+    assert!(matches!(
+        rules.evaluate_ready_with_context(&event, &expired, &[("auth.failure", false)]),
+        Err(RuleError::Timeout)
+    ));
+    Ok(())
+}
+
+#[test]
+fn empty_loaded_inventory_requires_empty_readiness_and_still_validates_events() -> Result {
+    let rules = RuleSet::from_yaml_documents(Vec::<String>::new(), RuleLimits::default())?;
+    let mut event = event()?;
+    let context = RuleContext::new(Duration::from_secs(5));
+    assert!(
+        rules
+            .evaluate_ready_with_context(&event, &context, &[])?
+            .is_empty()
+    );
+    assert!(
+        rules
+            .evaluate_ready_with_context(&event, &context, &[("foreign", false)])
+            .is_err()
+    );
+    event.schema_version = 999;
+    assert!(matches!(
+        rules.evaluate_ready_with_context(&event, &context, &[]),
+        Err(RuleError::Invalid("event"))
+    ));
+    Ok(())
+}
 #[test]
 fn invalid_documents_fail_without_echoing_yaml() -> Result {
     let good = yaml("    all:\n      - field: message\n        exists: true");

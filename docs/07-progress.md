@@ -91,6 +91,20 @@ integration, actual engine gating and console states/blockers; full ONBOARDING
 and the release goal remain incomplete. Inventory:24accepted/28unfinished,
 including1in-progress item. External/release boundaries remain open.
 
+## Onboarding rule execution gate — 2026-10-14
+
+The generic engine gate passes4new regressions and6frozen gates:947default/
+1008all-feature tests, both strict Clippy modes, formatting and14workspace
+boundaries. Exact full loaded inventory is required; blocked matching rules
+produce no findings, enabled finding IDs/replay stay unchanged, invalid inventory
+refuses before evaluation and cancellation/deadline checks remain effective.
+[Contract53](53-onboarding-rule-gate.md), evidence:
+`target/onboarding-rules-20261014/ACCEPTANCE.json`. This gate is not wired into
+Main yet. Next coherent change: fresh trusted scoped host evidence, both Main
+paths, authorized assessment reads and console blockers. Coverage history still
+reports current_health=unknown and cannot substitute for a live health check.
+Full ONBOARDING remains in progress; inventory remains24accepted/28unfinished.
+
 ## Actual local Standard Kubernetes accepted — 2026-10-12
 
 Native CI now prepares one source/revision/architecture-bound executable bundle
