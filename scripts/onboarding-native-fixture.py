@@ -93,6 +93,14 @@ def exercise(root, repo, binding, profile, start, stop, request, coverage_reques
         return event_id
     checks = []
     try:
+        before = (root / 'wal/checkpoint').read_bytes()
+        mismatched = copy.deepcopy(policy)
+        mismatched['event_scope']['account'] = 'b'
+        policy_path.write_text(json.dumps(mismatched))
+        start({'SIGNAL_ONBOARDING_CONFIG': str(policy_path)}, fail=True)
+        assert (root / 'wal/checkpoint').read_bytes() == before
+        policy_path.write_text(json.dumps(policy))
+        checks.append('cross-account coverage/event policy refuses startup without changing WAL checkpoint')
         start({'SIGNAL_ONBOARDING_CONFIG': str(policy_path)})
         code, report = assess()
         assert code == 200 and report['stage'] == 'disconnected' and not report['detections'][0]['active']

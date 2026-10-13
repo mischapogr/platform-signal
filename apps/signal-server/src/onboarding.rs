@@ -194,6 +194,65 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn onboarding_account_restricted_coverage_must_match_event_account() -> Result {
+        let dir = tempfile::tempdir()?;
+        let (host, _, _) = setup(&dir.path().join("report.json"), Utc::now())?;
+        let mut binding = host.template["binding"].clone();
+        binding["observer_id"] = host.template["observer_id"].clone();
+        let budgets = signal_coverage::CoverageConfig::default();
+        let limits = json!({"max_payloads":budgets.max_payloads,"max_identities":budgets.max_identities,
+            "max_bindings":budgets.max_bindings,"max_ledger_bytes":budgets.max_ledger_bytes,
+            "max_database_pages":budgets.max_database_pages,"max_journal_bytes":budgets.max_journal_bytes,
+            "operation_capacity":budgets.operation_capacity,"transient_memory_bytes":budgets.transient_memory_bytes,
+            "worker_memory_bytes":budgets.worker_memory_bytes,"max_vm_steps":budgets.max_vm_steps,"operation_timeout_ms":1000});
+        let path = dir.path().join("coverage.json");
+        let configured = path.to_str().ok_or_else(invalid)?;
+        let settings = Settings::for_test(
+            "schema_version: 1\n",
+            &[
+                ("SIGNAL_COVERAGE_CONFIG", configured),
+                ("SIGNAL_ACCESS_CONFIG", "fixture-native-mode"),
+            ],
+        )?;
+        for account in [Some("acct"), Some("different-account"), None] {
+            let config = json!({"schema_version":1,"directory":dir.path().join("coverage"),"limits":limits,
+                "scopes":[{"binding_json":serde_json::to_string(&binding)?,"profile_json":host.policy.coverage_profile_json,
+                    "authority_revision":"fixture-v1","identity":{"scope_id":"fixture-scope","account_id":account,
+                        "writer_issuer":"https://identity.fixture.test","writer_subject":"fixture"},
+                    "max_report_age_seconds":60,"max_clock_skew_seconds":2,"payload_retention_seconds":300,"identity_retention_seconds":600}]});
+            std::fs::write(&path, serde_json::to_vec(&config)?)?;
+            // Parallel tests also exercise the process-wide, single-slot
+            // configuration worker. Retry only setup contention, with a fixed
+            // test deadline; schema and validation failures must still surface.
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let config = loop {
+                match crate::coverage_api::Configuration::load(&settings).await {
+                    Err(ConfigError::Full) if Instant::now() < deadline => {
+                        tokio::time::sleep(Duration::from_millis(5)).await;
+                    }
+                    result => break result?.ok_or_else(invalid)?,
+                }
+            };
+            let result = config.validate_onboarding(&host);
+            if account == Some("different-account") {
+                assert!(matches!(
+                    result,
+                    Err(ConfigError::Invalid(
+                        "onboarding coverage/event account mismatch"
+                    ))
+                ));
+            } else {
+                result?;
+            }
+        }
+        assert!(
+            !dir.path().join("coverage").exists(),
+            "validation must not open persistence"
+        );
+        Ok(())
+    }
+
     #[test]
     fn onboarding_valid_signature_does_not_override_missing_prerequisites_or_coverage() -> Result {
         let dir = tempfile::tempdir()?;
@@ -451,6 +510,9 @@ impl Host {
     }
     pub(crate) fn profile(&self) -> &CoverageProfile {
         &self.profile
+    }
+    pub(crate) fn event_account(&self) -> &str {
+        &self.policy.event_scope.account
     }
 
     fn detections(&self, evidence: Option<&Evidence>) -> Vec<Detection> {

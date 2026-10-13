@@ -129,6 +129,12 @@ impl Configuration {
         host: &crate::onboarding::Host,
     ) -> Result<(), ConfigError> {
         let scope = self.scopes.iter().find(|scope| matches!(&scope.auth, ScopeAuth::Native(identity) if identity.scope_id == host.scope_id())).ok_or(ConfigError::Invalid("onboarding coverage scope"))?;
+        if matches!(&scope.auth, ScopeAuth::Native(identity) if identity.account_id.as_deref().is_some_and(|account| account != host.event_account()))
+        {
+            return Err(ConfigError::Invalid(
+                "onboarding coverage/event account mismatch",
+            ));
+        }
         let profile = scope
             .profile
             .as_ref()
