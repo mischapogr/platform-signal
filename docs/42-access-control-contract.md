@@ -109,10 +109,11 @@ parameters remain optional user filters, not authorization controls.
 
 Operations are `ingest_events`, `query_events`, `read_findings`,
 `read_findings_feed`, `read_evidence`, `read_coverage`, `write_coverage`,
-`configure`, `manage_rules` and `read_audit`. These are distinct capabilities;
+`configure`, `manage_rules`, `read_audit` and `confirm_object_custody`.
+These are distinct capabilities;
 granting one never implies another. This enum does not create new HTTP routes.
 
-The findings journal feed and global configuration/rule/audit controls
+The findings journal feed, custody confirmation and global configuration/rule/audit controls
 have no scoped row contract. Their permissions require all dimensions to be
 explicit `all`; compilation rejects restricted scopes for those operations.
 Do not post-filter an unscoped cursor feed and claim scoped isolation. Finding scope metadata/history is implemented below; original-evidence reads
@@ -519,3 +520,16 @@ creates no SIGNAL login server, cookie session or mandatory provider dependency.
 Real live-provider/transport/rotation/native/CI/cloud/release evidence stays separate.
 No production Rust/build input changed: accepted strict718/769 remains source-bound.
 Evidence: `target/goal-execution-20261007/SECURITY-ACCESS/idp-acceptance.json`.
+
+## Object-custody confirmation — 2026-10-14
+
+The opt-in Standard custody API requires native identity plus the distinct
+`confirm_object_custody` capability. Its permission requires explicit `all`
+dimensions because there is no scoped-row contract. The server independently
+binds every description to its configured control scope, backend, key prefix,
+retention floor and authority revision. Ingest permission alone is insufficient.
+The handler checks the identity lease again after receipt coordination and
+before disclosing bounded no-store confirmation. Producer permission is fresh,
+nonce-bound and finite; receipt metadata cannot serve as a durable grant.
+See [object custody](51-object-custody.md) for configuration, SDK and local
+simulated acceptance. Actual AWS and release qualification remain separate.

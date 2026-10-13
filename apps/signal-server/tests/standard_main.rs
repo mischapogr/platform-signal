@@ -11,6 +11,13 @@ use std::{fs, path::PathBuf, time::Duration};
 use tokio::time::timeout;
 use uuid::Uuid;
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+#[path = "support/standard_custody_sdk.rs"]
+mod standard_custody_sdk;
+#[tokio::test]
+#[ignore = "actual Standard custody process fixture only"]
+async fn standard_custody_sdk_client() -> Result {
+    standard_custody_sdk::qualify().await
+}
 const DB: &str = "signal_standard_main";
 #[path = "support/standard_restore.rs"]
 mod standard_restore;
@@ -256,6 +263,16 @@ async fn standard_offline_fixture() -> Result {
         let rejected=producer.metrics().rejected;
         assert!(matches!(producer.verify_producer_credentials("signal_control_owner".into(),cancelled).await,Err(signal_control::ControlError::Cancelled)));
         assert_eq!(producer.metrics().rejected,rejected);
+        if std::env::var("SIGNAL_STANDARD_CUSTODY").as_deref()==Ok("true") {
+            assert!(matches!(producer.verify_custody_producer_credentials("signal_control_owner".into(),context()?).await,Err(signal_control::ControlError::Fenced)));
+            timeout(Duration::from_secs(2),db.batch_execute("GRANT EXECUTE ON FUNCTION signal_control.record_receipt(jsonb,bytea,bytea,bytea) TO signal_standard_producer")).await??;
+            producer.verify_custody_producer_credentials("signal_control_owner".into(),context()?).await?;
+            timeout(Duration::from_secs(2),db.batch_execute("GRANT UPDATE(checkpoint) ON signal_control.partitions TO signal_standard_producer")).await??;
+            assert!(matches!(producer.verify_custody_producer_credentials("signal_control_owner".into(),context()?).await,Err(signal_control::ControlError::Fenced)));
+            timeout(Duration::from_secs(2),db.batch_execute("REVOKE UPDATE(checkpoint) ON signal_control.partitions FROM signal_standard_producer")).await??;
+            producer.verify_custody_producer_credentials("signal_control_owner".into(),context()?).await?;
+            assert!(matches!(producer.verify_producer_credentials("signal_control_owner".into(),context()?).await,Err(signal_control::ControlError::Fenced)));
+        }
         producer.shutdown(context()?).await?;
         println!("phase: Standard-producer-verified-TLS-owner-reader-table-column-DDL-precancel-qualification-complete");
         use base64::Engine;

@@ -189,6 +189,13 @@ class Handler(BaseHTTPRequestHandler):
         headers={'ETag':'"'+meta['etag']+'"','x-amz-version-id':meta['version'],'Last-Modified':'Fri, 10 Jul 2026 18:00:00 GMT','Content-Type':'application/octet-stream'}
         body=(self.server.root/'objects'/meta['file']).read_bytes()
         if mode=='corrupt-data' and key.endswith('.parquet') and body:body=bytes([body[0]^1])+body[1:]
+        policy_path=self.server.root/'custody-policy.json'
+        if policy_path.exists():
+            policy=read_json(policy_path,4096)
+            if key==policy.get('key'):
+                if self.headers.get('x-amz-expected-bucket-owner')!=policy.get('owner'):
+                    self.error(403,'AccessDenied');return
+                headers.update({'x-amz-object-lock-mode':policy['mode'],'x-amz-object-lock-retain-until-date':policy['retain_until']})
         self.response(200,body,headers)
     def guarded(self):
         try:self.handle_request()

@@ -30,11 +30,12 @@ impl ConfiguredCustodyVerifier {
         if binding.backend.is_nil()
             || binding.authority_revision == [0; 32]
             || binding.key_prefix.is_empty()
-            || binding.key_prefix.len() > 512
+            || binding.key_prefix.len() >= 512
             || binding.key_prefix.capacity() > 512
             || !binding.key_prefix.ends_with('/')
             || binding.key_prefix.starts_with('/')
             || binding.key_prefix.chars().any(char::is_control)
+            || binding.key_prefix.contains(['\\', '%', '?', '#'])
             || binding
                 .key_prefix
                 .strip_suffix('/')
@@ -49,6 +50,9 @@ impl ConfiguredCustodyVerifier {
     }
     pub fn authority_revision(&self) -> [u8; 32] {
         self.binding.authority_revision
+    }
+    pub fn configured_scope(&self) -> &Scope {
+        &self.binding.scope
     }
     fn bound(&self, description: &ObjectCustodyDescription) -> Result<(), ControlError> {
         description.validate()?;

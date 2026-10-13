@@ -76,7 +76,11 @@ mod host {
             cancellation: CancellationToken::new(),
         }
     }
-    fn remote(settings: &Settings, resources: &mut StartupResources) -> Result<(), AppError> {
+    fn remote(
+        settings: &Settings,
+        doc: &standard_config::Document,
+        resources: &mut StartupResources,
+    ) -> Result<(), AppError> {
         let required = |name| {
             settings
                 .optional(name)?
@@ -133,6 +137,22 @@ mod host {
             )
             .map_err(StorageError::ObjectIo)?,
         ));
+        if let Some(c) = &doc.custody {
+            let (store, _) = object_s3::build(&cfg, &credentials)
+                .map_err(|_| StorageError::Config("custody S3 adapter"))?;
+            let (reader, _) =
+                object_s3::build_custody_reader(&cfg, &credentials, &c.expected_bucket_owner)
+                    .map_err(|_| StorageError::Config("custody S3 retention adapter"))?;
+            resources.custody_io = Some(Arc::new(
+                ObjectIo::remote_retained(
+                    Arc::new(store),
+                    reader,
+                    tokio::runtime::Handle::current(),
+                    limits,
+                )
+                .map_err(StorageError::ObjectIo)?,
+            ));
+        }
         Ok(())
     }
     struct Sink {
@@ -266,6 +286,7 @@ mod host {
         sink: Arc<Sink>,
         findings: Arc<SharedFindings>,
         feed: Arc<SharedFindingsFeed>,
+        custody: Option<Arc<signal_server::shared_custody_api::CustodyApi>>,
     }
     async fn shared_metrics(State(state): State<MetricsState>) -> String {
         let s = state.sink;
@@ -326,6 +347,14 @@ mod host {
             ("feed_callers", feed.active_callers, feed.caller_capacity),
         ];
         let mut out = String::with_capacity(4096);
+        if let Some(api) = &state.custody {
+            let m = api.metrics();
+            let _ = writeln!(
+                &mut out,
+                "signal_shared_custody_requests_depth {}\nsignal_shared_custody_requests_capacity {}\nsignal_shared_custody_confirmed_total {}\nsignal_shared_custody_rejected_total {}",
+                m.depth, m.capacity, m.confirmed, m.rejected
+            );
+        }
         for (name, depth, capacity) in rows {
             let _ = writeln!(
                 &mut out,
@@ -539,6 +568,7 @@ mod host {
         publisher: Option<Arc<SharedPublisher>>,
         publish_io: Option<Arc<ObjectIo>>,
         query_io: Option<Arc<ObjectIo>>,
+        custody_io: Option<Arc<ObjectIo>>,
         publish_codec: Option<Arc<ObjectCodec>>,
         query_codec: Option<Arc<ObjectCodec>>,
         source: Option<Arc<SharedQuerySource>>,
@@ -587,6 +617,13 @@ mod host {
                 );
             }
             if let Some(io) = &self.query_io {
+                collect!(
+                    io.shutdown(io_context(deadline))
+                        .await
+                        .map_err(StorageError::ObjectIo)
+                );
+            }
+            if let Some(io) = &self.custody_io {
                 collect!(
                     io.shutdown(io_context(deadline))
                         .await
@@ -745,12 +782,21 @@ mod host {
             let (control, reader) = doc.clients(&settings)?;
             resources.control = Some(control.clone());
             resources.reader = Some(reader.clone());
-            control
-                .verify_producer_credentials(
-                    doc.schema_owner.clone(),
-                    context(&stopping)?.limited_to(startup.deadline()),
-                )
-                .await?;
+            if doc.custody.is_some() {
+                control
+                    .verify_custody_producer_credentials(
+                        doc.schema_owner.clone(),
+                        context(&stopping)?.limited_to(startup.deadline()),
+                    )
+                    .await?;
+            } else {
+                control
+                    .verify_producer_credentials(
+                        doc.schema_owner.clone(),
+                        context(&stopping)?.limited_to(startup.deadline()),
+                    )
+                    .await?;
+            }
             let (wal, wal_ready) =
                 DurableBuffer::begin_open_with_recovery(cfg.wal_config, RECOVERY_BYTES)?;
             let wal = Arc::new(wal);
@@ -759,7 +805,7 @@ mod host {
             if wal.snapshot().stream_id != doc.scope.stream {
                 return Err(ControlError::Fenced.into());
             }
-            remote(&settings, &mut resources)?;
+            remote(&settings, &doc, &mut resources)?;
             let publish_codec = Arc::new(ObjectCodec::new(
                 cfg.storage_config.clone(),
                 ManifestLimits::default(),
@@ -929,12 +975,33 @@ mod host {
                 )
                 .map_err(|_| ControlError::Invalid)?,
             );
+            let custody = doc
+                .custody
+                .as_ref()
+                .map(|c| {
+                    let objects = resources.custody_io.clone().ok_or(ControlError::Invalid)?;
+                    let verifier = Arc::new(
+                        signal_server::shared_custody::ConfiguredCustodyVerifier::new(
+                            c.binding(&doc),
+                            objects,
+                        )?,
+                    );
+                    signal_server::shared_custody_api::CustodyApi::new(
+                        sink.control.clone(),
+                        token.clone(),
+                        verifier,
+                        identity.clone(),
+                        stopping.clone(),
+                    )
+                })
+                .transpose()?;
             let extras = Router::new()
                 .route("/metrics/shared", get(shared_metrics))
                 .with_state(MetricsState {
                     sink: sink.clone(),
                     findings: findings.clone(),
                     feed: feed.clone(),
+                    custody: custody.clone(),
                 });
             let mut router = service
                 .router()
@@ -963,6 +1030,9 @@ mod host {
                 .merge(ui::router());
             if let Some(c) = &coverage {
                 router = router.merge(c.router());
+            }
+            if let Some(api) = &custody {
+                router = router.merge(api.router());
             }
             let listener = timeout_at(
                 (Instant::now() + Duration::from_secs(5)).min(startup.deadline()),

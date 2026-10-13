@@ -1,4 +1,21 @@
 use super::*;
+#[test]
+fn wire_description_preserves_existing_control_bytes_and_digest() -> Result<(), ControlError> {
+    let original = description();
+    let wire = signal_protocol::object_custody::Description::from(&original);
+    assert_eq!(
+        serde_json::to_vec(&original).map_err(|_| ControlError::Invalid)?,
+        serde_json::to_vec(&wire).map_err(|_| ControlError::Invalid)?
+    );
+    assert_eq!(
+        original.digest()?,
+        wire.digest().map_err(|_| ControlError::Invalid)?
+    );
+    let decoded = ObjectCustodyDescription::try_from(wire)?;
+    assert_eq!(decoded, original);
+    assert_eq!(decoded.input()?.reference, original.input()?.reference);
+    Ok(())
+}
 use std::sync::{
     Mutex,
     atomic::{AtomicU64, AtomicUsize, Ordering},

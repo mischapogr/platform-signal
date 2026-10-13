@@ -2,6 +2,34 @@
 
 use super::*;
 use serde_json::{Value, json};
+#[test]
+fn custody_permission_is_explicit_and_refuses_uncontracted_row_selectors() {
+    assert!(
+        policy(vec![Role {
+            id: "custody".into(),
+            permissions: vec![permission(
+                Operation::ConfirmObjectCustody,
+                scope("account-a")
+            )]
+        }])
+        .compile()
+        .is_err()
+    );
+    let native = grant(policy(vec![Role {
+        id: "custody".into(),
+        permissions: vec![permission(
+            Operation::ConfirmObjectCustody,
+            ResourceScope::all(),
+        )],
+    }]));
+    assert!(
+        native
+            .scopes(Operation::ConfirmObjectCustody, 120)
+            .next()
+            .is_some()
+    );
+    assert!(native.scopes(Operation::IngestEvents, 120).next().is_none());
+}
 use signal_event::IngestEvent;
 
 const ISSUER: &str = "https://identity.example.test";

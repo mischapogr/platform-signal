@@ -23,13 +23,67 @@ pub struct ObjectCustodyDescription {
     pub sha256: [u8; 32],
     pub retain_until: DateTime<Utc>,
 }
+impl From<&ObjectCustodyDescription> for signal_protocol::object_custody::Description {
+    fn from(d: &ObjectCustodyDescription) -> Self {
+        Self {
+            schema_version: d.schema_version,
+            id: d.id,
+            scope: signal_protocol::object_custody::Scope {
+                schema_version: d.scope.schema_version,
+                store_id: d.scope.store_id,
+                generation: d.scope.generation,
+                tenant: d.scope.tenant.clone(),
+                stream: d.scope.stream,
+                partition_id: d.scope.partition_id,
+            },
+            object: signal_protocol::object_custody::ObjectReference {
+                schema_version: d.object.schema_version,
+                backend_id: d.object.backend_id,
+                key: d.object.key.clone(),
+                version: d.object.version.clone(),
+            },
+            bytes: d.bytes,
+            sha256: d.sha256,
+            retain_until: d.retain_until,
+        }
+    }
+}
+impl TryFrom<signal_protocol::object_custody::Description> for ObjectCustodyDescription {
+    type Error = ControlError;
+    fn try_from(d: signal_protocol::object_custody::Description) -> Result<Self, ControlError> {
+        d.validate().map_err(|_| ControlError::Invalid)?;
+        let result = Self {
+            schema_version: d.schema_version,
+            id: d.id,
+            scope: Scope {
+                schema_version: d.scope.schema_version,
+                store_id: d.scope.store_id,
+                generation: d.scope.generation,
+                tenant: d.scope.tenant,
+                stream: d.scope.stream,
+                partition_id: d.scope.partition_id,
+            },
+            object: CanonicalObjectRef {
+                schema_version: d.object.schema_version,
+                backend_id: d.object.backend_id,
+                key: d.object.key,
+                version: d.object.version,
+            },
+            bytes: d.bytes,
+            sha256: d.sha256,
+            retain_until: d.retain_until,
+        };
+        result.validate()?;
+        Ok(result)
+    }
+}
 impl ObjectCustodyDescription {
     pub fn validate(&self) -> Result<(), ControlError> {
         self.scope.validate()?;
         self.object.validate()?;
         if self.schema_version != 1
             || self.id.is_nil()
-            || self.object.version == "null"
+            || matches!(self.object.version.as_str(), "null" | "*")
             || self.bytes == 0
             || self.bytes > 64 * 1024 * 1024
             || self.sha256 == [0; 32]

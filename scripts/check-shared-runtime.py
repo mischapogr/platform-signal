@@ -336,9 +336,11 @@ def main():
     parser.add_argument('--matrix', action='store_true', help='owned persistent volume and abrupt database restart qualification')
     parser.add_argument('--custody-only', action='store_true', help='focused actual PostgreSQL/object-file custody coordinator; simulated retention authority')
     parser.add_argument('--custody-server-only', action='store_true', help='composed configured server custody with PostgreSQL TLS and signed S3; simulated retention authority')
+    parser.add_argument('--custody-api-only', action='store_true', help='actual mTLS custody API/provider and SDK producer on composed PostgreSQL/S3 fixture')
     parser.add_argument('--server', action='store_true', help='actual monolithic server publication/rules/query coordinator qualification')
     parser.add_argument('--standard', action='store_true', help='actual Standard executable with owned TLS and persistent S3 protocol fixture')
     parser.add_argument('--standard-only', action='store_true', help='focused Standard process calibration; excludes library and crash matrices')
+    parser.add_argument('--standard-custody-only',action='store_true',help='actual Standard Main custody API and native SDK producer; excludes other matrices')
     parser.add_argument('--standard-kubernetes-image', help='qualify this local image in an owned Standard kind cluster; requires --standard-only')
     parser.add_argument('--standard-server', type=Path, default=ROOT/'target/debug/signal-server', help='prebuilt Standard executable')
     parser.add_argument('--standard-offline-fixture', type=Path, help='prebuilt exact Standard enrollment test executable; skips runtime Cargo')
@@ -347,13 +349,17 @@ def main():
     parser.add_argument('--standard-restore-only',action='store_true',help='fresh scoped destination and actual restored Standard/private progress; excludes full matrices')
     parser.add_argument('--private-checkout',type=Path,default=ROOT.parent/'platform-signal-private')
     args = parser.parse_args()
-    if (args.custody_only or args.custody_server_only) and (args.matrix or args.server or args.standard or args.standard_only
+    if (args.custody_only or args.custody_server_only or args.custody_api_only) and (args.matrix or args.server or args.standard or args.standard_only
                              or args.standard_kubernetes_image or args.standard_offline_fixture
-                             or args.standard_audit_only or args.standard_private_only or args.standard_restore_only
-                             or (args.custody_only and args.custody_server_only)):
+                             or args.standard_audit_only or args.standard_private_only or args.standard_restore_only or args.standard_custody_only
+                             or sum((args.custody_only,args.custody_server_only,args.custody_api_only))>1):
         parser.error('custody profiles exclude each other and other profiles')
     if args.standard_kubernetes_image and not args.standard_only:
         parser.error('--standard-kubernetes-image requires --standard-only')
+    if args.standard_custody_only:
+        if args.matrix or args.server or args.standard or args.standard_only or args.standard_audit_only or args.standard_private_only or args.standard_restore_only:
+            parser.error('--standard-custody-only excludes other profiles')
+        args.standard=True
     if args.standard_restore_only:
         if args.matrix or args.server or args.standard_only or args.standard_audit_only or args.standard_private_only:parser.error('--standard-restore-only excludes other focused/full matrices')
         args.standard=True
@@ -377,7 +383,7 @@ def main():
     began = time.monotonic()
     # Expanded control/restore and server crash matrices need separate harness
     # headroom. This never extends any production operation context or SQL timeout.
-    focused=args.standard_only or args.standard_audit_only or args.standard_private_only or args.standard_restore_only
+    focused=args.standard_only or args.standard_audit_only or args.standard_private_only or args.standard_restore_only or args.standard_custody_only
     combined_standard=args.standard and not focused
     fixture_seconds=FIXTURE_SECONDS+(STANDARD_SECONDS if combined_standard else 0)
     if args.standard_kubernetes_image:
@@ -520,24 +526,33 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
                                *list((ROOT/'crates/signal-storage/src').rglob('*.rs')),ROOT/'crates/signal-storage/Cargo.toml',
                                *list((ROOT/'crates/signal-query/src').rglob('*.rs')),ROOT/'crates/signal-query/Cargo.toml',
                                ROOT/'schemas/shared-control/v1.json',ROOT/'schemas/shared-control/001.sql',ROOT/'schemas/shared-control/002-functions.sql',ROOT/'schemas/shared-control/003-administration.sql',ROOT/'schemas/shared-control/004-restore.sql',ROOT/'schemas/shared-control/005-catalog.sql',ROOT/'schemas/shared-control/005-catalog.sha256',ROOT/'schemas/shared-control/007-finding-scope.sql',ROOT/'schemas/shared-control/007-finding-scope-catalog.sha256',ROOT/'schemas/shared-control/008-scoped-publication.sql',ROOT/'schemas/shared-control/008-scoped-publication-catalog.sha256',ROOT/'schemas/shared-control/008-scoped-publication-functions.sha256',ROOT/'schemas/shared-control/006-catalog-restore.sql',ROOT/'schemas/shared-control/006-catalog.sha256',ROOT/'schemas/shared-control/003-catalog.sha256',ROOT/'schemas/shared-control/004-catalog.sha256',ROOT/'schemas/shared-control/catalog-query.sql',ROOT/'schemas/shared-control/002-catalog.sha256'])}
-        if args.server or args.standard or args.custody_server_only:
+        if args.server or args.standard or args.custody_server_only or args.custody_api_only:
             for source_name in ('tests/integration/shared-feed-provider.py', 'tests/integration/access-server-process.py', 'scripts/check-object-query.py','scripts/check-audit-role-composition.py','scripts/check-audit-receiver-permissions.py'):
                 report['source_hashes'][source_name]=hashlib.sha256((ROOT/source_name).read_bytes()).hexdigest()
             for path in sorted([ROOT/'apps/signal-server/Cargo.toml', *list((ROOT/'apps/signal-server/src').rglob('*.rs')), *list((ROOT/'apps/signal-server/tests').rglob('*.rs')), ROOT/'crates/signal-buffer/Cargo.toml', *list((ROOT/'crates/signal-buffer/src').rglob('*.rs'))]):
                 report['source_hashes'][str(path.relative_to(ROOT))]=hashlib.sha256(path.read_bytes()).hexdigest()
-        if args.custody_server_only:
-            test_output=run(['cargo','test','--locked','--offline','-p','signal-server','--features','s3-query',
+        if args.custody_api_only or args.standard_custody_only:
+            for crate in ('signal-collector-sdk','signal-protocol','signal-ingest'):
+                for path in sorted([ROOT/'crates'/crate/'Cargo.toml',*list((ROOT/'crates'/crate/'src').rglob('*.rs'))]):
+                    report['source_hashes'][str(path.relative_to(ROOT))]=hashlib.sha256(path.read_bytes()).hexdigest()
+        if args.custody_server_only or args.custody_api_only:
+            test_output=run(['python3','tests/integration/shared-feed-provider.py','--custody-only'],90,env) if args.custody_api_only else run(['cargo','test','--locked','--offline','-p','signal-server','--features','s3-query',
                             '--test','shared','custody::runtime::postgres_tls_s3_configured_custody',
                             '--','--ignored','--exact','--nocapture'],60,env)
             expected=['composed-custody-real-PG-TLS-signed-S3-exact-replay-conflict-qualified',
                       'composed-custody-postcommit-denial-governance-quota-original-retained-qualified',
                       'composed-custody-observed-COMMIT-physical-drain-same-id-authority-qualified',
                       'composed-custody-current-owner-reopen-checked-permit-independent-original-qualified']
+            if args.custody_api_only:
+                expected.extend(['custody-authenticated-mTLS-API-producer-fresh-replay-denial-expiry-original-qualified',
+                                 'custody-live-TLS-provider-authenticated-peer-producer-qualified'])
             if (any(test_output.splitlines().count('phase: '+name)!=1 for name in expected)
                     or len(re.findall(r'^test result: ok\. 1 passed; 0 failed; 0 ignored;',test_output,re.MULTILINE))!=1):
                 raise ValueError('exact composed server custody qualification missing')
             report['checks'].extend(expected)
             report['scope']='Configured server verifier with actual PostgreSQL TLS and signed exact-version S3 protocol; replay/conflict/quota/postcommit denial/governance/observed uncertain COMMIT/authority/takeover/reopen and checked test-only original release; provider retention simulated; no authenticated server API/producer network/AWS proof'
+            if args.custody_api_only:
+                report['scope']='Actual PostgreSQL TLS/signed S3 protocol/native TLS identity/mTLS custody API and SDK producer fresh nonce/expiry/replay/denial/original retention/restart flow; provider retention simulated; separately hosted native route, not actual Standard Main mount or AWS proof'
         elif args.custody_only:
             test_output=run(['cargo','test','--locked','--offline','-p','signal-control','--test','postgres',
                             'postgres_object_custody_coordinator','--','--ignored','--exact','--nocapture'],60,env)
@@ -550,7 +565,7 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
                 raise ValueError('exact real PostgreSQL custody qualification missing')
             report['checks'].extend(expected)
             report['scope']='Actual PostgreSQL TLS receipt replay/conflict/quota/observed COMMIT uncertainty/takeover/reopen and independent immutable file copies; retention authority simulated; no server/API/producer network or AWS proof'
-        elif not (args.standard_only or args.standard_audit_only or args.standard_private_only or args.standard_restore_only):
+        elif not (args.standard_only or args.standard_audit_only or args.standard_private_only or args.standard_restore_only or args.standard_custody_only):
             test_output=run(['cargo','test','--locked','--offline','-p','signal-control','--test','postgres','postgres_lease_authority_and_cancellation',
                  '--','--ignored','--exact','--nocapture'],150,env)
             qualify_test_output(test_output)
@@ -617,7 +632,7 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
             report['checks'].append('actual_current_generation_scope_activation_enrollment_counters_replay_and_stale_startup_fencing')
             report['checks'].append('actual_stopped_finding_scope_schema_activation_enrollment_original_prefix_and_denied_runtime_access')
             report['checks'].extend(['actual_global_feed_explicit_select_authority_original_prefix_and_fixed_snapshot', 'actual_restored_global_feed_fresh_read_credentials_and_generation', 'actual_explicit_initialization_populated_checksummed_migration_and_rollback', 'actual_stopped_restore_fresh_generation_history_current_authority_and_custody', 'actual_lease_fencing_competition_permissions_and_cancelled_seats', 'actual_atomic_publication_receipts_exact_feed_and_global_dedup', 'actual_conflict_quota_rollback_concurrent_publication', 'actual_snapshot_exact_replay_expiry_reclamation_and_scope', 'actual_global_exact_version_retirement_and_retention_pins', 'actual_notification_attempt_fencing_and_charged_uncertain_history', 'actual_late_commit_reply_uncertainty_and_current_authority_resolution'])
-        if args.standard_only or args.standard_audit_only or args.standard_private_only or args.standard_restore_only:
+        if args.standard_only or args.standard_audit_only or args.standard_private_only or args.standard_restore_only or args.standard_custody_only:
             report['scope']='Focused actual Standard executable, owned PostgreSQL TLS and persistent loopback S3 protocol simulation only; no full library/crash matrix, AWS, ARM64 or release proof'
         if args.standard:
             for source_name in ('tests/integration/standard-main-process.py','tests/integration/transport-server-process.py','scripts/fixtures/s3-query-server.py','apps/signal-server/tests/standard_main.rs','tests/fixtures/source-coverage/backend-vectors.json','scripts/check-object-query.py'):
@@ -626,7 +641,7 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
                 for path in sorted((ROOT/component).rglob('*.rs')):report['source_hashes'][str(path.relative_to(ROOT))]=hashlib.sha256(path.read_bytes()).hexdigest()
             for source_name in ('crates/signal-collector-sdk/src/audit.rs','crates/signal-protocol/src/audit.rs'):
                 report['source_hashes'][source_name]=hashlib.sha256((ROOT/source_name).read_bytes()).hexdigest()
-            scenario='restore' if args.standard_restore_only else 'private' if args.standard_private_only else 'audit' if args.standard_audit_only else 'pipeline'
+            scenario='custody' if args.standard_custody_only else 'restore' if args.standard_restore_only else 'private' if args.standard_private_only else 'audit' if args.standard_audit_only else 'pipeline'
             if args.standard_kubernetes_image:
                 for source in ('scripts/check-standard-kubernetes.py', 'scripts/check-kubernetes.py', 'scripts/fixtures/standard-kubernetes.py',
                                'deploy/helm/signal/templates/deployment.yaml', 'deploy/helm/signal/templates/configmap.yaml',
@@ -652,6 +667,14 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
                     raise ValueError('Standard Kubernetes runtime acceptance missing')
                 report['checks'].append('actual_Standard_kind_image_regular_Secret_mounts_original_WAL_PVC_SIGKILL_and_replacement_recovery')
                 report['scope'] = standard_report['scope']
+            elif args.standard_custody_only:
+                if (standard_report.get('status')!='passed_simulated' or standard_report.get('binary_sha256')!=report['standard_binary_sha256']
+                        or standard_report.get('child_capacity')!=3 or standard_report.get('log_capacity')!=24
+                        or not 3<=standard_report.get('provider_calls',0)<=64 or len(standard_report.get('scenarios',[]))!=1
+                        or standard_report['scenarios'][0].get('name')!='actual_Standard_Main_selected_custody_mTLS_SDK_explicit_permission_stopped_original_restart_fresh_release'):
+                    raise ValueError('actual Standard Main custody acceptance missing')
+                report['checks'].append('actual_Standard_Main_selected_custody_mTLS_SDK_explicit_permission_stopped_original_restart_fresh_release')
+                report['scope']=standard_report['scope']
             elif args.standard_restore_only:
                 qualify_standard_restore_report(standard_report,report['standard_binary_sha256'])
                 if private_source_hashes(args.private_checkout)!=report['private_source_hashes']:raise RuntimeError('private consumer source changed during restore qualification')

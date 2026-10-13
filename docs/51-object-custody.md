@@ -1,7 +1,8 @@
 # Generic object-backed custody v1
 
-Status: implementation slice; OBJECT-CUSTODY remains incomplete until trusted
-object-adapter, actual PostgreSQL, server/API and producer-retention acceptance.
+Status: local simulated acceptance, 2026-10-14. Trusted object verification,
+actual PostgreSQL coordination, authenticated API and producer retention pass.
+Actual AWS retention and account/AZ isolation remain external gates.
 This follows [the reliability contract](27-product-architecture.md#5-reliability-objectives-and-custody).
 HTTP202 remains synced local WAL admission. Query publication, completed
 detection and M3 protected-original validation remain separate.
@@ -43,9 +44,9 @@ Retry uses the original immutable description and fresh verification.
 The in-process permit is opaque, non-cloneable and non-deserializable; it expires
 with the operation/cancellation context and retention deadline. Serialized receipt
 metadata is not a persistent authorization or source ACK. A restarted producer
-must obtain fresh authenticated confirmation. No automatic producer deletion,
-HTTP endpoint, schema bootstrap, replica increase or provider DELETE is added by
-this library slice. Adapters retain physical I/O ownership on dropped futures.
+must obtain fresh authenticated confirmation. The SDK never automatically deletes the original or acknowledges a source.
+Adapters retain physical I/O ownership on dropped futures. There is no provider
+DELETE, schema bootstrap or replica increase.
 
 ## Required completion evidence
 
@@ -56,3 +57,44 @@ restart. Qualify real PostgreSQL record replay/quota/fencing and independently
 retained pinned objects, then actual authenticated server/API and producer
 relinquishment. Measure only the stated failure model; local simulation does not
 prove AWS/AZ/account-loss custody.
+
+## Authenticated Standard API and producer SDK
+
+The optional Standard `custody` configuration supplies `schema_version: 1`,
+`key_prefix`, `expected_bucket_owner` (12 digits), `authority_revision` (32 bytes, not all zero) and a future UTC `required_until`. The key prefix must
+lie beneath `query/<configured-stream>/`. Configuration is private deployment
+policy. Startup requires the selected producer role's explicit `record_receipt`
+RPC capability before opening the WAL or becoming ready. Default producer and
+lifecycle profiles retain their narrower privileges.
+
+With this configuration, native mandatory-mTLS Standard mounts
+`POST /v1/custody/confirm`. Authentication requires the distinct
+`confirm_object_custody` permission with explicit `all` dimensions; ingest does
+not imply it. A strict JSON request contains `schema_version: 1`, a fresh
+`request_nonce` and the immutable `description`. The body caps at64KiB and
+concurrent requests at4. The entire operation shares a five-second cancellation
+and deadline context, including authentication, both retained reads, receipt
+coordination and final permission checks. Success returns200 with no-store
+confirmation metadata; HTTP202 remains synced WAL admission.
+
+`signal_collector_sdk::object_custody::ObjectCustodyClient` uses a separately
+configured HTTPS endpoint, bearer credential and trusted TLS configuration. It
+generates a new nonce for every attempt, validates the exact description/digest
+and returns an opaque `FreshCustodyPermit`. Its single physical HTTP worker
+retains ownership through cancellation. Permission expires against the original
+request's monotonic deadline, server elapsed-plus-remaining budget, identity
+lease and UTC retention horizon. A saved response cannot authorize a restart.
+The application must call `checked_confirmation` immediately before any
+explicit original-copy release; failed or uncertain confirmation keeps the copy.
+
+## Local acceptance — 2026-10-14
+
+`target/object-custody-api-20261012/ACCEPTANCE.json` records12 frozen gates:
+932 default and993 all-feature tests, both strict Clippy modes,14 workspace
+boundaries and36 launcher guards. Actual PostgreSQL TLS, signed S3 protocol,
+native identity/mTLS API and SDK pass in13.56s. The actual Standard executable
+and SDK pass in38.34s, retaining originals after PUT-only or stopped-server
+attempts, denying ingest-only permission, and obtaining fresh confirmation of
+the same description after restart before explicit test-only release.
+Owned resources are removed. Provider retention is simulated; this does not
+qualify AWS/AZ/account loss, native ARM64, current images or a release.
