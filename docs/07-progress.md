@@ -136,6 +136,10 @@ inventory:25accepted/27unfinished (12local/13simulated/21pending/0in-progress/
 6external). Source/vendor checks and retention are synthetic, not actual AWS or
 release proof. Next: RELEASE-REVIEW; Phase9 remains separately scoped.
 
+## RELEASE-REVIEW local acceptance — 2026-10-14
+
+RELEASE-REVIEW passes focused local acceptance — 2026-10-14. Independent review covers durability, replay, cancellation, scope, quotas and production hazards. Account binding, ACK retry deadline and outdated security responsibilities are corrected. Frozen 9 gates pass: 954 default / 1015 all-feature tests, both strict Clippy modes, formatting, 14 workspace boundaries, actual Small and enabled Standard/browser regressions. Evidence: `target/release-review-20261014/ACCEPTANCE.json`. Current inventory: 26 accepted / 26 unfinished (13 local, 13 simulated, 20 pending, 6 external). Next: UPGRADE; current native CI, actual AWS/EKS/vendor and release gates remain open.
+
 ## Actual local Standard Kubernetes accepted — 2026-10-12
 
 Native CI now prepares one source/revision/architecture-bound executable bundle

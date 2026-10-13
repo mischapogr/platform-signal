@@ -304,17 +304,35 @@ async fn consume_inner(
         pending_since = None;
         // A bounded WAL command queue may be busy with admissions. Retry the control
         // command without re-persisting the batch; storage has already committed it.
-        loop {
-            let result = tokio::select! {
-                biased;
+        checkpoint_batch(&pipeline.buffer, last, deadline, &cancel).await?;
+    }
+}
+
+async fn checkpoint_batch(
+    buffer: &DurableBuffer,
+    last: u64,
+    deadline: Instant,
+    cancel: &CancellationToken,
+) -> Result<(), PipelineError> {
+    loop {
+        if cancel.is_cancelled() {
+            return Err(PipelineError::Cancelled);
+        }
+        if Instant::now() >= deadline {
+            return Err(PipelineError::Deadline);
+        }
+        let result = tokio::select! { biased;
+            _ = cancel.cancelled() => return Err(PipelineError::Cancelled),
+            result = buffer.ack_at(last, deadline) => result,
+        };
+        match result {
+            Ok(()) => return Ok(()),
+            Err(BufferError::Full) => tokio::select! { biased;
                 _ = cancel.cancelled() => return Err(PipelineError::Cancelled),
-                result = pipeline.buffer.ack(last) => result,
-            };
-            match result {
-                Ok(()) => break,
-                Err(BufferError::Full) => pause(&cancel).await?,
-                Err(error) => return Err(error.into()),
-            }
+                _ = tokio::time::sleep_until(deadline) => return Err(PipelineError::Deadline),
+                _ = sleep(Duration::from_millis(10)) => {},
+            },
+            Err(error) => return Err(error.into()),
         }
     }
 }
@@ -508,6 +526,79 @@ mod tests {
             operation_timeout: Duration::from_secs(5),
             flush_interval: Duration::from_secs(10),
         }
+    }
+    #[tokio::test]
+    async fn ack_contention_keeps_original_deadline_and_replayable_checkpoint() -> Result {
+        let temp = TempDir::new()?;
+        let (mut wal, storage) = configs(&temp);
+        wal.command_capacity = 1;
+        let pipeline = open(wal.clone(), storage).await?;
+        pipeline
+            .buffer
+            .admit(event("persisted before ACK")?)
+            .await?;
+        let rows = pipeline.buffer.read_batch(1, 8192).await?;
+        pipeline
+            .store
+            .append(
+                &[StoredEvent {
+                    sequence: rows[0].sequence,
+                    event: rows[0].event.clone(),
+                }],
+                OperationContext::new(Duration::from_secs(5)),
+            )
+            .await?;
+        // An unpolled completion retains the sole operation permit, forcing
+        // real WAL Full replies throughout the ACK retry window.
+        let mut occupied = Box::pin(pipeline.buffer.read_batch(1, 8192));
+        std::future::poll_fn(|context| {
+            assert!(std::future::Future::poll(occupied.as_mut(), context).is_pending());
+            std::task::Poll::Ready(())
+        })
+        .await;
+        assert_eq!(pipeline.buffer.snapshot().operations_in_flight, 1);
+        let start = Instant::now();
+        let result = tokio::time::timeout(
+            Duration::from_secs(1),
+            checkpoint_batch(
+                &pipeline.buffer,
+                1,
+                start + Duration::from_millis(40),
+                &CancellationToken::new(),
+            ),
+        )
+        .await?;
+        assert!(matches!(result, Err(PipelineError::Deadline)));
+        assert!(start.elapsed() < Duration::from_millis(500));
+        assert_eq!(pipeline.buffer.snapshot().checkpoint, 0);
+        assert_eq!(pipeline.store.metrics().high_water, 1);
+        let cancelled = CancellationToken::new();
+        cancelled.cancel();
+        assert!(matches!(
+            checkpoint_batch(
+                &pipeline.buffer,
+                1,
+                Instant::now() + Duration::from_secs(1),
+                &cancelled
+            )
+            .await,
+            Err(PipelineError::Cancelled)
+        ));
+        drop(occupied);
+        stop(&pipeline).await?;
+        let replay = DurableBuffer::open(wal).await?;
+        assert_eq!(replay.snapshot().checkpoint, 0);
+        assert_eq!(replay.read_batch(1, 8192).await?.len(), 1);
+        checkpoint_batch(
+            &replay,
+            1,
+            Instant::now() + Duration::from_secs(5),
+            &CancellationToken::new(),
+        )
+        .await?;
+        assert_eq!(replay.snapshot().checkpoint, 1);
+        replay.shutdown().await?;
+        Ok(())
     }
     async fn open(wal: BufferConfig, storage: StorageConfig) -> Result<Arc<PipelineSink>> {
         let buffer = Arc::new(DurableBuffer::open(wal).await?);
