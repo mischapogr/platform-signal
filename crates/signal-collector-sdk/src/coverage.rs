@@ -11,6 +11,7 @@ use thiserror::Error;
 #[cfg(feature = "aws-source")]
 pub mod cloudtrail;
 pub mod observer;
+pub mod onboarding;
 
 pub const MAX_RECORD_BYTES: usize = 65_536;
 pub const MAX_STRING_BYTES: usize = 1_024;
@@ -704,6 +705,11 @@ pub struct CoverageContext {
 }
 
 impl CoverageContext {
+    /// Historical assessments cannot establish current onboarding readiness.
+    pub fn is_current(&self) -> bool {
+        self.wire.mode == AssessmentMode::Current
+    }
+
     pub fn parse(bytes: &[u8]) -> Result<Self, CoverageError> {
         let wire: ContextWire = decode(bytes)?;
         wire.binding.validate()?;

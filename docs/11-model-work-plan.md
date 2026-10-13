@@ -38,9 +38,12 @@ private cursor remain exact, fresh SDK confirmation and stale-owner/object/
 backup/authority/cancellation refusals are qualified. No replicas or remote DELETE.
 Exact audit:`target/native-restored-custody-20261014/ACCEPTANCE.json`.
 
-Next:ONBOARDING in ledger dependency order. Read its product/coverage/access
-contracts and existing API/UI mechanisms; implement connected/verified coverage/
-active detections with visible missing-permission/category/state blockers.
+Next:ONBOARDING authenticated scoped host integration, actual engine gating and
+console states/blockers. Its bounded SDK slice passes8focused regressions and
+6frozen gates (943default/1004all-feature, both strict Clippy modes/fmt/workspace),
+with current coverage and explicit permission/category/state blockers. This
+read-only snapshot does not authenticate sources or enable rules. Contract52
+and `target/onboarding-sdk-20261014/ACCEPTANCE.json` record the partial acceptance.
 Phase9 live AWS collection remains separately scoped.
 Native run38529644808 at0991cdf passes both complete Rust/container/Standard kind
 architectures with verified artifacts, source/bundle/image/WAL/PVC bindings and
