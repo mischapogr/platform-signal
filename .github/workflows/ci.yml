@@ -50,6 +50,8 @@ jobs:
         run: python3 scripts/run-ci-check.py --name fmt --timeout 120 -- cargo fmt --check
       - name: OSS image release policy regressions
         run: python3 scripts/run-ci-check.py --name release-image-policy --timeout 60 -- python3 scripts/test-release-images.py
+      - name: Offline pinned-key release trust qualification
+        run: python3 scripts/run-ci-check.py --name release-trust --timeout 60 -- python3 scripts/check-release-trust.py --output target/ci/release-trust
       - name: Clippy
         run: python3 scripts/run-ci-check.py --name clippy --timeout 1800 -- cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
       - name: Build sibling executables

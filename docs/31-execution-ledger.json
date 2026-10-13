@@ -1333,12 +1333,20 @@
         "Reproducible inventory/provenance and local test-key sign/verify/tamper/rejection; real publication credentials excluded."
       ],
       "evidence": [
-        "target/goal-execution-20261007/RELEASE-TRUST/"
+        "target/goal-execution-20261007/RELEASE-TRUST/",
+        "target/release-trust-20261014/ACCEPTANCE.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
-        "docs/04-implementation-plan.md"
-      ]
+        "docs/04-implementation-plan.md",
+        "docs/57-offline-release-trust.md"
+      ],
+      "offline_inventory_slice": {
+        "status": "passed_local",
+        "checks": 21,
+        "evidence": "target/release-trust-20261014/ACCEPTANCE.json"
+      },
+      "notes": "2026-10-14 bounded offline local-test inventory verification accepted: external pinned Ed25519 key/domain/exact bytes, current lock/rule and explicitly unattested provenance,21actual signature/tamper/schema/path/capacity/symlink/FIFO checks and private fixture key cleanup. Wired to both native CI Rust jobs; remote qualification open. Full item pending BASELINES/current SBOM/builder attestation/released artifact trust; no startup enforcement or publication."
     },
     {
       "id": "UPGRADE",
