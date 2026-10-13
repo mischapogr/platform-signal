@@ -935,7 +935,7 @@
     {
       "id": "ONBOARDING",
       "title": "Secure scoped onboarding and coverage/detection activation",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "COVERAGE-OBSERVERS",
         "SECURITY-ACCESS",
@@ -945,11 +945,13 @@
         "Connected/verified coverage/active detections states; missing permissions/categories/state visibly block unsupported detections."
       ],
       "evidence": [
-        "target/goal-execution-20261007/ONBOARDING/"
+        "target/goal-execution-20261007/ONBOARDING/",
+        "target/onboarding-sdk-20261014/ACCEPTANCE.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
-        "docs/04-implementation-plan.md"
+        "docs/04-implementation-plan.md",
+        "docs/52-onboarding-readiness.md"
       ]
     },
     {

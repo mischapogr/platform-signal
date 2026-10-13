@@ -17,7 +17,7 @@ server-local loss75.55s. Replacement17.61s/RPO0 applies only to the4byte custody
 fixture. Source/binary/cleanup and exact original receipt/control/object/WAL/
 private progress are audited. Next:ONBOARDING; external/production gates remain.
 
-Current local inventory:12 passed_local,12 passed_simulated,22 pending/0in_progress,
+Current local inventory:12 passed_local,12 passed_simulated,21 pending/1in_progress,
 6 external_pending. Native Standard cluster CI wiring now passes local direct
 process/bundle/kind acceptance181.93s/170.05s; exact remote results are next:
 `target/standard-kind-ci-20261012/ACCEPTANCE.json`. Local provider/custody
@@ -28,6 +28,12 @@ All12frozen gates pass:932default/993all-feature tests, authenticated native API
 Evidence: `target/object-custody-api-20261012/ACCEPTANCE.json`. Provider retention
 is simulated; actual AWS/account/AZ loss and current external/release gates remain.
 Next runnable dependency-ordered item:STANDARD-RECOVERY.
+ONBOARDING is in progress — 2026-10-14. Its bounded SDK current-readiness slice
+passes8focused regressions and6frozen gates:943default/1004all-feature tests,
+both strict Clippy modes, formatting and14workspace boundaries. Historical/stale
+coverage and missing/unknown permission/category/state, unsupported or unloaded
+rules block readiness. Authenticated host integration, console and actual engine
+gating remain open. Evidence:`target/onboarding-sdk-20261014/ACCEPTANCE.json`.
 Earlier entries below retain their original historical evidence boundaries.
 
 Owner-authorized persistent Goal, frozen 2026-10-07. The machine-readable

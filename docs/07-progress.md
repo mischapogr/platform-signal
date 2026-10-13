@@ -77,6 +77,20 @@ requirement audit. [Intermediate records](07-progress-history-20261014.md#earlie
 Next:ONBOARDING. AWS/AZ/account/HA, physical/prolonged load and current native
 CI/images/EKS/released-dependency/version/publication gates remain open.
 
+## Onboarding SDK slice — 2026-10-14
+
+ONBOARDING is in progress. The bounded current-readiness SDK assessment passes
+8focused regressions and6frozen gates:943default/1004all-feature tests, both
+strict Clippy modes, formatting and14workspace boundaries. Historical/stale or
+unhealthy coverage cannot activate detections; missing/unknown permissions,
+categories or state, unsupported and unloaded rules remain explicitly blocked.
+This read-only snapshot trusts host checks and does not enable rules.
+[Contract52](52-onboarding-readiness.md), evidence:
+`target/onboarding-sdk-20261014/ACCEPTANCE.json`. Next: authenticated scoped host
+integration, actual engine gating and console states/blockers; full ONBOARDING
+and the release goal remain incomplete. Inventory:24accepted/28unfinished,
+including1in-progress item. External/release boundaries remain open.
+
 ## Actual local Standard Kubernetes accepted — 2026-10-12
 
 Native CI now prepares one source/revision/architecture-bound executable bundle
