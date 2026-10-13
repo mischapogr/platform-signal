@@ -85,6 +85,7 @@ enum Operation {
         owner: String,
         lifecycle: bool,
         custody: bool,
+        restored_custody: bool,
     },
     ExistingFindingScope {
         scope: Scope,
@@ -647,7 +648,7 @@ impl ControlClient {
         schema_owner: String,
         context: ControlContext,
     ) -> Result<(), ControlError> {
-        self.verify_credentials(schema_owner, false, false, context)
+        self.verify_credentials(schema_owner, false, false, false, context)
             .await
     }
     /// Explicit producer + receipt capability; ordinary producers still refuse it.
@@ -656,8 +657,35 @@ impl ControlClient {
         schema_owner: String,
         context: ControlContext,
     ) -> Result<(), ControlError> {
-        self.verify_credentials(schema_owner, false, true, context)
+        self.verify_credentials(schema_owner, false, true, false, context)
             .await
+    }
+    /// Explicit producer/receipt plus existing-only restored resolution profile.
+    /// Allows SELECT only on the singleton addon contract, never workflow tables.
+    pub async fn verify_restored_custody_producer_credentials(
+        &self,
+        schema_owner: String,
+        context: ControlContext,
+    ) -> Result<(), ControlError> {
+        self.verify_credentials(schema_owner, false, true, true, context)
+            .await
+    }
+    /// Validates addon-only access/identity; callers must also validate the full
+    /// producer profile before startup. Performs no installation or DDL.
+    pub async fn verify_restored_custody_access(
+        &self,
+        owner: String,
+        context: ControlContext,
+    ) -> Result<(), ControlError> {
+        let action = crate::restored_custody::Action::Inspect { owner };
+        crate::restored_custody::validate(&action)?;
+        match self
+            .submit(Operation::RestoredCustody(action), context)
+            .await?
+        {
+            Reply::ProducerCredentials => Ok(()),
+            _ => Err(ControlError::Corrupt),
+        }
     }
     /// Separate stopped-host allowlist: acquire, renew, catalog and object control.
     /// This does not broaden the producer allowlist or confer policy authority.
@@ -668,7 +696,7 @@ impl ControlClient {
         schema_owner: String,
         context: ControlContext,
     ) -> Result<(), ControlError> {
-        self.verify_credentials(schema_owner, true, false, context)
+        self.verify_credentials(schema_owner, true, false, false, context)
             .await
     }
     async fn verify_credentials(
@@ -676,6 +704,7 @@ impl ControlClient {
         schema_owner: String,
         lifecycle: bool,
         custody: bool,
+        restored_custody: bool,
         context: ControlContext,
     ) -> Result<(), ControlError> {
         if schema_owner.is_empty()
@@ -694,6 +723,7 @@ impl ControlClient {
                     owner: schema_owner,
                     lifecycle,
                     custody,
+                    restored_custody,
                 },
                 context,
             )
@@ -1180,6 +1210,9 @@ async fn execute(
                             | Operation::ScopedList { .. }
                             | Operation::ExistingFindingScope { .. }
                             | Operation::ProducerCredentials { .. }
+                            | Operation::RestoredCustody(
+                                crate::restored_custody::Action::Inspect { .. }
+                            )
                     ) {
                         "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY"
                     } else {
@@ -1195,6 +1228,7 @@ async fn execute(
             owner,
             lifecycle,
             custody,
+            restored_custody,
         } = operation
         {
             let row = connection.client.query_one(
@@ -1216,15 +1250,19 @@ async fn execute(
                             OR (NOT $2::boolean AND p.oid IN (
                                 'signal_control.publish(jsonb,bytea,boolean,bytea,bytea)'::regprocedure,
                                 'signal_finding_scope.publish(jsonb,bytea,bytea,boolean,bytea,bytea,text,text)'::regprocedure))
-                            OR ($3::boolean AND NOT $2::boolean AND p.oid='signal_control.record_receipt(jsonb,bytea,bytea,bytea)'::regprocedure)))))
+                            OR ($3::boolean AND NOT $2::boolean AND p.oid='signal_control.record_receipt(jsonb,bytea,bytea,bytea)'::regprocedure)
+                            OR ($4::boolean AND NOT $2::boolean AND p.oid=to_regprocedure('signal_custody_restore.resolve(jsonb,bytea,bytea,bytea,bytea)'))))))
                     OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
                         WHERE n.nspname IN ('signal_control','signal_finding_scope','signal_custody_restore')
                         AND (pg_has_role(r.oid,c.relowner,'MEMBER')
                         OR (c.relkind IN ('r','p','v','m','f') AND
                             (has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
-                            OR has_any_column_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')))
+                            OR has_any_column_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES'))
+                            AND NOT ($4::boolean AND n.nspname='signal_custody_restore' AND c.relname='contract'
+                                AND NOT has_table_privilege(r.oid,c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
+                                AND NOT has_any_column_privilege(r.oid,c.oid,'INSERT,UPDATE,REFERENCES')))
                         OR (c.relkind='S' AND has_sequence_privilege(r.oid,c.oid,'USAGE,SELECT,UPDATE'))))))",
-                &[owner, lifecycle, custody],
+                &[owner, lifecycle, custody, restored_custody],
             ).await.map_err(database_error)?;
             if !row
                 .try_get::<_, bool>(0)
@@ -1232,10 +1270,17 @@ async fn execute(
             {
                 return Err(ControlError::Fenced);
             }
+            if *restored_custody {
+                crate::restored_custody::inspect(&connection.client, owner, context).await?;
+            }
             Reply::ProducerCredentials
         } else if let Operation::RestoredCustody(action) = operation {
             crate::restored_custody::validate(action)?;
             match action {
+                crate::restored_custody::Action::Inspect { owner } => {
+                    crate::restored_custody::inspect(&connection.client, owner, context).await?;
+                    Reply::ProducerCredentials
+                }
                 crate::restored_custody::Action::Install { owner } => {
                     crate::restored_custody::install(&connection.client, owner, routines, context)
                         .await?;
