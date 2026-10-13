@@ -8,6 +8,7 @@
   let connected = false;
   let generation = 0;
   const active = new Map();
+  let readinessExpiry;
   const detailIds = {findings: 'finding-detail', events: 'event-detail'};
 
   function status(kind, text, error = false) {
@@ -27,6 +28,11 @@
     el('api-token').value = '';
     for (const controller of active.values()) controller.abort();
     active.clear();
+    clearTimeout(readinessExpiry);
+    el('onboarding-results').replaceChildren();
+    status('onboarding', 'Readiness unassessed. Signing in does not verify source coverage.');
+    el('onboarding-form').querySelector('button').disabled = false;
+    el('onboarding-cancel').disabled = true;
     el('disconnect-button').disabled = true;
     el('connection-status').textContent = message;
     for (const kind of ['findings', 'events']) {
@@ -46,9 +52,9 @@
     el(`${kind}-to`).value = localInput(new Date(now.getTime() + 60000));
     el(`${kind}-from`).value = localInput(new Date(now.getTime() - (kind === 'findings' ? 24 : 1) * 3600000));
   }
-  for (const kind of ['findings', 'events']) {
+  for (const kind of ['findings', 'events', 'onboarding']) {
     el(`${kind}-tab`).addEventListener('click', () => {
-      for (const view of ['findings', 'events']) {
+      for (const view of ['findings', 'events', 'onboarding']) {
         el(`${view}-pane`).hidden = view !== kind;
         if (view === kind) el(`${view}-tab`).setAttribute('aria-current', 'page');
         else el(`${view}-tab`).removeAttribute('aria-current');
@@ -221,6 +227,7 @@
 
   async function load(kind) {
     if (!connected) { status(kind, 'Connect before loading records.', true); return; }
+    if (!active.has(kind) && active.size >= 2) { status(kind, 'Two requests are already running. Cancel one before retrying.', true); return; }
     active.get(kind)?.abort();
     const controller = new AbortController();
     const requestGeneration = generation;
@@ -257,6 +264,54 @@
       if (active.get(kind) === controller) { active.delete(kind); button.disabled = false; el(`${kind}-cancel`).disabled = true; }
     }
   }
+  async function loadReadiness() {
+    const kind = 'onboarding';
+    if (!connected) { status(kind, 'Connect before checking readiness.', true); return; }
+    const scope = el('onboarding-scope').value.trim();
+    if (!scope || scope.length > 128) { status(kind, 'Enter a coverage scope.', true); return; }
+    if (!active.has(kind) && active.size >= 2) { status(kind, 'Two requests are already running. Cancel one before retrying.', true); return; }
+    active.get(kind)?.abort();
+    const controller = new AbortController();
+    const requestGeneration = generation;
+    active.set(kind, controller);
+    clearTimeout(readinessExpiry);
+    el('onboarding-results').replaceChildren();
+    const button = el('onboarding-form').querySelector('button'); button.disabled = true;
+    el('onboarding-cancel').disabled = false;
+    status(kind, 'Checking source readiness…');
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const response = await fetch('/v1/coverage/onboarding', {headers: {Authorization: `Bearer ${token}`, 'x-signal-coverage-scope': scope}, credentials: 'omit', cache: 'no-store', redirect: 'error', signal: controller.signal});
+      if (generation !== requestGeneration || active.get(kind) !== controller) return;
+      if (response.status === 401 || response.status === 403) { disconnect('Access denied. Reconnect with a valid token.'); return; }
+      if (!response.ok) { await response.body?.cancel(); throw new Error(`Readiness unavailable (${response.status}). Coverage remains unassessed.`); }
+      const data = JSON.parse(await readBounded(response, controller));
+      if (generation !== requestGeneration || active.get(kind) !== controller) return;
+      if (controller.signal.aborted) throw new DOMException('Request cancelled.', 'AbortError');
+      const stages = {disconnected: 'Connection unverified', connected: 'Connected · coverage unverified', coverage_verified: 'Coverage verified · no active detections', detections_active: 'Supported detections active'};
+      if (data.schema_version !== 1 || !Object.hasOwn(stages, data.stage) || !Array.isArray(data.detections) || data.detections.length > 64) throw new Error('Invalid readiness response.');
+      const expiry = data.valid_until === null ? null : Date.parse(data.valid_until);
+      if (data.stage === 'detections_active' && (!Number.isFinite(expiry) || expiry <= Date.now())) throw new Error('Assessment expired. Refresh to check readiness.');
+      if ((data.stage === 'detections_active') !== data.detections.some(d => d.active === true)) throw new Error('Invalid readiness response.');
+      for (const detection of data.detections) {
+        if (typeof detection.id !== 'string' || detection.id.length > 128 || typeof detection.active !== 'boolean' || !Array.isArray(detection.blockers) || detection.blockers.length > 101) throw new Error('Invalid readiness response.');
+        if (detection.active && detection.blockers.length) throw new Error('Invalid readiness response.');
+        const row = document.createElement('tr');
+        for (const value of [detection.id, detection.active ? 'Active' : 'Blocked', detection.blockers.map(b => { if (typeof b.code !== 'string' || b.code.length > 64 || (b.requirement !== undefined && (typeof b.requirement !== 'string' || b.requirement.length > 128))) throw new Error('Invalid readiness response.'); return `${b.code.replaceAll('_', ' ')}${b.requirement ? `: ${b.requirement}` : ''}`; }).join('; ')]) {
+          const cell = document.createElement('td');cell.textContent = value;row.append(cell);
+        }
+        el('onboarding-results').append(row);
+      }
+      status(kind, `${stages[data.stage]}. ${data.coverage?.reason_codes?.join(', ') || ''}`);
+      if (Number.isFinite(expiry)) readinessExpiry = setTimeout(() => { el('onboarding-results').replaceChildren(); status(kind, 'Assessment expired. Refresh to check readiness.', true); }, Math.max(0, expiry - Date.now()));
+    } catch (error) {
+      if (generation !== requestGeneration || active.get(kind) !== controller) return;
+      el('onboarding-results').replaceChildren();status(kind, error.name === 'AbortError' ? 'Readiness request cancelled. Coverage remains unassessed.' : error.message, true);
+    } finally {
+      clearTimeout(timer);
+      if (active.get(kind) === controller) { active.delete(kind);button.disabled = false;el('onboarding-cancel').disabled = true; }
+    }
+  }
   el('connection-form').addEventListener('submit', event => {
     event.preventDefault();
     const nextToken = el('api-token').value;
@@ -268,6 +323,8 @@
     void load('findings');
   });
   el('disconnect-button').addEventListener('click', () => disconnect());
+  el('onboarding-form').addEventListener('submit', event => { event.preventDefault();void loadReadiness(); });
+  el('onboarding-cancel').addEventListener('click', () => active.get('onboarding')?.abort());
   for (const kind of ['findings', 'events']) el(`${kind}-form`).addEventListener('submit', event => { event.preventDefault(); void load(kind); });
   for (const kind of ['findings', 'events']) el(`${kind}-cancel`).addEventListener('click', () => active.get(kind)?.abort());
   window.addEventListener('pagehide', () => disconnect());

@@ -3377,6 +3377,7 @@ dependencies = [
  "http-body-util",
  "object_store 0.14.2",
  "reqwest",
+ "ring",
  "rustls",
  "serde",
  "serde-saphyr",

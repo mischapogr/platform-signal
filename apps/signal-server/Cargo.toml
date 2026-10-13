@@ -43,6 +43,7 @@ tokio-util.workspace = true
 http-body-util.workspace = true
 subtle.workspace = true
 rustls.workspace = true
+ring.workspace = true
 
 [dev-dependencies]
 tokio-postgres.workspace = true

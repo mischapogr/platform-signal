@@ -51,6 +51,13 @@ is required; blocked matching rules are suppressed. Contract53 and
 Main still evaluates unconditionally and coverage history health remains unknown.
 Wire fresh trusted scoped host evidence, both Main paths and the authorized
 API/console together; never derive live health from stored history.
+Current host integration supersedes the earlier unwired status: both Main paths
+now use opt-in signed scoped host evidence, with authorized readiness API and
+console.13frozen gates pass952default/1013all-feature,7actual Small checks,
+5onboarding/26existing browser checks and exact Standard baseline81.17s.
+Contract54 and `target/onboarding-host-20261014/ACCEPTANCE.json` record the slice.
+Next: qualify Standard with onboarding enabled and composed browser/native
+reads, expiry/cancellation and scope isolation before closing ONBOARDING.
 Phase9 live AWS collection remains separately scoped.
 Native run38529644808 at0991cdf passes both complete Rust/container/Standard kind
 architectures with verified artifacts, source/bundle/image/WAL/PVC bindings and

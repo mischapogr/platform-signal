@@ -124,6 +124,29 @@ pub struct Configuration {
     scopes: Vec<Scope>,
 }
 impl Configuration {
+    pub(crate) fn validate_onboarding(
+        &self,
+        host: &crate::onboarding::Host,
+    ) -> Result<(), ConfigError> {
+        let scope = self.scopes.iter().find(|scope| matches!(&scope.auth, ScopeAuth::Native(identity) if identity.scope_id == host.scope_id())).ok_or(ConfigError::Invalid("onboarding coverage scope"))?;
+        let profile = scope
+            .profile
+            .as_ref()
+            .ok_or(ConfigError::Invalid("onboarding coverage profile"))?;
+        let bytes = profile
+            .definition_bytes()
+            .map_err(|_| ConfigError::Invalid("onboarding profile"))?;
+        let profile = signal_collector_sdk::coverage::CoverageProfile::parse(&bytes)
+            .map_err(|_| ConfigError::Invalid("onboarding profile"))?;
+        if scope.binding.encoded() != host.binding().encoded()
+            || !profile.same_definition(host.profile())
+        {
+            return Err(ConfigError::Invalid(
+                "onboarding exact coverage binding/profile",
+            ));
+        }
+        Ok(())
+    }
     pub async fn load(settings: &Settings) -> Result<Option<Self>, ConfigError> {
         let Some(path) = settings.optional("SIGNAL_COVERAGE_CONFIG")? else {
             return Ok(None);
@@ -343,6 +366,7 @@ impl Configuration {
         }
         let (store, ready) = CoverageStore::begin_open(self.store, context)?;
         let state = Arc::new(CoverageState {
+            onboarding: std::sync::OnceLock::new(),
             store: Arc::new(store),
             scopes: self.scopes,
             timeout: timeout.min(Duration::from_secs(10)),
@@ -356,6 +380,7 @@ impl Configuration {
     }
 }
 pub struct CoverageState {
+    onboarding: std::sync::OnceLock<Option<Arc<crate::onboarding::Host>>>,
     pub store: Arc<CoverageStore>,
     scopes: Vec<Scope>,
     timeout: Duration,
@@ -366,6 +391,14 @@ pub struct CoverageState {
     audit: Option<Arc<crate::audit::Control>>,
 }
 impl CoverageState {
+    pub(crate) fn set_onboarding(
+        &self,
+        host: Option<Arc<crate::onboarding::Host>>,
+    ) -> Result<(), CoverageError> {
+        self.onboarding
+            .set(host)
+            .map_err(|_| CoverageError::Config("onboarding already configured"))
+    }
     fn scope(&self, headers: &HeaderMap) -> Option<&Scope> {
         // Ambiguous duplicate credentials are never accepted by this boundary.
         if headers.get_all("authorization").iter().count() != 1 {
@@ -439,6 +472,7 @@ impl CoverageState {
             .route("/v1/coverage/records/{record_id}", get(record).post(record))
             .route("/v1/coverage/history", get(history))
             .route("/v1/coverage/metrics", get(metrics))
+            .route("/v1/coverage/onboarding", get(onboarding))
             .with_state(self.clone())
     }
 }
@@ -677,6 +711,7 @@ enum Route {
     Record,
     History,
     Metrics,
+    Onboarding,
 }
 async fn record(State(state): State<Arc<CoverageState>>, request: Request) -> Response {
     access(state, request, Route::Record).await
@@ -801,6 +836,7 @@ async fn execute(
         Route::Record => handle_record(state, access, request, context.clone()).await,
         Route::History => handle_history(state, access, request, context.clone()).await,
         Route::Metrics => handle_metrics(state, request),
+        Route::Onboarding => handle_onboarding(state, access, request, context.clone()).await,
     };
     completed_response(access, context, result, state)
 }
@@ -900,6 +936,36 @@ struct HistoryResponse<'a> {
     scanned_records: u64,
     scanned_bytes: u64,
     current_health: &'static str,
+}
+async fn onboarding(State(state): State<Arc<CoverageState>>, request: Request) -> Response {
+    access(state, request, Route::Onboarding).await
+}
+async fn handle_onboarding(
+    state: &CoverageState,
+    access: &ScopeAccess<'_>,
+    request: Request,
+    context: OperationContext,
+) -> Result<Response, CoverageError> {
+    if request.uri().query().is_some() {
+        return Err(CoverageError::Invalid("onboarding query"));
+    }
+    let host = state
+        .onboarding
+        .get()
+        .and_then(Option::as_ref)
+        .ok_or(CoverageError::Unavailable)?;
+    if !matches!(&access.scope.auth, ScopeAuth::Native(identity) if identity.scope_id == host.scope_id())
+    {
+        return Err(CoverageError::NotAuthorized);
+    }
+    let report = host
+        .snapshot(&signal_rules::RuleContext {
+            deadline: context.deadline,
+            cancellation: context.cancellation,
+        })
+        .await
+        .map_err(|_| CoverageError::Unavailable)?;
+    Ok(response(StatusCode::OK, report))
 }
 async fn history(State(state): State<Arc<CoverageState>>, request: Request) -> Response {
     access(state, request, Route::History).await

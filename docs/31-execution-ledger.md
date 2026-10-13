@@ -39,6 +39,12 @@ Its generic rule execution gate also passes4new regressions and6frozen gates:
 inventory suppresses blocked matching rules and preserves enabled findings.
 Main/host/API/console integration remains open; current-health history stays
 unknown. Evidence:`target/onboarding-rules-20261014/ACCEPTANCE.json`.
+Current host integration supersedes the unwired status: pinned signed evidence
+gates both Main paths and an authorized read API/console.13frozen gates pass
+952default/1013all-feature,7actual Small checks,5onboarding/26existing browser
+checks and corrected exact Standard baseline81.17s. Full ONBOARDING stays
+in_progress until Standard-enabled and composed browser/native qualification.
+Evidence:`target/onboarding-host-20261014/ACCEPTANCE.json`.
 Earlier entries below retain their original historical evidence boundaries.
 
 Owner-authorized persistent Goal, frozen 2026-10-07. The machine-readable
