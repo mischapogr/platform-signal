@@ -140,3 +140,21 @@ verification and authenticated finite confirmation before original-copy release.
 933default/994all-feature tests and actual PostgreSQL matrix137.01s with owned
 cleanup and unchanged receipt/quota snapshots. Native API/SDK integration of this
 path and current production retention authority remain open.
+
+## Fresh restored confirmation — 2026-10-14
+
+`coordinate_restored_object_custody` uses the existing-only
+`RestoredObjectCustodyResolver` separately from the ordinary inserting recorder.
+Three current-owner/sealed-lineage resolutions bracket two fresh exact retained
+reads under one cancellation/deadline context. The original generation differs
+from the current token, while all other scope dimensions match. Missing history
+refuses before object I/O. Authority revision, digest, observation time and
+retention horizon remain mandatory.
+
+Only the complete sequence creates an opaque, nonserialized finite permit with
+the original description, ID and digest. Context cancellation/expiry invalidates
+it. Missing originals, changed ownership, substituted authority or shortened
+retention refuse without insertion or receipt/quota mutation.
+`target/restored-custody-confirmation-20261014/ACCEPTANCE.json` binds935default/
+996all-feature tests and actual PostgreSQL matrix124.66s. File retention/authority
+are simulated; configured native API/SDK reconfirmation is the next integration.

@@ -133,6 +133,39 @@ impl RestoreCustody for Custody {
         })
     }
 }
+impl ObjectCustodyVerifier for Custody {
+    fn verify<'a>(
+        &'a self,
+        description: &'a ObjectCustodyDescription,
+        context: ControlContext,
+    ) -> CustodyFuture<'a, RetainedObjectObservation> {
+        Box::pin(async move {
+            context.check()?;
+            let (version, file) = self
+                .references
+                .get(&description.object.digest()?)
+                .ok_or(ControlError::Fenced)?;
+            if description.object.version != *version || !self.protected.load(Ordering::SeqCst) {
+                return Err(ControlError::Fenced);
+            }
+            let bytes =
+                std::fs::read(self.root.join(file)).map_err(|_| ControlError::Unavailable)?;
+            if bytes.len() as u64 != description.bytes
+                || Sha256::digest(&bytes).as_slice() != description.sha256
+            {
+                return Err(ControlError::Corrupt);
+            }
+            context.check()?;
+            Ok(RetainedObjectObservation {
+                description_sha256: description.digest()?,
+                authority_revision: [1; 32],
+                observed_at: chrono::Utc::now(),
+                retained_until: description.retain_until,
+            })
+        })
+    }
+}
+
 fn command(work: Uuid, attempt: Uuid, action: NotificationAction) -> NotificationInput {
     NotificationInput {
         schema_version: 1,
@@ -1058,7 +1091,7 @@ pub async fn qualify(root: &Client, f: &super::Fixture) -> Result<(), Error> {
     assert!(
         current
             .resolve_restored_custody(
-                pipeline_current,
+                pipeline_current.clone(),
                 custody_description.clone(),
                 super::context()?
             )
@@ -1070,6 +1103,40 @@ pub async fn qualify(root: &Client, f: &super::Fixture) -> Result<(), Error> {
             "ALTER FUNCTION signal_custody_restore.resolve(jsonb,bytea,bytea,bytea,bytea) COST 100",
         )
         .await?;
+    let restored_context = super::context()?;
+    let permit = coordinate_restored_object_custody(
+        &current,
+        &custody,
+        pipeline_current.clone(),
+        custody_description.clone(),
+        [1; 32],
+        restored_context.clone(),
+    )
+    .await?;
+    assert_eq!(permit.checked_receipt()?.description, custody_description);
+    assert_eq!(
+        permit.checked_receipt()?.description_sha256,
+        custody_description.digest()?
+    );
+    restored_context.cancel();
+    assert!(permit.checked_receipt().is_err());
+    std::fs::remove_file(restored_objects.join("immutable-version-2"))?;
+    assert!(
+        coordinate_restored_object_custody(
+            &current,
+            &custody,
+            pipeline_current.clone(),
+            custody_description.clone(),
+            [1; 32],
+            super::context()?
+        )
+        .await
+        .is_err()
+    );
+    std::fs::write(restored_objects.join("immutable-version-2"), custody_bytes)?;
+    eprintln!(
+        "phase: restored-custody-fresh-exact-original-current-owner-retention-missing-copy-context-qualified"
+    );
     let custody_after:serde_json::Value=destination.query_one("SELECT jsonb_build_object('rows',(SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM signal_control.receipts r),'quota',(SELECT jsonb_build_array(used_rows,used_bytes) FROM signal_control.store WHERE singleton))",&[]).await?.get(0);
     assert_eq!(custody_after, custody_rows);
     eprintln!(

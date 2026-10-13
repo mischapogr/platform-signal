@@ -5,8 +5,8 @@ mod notification;
 mod restored_custody;
 pub use custody::{
     CustodyFuture, ObjectCustodyDescription, ObjectCustodyPermit, ObjectCustodyReceipt,
-    ObjectCustodyRecorder, ObjectCustodyVerifier, RetainedObjectObservation,
-    coordinate_object_custody,
+    ObjectCustodyRecorder, ObjectCustodyVerifier, RestoredObjectCustodyResolver,
+    RetainedObjectObservation, coordinate_object_custody, coordinate_restored_object_custody,
 };
 pub use notification::{
     NotificationAction, NotificationInput, NotificationOutcome, NotificationResult,
