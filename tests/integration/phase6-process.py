@@ -168,6 +168,48 @@ def main():
                                      env=environment, capture_output=True, timeout=5)
         assert cross_limit.returncode != 0, "event larger than usable spool accepted"
         start_server()
+        # Selected structured authentication profile reuses the real file
+        # worker, durable spool/cursor and authenticated server publication.
+        auth_record = {"schema_version": 1, "timestamp": "2026-10-14T12:00:00Z",
+                       "outcome": "success", "identity_authority": "fixture-authority",
+                       "principal_id": "fixture-user", "target_id": "fixture-host",
+                       "method": "public_key", "session_id": "fixture-session",
+                       "client_ip": "198.51.100.10", "producer": {"boot_id": "fixture-boot",
+                       "sequence": 1, "checkpoint": 1, "dropped_events": 0}}
+        auth_failure = dict(auth_record, outcome="failure", producer={"boot_id": "fixture-boot",
+                            "sequence": 2, "checkpoint": 2, "dropped_events": 1})
+        auth_secret = "owned-auth-credential-redaction-sentinel"
+        auth_path = root / "authentication.jsonl"
+        auth_path.write_text('\n'.join(json.dumps(record) for record in [auth_record,
+                             auth_failure, dict(auth_record, password=auth_secret),
+                             dict(auth_record, runtime_sensor_coverage="verified")]) + '\n')
+        auth_args = ["--file", str(auth_path), "--once", "--format", "auth-json",
+                     "--source-name", "host-auth-gate", "--source-type", "host-authentication"]
+        authentication = start_agent("authentication", auth_args)
+        auth_log = logs[-1]
+        assert authentication.wait(timeout=15) == 0
+        expect_messages("host-auth-gate", ["Authentication succeeded", "Authentication failed"])
+        auth_rows = rows("host-auth-gate")
+        assert len(auth_rows) == 2 and {r['severity'] for r in auth_rows} == {'info', 'warn'}
+        assert {r['attributes']['producer']['checkpoint'] for r in auth_rows} == {1, 2}
+        assert all(r['attributes']['authentication']['principal_id'] == 'fixture-user' and
+                   r['source']['type'] == 'host-authentication' and
+                   r['attributes']['authentication']['target_id'] == 'fixture-host' and
+                   r['attributes']['evidence']['runtime_sensor_coverage'] == 'not_assessed' and
+                   r['timestamp'].startswith('2026-10-14T12:00:00') for r in auth_rows)
+        assert any(r.get('accepted') == 2 and r.get('rejected') == 2
+                   for r in map(json.loads, auth_log.read_text().splitlines()))
+        auth_ids = {r['id'] for r in auth_rows}
+        cursor_restart = start_agent("authentication", auth_args)
+        assert cursor_restart.wait(timeout=15) == 0
+        assert {r['id'] for r in rows('host-auth-gate')} == auth_ids
+        assert auth_secret not in auth_log.read_text() and auth_secret not in json.dumps(auth_rows)
+        (root / 'host-auth-report.json').write_text(json.dumps({
+            'status': 'passed_simulated', 'profile': 'host-auth-json-v1', 'accepted': 2,
+            'rejected': 2, 'original_ids': sorted(auth_ids), 'cursor_restart_no_reread': True,
+            'runtime_sensor_coverage': 'not_assessed', 'credential_field_rejected': True,
+            'scope': 'Real file/agent/spool/authenticated server/Parquet source-field retention; synthetic authentication producer, no native kernel/runtime coverage'
+        }, sort_keys=True) + '\n')
         stdin = start_agent("stdin", ["--stdin", "--source-name", "stdin-gate"])
         stdin.communicate(b'plain first\n{"message":"json second","nested":{"array":[null,true,{"n":1844674407370955161600001}]}}\n', timeout=15)
         assert stdin.returncode == 0

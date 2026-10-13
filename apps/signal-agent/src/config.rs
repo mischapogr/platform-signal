@@ -154,7 +154,8 @@ impl AgentConfig {
             "auto" => ParseMode::Auto,
             "plain" => ParseMode::Plain,
             "json" => ParseMode::Json,
-            _ => return Err(ConfigError("format must be auto, plain or json")),
+            "auth-json" => ParseMode::AuthenticationJson,
+            _ => return Err(ConfigError("format must be auto, plain, json or auth-json")),
         };
         let n = |flag, min, max| {
             number(
