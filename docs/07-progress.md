@@ -1,6 +1,6 @@
 # Implementation progress
 
-Current snapshot: 2026-10-12. No alpha/release is ready or published; package
+Current snapshot: 2026-10-14. No alpha/release is ready or published; package
 version is`0.1.0-dev.0` and no release version is selected. Read
 [release boundaries](21-release-readiness.md), [the finite ledger](31-execution-ledger.json)
 and [next task/routing](11-model-work-plan.md).
@@ -84,15 +84,15 @@ their later local acceptance is recorded below. EKS/release gates remain open.
 
 ## Actual local Standard Kubernetes accepted — 2026-10-12
 
-Generic OBJECT-CUSTODY description/coordinator now passes924default/981all-feature
-tests, both strict Clippy modes and five guards. Independent review and actual PostgreSQL TLS custody qualification now pass8.86s:
-`target/object-custody-postgres-20261012/ACCEPTANCE.json`; exact replay/conflict,
-observed COMMIT cancellation, quota, takeover and reopen retain the original copy.
-S3 exact-version compliance readback now passes924default/985all-feature tests
-and4wire/cancellation guards: `target/object-custody-s3-20261012/ACCEPTANCE.json`.
-Configured server verifier now passes926default/987all-feature tests and8.13s
-composed PostgreSQL TLS/S3 runtime: `target/object-custody-server-20261012/ACCEPTANCE.json`.
-Retention is simulated; [contract51](51-object-custody.md) still needs authenticated API/producer integration.
+OBJECT-CUSTODY now passes locally as simulated acceptance — 2026-10-14.
+All12frozen gates pass:932default/993all-feature tests, both strict Clippy modes,
+36helper guards, authenticated PostgreSQL TLS/S3/mTLS API/SDK13.56s and actual
+Standard Main custody38.34s with owned cleanup. Explicit custody permission and
+producer SQL capability precede ready; fresh nonce and request-start expiry bind
+confirmation. PUT-only/stopped copies stay retained; restart reuses the original
+receipt ID before checked release. [Contract51](51-object-custody.md), evidence:
+`target/object-custody-api-20261012/ACCEPTANCE.json`. Provider retention is simulated;
+AWS/AZ/account loss and current release gates remain open. Next:STANDARD-RECOVERY.
 
 Native CI now prepares one source/revision/architecture-bound executable bundle
 per architecture and reuses it for the Standard cluster gate. Direct compiled

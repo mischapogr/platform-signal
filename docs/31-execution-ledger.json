@@ -880,7 +880,7 @@
     {
       "id": "OBJECT-CUSTODY",
       "title": "Versioned object-backed custody receipt",
-      "status": "in_progress",
+      "status": "passed_simulated",
       "dependencies": [
         "SHARED-RUNTIME",
         "S3-QUERY"
@@ -894,14 +894,15 @@
         "target/object-custody-coordinator-20261012/ACCEPTANCE.json",
         "target/object-custody-postgres-20261012/ACCEPTANCE.json",
         "target/object-custody-s3-20261012/ACCEPTANCE.json",
-        "target/object-custody-server-20261012/ACCEPTANCE.json"
+        "target/object-custody-server-20261012/ACCEPTANCE.json",
+        "target/object-custody-api-20261012/ACCEPTANCE.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md",
         "docs/51-object-custody.md"
       ],
-      "notes": "Configured server verifier binds scope/backend/prefix/minimum horizon/authority before object I/O and preserves control deadline/cancellation. Source-bound926default/987all-feature tests, both strict Clippy modes,36helper tests and actual composed PostgreSQL TLS/signed S3 fixture8.13s pass. Exact replay/conflict/quota, postcommit object denial, governance refusal, observed uncertain COMMIT/physical drain/original-ID reconciliation, authority substitution and fresh current-owner reopen retain independent producer copy until checked test-only release. Provider retention simulated; actual AWS/account isolation and authenticated API/producer protocol remain open. HTTP202 remains M2; full item remains in_progress."
+      "notes": "Local acceptance2026-10-14: all12frozen gates,932default/993all-feature tests, both strict Clippy modes and36helper guards. Actual PostgreSQL TLS/S3/native identity/mTLS custody API/SDK13.56s and actual selected Standard Main/SDK38.34s pass with matching source/binary identities and owned cleanup. Explicit custody permission and producer receipt capability; default producer/lifecycle privileges remain narrow. Description/reference digest stays unchanged. Fresh nonce and request-start elapsed+remaining lease budget refuse saved/late/expired confirmation. PUT-only/stopped/original copies stay retained through uncertainty, conflict, quota, denial, substituted authority and ownership change; current-owner fresh restart confirms the original ID before checked test-only release. HTTP202 remains M2; no source ACK/M3/automatic deletion. S3 retention/account isolation remain simulated; actual AWS/AZ/account-loss and current native/CI/EKS/released-dependency/version/publication qualification stay external."
     },
     {
       "id": "STANDARD-RECOVERY",

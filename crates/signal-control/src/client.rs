@@ -83,6 +83,7 @@ enum Operation {
     ProducerCredentials {
         owner: String,
         lifecycle: bool,
+        custody: bool,
     },
     ExistingFindingScope {
         scope: Scope,
@@ -645,7 +646,17 @@ impl ControlClient {
         schema_owner: String,
         context: ControlContext,
     ) -> Result<(), ControlError> {
-        self.verify_credentials(schema_owner, false, context).await
+        self.verify_credentials(schema_owner, false, false, context)
+            .await
+    }
+    /// Explicit producer + receipt capability; ordinary producers still refuse it.
+    pub async fn verify_custody_producer_credentials(
+        &self,
+        schema_owner: String,
+        context: ControlContext,
+    ) -> Result<(), ControlError> {
+        self.verify_credentials(schema_owner, false, true, context)
+            .await
     }
     /// Separate stopped-host allowlist: acquire, renew, catalog and object control.
     /// This does not broaden the producer allowlist or confer policy authority.
@@ -656,12 +667,14 @@ impl ControlClient {
         schema_owner: String,
         context: ControlContext,
     ) -> Result<(), ControlError> {
-        self.verify_credentials(schema_owner, true, context).await
+        self.verify_credentials(schema_owner, true, false, context)
+            .await
     }
     async fn verify_credentials(
         &self,
         schema_owner: String,
         lifecycle: bool,
+        custody: bool,
         context: ControlContext,
     ) -> Result<(), ControlError> {
         if schema_owner.is_empty()
@@ -679,6 +692,7 @@ impl ControlClient {
                 Operation::ProducerCredentials {
                     owner: schema_owner,
                     lifecycle,
+                    custody,
                 },
                 context,
             )
@@ -1138,9 +1152,15 @@ async fn execute(
             )
             .await
             .map_err(database_error)?;
-        let reply = if let Operation::ProducerCredentials { owner, lifecycle } = operation {
+        let reply = if let Operation::ProducerCredentials {
+            owner,
+            lifecycle,
+            custody,
+        } = operation
+        {
             let row = connection.client.query_one(
                 "SELECT NOT pg_has_role(session_user,$1::name,'MEMBER')
+                AND (NOT $3::boolean OR has_function_privilege(session_user,'signal_control.record_receipt(jsonb,bytea,bytea,bytea)','EXECUTE'))
                 AND NOT EXISTS(SELECT 1 FROM pg_roles r WHERE pg_has_role(session_user,r.oid,'MEMBER')
                     AND (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls
                     OR has_database_privilege(r.oid,current_database(),'CREATE')
@@ -1156,7 +1176,8 @@ async fn execute(
                             AND NOT (($2::boolean AND p.oid='signal_control.object_control(jsonb,bytea,bytea,bytea)'::regprocedure)
                             OR (NOT $2::boolean AND p.oid IN (
                                 'signal_control.publish(jsonb,bytea,boolean,bytea,bytea)'::regprocedure,
-                                'signal_finding_scope.publish(jsonb,bytea,bytea,boolean,bytea,bytea,text,text)'::regprocedure))))))
+                                'signal_finding_scope.publish(jsonb,bytea,bytea,boolean,bytea,bytea,text,text)'::regprocedure))
+                            OR ($3::boolean AND NOT $2::boolean AND p.oid='signal_control.record_receipt(jsonb,bytea,bytea,bytea)'::regprocedure)))))
                     OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
                         WHERE n.nspname IN ('signal_control','signal_finding_scope')
                         AND (pg_has_role(r.oid,c.relowner,'MEMBER')
@@ -1164,7 +1185,7 @@ async fn execute(
                             (has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
                             OR has_any_column_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')))
                         OR (c.relkind='S' AND has_sequence_privilege(r.oid,c.oid,'USAGE,SELECT,UPDATE'))))))",
-                &[owner, lifecycle],
+                &[owner, lifecycle, custody],
             ).await.map_err(database_error)?;
             if !row
                 .try_get::<_, bool>(0)

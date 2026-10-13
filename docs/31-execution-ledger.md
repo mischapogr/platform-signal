@@ -11,18 +11,17 @@ The 52 IDs and dependencies are unchanged. Current local Standard Kubernetes
 passes141.13s with167source bindings, regular runtime/TLS Secret files, original
 WAL/checkpoint2/database facts and same-PVC SIGKILL/pod replacement recovery,
 plus owned cleanup: `target/standard-kubernetes-20261012/ACCEPTANCE.json`.
-KIND becomes passed_local:12 passed_local,10 passed_simulated,23 pending/1in_progress,
+Current local inventory:12 passed_local,11 passed_simulated,23 pending/0in_progress,
 6 external_pending. Native Standard cluster CI wiring now passes local direct
 process/bundle/kind acceptance181.93s/170.05s; exact remote results are next:
 `target/standard-kind-ci-20261012/ACCEPTANCE.json`. Local provider/custody
 simulation does not close corrected native/current CI, AWS/EKS or release gates.
-OBJECT-CUSTODY remains in progress. Actual PostgreSQL TLS replay/fencing and S3
-retained-read protocol now pass924default/985all-feature tests and4wire/physical
-cancellation guards. Evidence: `target/object-custody-s3-20261012/ACCEPTANCE.json`
-and `target/object-custody-postgres-20261012/ACCEPTANCE.json`. Retention authority
-is simulated. Configured server verifier now passes926default/987all-feature tests
-and8.13s composed runtime: `target/object-custody-server-20261012/ACCEPTANCE.json`.
-Authenticated API/producer integration remains next.
+OBJECT-CUSTODY is passed_simulated at its local boundary — 2026-10-14.
+All12frozen gates pass:932default/993all-feature tests, authenticated native API/SDK
+13.56s and actual Standard Main custody38.34s, source/binary bindings and cleanup.
+Evidence: `target/object-custody-api-20261012/ACCEPTANCE.json`. Provider retention
+is simulated; actual AWS/account/AZ loss and current external/release gates remain.
+Next runnable dependency-ordered item:STANDARD-RECOVERY.
 Earlier entries below retain their original historical evidence boundaries.
 
 Owner-authorized persistent Goal, frozen 2026-10-07. The machine-readable
