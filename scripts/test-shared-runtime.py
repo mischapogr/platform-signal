@@ -28,7 +28,7 @@ phase: bounded-snapshot-qualification-complete
 phase: atomic-publication-qualification-complete
 running 1 test
 test postgres_lease_authority_and_cancellation ... ok
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 3.83s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 3.83s
 """
 class Guards(unittest.TestCase):
     def test_combined_standard_budget_preserves_separate_limits_and_rejects_overflow(self):
@@ -202,7 +202,7 @@ sys.exit(codes[min(len(calls),len(codes)-1)])
         for altered in (evidence.replace('phase: crash-marker-atomic-publication-qualified\n',''),evidence+'phase: crash-marker-atomic-publication-qualified\n',evidence+'matrix-case:unknown passed\n',evidence.replace('phase: abrupt-process-crash-qualification-complete\n',''),evidence+'phase: abrupt-process-crash-qualification-complete\n'):
             with self.assertRaises(ValueError):module.qualify_matrix_output(altered)
     def test_restart_probe_requires_exact_execution(self):
-        good="phase: current-finding-scope-original-host-authority-after-restart-qualified\nphase: shared-finding-scope-persistent-restart-original-authority-qualified\nphase: persistent-restored-global-feed-qualified\nphase: persistent-catalog-restored-query-qualified\nphase: persistent-catalog-restart-fresh-client-qualified\nphase: persistent-restart-fresh-client-qualified\nrunning 1 test\ntest postgres_matrix_restart_probe ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.20s\n"
+        good="phase: current-finding-scope-original-host-authority-after-restart-qualified\nphase: shared-finding-scope-persistent-restart-original-authority-qualified\nphase: persistent-restored-global-feed-qualified\nphase: persistent-catalog-restored-query-qualified\nphase: persistent-catalog-restart-fresh-client-qualified\nphase: persistent-restart-fresh-client-qualified\nrunning 1 test\ntest postgres_matrix_restart_probe ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.20s\n"
         module.qualify_restart_probe(good)
         for output in (good+good,good.replace('running 1 test','running 0 tests'),good.replace('1 passed; 0 failed','0 passed; 1 failed'),good.replace(' ... ok',' ... ignored'),good.replace('phase: persistent-restart-fresh-client-qualified\n',''),good+'test result: ok. 0 passed; 0 failed\n',good+'x'*65537):
             with self.assertRaises(ValueError):module.qualify_restart_probe(output)
@@ -223,7 +223,7 @@ sys.exit(codes[min(len(calls),len(codes)-1)])
         for marker in ('phase: globally-authorized-original-feed-qualified\n', 'phase: globally-authorized-restored-feed-qualified\n', 'phase: shared-finding-scope-stopped-schema-and-immutable-prefix-qualified\n'):
             for output in (GOOD.replace(marker, ''), GOOD + marker):
                 with self.assertRaises(ValueError):module.qualify_test_output(output)
-        good='phase: current-finding-scope-original-host-authority-after-restart-qualified\nphase: shared-finding-scope-persistent-restart-original-authority-qualified\nphase: persistent-restored-global-feed-qualified\nphase: persistent-catalog-restored-query-qualified\nphase: persistent-catalog-restart-fresh-client-qualified\nphase: persistent-restart-fresh-client-qualified\nrunning 1 test\ntest postgres_matrix_restart_probe ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.20s\n'
+        good='phase: current-finding-scope-original-host-authority-after-restart-qualified\nphase: shared-finding-scope-persistent-restart-original-authority-qualified\nphase: persistent-restored-global-feed-qualified\nphase: persistent-catalog-restored-query-qualified\nphase: persistent-catalog-restart-fresh-client-qualified\nphase: persistent-restart-fresh-client-qualified\nrunning 1 test\ntest postgres_matrix_restart_probe ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.20s\n'
         module.qualify_restart_probe(good)
         for marker in ('phase: shared-finding-scope-persistent-restart-original-authority-qualified\n','phase: persistent-restored-global-feed-qualified\n'):
             for output in (good.replace(marker,''), good+marker):
@@ -238,7 +238,7 @@ sys.exit(codes[min(len(calls),len(codes)-1)])
         marker='phase: current-finding-scope-activation-enrollment-counters-and-authority-qualified\n'
         for output in (GOOD.replace(marker,''),GOOD+marker):
             with self.assertRaises(ValueError):module.qualify_test_output(output)
-        good='phase: current-finding-scope-original-host-authority-after-restart-qualified\nphase: shared-finding-scope-persistent-restart-original-authority-qualified\nphase: persistent-restored-global-feed-qualified\nphase: persistent-catalog-restored-query-qualified\nphase: persistent-catalog-restart-fresh-client-qualified\nphase: persistent-restart-fresh-client-qualified\nrunning 1 test\ntest postgres_matrix_restart_probe ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.20s\n'
+        good='phase: current-finding-scope-original-host-authority-after-restart-qualified\nphase: shared-finding-scope-persistent-restart-original-authority-qualified\nphase: persistent-restored-global-feed-qualified\nphase: persistent-catalog-restored-query-qualified\nphase: persistent-catalog-restart-fresh-client-qualified\nphase: persistent-restart-fresh-client-qualified\nrunning 1 test\ntest postgres_matrix_restart_probe ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.20s\n'
         module.qualify_restart_probe(good)
         marker='phase: current-finding-scope-original-host-authority-after-restart-qualified\n'
         for output in (good.replace(marker,''),good+marker):
@@ -251,7 +251,7 @@ sys.exit(codes[min(len(calls),len(codes)-1)])
         for output in (GOOD.replace(marker,''),GOOD+marker):
             with self.assertRaises(ValueError):module.qualify_test_output(output)
     def test_missing_catalog_restart_cannot_close_gate(self):
-        output="phase: persistent-restart-fresh-client-qualified\nrunning 1 test\ntest postgres_matrix_restart_probe ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.20s\n"
+        output="phase: persistent-restart-fresh-client-qualified\nrunning 1 test\ntest postgres_matrix_restart_probe ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.20s\n"
         with self.assertRaises(ValueError):module.qualify_restart_probe(output)
     def test_missing_or_duplicated_query_composition_rejected(self):
         marker='phase: shared-catalog-actual-parquet-query-composition-complete\n'
@@ -261,7 +261,7 @@ sys.exit(codes[min(len(calls),len(codes)-1)])
         marker='phase: coordinated-catalog-restore-and-actual-query-qualified\n'
         for output in (GOOD.replace(marker,''),GOOD+marker):
             with self.assertRaises(ValueError):module.qualify_test_output(output)
-        restart='phase: current-finding-scope-original-host-authority-after-restart-qualified\nphase: shared-finding-scope-persistent-restart-original-authority-qualified\nphase: persistent-restored-global-feed-qualified\nphase: persistent-catalog-restored-query-qualified\nphase: persistent-catalog-restart-fresh-client-qualified\nphase: persistent-restart-fresh-client-qualified\nrunning 1 test\ntest postgres_matrix_restart_probe ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.20s\n'
+        restart='phase: current-finding-scope-original-host-authority-after-restart-qualified\nphase: shared-finding-scope-persistent-restart-original-authority-qualified\nphase: persistent-restored-global-feed-qualified\nphase: persistent-catalog-restored-query-qualified\nphase: persistent-catalog-restart-fresh-client-qualified\nphase: persistent-restart-fresh-client-qualified\nrunning 1 test\ntest postgres_matrix_restart_probe ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.20s\n'
         module.qualify_restart_probe(restart)
         marker='phase: persistent-catalog-restored-query-qualified\n'
         for output in (restart.replace(marker,''),restart+marker):
@@ -295,7 +295,7 @@ sys.exit(codes[min(len(calls),len(codes)-1)])
             module.qualify_test_output(GOOD+GOOD)
     def test_filtering_rejected(self):
         with self.assertRaises(ValueError):
-            module.qualify_test_output(GOOD.replace('2 filtered out','1 filtered out'))
+            module.qualify_test_output(GOOD.replace('3 filtered out','1 filtered out'))
     def test_failure_rejected(self):
         with self.assertRaises(ValueError):
             module.qualify_test_output(GOOD.replace('1 passed; 0 failed','0 passed; 1 failed'))
