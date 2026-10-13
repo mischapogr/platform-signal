@@ -38,8 +38,11 @@ Custody-only protected restore roots now pass933default/994all-feature tests
 and18-case PostgreSQL matrix121.29s: exact object omission/missing bytes refuses
 restore and original custody receipt bytes survive data-only control copying.
 Evidence:`target/restore-custody-roots-20261014/ACCEPTANCE.json`.
-Next:native restored-generation fresh custody/current trusted authority and full
-consistent restore acceptance. Earlier4byte replacement kept PostgreSQL/objects live.
+Existing-only sealed lineage resolution now passes7gates933default/994all-feature
+and PostgreSQL matrix137.01s without insertion or receipt/quota mutation:
+`target/restored-custody-lineage-20261014/ACCEPTANCE.json`.
+Next:wire fresh object verification and native API/SDK restored reconfirmation,
+then full consistent restore acceptance. Metadata alone grants no release permit.
 Reuse prior original-WAL/current-authority/restore inputs only while they match.
 Observe current native/public CI separately; no release qualification follows
 from these local fixtures.

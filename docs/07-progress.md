@@ -32,8 +32,10 @@ Native CI at`763099c` fails AMD64 on a stale PostgreSQL test-summary guard
 artifacts:`target/native-ci-monitor-20261014/`. The corrected exact inventory
 guard and sanitized transport failure location pass36helper checks,19local
 transport checks and the18-case PostgreSQL matrix149.50s with owned cleanup:
-`target/native-ci-corrections-20261014/ACCEPTANCE.json`. Fresh matching native
-CI and the actual ARM64 transport diagnosis remain open.
+`target/native-ci-corrections-20261014/ACCEPTANCE.json`. Both native Rust jobs at`0991cdf` now pass993tests and18-case PostgreSQL matrices
+121.45s/102.10s with GitHub-digest-verified artifacts and cleanup:
+`target/native-ci-monitor-20261014/VERIFIED-CORRECTED-NATIVE-RUST.json`.
+Later restore changes and full container/Kubernetes/current release CI remain open.
 
 Earlier CI, agent-oracle and Helm preparation records are preserved in
 [the2026-10-14 history](07-progress-history-20261014.md).
@@ -68,7 +70,12 @@ Custody-only restore roots now pass7frozen gates:933default/994all-feature
 tests, both strict Clippy modes and18-case PostgreSQL matrix121.29s. Missing
 custody inventory or original bytes refuses restore; original receipt bytes
 remain unchanged. Evidence:`target/restore-custody-roots-20261014/ACCEPTANCE.json`.
-Next:native restored-generation fresh custody and current trusted authority.
+The existing-only lineage resolver now passes7frozen gates and PostgreSQL
+matrix137.01s. Explicit owner installation, sealed restored lineage/current
+owner, exact historical bytes, missing-record/conflict/seal/routine refusal and
+unchanged quota are exercised. Metadata remains separate from a release permit.
+Evidence:`target/restored-custody-lineage-20261014/ACCEPTANCE.json`.
+Next:wire fresh object verification and native authenticated API/SDK reconfirmation.
 
 ## Actual local Standard Kubernetes accepted — 2026-10-12
 

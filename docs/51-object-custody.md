@@ -116,3 +116,27 @@ matrix121.29s. The custody-only object, omission/missing-object refusal and exac
 source-to-destination receipt bytes are exercised. Provider authority/retention
 remain synthetic; native restored-generation fresh custody is still a separate
 integration gate.
+
+## Existing-only restored custody lineage — 2026-10-14
+
+`ControlClient::install_restored_custody` explicitly installs the version1 addon
+from `schemas/shared-control/009-restored-custody.sql` on an already completed,
+ready restored3/5 store. It requires the actual schema owner and matching compiled
+routines; ordinary startup never invokes it. Existing schema artifacts remain
+unchanged. PUBLIC schema/table/function access is revoked. Grants belong to the
+trusted operator; ordinary producer profiles reject privileges in the addon
+namespace.
+
+`resolve_restored_custody` resolves an existing historical receipt only. It
+requires current ownership, complete sealed restore lineage, original full scope
+and exact retained request/reference bytes, ID and zero progress. It checks addon
+artifact/routine hashes and namespace/table/function ownership. Missing receipt,
+privilege or lineage, conflicting bytes, stale token and seal/routine tampering
+refuse. Resolution never inserts a receipt, changes its bytes or charges quota.
+Its serialized result is metadata; callers still need fresh retained-object
+verification and authenticated finite confirmation before original-copy release.
+
+`target/restored-custody-lineage-20261014/ACCEPTANCE.json` binds7frozen gates,
+933default/994all-feature tests and actual PostgreSQL matrix137.01s with owned
+cleanup and unchanged receipt/quota snapshots. Native API/SDK integration of this
+path and current production retention authority remain open.

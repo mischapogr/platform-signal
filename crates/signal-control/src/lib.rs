@@ -2,6 +2,7 @@
 //! Work in progress: this crate does not enable replicas or claim shared readiness.
 mod custody;
 mod notification;
+mod restored_custody;
 pub use custody::{
     CustodyFuture, ObjectCustodyDescription, ObjectCustodyPermit, ObjectCustodyReceipt,
     ObjectCustodyRecorder, ObjectCustodyVerifier, RetainedObjectObservation,

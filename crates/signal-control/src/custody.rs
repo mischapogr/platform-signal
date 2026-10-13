@@ -98,7 +98,7 @@ impl ObjectCustodyDescription {
         self.validate()?;
         Ok(Sha256::digest(crate::publication::encode(self)?).into())
     }
-    fn input(&self) -> Result<ReceiptInput, ControlError> {
+    pub(crate) fn input(&self) -> Result<ReceiptInput, ControlError> {
         self.validate()?;
         #[derive(Serialize)]
         struct Reference<'a> {

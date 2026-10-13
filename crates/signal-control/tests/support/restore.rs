@@ -919,6 +919,162 @@ pub async fn qualify(root: &Client, f: &super::Fixture) -> Result<(), Error> {
         Err(ControlError::Fenced)
     ));
     eprintln!("phase: stopped-restore-fresh-attempt-preserves-original-history");
+    // Historical custody resolution cannot manufacture an absent receipt or
+    // bypass the current sealed generation/owner, even with an exact object.
+    let pipeline_current = fresh.clone();
+    assert!(
+        current
+            .resolve_restored_custody(
+                pipeline_current.clone(),
+                custody_description.clone(),
+                super::context()?
+            )
+            .await
+            .is_err()
+    );
+    assert!(
+        current
+            .install_restored_custody("signal_control_owner".into(), super::context()?)
+            .await
+            .is_err()
+    );
+    let installer = ControlClient::restored(settings(
+        f,
+        "signal_restore_destination",
+        "signal_migrator",
+    )?)?;
+    eprintln!("phase: lineage-install-begins");
+    installer
+        .install_restored_custody("signal_control_owner".into(), super::context()?)
+        .await?;
+    eprintln!("phase: lineage-install-completed");
+    installer.shutdown(super::context()?).await?;
+    assert!(
+        current
+            .resolve_restored_custody(
+                pipeline_current.clone(),
+                custody_description.clone(),
+                super::context()?
+            )
+            .await
+            .is_err()
+    );
+    destination.batch_execute("GRANT USAGE ON SCHEMA signal_custody_restore TO signal_runtime; GRANT EXECUTE ON FUNCTION signal_custody_restore.resolve(jsonb,bytea,bytea,bytea,bytea) TO signal_runtime").await?;
+    let custody_rows:serde_json::Value=destination.query_one("SELECT jsonb_build_object('rows',(SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM signal_control.receipts r),'quota',(SELECT jsonb_build_array(used_rows,used_bytes) FROM signal_control.store WHERE singleton))",&[]).await?.get(0);
+    eprintln!("phase: lineage-granted-resolution-begins");
+    let resolved = current
+        .resolve_restored_custody(
+            pipeline_current.clone(),
+            custody_description.clone(),
+            super::context()?,
+        )
+        .await?;
+    eprintln!("phase: lineage-granted-resolution-completed");
+    assert_eq!(resolved.id, custody_description.id);
+    assert_eq!(resolved.prepared_count, 0);
+    assert_eq!(
+        current
+            .resolve_restored_custody(
+                pipeline_current.clone(),
+                custody_description.clone(),
+                super::context()?
+            )
+            .await?,
+        resolved
+    );
+    let mut absent = custody_description.clone();
+    absent.id = Uuid::new_v4();
+    assert!(matches!(
+        current
+            .resolve_restored_custody(pipeline_current.clone(), absent, super::context()?)
+            .await,
+        Err(ControlError::Fenced)
+    ));
+    let mut changed = custody_description.clone();
+    changed.object.version = "substituted".into();
+    assert!(matches!(
+        current
+            .resolve_restored_custody(pipeline_current.clone(), changed, super::context()?)
+            .await,
+        Err(ControlError::Conflict)
+    ));
+    let mut stale = pipeline_current.clone();
+    stale.owner = Uuid::new_v4();
+    assert!(matches!(
+        current
+            .resolve_restored_custody(stale, custody_description.clone(), super::context()?)
+            .await,
+        Err(ControlError::Fenced)
+    ));
+    assert!(matches!(
+        current
+            .resolve_restored_custody(
+                token.clone(),
+                custody_description.clone(),
+                super::context()?
+            )
+            .await,
+        Err(ControlError::Fenced)
+    ));
+    let mut same = custody_description.clone();
+    same.scope.generation = generation;
+    assert!(matches!(
+        current
+            .resolve_restored_custody(pipeline_current.clone(), same, super::context()?)
+            .await,
+        Err(ControlError::Fenced)
+    ));
+    let seal: Vec<u8> = destination
+        .query_one(
+            "SELECT seal FROM signal_control.restore_record WHERE singleton",
+            &[],
+        )
+        .await?
+        .get(0);
+    destination
+        .execute(
+            "UPDATE signal_control.restore_record SET seal=$1",
+            &[&vec![0u8; 32]],
+        )
+        .await?;
+    assert!(
+        current
+            .resolve_restored_custody(
+                pipeline_current.clone(),
+                custody_description.clone(),
+                super::context()?
+            )
+            .await
+            .is_err()
+    );
+    destination
+        .execute("UPDATE signal_control.restore_record SET seal=$1", &[&seal])
+        .await?;
+    destination
+        .batch_execute(
+            "ALTER FUNCTION signal_custody_restore.resolve(jsonb,bytea,bytea,bytea,bytea) COST 101",
+        )
+        .await?;
+    assert!(
+        current
+            .resolve_restored_custody(
+                pipeline_current,
+                custody_description.clone(),
+                super::context()?
+            )
+            .await
+            .is_err()
+    );
+    destination
+        .batch_execute(
+            "ALTER FUNCTION signal_custody_restore.resolve(jsonb,bytea,bytea,bytea,bytea) COST 100",
+        )
+        .await?;
+    let custody_after:serde_json::Value=destination.query_one("SELECT jsonb_build_object('rows',(SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM signal_control.receipts r),'quota',(SELECT jsonb_build_array(used_rows,used_bytes) FROM signal_control.store WHERE singleton))",&[]).await?.get(0);
+    assert_eq!(custody_after, custody_rows);
+    eprintln!(
+        "phase: restored-custody-current-owner-sealed-lineage-existing-only-exact-history-no-quota-mutation-qualified"
+    );
     let fresh_attempt_id = Uuid::from_u128(0xa30);
     let fresh_attempt = current
         .notification(
