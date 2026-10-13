@@ -94,6 +94,14 @@ receipt ID before checked release. [Contract51](51-object-custody.md), evidence:
 `target/object-custody-api-20261012/ACCEPTANCE.json`. Provider retention is simulated;
 AWS/AZ/account loss and current release gates remain open. Next:STANDARD-RECOVERY.
 
+STANDARD-RECOVERY is in progress — 2026-10-14. A37.90s owned actual Standard
+server-loss guard removes local WAL/cache after checked producer-copy release.
+The exact independently retained object is reconstructed, but replacement
+correctly refuses its missing enrolled WAL identity and drains. The recovered
+original stays retained. Evidence:`target/standard-recovery-20261014/ACCEPTANCE.json`.
+Next:explicit trusted consistent control/object/WAL checkpoint and replacement
+initialization; failover/RPO/RTO and full restore remain unqualified.
+
 Native CI now prepares one source/revision/architecture-bound executable bundle
 per architecture and reuses it for the Standard cluster gate. Direct compiled
 enrollment retains exact Rust test/phase assertions and avoids runtime Cargo.

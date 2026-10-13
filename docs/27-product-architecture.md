@@ -187,7 +187,9 @@ explicit, versioned **object-backed custody receipt** before a producer relinqui
 its last independently recoverable copy. That receipt requires an accessible
 retained object and a committed idempotent control record, not a successful PUT
 alone. It is distinct from completed detection and from M3 protected-evidence
-validation. The current API does not supply it; do not silently reinterpret 202.
+validation. The opt-in authenticated custody API supplies a separate fresh
+confirmation under its [bounded contract](51-object-custody.md); do not
+silently reinterpret 202.
 Native sources may already supply independently durable originals.
 
 No design promises recovery of events never emitted, never captured, expired at
