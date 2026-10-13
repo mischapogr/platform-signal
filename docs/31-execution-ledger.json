@@ -1475,7 +1475,8 @@
         "target/goal-execution-20261007/EXT-CI/native-stage-remote-jobs-1.json",
         "target/goal-execution-20261007/EXT-CI/native-stage-remote-jobs-4.json",
         "target/goal-execution-20261007/EXT-CI/native-stage-annotations.json",
-        "target/standard-kind-ci-20261012/NATIVE-STANDARD-ACCEPTANCE.json"
+        "target/standard-kind-ci-20261012/NATIVE-STANDARD-ACCEPTANCE.json",
+        "target/release-ci-20261014/ACCEPTANCE.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
@@ -1493,11 +1494,15 @@
         "status": "passed_local",
         "evidence": "target/goal-execution-20261007/EXT-CI/pipeline-diagnostic-acceptance.json"
       },
-      "latest_observation": "target/goal-execution-20261007/EXT-CI/sse-kms-remote-jobs-2.json",
-      "latest_notes": "153dafd ARM complete Rust success; AMD tests pass but IdP browser-start fails; native downstream skipped. Reproduced port-file race corrected locally26 helpers+11 actual local checks, no exact remote attribution.",
+      "latest_observation": "target/release-ci-20261014/observation.json",
+      "latest_notes": "8d4dc06 native AMD64 and ARM64 tests fail the same two positive onboarding assertions while the deliberate retained configuration worker fixture runs concurrently. GitHub primary artifact digests verified. Corrected test-only shared worker guards pass 954 default workspace and 84 all-feature server tests with16threads, both strict Clippy modes/fmt/14boundaries. Production behavior unchanged; exact corrected producing-revision CI remains unqualified.",
       "browser_readiness_evidence": [
         "target/goal-execution-20261007/EXT-CI/idp-browser-start-acceptance.json"
-      ]
+      ],
+      "config_worker_fixture_isolation": {
+        "status": "passed_local",
+        "evidence": "target/release-ci-20261014/ACCEPTANCE.json"
+      }
     },
     {
       "id": "EXT-DEPENDENCY",

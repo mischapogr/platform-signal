@@ -24,6 +24,10 @@ const MAX_PRIVATE_BYTES: usize = 512 * 1024;
 const MAX_RULE_DIRECTORIES: usize = 64;
 static WORKER: Mutex<Option<thread::JoinHandle<()>>> = Mutex::new(None);
 static CAPACITY: OnceLock<Arc<Semaphore>> = OnceLock::new();
+// Tests that deliberately occupy the process-wide worker must not interfere
+// with unrelated positive file-read fixtures. Production capacity is unchanged.
+#[cfg(test)]
+pub(crate) static FILE_WORKER_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -1071,6 +1075,7 @@ telemetry:
     }
     #[tokio::test]
     async fn bounded_file_reader_cancellation_and_retained_worker_are_qualified() -> TestResult {
+        let _worker_fixture = FILE_WORKER_TEST_LOCK.lock().await;
         let temp = tempfile::tempdir()?;
         let path = temp.path().join("server.yaml");
         fs::write(
