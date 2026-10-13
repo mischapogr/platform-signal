@@ -38,26 +38,14 @@ private cursor remain exact, fresh SDK confirmation and stale-owner/object/
 backup/authority/cancellation refusals are qualified. No replicas or remote DELETE.
 Exact audit:`target/native-restored-custody-20261014/ACCEPTANCE.json`.
 
-Next:ONBOARDING authenticated scoped host integration, actual engine gating and
-console states/blockers. Its bounded SDK slice passes8focused regressions and
-6frozen gates (943default/1004all-feature, both strict Clippy modes/fmt/workspace),
-with current coverage and explicit permission/category/state blockers. This
-read-only snapshot does not authenticate sources or enable rules. Contract52
-and `target/onboarding-sdk-20261014/ACCEPTANCE.json` record the partial acceptance.
-The generic rule gate now passes4new regressions and6frozen gates
-(947default/1008all-feature, both Clippy/fmt/workspace). Exact loaded inventory
-is required; blocked matching rules are suppressed. Contract53 and
-`target/onboarding-rules-20261014/ACCEPTANCE.json` record this library slice.
-Main still evaluates unconditionally and coverage history health remains unknown.
-Wire fresh trusted scoped host evidence, both Main paths and the authorized
-API/console together; never derive live health from stored history.
-Current host integration supersedes the earlier unwired status: both Main paths
-now use opt-in signed scoped host evidence, with authorized readiness API and
-console.13frozen gates pass952default/1013all-feature,7actual Small checks,
-5onboarding/26existing browser checks and exact Standard baseline81.17s.
-Contract54 and `target/onboarding-host-20261014/ACCEPTANCE.json` record the slice.
-Next: qualify Standard with onboarding enabled and composed browser/native
-reads, expiry/cancellation and scope isolation before closing ONBOARDING.
+Next:RELEASE-REVIEW. ONBOARDING now passes local simulation:37launcher guards,
+14workspace boundaries and actual enabled Standard50.31s with14named scenarios,
+11original WAL checkpoints and7real console/native checks over verified backend
+mTLS. Connected/unverified, verified/active, unsupported and independent missing
+permission/category/state blockers, expiry/scope/revocation/restart are audited.
+Unchanged Rust/build inputs and exact binaries retain952default/1013all-feature
+acceptance. Contract55 and `target/onboarding-standard-20261014/ACCEPTANCE.json`
+record full local item acceptance; vendor/AWS/external/release proof remains open.
 Phase9 live AWS collection remains separately scoped.
 Native run38529644808 at0991cdf passes both complete Rust/container/Standard kind
 architectures with verified artifacts, source/bundle/image/WAL/PVC bindings and

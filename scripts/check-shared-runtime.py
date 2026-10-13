@@ -34,6 +34,38 @@ def capture_standard_binary(source,destination):
     with destination.open('rb') as stream:
         return hashlib.file_digest(stream,'sha256').hexdigest()
 
+def qualify_standard_onboarding_report(report,binary_sha256):
+    expected={
+        'Standard_missing_host_proof_matching_rule_suppressed_checkpointed',
+        'Standard_connected_unhealthy_coverage_matching_rule_suppressed',
+        'Standard_current_signed_verified_coverage_actual_finding',
+        'Standard_missing_permissions_visible_and_matching_rule_suppressed',
+        'Standard_missing_categories_visible_and_matching_rule_suppressed',
+        'Standard_missing_state_visible_and_matching_rule_suppressed',
+        'Standard_forged_signature_matching_rule_suppressed',
+        'Standard_expired_attestation_matching_rule_suppressed',
+        'Standard_canonical_scope_mismatch_not_overridden_by_attributes',
+        'Standard_readiness_current_permission_scope_and_revocation',
+        'Standard_composed_browser_verified_mTLS_actual_readiness_and_expiry',
+        'Standard_restart_no_cached_activation_original_WAL_retained',
+        'Standard_verified_coverage_unsupported_loaded_rule_remains_disabled',
+        'Standard_composed_browser_verified_coverage_unsupported_detection_blocked'}
+    if not isinstance(report,dict):raise ValueError('actual Standard onboarding report shape')
+    events=report.get('event_ids',[]);scenarios=report.get('scenarios',[]);browser=report.get('browser',{})
+    if (report.get('status')!='passed_simulated' or report.get('onboarding_qualified') is not True
+            or report.get('binary_sha256')!=binary_sha256 or report.get('wal_checkpoint')!=11
+            or not isinstance(events,list) or len(events)!=11 or any(not isinstance(e,str) for e in events)
+            or len(set(events))!=11 or not isinstance(scenarios,list) or len(scenarios)!=14
+            or any(not isinstance(s,dict) for s in scenarios)
+            or {s.get('name') for s in scenarios}!=expected
+            or not isinstance(browser,dict) or browser.get('status')!='passed_simulated'
+            or browser.get('passed')!=6 or browser.get('backend_tls_verified') is not True
+            or not isinstance(report.get('unsupported_browser'),dict)
+            or report['unsupported_browser'].get('status')!='passed_simulated'
+            or report['unsupported_browser'].get('passed')!=1 or report['unsupported_browser'].get('backend_tls_verified') is not True
+            or type(report.get('provider_calls')) is not int or not 0<report['provider_calls']<=128):
+        raise ValueError('actual Standard onboarding/browser evidence missing')
+
 def qualify_standard_report(report, binary_sha256):
     if not isinstance(report,dict):
         raise ValueError('actual Standard executable report shape')
@@ -340,6 +372,7 @@ def main():
     parser.add_argument('--server', action='store_true', help='actual monolithic server publication/rules/query coordinator qualification')
     parser.add_argument('--standard', action='store_true', help='actual Standard executable with owned TLS and persistent S3 protocol fixture')
     parser.add_argument('--standard-only', action='store_true', help='focused Standard process calibration; excludes library and crash matrices')
+    parser.add_argument('--standard-scenario',choices=('pipeline','onboarding'),default='pipeline',help='focused --standard-only native scenario')
     parser.add_argument('--standard-checkpoint-recovery-only',action='store_true',help='server-local loss with independently retained stopped-WAL checkpoint restoration; control/object domains survive')
     parser.add_argument('--standard-recovery-only',action='store_true',help='actual Standard server-local loss and retained-object/missing-WAL hold; excludes other matrices')
     parser.add_argument('--standard-custody-only',action='store_true',help='actual Standard Main custody API and native SDK producer; excludes other matrices')
@@ -386,6 +419,8 @@ def main():
         if args.matrix or args.server:
             parser.error('--standard-only cannot claim the library/server crash matrices')
         args.standard=True
+    if args.standard_scenario!='pipeline' and (not args.standard_only or args.standard_kubernetes_image):
+        parser.error('--standard-scenario onboarding requires focused --standard-only without Kubernetes')
     if args.standard_offline_fixture and not args.standard:
         parser.error('--standard-offline-fixture requires a Standard profile')
     out = args.output.resolve()
@@ -655,6 +690,10 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
             for source_name in ('crates/signal-collector-sdk/src/audit.rs','crates/signal-protocol/src/audit.rs'):
                 report['source_hashes'][source_name]=hashlib.sha256((ROOT/source_name).read_bytes()).hexdigest()
             scenario='restored-custody' if args.standard_restored_custody_only else 'checkpoint-recovery' if args.standard_checkpoint_recovery_only else 'recovery' if args.standard_recovery_only else 'custody' if args.standard_custody_only else 'restore' if args.standard_restore_only else 'private' if args.standard_private_only else 'audit' if args.standard_audit_only else 'pipeline'
+            if args.standard_only:scenario=args.standard_scenario
+            if scenario=='onboarding':
+                for source_name in ('scripts/fixtures/onboarding-host.py','scripts/test-onboarding-native-browser.cjs','tests/fixtures/source-coverage/contract.json'):
+                    report['source_hashes'][source_name]=hashlib.sha256((ROOT/source_name).read_bytes()).hexdigest()
             if args.standard_kubernetes_image:
                 for source in ('scripts/check-standard-kubernetes.py', 'scripts/check-kubernetes.py', 'scripts/fixtures/standard-kubernetes.py',
                                'deploy/helm/signal/templates/deployment.yaml', 'deploy/helm/signal/templates/configmap.yaml',
@@ -680,6 +719,10 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
                     raise ValueError('Standard Kubernetes runtime acceptance missing')
                 report['checks'].append('actual_Standard_kind_image_regular_Secret_mounts_original_WAL_PVC_SIGKILL_and_replacement_recovery')
                 report['scope'] = standard_report['scope']
+            elif scenario=='onboarding':
+                qualify_standard_onboarding_report(standard_report,report['standard_binary_sha256'])
+                report['checks'].append('actual_onboarding_enabled_Standard_signed_scoped_current_coverage_prerequisite_suppression_native_browser_expiry_restart')
+                report['scope']=standard_report['scope']
             elif args.standard_custody_only:
                 if (standard_report.get('status')!='passed_simulated' or standard_report.get('binary_sha256')!=report['standard_binary_sha256']
                         or standard_report.get('child_capacity')!=3 or standard_report.get('log_capacity')!=24
