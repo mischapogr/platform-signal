@@ -27,6 +27,14 @@ prove external custody, actual EKS or full native ARM64 release qualification.
 
 ## Current CI work
 
+Native CI at`763099c` fails AMD64 on a stale PostgreSQL test-summary guard
+(the actual test passed with3filtered tests) and ARM64 in transport. Digest-verified
+artifacts:`target/native-ci-monitor-20261014/`. The corrected exact inventory
+guard and sanitized transport failure location pass36helper checks,19local
+transport checks and the18-case PostgreSQL matrix149.50s with owned cleanup:
+`target/native-ci-corrections-20261014/ACCEPTANCE.json`. Fresh matching native
+CI and the actual ARM64 transport diagnosis remain open.
+
 The completed`8f14fb0` run38146772722 passes AMD64 Rust and MCP, but ARM64 fails
 only the cancellation helper's readiness-stage assertion; container/Kubernetes
 jobs are skipped. Its GitHub-digest-verified public artifact and exact local
