@@ -1,6 +1,6 @@
 # Remaining work and model routing
 
-Current routing snapshot: 2026-10-12. New-session defaults already use
+Current routing snapshot: 2026-10-14. New-session defaults already use
 Sol6.1/medium/Standard (Codex) and Sonnet/medium (Claude). Loading this plan does
 not change the active model, speed, permissions or global settings.
 [Historical plan](11-model-work-plan-history-20261010.md) preserves the earlier
@@ -29,8 +29,12 @@ Actual PostgreSQL TLS/S3/native identity/mTLS API/SDK passes13.56s; actual selec
 Standard Main/SDK PUT-only hold, stopped-copy retention and fresh restart/release
 passes38.34s with owned cleanup. [Contract51](51-object-custody.md), exact evidence:
 `target/object-custody-api-20261012/ACCEPTANCE.json`. Provider retention is simulated.
-Next, continue STANDARD-RECOVERY in ledger dependency order, reusing prior
-original-WAL/current-authority/restore evidence only while source inputs match.
+STANDARD-RECOVERY is in progress. The37.90s actual server-local-loss guard
+recovers the exact independent original, while missing enrolled WAL identity
+correctly holds replacement startup. Next:explicit consistent control/object/WAL
+checkpoint and trusted replacement initialization, then stale-owner and full
+restore qualification. Evidence:`target/standard-recovery-20261014/ACCEPTANCE.json`.
+Reuse prior original-WAL/current-authority/restore inputs only while they match.
 Observe current native/public CI separately; no release qualification follows
 from these local fixtures.
 Preserve one replica/Recreate and explicit external configuration;
