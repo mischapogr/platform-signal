@@ -99,8 +99,12 @@ server-loss guard removes local WAL/cache after checked producer-copy release.
 The exact independently retained object is reconstructed, but replacement
 correctly refuses its missing enrolled WAL identity and drains. The recovered
 original stays retained. Evidence:`target/standard-recovery-20261014/ACCEPTANCE.json`.
-Next:explicit trusted consistent control/object/WAL checkpoint and replacement
-initialization; failover/RPO/RTO and full restore remain unqualified.
+Follow-up:`target/standard-checkpoint-recovery-20261014/ACCEPTANCE.json` passes
+75.16s. Exact independently retained stopped-WAL bytes restore replacement in
+17.47s including lease expiry; corrupt backup refuses, same original receipt
+gets fresh custody. RPO0 covers only the4byte fixture with control/object domains
+surviving. Next:consistent control-domain backup/restore, stale owners and explicit
+production restore authority; general failover/RPO/RTO remain unqualified.
 
 Native CI now prepares one source/revision/architecture-bound executable bundle
 per architecture and reuses it for the Standard cluster gate. Direct compiled
