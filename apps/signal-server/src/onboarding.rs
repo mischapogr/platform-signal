@@ -1,0 +1,685 @@
+//! Private host evidence, verified afresh. No collector claims or cached grants.
+use crate::config::{self, ConfigError, Settings};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
+use chrono::{DateTime, Utc};
+use ring::signature;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use signal_collector_sdk::coverage::{
+    CoverageContext, CoverageProfile,
+    onboarding::{self, Detection, OnboardingReport, Requirement, RequirementStatus},
+};
+use signal_event::SignalEvent;
+use signal_protocol::access::ScopeFacts;
+use signal_rules::{RuleContext, RuleError, RuleSet};
+use std::{collections::BTreeMap, path::PathBuf, sync::Arc, time::Duration};
+use tokio::time::Instant;
+use tokio_util::sync::CancellationToken;
+
+pub(crate) const DOMAIN: &[u8] = b"PLATFORM::SIGNAL/onboarding/v1\0";
+const MAX_DOCUMENT: usize = 262_144;
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Policy {
+    schema_version: u32,
+    scope_id: String,
+    public_key_base64: String,
+    report_path: PathBuf,
+    coverage_profile_json: String,
+    coverage_context_json: String,
+    event_scope: EventScope,
+    detections: Vec<PolicyDetection>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ring::signature::{Ed25519KeyPair, KeyPair};
+    use serde_json::json;
+    type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+    fn fixture(at: DateTime<Utc>) -> Result<(Value, Value, Value)> {
+        let fixtures: Value = serde_json::from_slice(include_bytes!(
+            "../../../tests/fixtures/source-coverage/contract.json"
+        ))?;
+        let find = |group: &str, id: &str| -> std::result::Result<Value, ConfigError> {
+            fixtures[group]
+                .as_array()
+                .and_then(|rows| rows.iter().find(|r| r["id"] == id))
+                .cloned()
+                .ok_or_else(invalid)
+        };
+        let mut record = find("record_cases", "quiet_verified")?["record"].clone();
+        let mut context = find("assessment_cases", "quiet_current")?["context"].clone();
+        let base = DateTime::parse_from_rfc3339("2026-10-07T00:05:30Z")?.with_timezone(&Utc);
+        fn shift(value: &mut Value, delta: chrono::TimeDelta) {
+            match value {
+                Value::String(text) => {
+                    if let Ok(time) = DateTime::parse_from_rfc3339(text) {
+                        *text = (time + delta)
+                            .with_timezone(&Utc)
+                            .to_rfc3339_opts(chrono::SecondsFormat::Nanos, true);
+                    }
+                }
+                Value::Array(values) => {
+                    for value in values {
+                        shift(value, delta);
+                    }
+                }
+                Value::Object(values) => {
+                    for value in values.values_mut() {
+                        shift(value, delta);
+                    }
+                }
+                _ => {}
+            }
+        }
+        shift(&mut record, at - base);
+        shift(&mut context, at - base);
+        let profile = fixtures["profiles"]
+            .as_array()
+            .and_then(|rows| rows.iter().find(|p| p["id"] == "fixture-basic"))
+            .cloned()
+            .ok_or_else(invalid)?;
+        Ok((record, context, profile))
+    }
+    fn signer() -> std::result::Result<Ed25519KeyPair, ConfigError> {
+        Ed25519KeyPair::from_seed_unchecked(&[7; 32]).map_err(|_| invalid())
+    }
+    fn envelope(payload: &Value) -> Result<String> {
+        let body = serde_json::to_vec(payload)?;
+        let mut signed = DOMAIN.to_vec();
+        signed.extend_from_slice(&body);
+        Ok(serde_json::to_string(
+            &json!({"schema_version":1,"payload_base64":STANDARD.encode(body),"signature_base64":STANDARD.encode(signer()?.sign(&signed).as_ref())}),
+        )?)
+    }
+    fn setup(path: &std::path::Path, at: DateTime<Utc>) -> Result<(Arc<Host>, Value, RuleSet)> {
+        let (record, context, profile) = fixture(at)?;
+        let rules = RuleSet::from_yaml_documents(
+            [
+                "apiVersion: signal.dev/v1\nkind: Rule\nmetadata: {id: fixture-rule, name: fixture}\nspec:\n  severity: medium\n  match: {all: [{field: message, exists: true}]}\n  finding: {title: Fixture}",
+            ],
+            signal_rules::RuleLimits::default(),
+        )?;
+        let policy = json!({"schema_version":1,"scope_id":"fixture-scope","public_key_base64":STANDARD.encode(signer()?.public_key().as_ref()),"report_path":path,"coverage_profile_json":serde_json::to_string(&profile)?,"coverage_context_json":serde_json::to_string(&context)?,"event_scope":{"source":"application","account":"acct","resource":"api"},"detections":[{"id":"fixture-rule","supported":true,"permissions":["read-audit"],"categories":["audit"],"state":["baseline"]}]});
+        let host = Arc::new(Host::parse(
+            &serde_json::to_string(&policy)?,
+            &["fixture-rule".into()],
+        )?);
+        std::fs::write(
+            path.with_file_name("policy.json"),
+            serde_json::to_string(&policy)?,
+        )?;
+        let payload = json!({"schema_version":1,"scope_id":"fixture-scope","observed_at":at,"expires_at":at+chrono::TimeDelta::seconds(20),"connected":true,"observer_status":"healthy","coverage_record":record,"interval":context["interval"],"permissions":{"read-audit":"met"},"categories":{"audit":"met"},"state":{"baseline":"met"}});
+        Ok((host, payload, rules))
+    }
+
+    #[test]
+    fn onboarding_signature_scope_time_and_payload_refusals() -> Result {
+        let dir = tempfile::tempdir()?;
+        let at = Utc::now();
+        let (host, payload, _) = setup(&dir.path().join("report.json"), at)?;
+        let evidence = host.verify(&envelope(&payload)?, at)?;
+        assert_eq!(
+            host.assess(Some(&evidence), at)?.stage,
+            onboarding::Stage::DetectionsActive
+        );
+        for (field, value) in [
+            ("scope_id", json!("other-scope")),
+            ("expires_at", json!(at)),
+            ("observed_at", json!(at + chrono::TimeDelta::seconds(1))),
+            ("expires_at", json!(at + chrono::TimeDelta::seconds(31))),
+        ] {
+            let mut bad = payload.clone();
+            bad[field] = value;
+            assert!(host.verify(&envelope(&bad)?, at).is_err());
+        }
+        let mut unsigned: Value = serde_json::from_str(&envelope(&payload)?)?;
+        unsigned["signature_base64"] = STANDARD.encode([0; 64]).into();
+        assert!(host.verify(&serde_json::to_string(&unsigned)?, at).is_err());
+        unsigned["signature_base64"] = "".into();
+        assert!(host.verify(&serde_json::to_string(&unsigned)?, at).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn onboarding_startup_refuses_wrong_inventory_historical_context_and_unknown_options() -> Result
+    {
+        let dir = tempfile::tempdir()?;
+        let at = Utc::now();
+        let path = dir.path().join("report.json");
+        let _ = setup(&path, at)?;
+        let policy: Value =
+            serde_json::from_str(&std::fs::read_to_string(dir.path().join("policy.json"))?)?;
+        assert!(Host::parse(&serde_json::to_string(&policy)?, &["other-rule".into()]).is_err());
+        let mut historical = policy.clone();
+        let mut context: Value = serde_json::from_str(
+            historical["coverage_context_json"]
+                .as_str()
+                .ok_or_else(invalid)?,
+        )?;
+        context["mode"] = "historical".into();
+        historical["coverage_context_json"] = serde_json::to_string(&context)?.into();
+        assert!(
+            Host::parse(
+                &serde_json::to_string(&historical)?,
+                &["fixture-rule".into()]
+            )
+            .is_err()
+        );
+        let mut unknown = policy;
+        unknown["connected"] = true.into();
+        assert!(Host::parse(&serde_json::to_string(&unknown)?, &["fixture-rule".into()]).is_err());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn onboarding_validity_is_capped_by_source_coverage_not_only_host_expiry() -> Result {
+        let dir = tempfile::tempdir()?;
+        let at = Utc::now();
+        let path = dir.path().join("report.json");
+        let (host, mut payload, _) = setup(&path, at)?;
+        let source_end = at + chrono::TimeDelta::seconds(10);
+        payload["coverage_record"]["valid_until"] = source_end
+            .to_rfc3339_opts(chrono::SecondsFormat::Nanos, true)
+            .into();
+        std::fs::write(&path, envelope(&payload)?)?;
+        let snapshot = host
+            .snapshot(&RuleContext::new(Duration::from_secs(5)))
+            .await?;
+        assert_eq!(snapshot.valid_until, Some(source_end));
+        assert!(snapshot.report.detections[0].active);
+        Ok(())
+    }
+
+    #[test]
+    fn onboarding_valid_signature_does_not_override_missing_prerequisites_or_coverage() -> Result {
+        let dir = tempfile::tempdir()?;
+        let at = Utc::now();
+        let (host, payload, _) = setup(&dir.path().join("report.json"), at)?;
+        for (field, value) in [
+            ("connected", json!(false)),
+            ("observer_status", json!("unhealthy")),
+            ("permissions", json!({})),
+            ("categories", json!({"audit":"missing"})),
+            ("state", json!({"baseline":"unknown"})),
+            ("coverage_record", json!({})),
+        ] {
+            let mut blocked = payload.clone();
+            blocked[field] = value;
+            let evidence = host.verify(&envelope(&blocked)?, at)?;
+            assert!(!host.assess(Some(&evidence), at)?.detections[0].active);
+        }
+        assert!(!host.assess(None, at)?.detections[0].active);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn onboarding_actual_file_evaluation_is_fresh_scoped_and_authentication_bound() -> Result
+    {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("report.json");
+        let at = Utc::now();
+        let (host, payload, rules) = setup(&path, at)?;
+        std::fs::write(&path, envelope(&payload)?)?;
+        let event: SignalEvent=serde_json::from_str::<signal_event::IngestEvent>(r#"{"timestamp":"2026-10-14T00:00:00Z","source":{"type":"application","name":"fixture"},"message":"fixture","resource":{"kind":"service","id":"api","account_id":"acct"}}"#)?.normalize("2026-10-14T00:01:00Z".parse()?)?;
+        let context = RuleContext::new(Duration::from_secs(5));
+        assert_eq!(
+            host.evaluate(&rules, &event, &context, true).await?.len(),
+            1
+        );
+        assert!(
+            host.evaluate(&rules, &event, &context, false)
+                .await?
+                .is_empty()
+        );
+        let mut other = event.clone();
+        other.source.source_type = "other".into();
+        assert!(
+            host.evaluate(&rules, &other, &context, true)
+                .await?
+                .is_empty()
+        );
+        let mut blocked = payload.clone();
+        blocked["permissions"] = json!({"read-audit":"missing"});
+        std::fs::write(&path, envelope(&blocked)?)?;
+        assert!(
+            host.evaluate(&rules, &event, &context, true)
+                .await?
+                .is_empty()
+        );
+        std::fs::write(&path, "invalid")?;
+        assert!(
+            host.evaluate(&rules, &event, &context, true)
+                .await?
+                .is_empty()
+        );
+        let mut malformed_interval = payload.clone();
+        malformed_interval["interval"] = json!({"start":"bad", "end":"bad"});
+        std::fs::write(&path, envelope(&malformed_interval)?)?;
+        assert!(
+            host.evaluate(&rules, &event, &context, true)
+                .await?
+                .is_empty()
+        );
+        std::fs::remove_file(&path)?;
+        assert!(
+            host.evaluate(&rules, &event, &context, true)
+                .await?
+                .is_empty()
+        );
+        context.cancellation.cancel();
+        assert!(matches!(
+            host.evaluate(&rules, &event, &context, true).await,
+            Err(RuleError::Cancelled)
+        ));
+        Ok(())
+    }
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EventScope {
+    source: String,
+    account: String,
+    resource: String,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PolicyDetection {
+    id: String,
+    supported: bool,
+    permissions: Vec<String>,
+    categories: Vec<String>,
+    state: Vec<String>,
+}
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum Check {
+    Met,
+    Missing,
+    Unknown,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Envelope {
+    schema_version: u32,
+    payload_base64: String,
+    signature_base64: String,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Evidence {
+    schema_version: u32,
+    scope_id: String,
+    observed_at: DateTime<Utc>,
+    expires_at: DateTime<Utc>,
+    connected: bool,
+    observer_status: String,
+    coverage_record: Box<serde_json::value::RawValue>,
+    interval: Value,
+    permissions: BTreeMap<String, Check>,
+    categories: BTreeMap<String, Check>,
+    state: BTreeMap<String, Check>,
+}
+
+pub(crate) struct Host {
+    policy: Policy,
+    key: [u8; 32],
+    profile: CoverageProfile,
+    template: Value,
+    binding: signal_coverage::format::HistoryBinding,
+}
+
+#[derive(Serialize)]
+pub(crate) struct Snapshot {
+    #[serde(flatten)]
+    pub report: OnboardingReport,
+    pub assessed_at: DateTime<Utc>,
+    pub valid_until: Option<DateTime<Utc>>,
+}
+
+fn invalid() -> ConfigError {
+    ConfigError::Invalid("onboarding host evidence")
+}
+fn bytes(value: &Value) -> Result<Vec<u8>, ConfigError> {
+    serde_json::to_vec(value).map_err(|_| invalid())
+}
+
+impl Host {
+    pub(crate) async fn load(
+        settings: &Settings,
+        rules: &RuleSet,
+    ) -> Result<Option<Arc<Self>>, ConfigError> {
+        let Some(path) = settings.optional("SIGNAL_ONBOARDING_CONFIG")? else {
+            return Ok(None);
+        };
+        if path.is_empty() || path.len() > 4096 {
+            return Err(invalid());
+        }
+        let ids: Vec<String> = rules.rule_ids().map(str::to_owned).collect();
+        let host = config::read_limited_document(
+            path.into(),
+            MAX_DOCUMENT,
+            Instant::now() + Duration::from_secs(5),
+            CancellationToken::new(),
+            move |text| Self::parse(text, &ids),
+        )
+        .await?;
+        Ok(Some(Arc::new(host)))
+    }
+
+    fn parse(text: &str, ids: &[String]) -> Result<Self, ConfigError> {
+        let policy: Policy = serde_json::from_str(text).map_err(|_| invalid())?;
+        if policy.schema_version != 1
+            || policy.scope_id.is_empty()
+            || policy.scope_id.len() > 128
+            || policy.detections.len() != ids.len()
+            || ids.len() > onboarding::MAX_DETECTIONS
+            || !policy.report_path.is_absolute()
+            || policy.report_path.as_os_str().len() > 4096
+            || [
+                &policy.event_scope.source,
+                &policy.event_scope.account,
+                &policy.event_scope.resource,
+            ]
+            .iter()
+            .any(|s| s.is_empty() || s.len() > 256 || s.chars().any(char::is_control))
+        {
+            return Err(invalid());
+        }
+        let key: [u8; 32] = STANDARD
+            .decode(&policy.public_key_base64)
+            .map_err(|_| invalid())?
+            .try_into()
+            .map_err(|_| invalid())?;
+        let profile = CoverageProfile::parse(policy.coverage_profile_json.as_bytes())
+            .map_err(|_| invalid())?;
+        let template: Value =
+            serde_json::from_str(&policy.coverage_context_json).map_err(|_| invalid())?;
+        let context = CoverageContext::parse(&bytes(&template)?).map_err(|_| invalid())?;
+        if !context.is_current() {
+            return Err(invalid());
+        }
+        let mut binding = template["binding"].clone();
+        binding["observer_id"] = template["observer_id"].clone();
+        let binding = signal_coverage::format::HistoryBinding::parse(&bytes(&binding)?)
+            .map_err(|_| invalid())?;
+        let host = Self {
+            policy,
+            key,
+            profile,
+            template,
+            binding,
+        };
+        let detections = host.detections(None);
+        // Exercise the SDK's identifier/count/duplicate validation at startup.
+        let unavailable = onboarding::assess_onboarding(
+            false,
+            b"invalid",
+            Some(&host.profile),
+            &context,
+            &detections,
+        )
+        .map_err(|_| invalid())?;
+        // All unknown prerequisites must fit the authorized HTTP response budget.
+        if serde_json::to_vec(&unavailable)
+            .map_err(|_| invalid())?
+            .len()
+            > 500_000
+        {
+            return Err(invalid());
+        }
+        let configured: std::collections::BTreeSet<_> = host
+            .policy
+            .detections
+            .iter()
+            .map(|d| d.id.as_str())
+            .collect();
+        if configured.len() != ids.len() || ids.iter().any(|id| !configured.contains(id.as_str())) {
+            return Err(invalid());
+        }
+        Ok(host)
+    }
+
+    pub(crate) fn scope_id(&self) -> &str {
+        &self.policy.scope_id
+    }
+    pub(crate) fn binding(&self) -> &signal_coverage::format::HistoryBinding {
+        &self.binding
+    }
+    pub(crate) fn profile(&self) -> &CoverageProfile {
+        &self.profile
+    }
+
+    fn detections(&self, evidence: Option<&Evidence>) -> Vec<Detection> {
+        let requirements = |ids: &[String], values: Option<&BTreeMap<String, Check>>| {
+            ids.iter()
+                .map(|id| Requirement {
+                    id: id.clone(),
+                    status: match values.and_then(|v| v.get(id)) {
+                        Some(Check::Met) => RequirementStatus::Met,
+                        Some(Check::Missing) => RequirementStatus::Missing,
+                        _ => RequirementStatus::Unknown,
+                    },
+                })
+                .collect()
+        };
+        self.policy
+            .detections
+            .iter()
+            .map(|d| Detection {
+                id: d.id.clone(),
+                supported: d.supported,
+                loaded: true,
+                permissions: requirements(&d.permissions, evidence.map(|e| &e.permissions)),
+                categories: requirements(&d.categories, evidence.map(|e| &e.categories)),
+                state: requirements(&d.state, evidence.map(|e| &e.state)),
+            })
+            .collect()
+    }
+
+    fn verify(&self, text: &str, at: DateTime<Utc>) -> Result<Evidence, ConfigError> {
+        let envelope: Envelope = serde_json::from_str(text).map_err(|_| invalid())?;
+        if envelope.schema_version != 1
+            || envelope.payload_base64.len() > MAX_DOCUMENT
+            || envelope.signature_base64.len() > 88
+        {
+            return Err(invalid());
+        }
+        let payload = STANDARD
+            .decode(envelope.payload_base64)
+            .map_err(|_| invalid())?;
+        let signature = STANDARD
+            .decode(envelope.signature_base64)
+            .map_err(|_| invalid())?;
+        let mut signed = DOMAIN.to_vec();
+        signed.extend_from_slice(&payload);
+        signature::UnparsedPublicKey::new(&signature::ED25519, self.key)
+            .verify(&signed, &signature)
+            .map_err(|_| invalid())?;
+        let evidence: Evidence = serde_json::from_slice(&payload).map_err(|_| invalid())?;
+        if evidence.schema_version != 1
+            || evidence.scope_id != self.policy.scope_id
+            || evidence.observed_at > at
+            || evidence.expires_at <= at
+            || evidence.expires_at <= evidence.observed_at
+            || evidence
+                .expires_at
+                .signed_duration_since(evidence.observed_at)
+                > chrono::TimeDelta::seconds(30)
+            || !matches!(
+                evidence.observer_status.as_str(),
+                "healthy" | "unhealthy" | "unknown"
+            )
+            || [&evidence.permissions, &evidence.categories, &evidence.state]
+                .iter()
+                .any(|values| {
+                    values.len() > 2048
+                        || values
+                            .keys()
+                            .any(|id| id.is_empty() || id.len() > onboarding::MAX_ID_BYTES)
+                })
+        {
+            return Err(invalid());
+        }
+        Ok(evidence)
+    }
+
+    fn assess(
+        &self,
+        evidence: Option<&Evidence>,
+        at: DateTime<Utc>,
+    ) -> Result<OnboardingReport, ConfigError> {
+        let mut context = self.template.clone();
+        context["at"] = at
+            .to_rfc3339_opts(chrono::SecondsFormat::Nanos, true)
+            .into();
+        context["observer_status"] = evidence
+            .map_or("unknown", |e| e.observer_status.as_str())
+            .into();
+        if let Some(evidence) = evidence {
+            context["interval"] = evidence.interval.clone();
+        }
+        let context = CoverageContext::parse(&bytes(&context)?).map_err(|_| invalid())?;
+        onboarding::assess_onboarding(
+            evidence.is_some_and(|e| e.connected && e.expires_at > at && e.observed_at <= at),
+            evidence.map_or(b"invalid".as_slice(), |e| {
+                e.coverage_record.get().as_bytes()
+            }),
+            Some(&self.profile),
+            &context,
+            &self.detections(evidence),
+        )
+        .map_err(|_| invalid())
+    }
+
+    pub(crate) async fn snapshot(
+        self: &Arc<Self>,
+        context: &RuleContext,
+    ) -> Result<Snapshot, ConfigError> {
+        let host = self.clone();
+        let result = config::read_limited_document(
+            self.policy.report_path.clone(),
+            MAX_DOCUMENT,
+            context.deadline,
+            context.cancellation.child_token(),
+            move |text| host.verify(text, Utc::now()),
+        )
+        .await;
+        // Unavailable/invalid evidence is an explicit unverified snapshot. A
+        // cancelled/late caller still cannot receive a successful assessment.
+        if context.cancellation.is_cancelled() || Instant::now() >= context.deadline {
+            return Err(invalid());
+        }
+        let at = Utc::now();
+        let evidence = result.as_ref().ok();
+        let mut report = self
+            .assess(evidence, at)
+            .or_else(|_| self.assess(None, at))?;
+        let valid_until = evidence
+            .and_then(|e| {
+                if report.coverage.status()
+                    == signal_collector_sdk::coverage::CoverageStatus::Verified
+                {
+                    self.effective_until(e).ok()
+                } else {
+                    Some(e.expires_at)
+                }
+            })
+            .filter(|end| *end > at);
+        if evidence.is_some() && valid_until.is_none() {
+            report = self.assess(None, at)?;
+        }
+        Ok(Snapshot {
+            report,
+            assessed_at: at,
+            valid_until,
+        })
+    }
+
+    fn effective_until(&self, evidence: &Evidence) -> Result<DateTime<Utc>, ConfigError> {
+        let record: Value =
+            serde_json::from_str(evidence.coverage_record.get()).map_err(|_| invalid())?;
+        let time = |name: &str| -> Result<DateTime<Utc>, ConfigError> {
+            DateTime::parse_from_rfc3339(record[name].as_str().ok_or_else(invalid)?)
+                .map(|t| t.with_timezone(&Utc))
+                .map_err(|_| invalid())
+        };
+        let profile: Value =
+            serde_json::from_str(&self.policy.coverage_profile_json).map_err(|_| invalid())?;
+        let age = profile["max_verification_age_seconds"]
+            .as_i64()
+            .ok_or_else(invalid)?;
+        let freshness = time("last_verified_at")?
+            .checked_add_signed(chrono::TimeDelta::seconds(age))
+            .ok_or_else(invalid)?;
+        Ok(evidence.expires_at.min(time("valid_until")?).min(freshness))
+    }
+
+    pub(crate) async fn evaluate(
+        self: &Arc<Self>,
+        rules: &RuleSet,
+        event: &SignalEvent,
+        context: &RuleContext,
+        authenticated: bool,
+    ) -> Result<Vec<signal_findings::Finding>, RuleError> {
+        let facts = ScopeFacts::event(event);
+        let in_scope = authenticated
+            && facts.source == Some(self.policy.event_scope.source.as_str())
+            && facts.account == Some(self.policy.event_scope.account.as_str())
+            && facts.resource == Some(self.policy.event_scope.resource.as_str());
+        let snapshot = if in_scope {
+            self.snapshot(context).await.map_err(|_| {
+                if context.cancellation.is_cancelled() {
+                    RuleError::Cancelled
+                } else if Instant::now() >= context.deadline {
+                    RuleError::Timeout
+                } else {
+                    RuleError::Invalid("onboarding evidence")
+                }
+            })?
+        } else {
+            Snapshot {
+                report: self
+                    .assess(None, Utc::now())
+                    .map_err(|_| RuleError::Invalid("onboarding policy"))?,
+                assessed_at: Utc::now(),
+                valid_until: None,
+            }
+        };
+        let now = Utc::now();
+        let live = snapshot.valid_until.is_some_and(|end| end > now);
+        let decisions: Vec<_> = snapshot
+            .report
+            .detections
+            .iter()
+            .map(|d| (d.id.as_str(), live && d.active))
+            .collect();
+        let deadline = if live {
+            snapshot
+                .valid_until
+                .and_then(|end| (end - now).to_std().ok())
+                .map(|ttl| (Instant::now() + ttl).min(context.deadline))
+                .unwrap_or(context.deadline)
+        } else {
+            context.deadline
+        };
+        let result = rules.evaluate_ready_with_context(
+            event,
+            &RuleContext {
+                deadline,
+                cancellation: context.cancellation.clone(),
+            },
+            &decisions,
+        )?;
+        if context.cancellation.is_cancelled() {
+            return Err(RuleError::Cancelled);
+        }
+        if Instant::now() >= deadline {
+            return Err(RuleError::Timeout);
+        }
+        Ok(result)
+    }
+}

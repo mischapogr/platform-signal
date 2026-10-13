@@ -13,6 +13,7 @@ pub(crate) struct RuntimeConfig {
     pub tls: Option<signal_ingest::tls::ServerTls>,
     pub identity: Option<signal_ingest::identity::IdentityBackend>,
     pub coverage_configuration: Option<coverage_api::Configuration>,
+    pub onboarding: Option<std::sync::Arc<crate::onboarding::Host>>,
     pub listen: SocketAddr,
     pub metrics_listen: Option<SocketAddr>,
     pub wal_config: BufferConfig,
@@ -199,6 +200,16 @@ pub(crate) async fn load(settings: &Settings) -> Result<RuntimeConfig, AppError>
     )
     .await?;
     // Validate provider transport/policy before opening persistence or readiness.
+    let onboarding = crate::onboarding::Host::load(settings, &rules).await?;
+    if let Some(host) = &onboarding {
+        if identity_configuration.is_none() {
+            return Err(ConfigError::Invalid("onboarding requires native identity").into());
+        }
+        coverage_configuration
+            .as_ref()
+            .ok_or(ConfigError::Invalid("onboarding requires scoped coverage"))?
+            .validate_onboarding(host)?;
+    }
     let identity = identity_configuration
         .map(access::Configuration::open)
         .transpose()?;
@@ -208,6 +219,7 @@ pub(crate) async fn load(settings: &Settings) -> Result<RuntimeConfig, AppError>
         tls,
         identity,
         coverage_configuration,
+        onboarding,
         listen,
         metrics_listen,
         wal_config,

@@ -105,6 +105,22 @@ paths, authorized assessment reads and console blockers. Coverage history still
 reports current_health=unknown and cannot substitute for a live health check.
 Full ONBOARDING remains in progress; inventory remains24accepted/28unfinished.
 
+## Onboarding host/Small Main/console integration — 2026-10-14
+
+Opt-in pinned signed host evidence now gates both Main evaluation paths and
+exposes an authorized scoped readiness API/console. Missing/forged/expired proof,
+unhealthy coverage, missing prerequisites and unverified/mismatched event scope
+block activation. No source-health inference from stored history or token entry.
+The13frozen gates pass952default/1013all-feature tests, both Clippy/fmt/workspace,
+5host regressions,7actual Small TLS-identity/WAL/finding checks,5onboarding and
+26existing Chromium console checks. Exact newly built Standard fixture baseline
+passes81.17s with cleanup. [Contract54](54-onboarding-host-integration.md), evidence:
+`target/onboarding-host-20261014/ACCEPTANCE.json`. Full ONBOARDING remains in
+progress: next qualify Standard with onboarding enabled and the composed
+browser/native endpoint. Vendor checks/retention are simulated; actual provider
+checks, current native CI and release gates remain open. Counts stay24accepted/
+28unfinished (1in progress). Earlier integration status above is historical.
+
 ## Actual local Standard Kubernetes accepted — 2026-10-12
 
 Native CI now prepares one source/revision/architecture-bound executable bundle

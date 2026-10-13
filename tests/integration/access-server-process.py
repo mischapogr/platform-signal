@@ -491,13 +491,19 @@ def main():
         assert request("GET", "/v1/findings/feed?after=begin", token="global")[1] == original_feed
         stop()
         # Replacing policy changes subsequent requests only through validated restart.
+        onboarding = os.environ.get("SIGNAL_TEST_ONBOARDING") == "1"
+        if onboarding:
+            spec = importlib.util.spec_from_file_location("signal_onboarding_fixture", REPO / "scripts/onboarding-native-fixture.py")
+            fixture = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(fixture)
+            fixture.exercise(root, REPO, coverage_bindings[0], vectors["profiles"][0]["input"], start, stop, request, coverage_request, counters)
         config["policy"]["bindings"] = [b for b in config["policy"]["bindings"] if b["subject"] != "read-a"]
         config_path.write_text(json.dumps(config))
         start()
         assert request("GET", endpoint, token="read-a")[0] == 403
         assert request("GET", endpoint, token="read-b")[1]["events"] == [events[0]]
         stop()
-        assert counters["invalid"] == 0 and 0 < counters["calls"] <= 192
+        assert counters["invalid"] == 0 and 0 < counters["calls"] <= (256 if onboarding else 192)
         owner.check_logs()
         for log in process_logs:
             text = log_text(log)

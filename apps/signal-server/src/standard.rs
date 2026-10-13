@@ -421,6 +421,7 @@ mod host {
         }
     }
     struct Consumer {
+        onboarding: Option<Arc<crate::onboarding::Host>>,
         sink: Arc<Sink>,
         token: LeaseToken,
         head: Option<Uuid>,
@@ -436,6 +437,7 @@ mod host {
     }
     async fn consume(input: Consumer) -> Result<(), AppError> {
         let Consumer {
+            onboarding,
             sink,
             mut token,
             mut head,
@@ -498,13 +500,22 @@ mod host {
             let mut legacy = Vec::new();
             let mut finding_bytes = 0usize;
             for row in &rows {
-                let findings = rules.evaluate_with_context(
-                    &row.event,
-                    &signal_rules::RuleContext {
-                        deadline: original.deadline(),
-                        cancellation: original.cancellation_token(),
-                    },
-                )?;
+                let context = signal_rules::RuleContext {
+                    deadline: original.deadline(),
+                    cancellation: original.cancellation_token(),
+                };
+                let findings = match &onboarding {
+                    Some(host) => {
+                        host.evaluate(
+                            &rules,
+                            &row.event,
+                            &context,
+                            row.sequence > sink.admission.admission_floor(),
+                        )
+                        .await?
+                    }
+                    None => rules.evaluate_with_context(&row.event, &context)?,
+                };
                 sink.evaluated.fetch_add(1, Ordering::Relaxed);
                 for finding in findings {
                     if derived.len() + legacy.len() >= finding_rows {
@@ -765,6 +776,7 @@ mod host {
                     tls: true,
                     identity: true,
                     coverage: cfg.coverage_configuration.is_some(),
+                    onboarding: cfg.onboarding.is_some(),
                     separate_metrics: cfg.metrics_listen.is_some(),
                 },
                 &startup,
@@ -938,7 +950,11 @@ mod host {
                 }
                 None => None,
             };
+            if let Some(state) = coverage.as_ref() {
+                state.set_onboarding(cfg.onboarding.clone())?;
+            }
             let sink = Arc::new(Sink {
+                // Onboarding policy is fixed to this host runtime.
                 admission,
                 wal,
                 control,
@@ -1094,6 +1110,7 @@ mod host {
             let diagnostics = sink.clone();
             let task_failed = failed.clone();
             let consumer_input = Consumer {
+                onboarding: cfg.onboarding.clone(),
                 sink: task_sink,
                 token,
                 head,

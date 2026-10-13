@@ -6,6 +6,7 @@ mod config;
 mod coverage_api;
 mod finding_api;
 mod logging;
+mod onboarding;
 mod pipeline;
 mod query_api;
 mod runtime_config;
@@ -209,6 +210,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             tls,
             identity,
             coverage_configuration,
+            onboarding,
             listen,
             metrics_listen,
             wal_config,
@@ -248,6 +250,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
                         tls: tls.is_some(),
                         identity: identity.is_some(),
                         coverage: coverage_configuration.is_some(),
+                        onboarding: onboarding.is_some(),
                         separate_metrics: metrics_listen.is_some(),
                     },
                     &startup,
@@ -296,6 +299,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
                 .await?;
         }
         let detection = Arc::new(DetectionPipeline {
+            onboarding: onboarding.clone(),
             authenticated_after: identity.as_ref().map(|_| wal.last_sequence),
             rules,
             findings: findings.clone(),
@@ -322,6 +326,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             None => None,
         };
         let pipeline = Arc::new(PipelineSink {
+            // Onboarding is fixed before admission becomes live.
             audit: query_audit.clone(),
             buffer: sink.clone(),
             store: store.clone(),
@@ -330,6 +335,9 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             logging: Some(logger.writer()),
             coverage: coverage.as_ref().map(|state| state.store.clone()),
         });
+        if let Some(state) = coverage.as_ref() {
+            state.set_onboarding(onboarding)?;
+        }
         let service = IngestService::new_with_security(
             config,
             pipeline.clone(),
