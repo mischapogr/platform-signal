@@ -102,7 +102,7 @@ impl RestoreConsumers for Consumers {
 }
 struct Custody {
     root: std::path::PathBuf,
-    ref_digest: [u8; 32],
+    references: std::collections::BTreeMap<[u8; 32], (&'static str, &'static str)>,
     protected: AtomicBool,
 }
 impl RestoreCustody for Custody {
@@ -115,14 +115,16 @@ impl RestoreCustody for Custody {
     ) -> RestoreFuture<'a, ()> {
         Box::pin(async move {
             context.check()?;
-            if o.object.digest()? != self.ref_digest
-                || o.object.version != "exact-local-version-1"
-                || (protected && !self.protected.load(Ordering::SeqCst))
+            let (version, file) = self
+                .references
+                .get(&o.object.digest()?)
+                .ok_or(ControlError::Fenced)?;
+            if o.object.version != *version || (protected && !self.protected.load(Ordering::SeqCst))
             {
                 return Err(ControlError::Fenced);
             }
-            let bytes = std::fs::read(self.root.join("immutable-version-1"))
-                .map_err(|_| ControlError::Unavailable)?;
+            let bytes =
+                std::fs::read(self.root.join(file)).map_err(|_| ControlError::Unavailable)?;
             context.check()?;
             if bytes.len() as u64 != o.bytes || Sha256::digest(&bytes).as_slice() != o.sha256 {
                 return Err(ControlError::Corrupt);
@@ -204,6 +206,49 @@ pub async fn qualify(root: &Client, f: &super::Fixture) -> Result<(), Error> {
         sha256: sha,
         bytes: object_bytes.len() as u64,
     };
+    let custody_bytes = b"independent custody-only original";
+    std::fs::write(temp.path().join("immutable-version-2"), custody_bytes)?;
+    let custody_object = RestoreObject {
+        object: CanonicalObjectRef {
+            schema_version: 1,
+            backend_id,
+            key: format!("query/{stream}/original/custody-only"),
+            version: "exact-local-version-2".into(),
+        },
+        bytes: custody_bytes.len() as u64,
+        sha256: Sha256::digest(custody_bytes).into(),
+    };
+    let custody_description = ObjectCustodyDescription {
+        schema_version: 1,
+        id: Uuid::from_u128(0xa29),
+        scope: s.clone(),
+        object: custody_object.object.clone(),
+        bytes: custody_object.bytes,
+        sha256: custody_object.sha256,
+        retain_until: chrono::Utc::now() + chrono::Duration::hours(1),
+    };
+    #[derive(serde::Serialize)]
+    struct CustodyReference<'a> {
+        kind: &'static str,
+        description: &'a ObjectCustodyDescription,
+    }
+    let custody_reference = serde_json::to_vec(&CustodyReference {
+        kind: "object_custody_v1",
+        description: &custody_description,
+    })?;
+    runtime
+        .record_receipt(
+            token.clone(),
+            ReceiptInput {
+                schema_version: 1,
+                id: custody_description.id,
+                prepared_count: 0,
+                source_record_count: 0,
+                reference: custody_reference.clone(),
+            },
+            super::context()?,
+        )
+        .await?;
     let manifest = QueryManifest {
         schema_version: 1,
         storage_schema_version: 1,
@@ -392,7 +437,7 @@ pub async fn qualify(root: &Client, f: &super::Fixture) -> Result<(), Error> {
     let consumers = Arc::new(Consumers {
         current: Mutex::new(vec![]),
     });
-    let restore = PostgresStoppedRestore::new(
+    let incomplete = PostgresStoppedRestore::new(
         settings(f, "signal_restore_destination", "signal_migrator")?,
         "signal_control_owner".into(),
         scope.clone(),
@@ -400,8 +445,30 @@ pub async fn qualify(root: &Client, f: &super::Fixture) -> Result<(), Error> {
         vec![object.clone()],
         consumers.clone(),
     )?;
+    assert!(matches!(
+        incomplete.stage(super::context()?).await,
+        Err(ControlError::Corrupt)
+    ));
+    incomplete.shutdown(super::context()?).await?;
+    let mut retained = std::collections::BTreeMap::new();
+    retained.insert(object.object.digest()?, object.clone());
+    retained.insert(custody_object.object.digest()?, custody_object.clone());
+    let restore = PostgresStoppedRestore::new(
+        settings(f, "signal_restore_destination", "signal_migrator")?,
+        "signal_control_owner".into(),
+        scope.clone(),
+        enrollment.clone(),
+        retained.into_values().collect(),
+        consumers.clone(),
+    )?;
     eprintln!("phase: stopped-restore-source-staged-rows-copied");
     let inventory = restore.stage(super::context()?).await?;
+    assert_eq!(inventory.objects.len(), 2);
+    assert!(
+        inventory
+            .protected_objects
+            .contains(&custody_object.object.digest()?)
+    );
     assert_eq!(
         inventory.checkpoint_sha256,
         independently_captured_checkpoint
@@ -422,9 +489,23 @@ pub async fn qualify(root: &Client, f: &super::Fixture) -> Result<(), Error> {
         temp.path().join("immutable-version-1"),
         restored_objects.join("immutable-version-1"),
     )?;
+    std::fs::copy(
+        temp.path().join("immutable-version-2"),
+        restored_objects.join("immutable-version-2"),
+    )?;
     let custody = Custody {
         root: restored_objects.clone(),
-        ref_digest: object.object.digest()?,
+        references: [
+            (
+                object.object.digest()?,
+                ("exact-local-version-1", "immutable-version-1"),
+            ),
+            (
+                custody_object.object.digest()?,
+                ("exact-local-version-2", "immutable-version-2"),
+            ),
+        ]
+        .into(),
         protected: AtomicBool::new(true),
     };
     let generation = Uuid::from_u128(0xa11);
@@ -449,6 +530,33 @@ pub async fn qualify(root: &Client, f: &super::Fixture) -> Result<(), Error> {
     );
     authority.approved.store(true, Ordering::SeqCst);
     eprintln!("phase: stopped-restore-current-approval-object-failure-gates");
+    std::fs::remove_file(restored_objects.join("immutable-version-2"))?;
+    assert!(matches!(
+        coordinate_stopped_restore(
+            &restore,
+            &authority,
+            &custody,
+            enrollment.id,
+            generation,
+            super::context()?
+        )
+        .await,
+        Err(ControlError::Unavailable)
+    ));
+    assert_eq!(restore.stage(super::context()?).await?, inventory);
+    std::fs::write(restored_objects.join("immutable-version-2"), custody_bytes)?;
+    let copied: Vec<u8> = destination
+        .query_one(
+            "SELECT reference FROM signal_control.receipts WHERE id=$1",
+            &[&custody_description.id],
+        )
+        .await?
+        .get(0);
+    assert_eq!(copied, custody_reference);
+    eprintln!(
+        "phase: stopped-restore-custody-only-original-root-missing-inventory-object-refusal-exact-reference-qualified"
+    );
+
     std::fs::write(
         restored_objects.join("immutable-version-1"),
         b"corrupt immutable bytes",

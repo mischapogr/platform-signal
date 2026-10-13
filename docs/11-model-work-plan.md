@@ -34,8 +34,12 @@ recovers the exact independent original, while missing enrolled WAL identity
 correctly holds replacement startup. Complete stopped-WAL checkpoint recovery
 now passes75.16s with17.47s replacement and fresh custody, corrupt backup refusal
 and exact original bytes. Evidence:`target/standard-checkpoint-recovery-20261014/ACCEPTANCE.json`.
-Next:consistent control-domain backup/restore, stale owners and production restore
-authority. This4byte fixture preserves independent PostgreSQL/object domains.
+Custody-only protected restore roots now pass933default/994all-feature tests
+and18-case PostgreSQL matrix121.29s: exact object omission/missing bytes refuses
+restore and original custody receipt bytes survive data-only control copying.
+Evidence:`target/restore-custody-roots-20261014/ACCEPTANCE.json`.
+Next:native restored-generation fresh custody/current trusted authority and full
+consistent restore acceptance. Earlier4byte replacement kept PostgreSQL/objects live.
 Reuse prior original-WAL/current-authority/restore inputs only while they match.
 Observe current native/public CI separately; no release qualification follows
 from these local fixtures.
