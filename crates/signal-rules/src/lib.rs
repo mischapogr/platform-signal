@@ -20,6 +20,7 @@ use tokio_util::sync::CancellationToken;
 
 mod revision;
 pub mod sensor_health;
+pub mod state_journal;
 pub mod window;
 
 #[derive(Clone, Debug)]

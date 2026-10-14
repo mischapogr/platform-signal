@@ -1197,13 +1197,24 @@
         "target/window-20261014/FINAL-WORKSPACE-ACCEPTANCE.json",
         "target/window-20261014/window-final-small/window-native-report.json",
         "target/window-20261014/window-reader-fixed/report.json",
-        "target/window-20261014/window-final-shared-authorized/report.json"
+        "target/window-20261014/window-final-shared-authorized/report.json",
+        "target/window-ci-20261015/VERIFIED-NATIVE-WINDOW.json"
       ],
       "references": [
         "docs/source-detection-catalog.md",
         "docs/64-authentication-window.md"
       ],
-      "notes": "WINDOW passes local simulation acceptance \u2014 2026-10-15. Bounded authentication event-time/watermark/lateness, canonical replay identity, key/event/byte/TTL/output/history limits, unknown coverage and atomic state/findings/checkpoint recovery are qualified. Six frozen workspace gates pass1048default/1117all-feature tests, both strict Clippy modes, formatting and14workspace boundaries. Actual Small Main passes5WINDOW/8onboarding checks; Standard Main passes8scenarios; shared recovery passes53checks in206.73s. Runtime source bindings109/266/246 match; retained Small/Standard executable identities match and owned cleanup succeeds. Writer review closed three reproduced findings; it is not independent release review. Evidence:`target/window-20261014/ACCEPTANCE.json`; [contract64](64-authentication-window.md). LinuxAMD64 with actual SQLite/PostgreSQL/Parquet/WAL and SIGKILL; signed host/object authority is synthetic. Inventory35accepted/17unfinished. Current remote/native/container/Kubernetes, AWS/EKS, released dependencies, version and publication remain separate. Next local dependency-ready detector:SENSOR-HEALTH; Phase9 AWS collection requires a separate task."
+      "notes": "WINDOW passes local simulation acceptance \u2014 2026-10-15. Bounded authentication event-time/watermark/lateness, canonical replay identity, key/event/byte/TTL/output/history limits, unknown coverage and atomic state/findings/checkpoint recovery are qualified. Six frozen workspace gates pass1048default/1117all-feature tests, both strict Clippy modes, formatting and14workspace boundaries. Actual Small Main passes5WINDOW/8onboarding checks; Standard Main passes8scenarios; shared recovery passes53checks in206.73s. Runtime source bindings109/266/246 match; retained Small/Standard executable identities match and owned cleanup succeeds. Writer review closed three reproduced findings; it is not independent release review. Evidence:`target/window-20261014/ACCEPTANCE.json`; [contract64](64-authentication-window.md). LinuxAMD64 with actual SQLite/PostgreSQL/Parquet/WAL and SIGKILL; signed host/object authority is synthetic. Inventory35accepted/17unfinished. Current remote/native/container/Kubernetes, AWS/EKS, released dependencies, version and publication remain separate. Next local dependency-ready detector:SENSOR-HEALTH; Phase9 AWS collection requires a separate task.",
+      "native_process_qualification": {
+        "revision": "57024b789b3222d3cf34d6d06af168321e62d724",
+        "status": "passed_simulated",
+        "architectures": [
+          "amd64",
+          "arm64"
+        ],
+        "evidence": "target/window-ci-20261015/VERIFIED-NATIVE-WINDOW.json",
+        "limits": "Primary artifact/source/binary/cleanup-verified native process proof; providers synthetic. Entire run succeeds; final container artifact inspection and newer source qualification remain separate."
+      }
     },
     {
       "id": "STATE",
@@ -1238,7 +1249,8 @@
       "evidence": [
         "target/goal-execution-20261007/SENSOR-HEALTH/",
         "target/sensor-health-20261015/ACCEPTANCE.json",
-        "target/sensor-health-adapter-20261015/ACCEPTANCE.json"
+        "target/sensor-health-adapter-20261015/ACCEPTANCE.json",
+        "target/sensor-health-journal-20261015/ACCEPTANCE.json"
       ],
       "references": [
         "docs/source-detection-catalog.md",
@@ -1249,10 +1261,15 @@
         "evidence": "target/sensor-health-20261015/ACCEPTANCE.json",
         "whole_item_accepted": false
       },
-      "notes": "Foundation and authenticated signed-verification library slices pass locally:12crypto/bridge and11core regressions;1071workspace tests and strict Clippy/format/boundaries. Original byte/domain/key/policy/source bindings and evaluator-aligned expiry are qualified. Complete enrollment digest is available for key-rotation recovery fencing. Native Main/cadence/atomic outbox/checkpoint/history/metrics and actual crash/lost-reply recovery remain required.",
+      "notes": "Foundation, signed verification and generic atomic local journal slices pass. Corrected frozen journal acceptance1082workspace tests/11journal regressions, actual SIGKILL and physical SQLite cancellation/drop/timeout. Native domain payload validation/Main/cadence/history/metrics/Standard and actual whole detector recovery remain required.",
       "signed_observer_slice": {
         "status": "passed_local",
         "evidence": "target/sensor-health-adapter-20261015/ACCEPTANCE.json",
+        "whole_item_accepted": false
+      },
+      "atomic_journal_slice": {
+        "status": "passed_local",
+        "evidence": "target/sensor-health-journal-20261015/ACCEPTANCE.json",
         "whole_item_accepted": false
       }
     },
