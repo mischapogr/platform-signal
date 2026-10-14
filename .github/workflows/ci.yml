@@ -109,6 +109,8 @@ jobs:
         run: python3 scripts/run-ci-check.py --name standard-postgres --timeout 300 -- python3 scripts/check-shared-runtime.py --standard-only --image postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa --output target/ci/standard-postgres-qualification
       - name: Native Small WINDOW crash and recovery qualification
         run: python3 scripts/run-ci-check.py --name window-small --timeout 120 -- python3 scripts/check-onboarding-native.py target/debug/signal-server target/ci/window-small --window
+      - name: Native Small SENSOR-HEALTH crash and recovery qualification
+        run: python3 scripts/run-ci-check.py --name sensor-health-small --timeout 120 -- python3 scripts/check-onboarding-native.py target/debug/signal-server target/ci/sensor-health-small --sensor-health
       - name: Native Standard WINDOW crash and recovery qualification
         run: python3 scripts/run-ci-check.py --name window-standard --timeout 300 -- python3 scripts/check-shared-runtime.py --standard-only --standard-scenario window --image postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa --output target/ci/window-standard
       - name: Prepare qualified Standard executables for native Kubernetes
