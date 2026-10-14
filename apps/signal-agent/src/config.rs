@@ -94,6 +94,7 @@ impl AgentConfig {
             limits.insert(flag, env(name, default)?);
         }
         let mut metrics = env("SIGNAL_AGENT_METRICS_LISTEN", "")?;
+        let mut runtime_boot_id = String::new();
         let mut syslog_listen = String::new();
         let mut syslog_tls = String::new();
         let mut syslog_peer = String::new();
@@ -120,6 +121,7 @@ impl AgentConfig {
                         "--source-type" => source_type = value,
                         "--source-name" => source_name = Some(value),
                         "--metrics-listen" => metrics = value,
+                        "--runtime-boot-id" => runtime_boot_id = value,
                         "--syslog-listen" => syslog_listen = value,
                         "--syslog-tls-config" => syslog_tls = value,
                         "--syslog-peer-sha256" => syslog_peer = value,
@@ -167,15 +169,29 @@ impl AgentConfig {
         {
             return Err(ConfigError("source, endpoint or spool path"));
         }
+        if format != "falco-json" && !runtime_boot_id.is_empty() {
+            return Err(ConfigError("runtime boot ID requires falco-json mode"));
+        }
         let mode = match format.as_str() {
             "auto" => ParseMode::Auto,
             "plain" => ParseMode::Plain,
             "json" => ParseMode::Json,
             "auth-json" => ParseMode::AuthenticationJson,
             "fortigate" => ParseMode::Fortigate,
+            "falco-json" => {
+                let boot_id = runtime_boot_id
+                    .parse::<uuid::Uuid>()
+                    .map_err(|_| ConfigError("runtime boot ID"))?;
+                let host = source_name
+                    .as_deref()
+                    .ok_or(ConfigError("runtime requires configured host source name"))?;
+                signal_collector_sdk::falco::Profile::new(host, boot_id)
+                    .map_err(|_| ConfigError("runtime source profile"))?;
+                ParseMode::Falco { boot_id }
+            }
             _ => {
                 return Err(ConfigError(
-                    "format must be auto, plain, json, auth-json or fortigate",
+                    "format must be auto, plain, json, auth-json, fortigate or falco-json",
                 ));
             }
         };
@@ -348,6 +364,43 @@ mod tests {
             &pin,
         ]);
         assert!(parse(&args).is_ok());
+    }
+    #[test]
+    fn falco_requires_explicit_host_boot_binding_and_rejects_mixed_profile_flags() {
+        let parse = |args: &[&str]| AgentConfig::parse(args.iter().map(|v| v.to_string()));
+        assert!(parse(&["--format", "falco-json"]).is_err());
+        assert!(
+            parse(&[
+                "--format",
+                "falco-json",
+                "--runtime-boot-id",
+                "00000000-0000-0000-0000-000000000001"
+            ])
+            .is_err()
+        );
+        assert!(
+            parse(&[
+                "--format",
+                "falco-json",
+                "--source-name",
+                "host",
+                "--runtime-boot-id",
+                "00000000-0000-0000-0000-000000000000"
+            ])
+            .is_err()
+        );
+        assert!(parse(&["--runtime-boot-id", "00000000-0000-0000-0000-000000000001"]).is_err());
+        assert!(
+            parse(&[
+                "--format",
+                "falco-json",
+                "--source-name",
+                "host",
+                "--runtime-boot-id",
+                "00000000-0000-0000-0000-000000000001"
+            ])
+            .is_ok()
+        );
     }
     #[test]
     fn rejects_capacity_and_retry_inconsistency() {
