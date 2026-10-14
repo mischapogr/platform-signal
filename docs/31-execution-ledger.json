@@ -1405,7 +1405,7 @@
     {
       "id": "EXT-ARM64",
       "title": "Native ARM64 qualification",
-      "status": "external_pending",
+      "status": "passed_external",
       "dependencies": [],
       "acceptance": [
         "Actual native build/runtime/container/Kubernetes/load evidence."
@@ -1423,13 +1423,19 @@
         "target/goal-execution-20261007/EXT-CI/native-stage-remote-jobs-1.json",
         "target/goal-execution-20261007/EXT-CI/native-stage-remote-jobs-4.json",
         "target/goal-execution-20261007/EXT-CI/native-stage-annotations.json",
-        "target/standard-kind-ci-20261012/NATIVE-STANDARD-ACCEPTANCE.json"
+        "target/standard-kind-ci-20261012/NATIVE-STANDARD-ACCEPTANCE.json",
+        "target/rustls-security-20261014/EXTERNAL-ACCEPTANCE.json",
+        "target/rustls-security-20261014/VERIFIED-NATIVE-RUST.json",
+        "target/rustls-security-20261014/VERIFIED-PATCHED-NATIVE-IMAGES.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md"
       ],
-      "notes": "2026-10-09 pushed57c1d1e public run37887706801 passes both native Rust Tests steps; ARM also passes IdP/browser and object/query simulation. Full run fails ARM legacy-candidate helper and AMD IdP/browser; container/kind skipped. Local fake-ARM reproduction identifies two legacy test host mocks; exact remote cause not inferred. Full reviewed-revision native/runtime/CI gate remains open. Run37892977827 on3b172b70 passes both complete native Rust jobs and both image/basic runtime/persistence gates, but both native pipeline steps fail; kind/supply-chain/candidate skipped. Cause unconfirmed. fe5 query hook pushed; run37895779773 still in progress as of07:08UTC. No full gate closure. Settledfe5acf377 run37895779773 passes both complete native Rust/image/basic-container jobs; both native pipeline steps fail, kind/supply-chain/candidate skipped. Findings1a8 now pushed; no root-cause/full-gate claim. Settled1a8ab8cb run37899784130 full ARM64 Rust succeeds; AMD64 Rust Tests fails with generic exit1 only. Develop7761c586 run37903398196 native jobs running at08:23UTC. No cause/full-gate claim. Settled7761c586 run37903398196 both native Rust/image/basic-runtime checks pass; both native qualification steps fail with reported pipeline stage. Kind/supply-chain/candidate skipped; root cause unconfirmed. Complete27281e3 run38246315239 succeeds: both native976-test/five Standard process jobs, source/bundle/image-bound Standard kind107.40s AMD64/114.57s ARM64, original WAL checkpoint2/floor0/database facts/recovery/cleanup, native Small pipeline/soak and supply-chain verified. Synthetic identity/S3 remain explicit. Latercc3744a current full CI is active and unqualified; no AWS/EKS/released dependency/publication closure."
+      "notes": "2026-10-09 pushed57c1d1e public run37887706801 passes both native Rust Tests steps; ARM also passes IdP/browser and object/query simulation. Full run fails ARM legacy-candidate helper and AMD IdP/browser; container/kind skipped. Local fake-ARM reproduction identifies two legacy test host mocks; exact remote cause not inferred. Full reviewed-revision native/runtime/CI gate remains open. Run37892977827 on3b172b70 passes both complete native Rust jobs and both image/basic runtime/persistence gates, but both native pipeline steps fail; kind/supply-chain/candidate skipped. Cause unconfirmed. fe5 query hook pushed; run37895779773 still in progress as of07:08UTC. No full gate closure. Settledfe5acf377 run37895779773 passes both complete native Rust/image/basic-container jobs; both native pipeline steps fail, kind/supply-chain/candidate skipped. Findings1a8 now pushed; no root-cause/full-gate claim. Settled1a8ab8cb run37899784130 full ARM64 Rust succeeds; AMD64 Rust Tests fails with generic exit1 only. Develop7761c586 run37903398196 native jobs running at08:23UTC. No cause/full-gate claim. Settled7761c586 run37903398196 both native Rust/image/basic-runtime checks pass; both native qualification steps fail with reported pipeline stage. Kind/supply-chain/candidate skipped; root cause unconfirmed. Complete27281e3 run38246315239 succeeds: both native976-test/five Standard process jobs, source/bundle/image-bound Standard kind107.40s AMD64/114.57s ARM64, original WAL checkpoint2/floor0/database facts/recovery/cleanup, native Small pipeline/soak and supply-chain verified. Synthetic identity/S3 remain explicit. Latercc3744a current full CI is active and unqualified; no AWS/EKS/released dependency/publication closure.",
+      "latest_settled_revision": "e1555a49f2f6cc1baff6b34ad274e2ab37e4b6f9",
+      "latest_settled_evidence": "target/rustls-security-20261014/EXTERNAL-ACCEPTANCE.json",
+      "latest_settled_result": "Complete reviewed e1555a4 CI38583003350 succeeds. Both architectures:48Rust gates/1019tests and18container gates; primary artifact digests,181Standard source hashes, stripped/original bundle executable lineage, exact images, original WAL checkpoint2/PVC recovery and owned cleanup verified. Cargo audit0, containerHIGH/CRITICAL0;23MEDIUM/8LOW retained. Synthetic identity/S3 and finite soak limits remain; no actual AWS/EKS/vendor/released dependency/publication closure."
     },
     {
       "id": "EXT-AWS",
@@ -1466,7 +1472,7 @@
     {
       "id": "EXT-CI",
       "title": "Remote CI for reviewed revision",
-      "status": "external_pending",
+      "status": "passed_external",
       "dependencies": [],
       "acceptance": [
         "Required remote native jobs and retained artifacts matching reviewed revision."
@@ -1492,7 +1498,10 @@
         "target/goal-execution-20261007/EXT-CI/native-stage-annotations.json",
         "target/standard-kind-ci-20261012/NATIVE-STANDARD-ACCEPTANCE.json",
         "target/release-ci-20261014/ACCEPTANCE.json",
-        "target/rustls-security-20261014/ACCEPTANCE.json"
+        "target/rustls-security-20261014/ACCEPTANCE.json",
+        "target/rustls-security-20261014/EXTERNAL-ACCEPTANCE.json",
+        "target/rustls-security-20261014/VERIFIED-NATIVE-RUST.json",
+        "target/rustls-security-20261014/VERIFIED-PATCHED-NATIVE-IMAGES.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
@@ -1503,9 +1512,9 @@
         "status": "passed_local",
         "evidence": "target/goal-execution-20261007/EXT-CI/autotarget-acceptance.json"
       },
-      "latest_settled_revision": "27281e3f8c7c50575b2f335e73f6fe0238029f68",
-      "latest_settled_evidence": "target/standard-kind-ci-20261012/NATIVE-STANDARD-ACCEPTANCE.json",
-      "latest_settled_result": "Complete producing-revision CI and both native Standard cluster profiles passed; latercc3744a full CI active.",
+      "latest_settled_revision": "e1555a49f2f6cc1baff6b34ad274e2ab37e4b6f9",
+      "latest_settled_evidence": "target/rustls-security-20261014/EXTERNAL-ACCEPTANCE.json",
+      "latest_settled_result": "Complete reviewed e1555a4 CI38583003350 succeeds. Both architectures:48Rust gates/1019tests and18container gates; primary artifact digests,181Standard source hashes, stripped/original bundle executable lineage, exact images, original WAL checkpoint2/PVC recovery and owned cleanup verified. Cargo audit0, containerHIGH/CRITICAL0;23MEDIUM/8LOW retained. Synthetic identity/S3 and finite soak limits remain; no actual AWS/EKS/vendor/released dependency/publication closure.",
       "pipeline_fixed_diagnostics": {
         "status": "passed_local",
         "evidence": "target/goal-execution-20261007/EXT-CI/pipeline-diagnostic-acceptance.json"
