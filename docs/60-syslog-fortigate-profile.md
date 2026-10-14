@@ -1,7 +1,8 @@
 # Site syslog and selected FortiGate profile
 
-SYSLOG remains pending until the site TCP/TLS receiver, connection identity,
-local spool and outage replay are qualified together. The selected initial
+The selected SYSLOG receiver passes local simulated acceptance, recorded in
+[the current progress](07-progress.md). Actual firmware/device coverage and
+site-loss qualification remain separate external boundaries. The selected initial
 parser is `fortigate-default-ns` revision `v1`; agent file/stdin mode `fortigate`
 uses the existing durable spool and file cursor. This mode does not open a syslog
 listener. UDP is legacy best effort and cannot establish durable delivery.

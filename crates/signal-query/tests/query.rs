@@ -588,6 +588,18 @@ async fn admission_saturation_cancellation_and_expiry_release_capacity() -> Test
         engine.execute(EventQuery::default(), cancelled).await,
         Err(QueryError::Cancelled)
     );
+    // Front cancellation releases query admission, but a started physical read
+    // retains its own lease. Observe retirement before asserting replacement
+    // success, just as the dropped-future regression below does.
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while engine.metrics().io_depth != 0 {
+            let metrics = engine.metrics();
+            assert!(metrics.io_running <= metrics.io_worker_capacity);
+            assert!(metrics.io_depth <= metrics.io_capacity);
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+    })
+    .await?;
     assert_eq!(
         ids(engine.execute(EventQuery::default(), context()).await?),
         vec![1]
