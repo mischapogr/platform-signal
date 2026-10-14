@@ -652,3 +652,18 @@ Standard cleanup and seven reader-permission refusals pass. Standard elapsed:
 `target/window-ci-20261015/VERIFIED-NATIVE-WINDOW.json`. Host/object authority is
 synthetic. Final container artifact inspection and later SENSOR-HEALTH revisions
 remain separate; no AWS/EKS/released dependency/version/publication claim.
+
+Journal writer-lease CI correction — 2026-10-15. Run38703433824 at `a37f795`
+passes ARM64 Rust but fails AMD64 tests on an immediate journal reopen returning
+Busy after owner drop; downstream container jobs are skipped. The primary-digest-
+verified failure archive and a deterministic duplicated-descriptor regression
+reproduce the same lingering-lock mechanism. Explicit shared-description unlock
+now follows physical SQLite close in both generic and Window journals; genuine
+contention remains Busy, other lock errors remain journal failures. Exact remote
+subprocess inheritance was not observed and remains an inference. No timeout
+increase or retry was added. An isolated checkout of that revision plus only the
+five-file correction passes six frozen gates: 1,083 default / 1,152 all-feature
+tests, both strict Clippy modes, formatting and 14 workspace boundaries. Evidence:
+`target/ci-journal-lease-20261015/ACCEPTANCE.json`. Fresh native CI is required.
+The uncommitted SENSOR-HEALTH native-session/causal-deadline work is excluded from
+this correction and its acceptance. Inventory stays 35 accepted / 17 unfinished.

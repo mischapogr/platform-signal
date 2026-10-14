@@ -131,7 +131,7 @@ struct Engine {
     connection: Connection,
     config: Config,
     // Declared last so SQLite closes before the filesystem writer lease drops.
-    _lock: File,
+    _lock: crate::journal_lease::WriterLease,
 }
 fn secure_file(path: &Path, maximum: u64) -> Result<File, Error> {
     let file = OpenOptions::new()
@@ -180,7 +180,11 @@ impl Engine {
         }
         let lock_path = path.with_added_extension("lock");
         let lock = secure_file(&lock_path, 0)?;
-        lock.try_lock().map_err(|_| Error::Busy)?;
+        let lock =
+            crate::journal_lease::WriterLease::acquire(lock).map_err(|error| match error {
+                std::fs::TryLockError::WouldBlock => Error::Busy,
+                std::fs::TryLockError::Error(_) => Error::Journal,
+            })?;
         let file = secure_file(path, 64 * 1024 * 1024)?;
         for suffix in ["-journal", "-wal", "-shm"] {
             let mut side = path.as_os_str().to_os_string();
