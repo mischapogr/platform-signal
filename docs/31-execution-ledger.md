@@ -523,3 +523,31 @@ native Main admission/cadence, atomic original outbox/checkpoint, bounded histor
 and actual crash recovery are qualified. Inventory stays 35 accepted / 17 unfinished.
 GitHub reports both Small/Standard WINDOW steps passed on AMD64/ARM64 at `57024b7`;
 full native/container CI and primary artifact verification are still pending.
+
+SENSOR-HEALTH atomic journal primitive advances — 2026-10-15. A single retained
+worker now commits opaque detector state, original outbox bytes and checkpoint in
+one SQLite transaction, with exact source/enrollment/config binding, revision CAS,
+immutable pending prefixes and explicit confirmed-publication retirement. Actual
+SIGKILL before/after commit and SQLite cancellation/drop/timeout prove complete
+frame recovery and retained physical capacity. Journals share the existing
+16-worker process cap. Review reproduced and fixed a literal SQLite internal-name
+prefix bug; the earlier campaign is superseded. Eleven journal regressions and four
+corrected frozen gates pass: 1,082 tests, zero failures, strict Clippy, formatting
+and 14 workspace boundaries. Evidence:
+`target/sensor-health-journal-20261015/ACCEPTANCE.json`; [contract65](65-sensor-health.md).
+This is the storage/worker primitive. Typed native evidence validation, Main
+admission/cadence, history/metrics, Standard integration and actual detector recovery
+remain required. SENSOR-HEALTH stays in progress; inventory 35 accepted / 17 unfinished.
+
+WINDOW native evidence at `57024b7` — 2026-10-15. Both native Rust jobs and the complete
+[CI run38697027736](https://github.com/mischapogr/platform-signal/actions/runs/38697027736)
+pass, including both container/Kubernetes jobs. Primary-digest-verified Rust
+archives qualify five Small WINDOW checks, eight onboarding checks and eight
+Standard scenarios per architecture. All 269 unique source blobs match that
+revision; 109/266 per-report source bindings and Small/Standard executable hashes
+match. Each Small fixture reaps 15 children with four actual SIGKILL exits;
+Standard cleanup and seven reader-permission refusals pass. Standard elapsed:
+156.78s AMD64 / 157.13s ARM64. Exact bounded proof:
+`target/window-ci-20261015/VERIFIED-NATIVE-WINDOW.json`. Host/object authority is
+synthetic. Final container artifact inspection and later SENSOR-HEALTH revisions
+remain separate; no AWS/EKS/released dependency/version/publication claim.
