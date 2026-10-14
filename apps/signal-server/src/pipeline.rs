@@ -32,6 +32,7 @@ pub struct PipelineSink {
 }
 
 pub struct DetectionPipeline {
+    pub onboarding: Option<Arc<crate::onboarding::Host>>,
     /// Present only in native identity mode; retained startup WAL is unknown.
     pub authenticated_after: Option<u64>,
     pub rules: RuleSet,
@@ -336,13 +337,26 @@ async fn complete_findings(
         if index % 16 == 0 {
             tokio::task::yield_now().await;
         }
-        let findings = detection.rules.evaluate_with_context(
-            &row.event,
-            &RuleContext {
-                deadline,
-                cancellation: cancel.child_token(),
-            },
-        )?;
+        let context = RuleContext {
+            deadline,
+            cancellation: cancel.child_token(),
+        };
+        let findings = match &detection.onboarding {
+            Some(host) => {
+                host.evaluate(
+                    &detection.rules,
+                    &row.event,
+                    &context,
+                    detection
+                        .authenticated_after
+                        .is_some_and(|floor| row.sequence > floor),
+                )
+                .await?
+            }
+            None => detection
+                .rules
+                .evaluate_with_context(&row.event, &context)?,
+        };
         detection.evaluated.fetch_add(1, Ordering::Relaxed);
         detection
             .matches
@@ -567,6 +581,7 @@ mod tests {
             logging: None,
             coverage: None,
             detection: Some(Arc::new(DetectionPipeline {
+                onboarding: None,
                 authenticated_after: None,
                 rules,
                 findings,

@@ -25,6 +25,7 @@
     <nav class="tabs" aria-label="Investigation views">
       <button id="findings-tab" type="button" aria-current="page">Findings</button>
       <button id="events-tab" type="button">Event search</button>
+      <button id="onboarding-tab" type="button">Source readiness</button>
     </nav>
     <section id="findings-pane" aria-labelledby="findings-heading">
       <div class="heading"><div><p class="eyebrow">TRIAGE</p><h1 id="findings-heading">Security findings</h1></div><p>Inspect detections and their evidence references.</p></div>
@@ -61,7 +62,16 @@
       <div class="table-wrap"><table><caption>Events · newest first within the selected interval</caption><thead><tr><th>Log severity</th><th>Message / event ID</th><th>Source</th><th>Resource / account</th><th>Event time · UTC</th><th>Inspect</th></tr></thead><tbody id="events-results"></tbody></table></div>
       <section class="detail" aria-labelledby="event-detail-heading"><h2 id="event-detail-heading">Event detail</h2><p class="hint">Complete API-returned record. Vendor-original evidence may be referenced separately.</p><pre id="event-detail" tabindex="0">Select an event.</pre></section>
     </section>
-    <footer>A quiet result does not establish source coverage. This console does not assess collector health.</footer>
+    <section id="onboarding-pane" aria-labelledby="onboarding-heading" hidden>
+      <div class="heading"><div><p class="eyebrow">ONBOARDING</p><h1 id="onboarding-heading">Source readiness</h1></div><p>Check current coverage and detection prerequisites.</p></div>
+      <form id="onboarding-form" class="filters">
+        <label>Coverage scope<input id="onboarding-scope" maxlength="128" required autocomplete="off"></label>
+        <button type="submit">Check readiness</button><button id="onboarding-cancel" type="button" class="secondary" disabled>Cancel</button>
+      </form>
+      <p id="onboarding-status" class="status" role="status">Readiness unassessed. Signing in does not verify source coverage.</p>
+      <div class="table-wrap"><table><caption>Detection prerequisites · current scoped assessment</caption><thead><tr><th>Rule</th><th>Readiness</th><th>Blocking prerequisites</th></tr></thead><tbody id="onboarding-results"></tbody></table></div>
+    </section>
+    <footer>A quiet result does not establish source coverage. Source readiness needs a fresh scoped assessment.</footer>
   </main>
 </body>
 </html>

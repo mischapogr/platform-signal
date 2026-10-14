@@ -53,6 +53,7 @@ pub(crate) struct RuntimeInputs<'a> {
     pub tls: bool,
     pub identity: bool,
     pub coverage: bool,
+    pub onboarding: bool,
     pub separate_metrics: bool,
 }
 
@@ -189,6 +190,7 @@ pub(crate) fn runtime_revision(
         ("mode.tls", u128::from(input.tls)),
         ("mode.identity", u128::from(input.identity)),
         ("mode.coverage", u128::from(input.coverage)),
+        ("mode.onboarding", u128::from(input.onboarding)),
         ("mode.metrics", u128::from(input.separate_metrics)),
     ];
     for (name, value) in fields {
