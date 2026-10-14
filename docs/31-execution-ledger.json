@@ -1048,7 +1048,8 @@
         "target/host-auth-20261014/ACCEPTANCE.json",
         "target/host-runtime-20261014/ACCEPTANCE.json",
         "target/host-runtime-probe-20261014/ACCEPTANCE.json",
-        "target/host-runtime-probe-fix-20261014/ACCEPTANCE.json"
+        "target/host-runtime-probe-fix-20261014/ACCEPTANCE.json",
+        "target/host-native-schema-20261014/ACCEPTANCE.json"
       ],
       "references": [
         "docs/source-detection-catalog.md",
@@ -1067,6 +1068,10 @@
       "runtime_probe_slice": {
         "status": "passed_local",
         "evidence": "target/host-runtime-probe-fix-20261014/ACCEPTANCE.json"
+      },
+      "native_schema_slice": {
+        "status": "passed_local",
+        "evidence": "target/host-native-schema-20261014/ACCEPTANCE.json"
       }
     },
     {
