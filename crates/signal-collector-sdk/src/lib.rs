@@ -338,3 +338,5 @@ impl io::Write for CountingWriter<'_> {
 
 #[cfg(test)]
 mod test_tls;
+
+pub mod syslog;
