@@ -28,6 +28,7 @@ pub enum ParseMode {
     Json,
     Auto,
     AuthenticationJson,
+    Fortigate,
 }
 #[derive(Clone, Debug)]
 pub enum InputKind {
@@ -408,6 +409,15 @@ fn parse_line(bytes: &[u8], mode: ParseMode, source: &Source) -> Option<SignalEv
         )
         .ok();
     }
+    if matches!(mode, ParseMode::Fortigate) {
+        return signal_collector_sdk::syslog::normalize_fortigate_ns(
+            bytes.strip_suffix(b"\r").unwrap_or(bytes),
+            source.clone(),
+            Uuid::new_v4(),
+            Utc::now(),
+        )
+        .ok();
+    }
     let text = std::str::from_utf8(bytes).ok()?.trim_end_matches('\r');
     if text.trim().is_empty() {
         return None;
@@ -425,7 +435,7 @@ fn parse_line(bytes: &[u8], mode: ParseMode, source: &Source) -> Option<SignalEv
             }
         }
         ParseMode::Auto => Map::new(),
-        ParseMode::AuthenticationJson => return None,
+        ParseMode::AuthenticationJson | ParseMode::Fortigate => return None,
     };
     let message = attributes
         .get("message")

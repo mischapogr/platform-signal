@@ -155,7 +155,12 @@ impl AgentConfig {
             "plain" => ParseMode::Plain,
             "json" => ParseMode::Json,
             "auth-json" => ParseMode::AuthenticationJson,
-            _ => return Err(ConfigError("format must be auto, plain, json or auth-json")),
+            "fortigate" => ParseMode::Fortigate,
+            _ => {
+                return Err(ConfigError(
+                    "format must be auto, plain, json, auth-json or fortigate",
+                ));
+            }
         };
         let n = |flag, min, max| {
             number(

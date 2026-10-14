@@ -1069,11 +1069,18 @@
         "Bounded framing/source identity/local spool, WAN outage replay and severity fixtures; legacy UDP explicitly best effort."
       ],
       "evidence": [
-        "target/goal-execution-20261007/SYSLOG/"
+        "target/goal-execution-20261007/SYSLOG/",
+        "target/syslog-20261014/ACCEPTANCE.json"
       ],
       "references": [
-        "docs/26-ingestion-architecture-audit.md"
-      ]
+        "docs/26-ingestion-architecture-audit.md",
+        "docs/60-syslog-fortigate-profile.md"
+      ],
+      "parser_slice": {
+        "status": "passed_simulated",
+        "evidence": "target/syslog-20261014/ACCEPTANCE.json"
+      },
+      "notes": "Bounded RFC6587 octet-counting helper and selected FortiGate default/nanosecond parser accepted with severity/source-time/native assertion fixtures and real agent file/spool/offline/SIGKILL exact replay/cursor restart. Full item pending composed site TCP/TLS receiver, authenticated source identity, connection/read bounds and outage replay. UDP remains explicitly best effort."
     },
     {
       "id": "M365",

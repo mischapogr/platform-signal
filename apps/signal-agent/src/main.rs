@@ -6,7 +6,7 @@ use tokio_util::sync::CancellationToken;
 const HELP: &str = "signal-agent --server URL [--stdin | --file PATH ...] [--once]\n\
   --healthcheck | --readycheck  Quiet local probe; SIGNAL_HEALTHCHECK_ADDR and SIGNAL_PROBE_TLS_CONFIG\n\
   --spool-dir PATH          Dedicated durable spool (default data/agent-spool)\n\
-  --format auto|plain|json|auth-json  JSON objects become attributes; auth-json validates authentication records\n\
+  --format auto|plain|json|auth-json|fortigate  JSON objects become attributes; auth-json validates authentication records\n\
   --source-type TYPE        Source type (default log)\n\
   --source-name NAME        Optional source name\n\
   --batch-events N          Maximum batch events (default 100)\n\

@@ -291,6 +291,35 @@ def main():
 
         # Crash with the server offline after durable admission, then restart both.
         stop(server)
+        fortigate_path = root / "fortigate.log"
+        fortigate_base = 'devid=fixture-device eventtime=1791972000123456789 logid=0100032001 type=event subtype=system'
+        fortigate_secret = 'owned-fortigate-sensitive-field-sentinel'
+        fortigate_path.write_text('\n'.join([
+            '<134>' + fortigate_base + ' level=notice msg="successful event"',
+            '<131>' + fortigate_base + ' level=error msg="failed event"',
+            fortigate_base + ' level=bogus',
+            fortigate_base + ' level=notice password=' + fortigate_secret]) + '\n')
+        fortigate_args = ['--file', str(fortigate_path), '--once', '--format', 'fortigate',
+                          '--source-name', 'fortigate-gate', '--source-type', 'syslog']
+        fortigate_metrics = free_port()
+        fortigate = start_agent('fortigate', fortigate_args, fortigate_metrics)
+        def fortigate_spooled():
+            assert fortigate.poll() is None, 'offline FortiGate agent exited'
+            try:
+                m = telemetry(fortigate_metrics)
+                return m.get('signal_agent_spool_events') == 2 and m.get('signal_agent_rejected_lines_total') == 2
+            except (OSError, http.client.HTTPException):
+                return False
+        wait_for(fortigate_spooled, 'FortiGate records not durably admitted/rejected')
+        fortigate_original = []
+        for path in sorted((root / 'fortigate').glob('record-*')):
+            frame = path.read_bytes()
+            length, payload_crc, header_crc = struct.unpack('<III', frame[:12])
+            assert len(frame) == length + 12 and zlib.crc32(frame[:8]) == header_crc
+            assert zlib.crc32(frame[12:]) == payload_crc
+            fortigate_original.append(json.loads(frame[12:])['event'])
+        assert len(fortigate_original) == 2
+        stop(fortigate, kill=True)
         offline_file = root / "offline.log"
         offline_expected = [f"offline {index}" for index in range(12)]
         offline_file.write_text("\n".join(offline_expected) + "\n")
@@ -332,6 +361,26 @@ def main():
         assert [event["message"] for event in original_spool] == offline_expected[:8]
         stop(offline, kill=True)
         start_server()
+        fortigate_replay = start_agent('fortigate', fortigate_args)
+        assert fortigate_replay.wait(timeout=15) == 0
+        expect_messages('fortigate-gate', ['FortiGate syslog record'] * 2)
+        actual_fortigate = rows('fortigate-gate')
+        assert {r['id']: r for r in actual_fortigate} == {r['id']: r for r in fortigate_original}
+        assert {r['severity'] for r in actual_fortigate} == {'info', 'error'}
+        assert all(r['attributes']['fortigate']['devid'] == 'fixture-device' and
+                   r['attributes']['coverage']['completeness'] == 'not_assessed' and
+                   r['timestamp'].endswith('123456789Z') for r in actual_fortigate)
+        fortigate_cursor = start_agent('fortigate', fortigate_args)
+        assert fortigate_cursor.wait(timeout=15) == 0
+        assert {r['id'] for r in rows('fortigate-gate')} == {r['id'] for r in fortigate_original}
+        assert fortigate_secret not in json.dumps(actual_fortigate)
+        assert all(fortigate_secret not in p.read_text() for p in logs)
+        (root / 'fortigate-report.json').write_text(json.dumps({
+            'status':'passed_simulated', 'profile':'fortigate-default-ns-v1',
+            'accepted':2, 'rejected':2, 'offline_spool_sigkill_exact_replay':True,
+            'cursor_restart_no_reread':True, 'original_ids':sorted(r['id'] for r in fortigate_original),
+            'scope':'Real file/agent/spool/WAN outage/server/Parquet; synthetic source, TCP/TLS listener not qualified'
+        }, sort_keys=True) + '\n')
         class LostReply(http.server.BaseHTTPRequestHandler):
             def log_message(self, *_args):
                 pass
