@@ -59,6 +59,8 @@ UPGRADE passes local simulated acceptance — 2026-10-14. The explicit developme
 
 Native CI test isolation correction — 2026-10-14. Verified public AMD64/ARM64 artifacts at8d4dc06 show positive onboarding fixtures racing the intentionally occupied configuration worker. Test-only shared fixture guards isolate four worker users; production capacity and fail-closed behavior remain unchanged. Six frozen gates pass:954default workspace and84all-feature server tests with16threads, both strict Clippy modes, formatting and14workspace boundaries. Evidence: `target/release-ci-20261014/ACCEPTANCE.json`. Corrected-revision remote CI/native container/Kubernetes qualification remains open; ledger counts remain27accepted/25unfinished.
 
+RELEASE-TRUST offline mechanism slice — 2026-10-14. Externally pinned Ed25519 inventory verification passes21real crypto/unsigned/tamper/key/domain/schema/path/capacity/symlink/FIFO checks over current OSS lock/rule and explicitly unattested local provenance. Private fixture keys are removed. Workflow lint and14workspace boundaries pass; both native CI jobs run the bounded gate. [Contract57](57-offline-release-trust.md), evidence:`target/release-trust-20261014/ACCEPTANCE.json`. Full RELEASE-TRUST remains pending baseline/current SBOM/builder/released artifact qualification. No runtime signature enforcement, update installation or publication authority; counts remain27accepted/25unfinished.
+
 Earlier entries below retain their original historical evidence boundaries.
 
 Owner-authorized persistent Goal, frozen 2026-10-07. The machine-readable
