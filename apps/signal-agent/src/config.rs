@@ -20,6 +20,7 @@ pub struct AgentConfig {
     pub token: Option<String>,
     pub tls_config: Option<PathBuf>,
     pub inputs: Vec<InputSpec>,
+    pub syslog: Option<crate::syslog::Config>,
     pub spool: SpoolConfig,
     pub batch_events: usize,
     pub batch_bytes: usize,
@@ -93,6 +94,9 @@ impl AgentConfig {
             limits.insert(flag, env(name, default)?);
         }
         let mut metrics = env("SIGNAL_AGENT_METRICS_LISTEN", "")?;
+        let mut syslog_listen = String::new();
+        let mut syslog_tls = String::new();
+        let mut syslog_peer = String::new();
         let mut kinds = Vec::new();
         let mut once = false;
         let mut stdin = false;
@@ -116,6 +120,9 @@ impl AgentConfig {
                         "--source-type" => source_type = value,
                         "--source-name" => source_name = Some(value),
                         "--metrics-listen" => metrics = value,
+                        "--syslog-listen" => syslog_listen = value,
+                        "--syslog-tls-config" => syslog_tls = value,
+                        "--syslog-peer-sha256" => syslog_peer = value,
                         "--file" => {
                             if value.is_empty() || value.len() > 4096 {
                                 return Err(ConfigError("file path"));
@@ -136,7 +143,17 @@ impl AgentConfig {
                 return Err(ConfigError("at most 16 inputs"));
             }
         }
-        if kinds.is_empty() {
+        if !syslog_listen.is_empty()
+            && (!kinds.is_empty() || once || format != "fortigate" || source_name.is_none())
+        {
+            return Err(ConfigError(
+                "syslog requires dedicated fortigate mode and explicit source name",
+            ));
+        }
+        if syslog_listen.is_empty() && (!syslog_tls.is_empty() || !syslog_peer.is_empty()) {
+            return Err(ConfigError("syslog TLS requires a listener"));
+        }
+        if kinds.is_empty() && syslog_listen.is_empty() {
             kinds.push(InputKind::Stdin);
         }
         if server.len() > 4096
@@ -196,6 +213,46 @@ impl AgentConfig {
             source_type,
             name: source_name,
         };
+        let syslog = if syslog_listen.is_empty() {
+            None
+        } else {
+            let listen: SocketAddr = syslog_listen
+                .parse()
+                .map_err(|_| ConfigError("syslog address"))?;
+            if syslog_tls.is_empty() && (!listen.ip().is_loopback() || !syslog_peer.is_empty()) {
+                return Err(ConfigError(
+                    "plain syslog is loopback-only; TLS pin requires TLS material",
+                ));
+            }
+            let peer_sha256 = if syslog_tls.is_empty() {
+                None
+            } else {
+                if syslog_tls.len() > 4096
+                    || syslog_peer.len() != 64
+                    || !syslog_peer.bytes().all(|b| b.is_ascii_hexdigit())
+                {
+                    return Err(ConfigError(
+                        "syslog TLS material and exact peer SHA256 required",
+                    ));
+                }
+                let mut digest = [0; 32];
+                for (i, byte) in digest.iter_mut().enumerate() {
+                    *byte = u8::from_str_radix(&syslog_peer[i * 2..i * 2 + 2], 16)
+                        .map_err(|_| ConfigError("syslog peer digest"))?;
+                }
+                Some(digest)
+            };
+            Some(crate::syslog::Config {
+                listen,
+                tls: if syslog_tls.is_empty() {
+                    None
+                } else {
+                    Some(syslog_tls.into())
+                },
+                peer_sha256,
+                source: source.clone(),
+            })
+        };
         let inputs = kinds
             .into_iter()
             .enumerate()
@@ -222,6 +279,7 @@ impl AgentConfig {
             token,
             tls_config,
             inputs,
+            syslog,
             spool,
             batch_events,
             batch_bytes,
@@ -246,6 +304,51 @@ impl AgentConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn dedicated_syslog_requires_explicit_scope_and_private_peer_binding() {
+        let parse = |args: &[&str]| AgentConfig::parse(args.iter().map(|v| v.to_string()));
+        let base = [
+            "--syslog-listen",
+            "127.0.0.1:6514",
+            "--format",
+            "fortigate",
+            "--source-name",
+            "site",
+        ];
+        assert!(parse(&base).is_ok());
+        for tail in [
+            &["--stdin"][..],
+            &["--once"],
+            &["--format", "plain"],
+            &["--syslog-tls-config", "private.json"],
+            &["--syslog-peer-sha256", "00"],
+        ] {
+            let mut args = base.to_vec();
+            args.extend_from_slice(tail);
+            assert!(parse(&args).is_err());
+        }
+        assert!(
+            parse(&[
+                "--syslog-listen",
+                "0.0.0.0:6514",
+                "--format",
+                "fortigate",
+                "--source-name",
+                "site"
+            ])
+            .is_err()
+        );
+        assert!(parse(&["--syslog-listen", "127.0.0.1:6514", "--format", "fortigate"]).is_err());
+        let pin = "a".repeat(64);
+        let mut args = base.to_vec();
+        args.extend_from_slice(&[
+            "--syslog-tls-config",
+            "private.json",
+            "--syslog-peer-sha256",
+            &pin,
+        ]);
+        assert!(parse(&args).is_ok());
+    }
     #[test]
     fn rejects_capacity_and_retry_inconsistency() {
         for args in [

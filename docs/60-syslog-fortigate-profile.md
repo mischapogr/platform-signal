@@ -46,3 +46,35 @@ Documentation checked2026-10-14: [RFC6587 framing and acknowledgement boundaries
 and [Fortinet native log examples](https://docs.fortinet.com/document/fortiap/latest/fortiwifi-and-fortiap-configuration-guide/855476/configuring-est-and-scep-servers-for-ca-requests).
 Selected synthetic fixtures do not qualify actual firmware, device buffers,
 TLS identity, full device categories or customer/site coverage.
+
+## Dedicated site receiver
+
+The agent now accepts `--syslog-listen ADDRESS --format fortigate --source-name NAME`
+as a dedicated receiver, without file/stdin inputs or `--once`. Plain TCP is
+restricted to an explicitly loopback-bound listener and grants no peer identity.
+For a remote listener, add `--syslog-tls-config PATH --syslog-peer-sha256 HEX`.
+The private TLS document uses the existing version1 DER/base64 material contract.
+It requires private roots, mandatory client certificates, validity/signature and
+configured revocation checks, with resumption/early data disabled. The exact
+SHA256 of the authenticated client leaf is additionally pinned to this configured
+source. Root trust alone, native `devid` and client IP do not select source scope.
+Certificate rotation requires explicit configuration and restart; there is no
+live policy reload or implicit cross-device routing.
+
+One connection is active at a time; extras are closed and counted. Handshakes
+have a5second budget. Idle/partial frame reads and spool admission share a fixed
+30second frame budget, reset only after a complete record is synced to the local
+spool. Frame bytes, pending frame count, connections, capacities and refusals are
+exposed at agent metrics. Spool saturation applies bounded backpressure until
+that deadline; then the peer is closed and the refusal counted. An incomplete
+or rejected frame has no durable-admission promise. Disk/spool failure terminates
+the producer rather than continuing to collect without durable ownership.
+
+The existing consumer forwards synced records with original canonical IDs/bytes
+through HTTP202/WAL admission. A WAN outage retains the finite local spool;
+SIGKILL/restart replays retained records. TCP/TLS has no application-level source
+ACK, so a device cannot infer disk sync from socket success. This receiver does
+not provide durable raw-original custody, protection from site/host loss, device
+buffer recovery or complete source coverage. UDP remains unsupported by this
+receiver and explicitly best effort in legacy deployments. Actual firmware and
+customer/device identity/coverage remain external qualification requirements.

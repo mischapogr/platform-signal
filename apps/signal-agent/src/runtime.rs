@@ -35,13 +35,14 @@ pub enum AgentError {
     Pending,
 }
 #[derive(Default)]
-struct Counters {
+pub(crate) struct Counters {
     accepted: AtomicU64,
     retries: AtomicU64,
-    rejected: AtomicU64,
+    pub(crate) rejected: AtomicU64,
     requests: AtomicU64,
     done: AtomicBool,
-    changed: Notify,
+    pub(crate) changed: Notify,
+    pub(crate) syslog: crate::syslog::Metrics,
 }
 #[derive(Clone, Copy, Debug)]
 pub struct RuntimeReport {
@@ -67,6 +68,10 @@ pub async fn run(
             .await
             .map_err(|_| AgentError::Http)?,
         ),
+        None => None,
+    };
+    let syslog = match &config.syslog {
+        Some(config) => Some(crate::syslog::Receiver::prepare(config, &stopping).await?),
         None => None,
     };
     let sender = BatchSender::with_tls(
@@ -113,14 +118,29 @@ pub async fn run(
     let mut failure = None;
     let mut deadline = None;
     {
-        let producer = produce(
-            &inputs,
-            &spool,
-            &stats,
-            &input_stop,
-            &force_stop,
-            config.spool.max_event_bytes,
-        );
+        let producer = async {
+            if let Some(receiver) = &syslog {
+                receiver
+                    .run(
+                        &spool,
+                        &stats,
+                        &input_stop,
+                        &force_stop,
+                        config.spool.max_event_bytes,
+                    )
+                    .await
+            } else {
+                produce(
+                    &inputs,
+                    &spool,
+                    &stats,
+                    &input_stop,
+                    &force_stop,
+                    config.spool.max_event_bytes,
+                )
+                .await
+            }
+        };
         let consumer = forward(&sender, &spool, &stats, &force_stop, &config);
         let metrics = serve_metrics(listener, &inputs, &spool, &stats, &force_stop);
         tokio::pin!(producer, consumer, metrics);
@@ -258,9 +278,9 @@ async fn produce(
     }
     Ok(())
 }
-struct SizeLimit {
-    bytes: usize,
-    limit: usize,
+pub(crate) struct SizeLimit {
+    pub(crate) bytes: usize,
+    pub(crate) limit: usize,
 }
 impl io::Write for SizeLimit {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
@@ -439,6 +459,7 @@ fn metrics_text(inputs: &[InputReader], spool: &Spool, stats: &Counters) -> Stri
         "signal_agent_dns_operations {}\nsignal_agent_dns_operation_capacity 1\nsignal_agent_dns_rejections_total {}\n",
         signal_collector_sdk::transport::dns_depth(), signal_collector_sdk::transport::dns_rejections()
     ));
+    text.push_str(&stats.syslog.text());
     for (index, input) in inputs.iter().enumerate() {
         let i = input.metrics();
         for (name, value) in [

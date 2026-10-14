@@ -1060,7 +1060,7 @@
     {
       "id": "SYSLOG",
       "title": "Site TCP/TLS syslog and FortiGate normalization",
-      "status": "pending",
+      "status": "passed_simulated",
       "dependencies": [
         "SECURITY-TRANSPORT",
         "SOURCE-ACK"
@@ -1070,7 +1070,8 @@
       ],
       "evidence": [
         "target/goal-execution-20261007/SYSLOG/",
-        "target/syslog-20261014/ACCEPTANCE.json"
+        "target/syslog-20261014/ACCEPTANCE.json",
+        "target/syslog-transport-20261014/ACCEPTANCE.json"
       ],
       "references": [
         "docs/26-ingestion-architecture-audit.md",
@@ -1080,7 +1081,7 @@
         "status": "passed_simulated",
         "evidence": "target/syslog-20261014/ACCEPTANCE.json"
       },
-      "notes": "Bounded RFC6587 octet-counting helper and selected FortiGate default/nanosecond parser accepted with severity/source-time/native assertion fixtures and real agent file/spool/offline/SIGKILL exact replay/cursor restart. Full item pending composed site TCP/TLS receiver, authenticated source identity, connection/read bounds and outage replay. UDP remains explicitly best effort."
+      "notes": "Selected local SYSLOG requirement accepted: dedicated TCP/mTLS FortiGate octet-counting receiver, explicit authenticated client leaf pin/source scope, one active connection/frame, finite bytes/refusals/spool saturation, original30s partial-frame/admission deadline, exact canonical WAN outage/SIGKILL replay and active TLS shutdown. Eleven native checks,8frozen gates,967default/1028all-feature tests. Plaintext loopback-only; UDP unsupported and explicitly best effort. Actual firmware/device buffers/customer coverage/site loss/raw-original custody remain unqualified external boundaries."
     },
     {
       "id": "M365",

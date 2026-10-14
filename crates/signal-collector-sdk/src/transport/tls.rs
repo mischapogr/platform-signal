@@ -45,11 +45,12 @@ pub fn from_private_json(bytes: &[u8]) -> Result<rustls::ClientConfig, TlsError>
 
 /// Timeout/cancellation cannot release a physical kernel read still in progress.
 /// The single retained handle/lease prevents a replacement worker until retirement.
-pub async fn load(
+async fn load_with<T: Send + 'static>(
     path: PathBuf,
     deadline: Instant,
     cancellation: CancellationToken,
-) -> Result<rustls::ClientConfig, TlsError> {
+    parse: fn(&[u8]) -> Result<T, TlsError>,
+) -> Result<T, TlsError> {
     let worker_cancel = cancellation.clone();
     WORKER
         .run(
@@ -80,10 +81,63 @@ pub async fn load(
                     }
                     bytes.extend_from_slice(&block[..size]);
                 }
-                let config = from_private_json(&bytes)?;
+                let config = parse(&bytes)?;
                 super::worker::check(deadline, &worker_cancel)?;
                 Ok(config)
             },
         )
         .await
+}
+
+/// Same retained bounded material worker for mandatory-authentication receivers.
+pub async fn load_server(
+    path: PathBuf,
+    deadline: Instant,
+    cancellation: CancellationToken,
+) -> Result<rustls::ServerConfig, TlsError> {
+    load_with(path, deadline, cancellation, server_from_private_json).await
+}
+pub async fn load(
+    path: PathBuf,
+    deadline: Instant,
+    cancellation: CancellationToken,
+) -> Result<rustls::ClientConfig, TlsError> {
+    load_with(path, deadline, cancellation, from_private_json).await
+}
+/// Explicit private roots, mandatory client identity, revocation and no resumption.
+/// Application-specific peer scope must still be checked after the handshake.
+pub fn server_from_private_json(bytes: &[u8]) -> Result<rustls::ServerConfig, TlsError> {
+    let invalid = || TlsError::Configuration;
+    let material = TlsMaterial::from_private_json(bytes).map_err(|_| invalid())?;
+    let provider = Arc::new(rustls::crypto::ring::default_provider());
+    let mut roots = rustls::RootCertStore::empty();
+    for root in material.peer_roots_der {
+        roots.add(root.into()).map_err(|_| invalid())?;
+    }
+    let verifier = rustls::server::WebPkiClientVerifier::builder_with_provider(
+        Arc::new(roots),
+        provider.clone(),
+    )
+    .with_crls(material.peer_crls_der.into_iter().map(Into::into))
+    .enforce_revocation_expiration()
+    .build()
+    .map_err(|_| invalid())?;
+    let mut config = rustls::ServerConfig::builder_with_provider(provider)
+        .with_safe_default_protocol_versions()
+        .map_err(|_| invalid())?
+        .with_client_cert_verifier(verifier)
+        .with_single_cert(
+            material
+                .certificate_chain_der
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+            rustls::pki_types::PrivateKeyDer::try_from(material.private_key_der)
+                .map_err(|_| invalid())?,
+        )
+        .map_err(|_| invalid())?;
+    config.session_storage = Arc::new(rustls::server::NoServerSessionStorage {});
+    config.send_tls13_tickets = 0;
+    config.max_early_data_size = 0;
+    Ok(config)
 }
