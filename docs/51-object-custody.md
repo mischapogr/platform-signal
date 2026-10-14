@@ -98,3 +98,21 @@ attempts, denying ingest-only permission, and obtaining fresh confirmation of
 the same description after restart before explicit test-only release.
 Owned resources are removed. Provider retention is simulated; this does not
 qualify AWS/AZ/account loss, native ARM64, current images or a release.
+
+## Consistent stopped restore — 2026-10-14
+
+Custody-only originals are protected restore roots even when absent from query
+manifests and explicit object pins. The stopped PostgreSQL adapter bounds receipt
+inspection to128records and256KiB of reference bytes; larger inventories fail
+explicitly. Reserved custody references must retain canonical bytes, original
+receipt ID/scope and zero progress. Every exact backend/key/version/length/hash
+must match the independently retained inventory. Missing inventory or inaccessible
+originals refuse restore before readiness. Historical receipt metadata never
+recreates current identity or retention authority.
+
+`target/restore-custody-roots-20261014/ACCEPTANCE.json` binds933default and994
+all-feature tests, both strict Clippy modes and the18-case actual PostgreSQL
+matrix121.29s. The custody-only object, omission/missing-object refusal and exact
+source-to-destination receipt bytes are exercised. Provider authority/retention
+remain synthetic; native restored-generation fresh custody is still a separate
+integration gate.

@@ -601,7 +601,7 @@ async fn inventory(
         return Err(ControlError::Corrupt);
     }
 
-    let count=db.query_one("SELECT (SELECT count(*) FROM signal_control.partitions)<=128 AND (SELECT count(*) FROM signal_control.commits)<=128 AND (SELECT coalesce(sum(octet_length(manifest)),0) FROM signal_control.commits)<=262144 AND NOT EXISTS(SELECT 1 FROM signal_control.commits WHERE generation<>$1)",&[&plan.scope.generation]).await.map_err(crate::client::database_error)?;
+    let count=db.query_one("SELECT (SELECT count(*) FROM signal_control.partitions)<=128 AND (SELECT count(*) FROM signal_control.commits)<=128 AND (SELECT count(*) FROM signal_control.receipts)<=128 AND (SELECT coalesce(sum(octet_length(reference)),0) FROM signal_control.receipts)<=262144 AND (SELECT coalesce(sum(octet_length(manifest)),0) FROM signal_control.commits)<=262144 AND NOT EXISTS(SELECT 1 FROM signal_control.commits WHERE generation<>$1)",&[&plan.scope.generation]).await.map_err(crate::client::database_error)?;
     if !field::<bool>(&count, 0)? {
         return Err(ControlError::Full);
     }
@@ -645,6 +645,29 @@ async fn inventory(
         let normalizer:String=field(&row,3)?;revisions.insert((rule,normalizer),());
     }
     let mut protected = BTreeSet::new();
+    // Custody originals may never appear in a query manifest or explicit pin.
+    // Every such receipt must bind a retained exact object before restore proceeds.
+    for row in db.query("SELECT r.id,r.reference,r.prepared_count,r.source_record_count,r.verified_prefix,r.state,r.commit_id,p.id,p.tenant,p.stream FROM signal_control.receipts r JOIN signal_control.partitions p ON p.id=r.partition_id ORDER BY r.partition_id,r.id", &[]).await.map_err(crate::client::database_error)? {
+        context.check()?;
+        let scope = crate::Scope {
+            schema_version: 1, store_id: plan.scope.store_id, generation: plan.scope.generation,
+            partition_id: field(&row,7)?, tenant: field(&row,8)?, stream: field(&row,9)?,
+        };
+        let reference: Vec<u8> = field(&row,1)?;
+        if let Some(description) = restore_custody_description(&reference,field(&row,0)?,&scope)? {
+            if field::<i64>(&row,2)? != 0 || field::<i64>(&row,3)? != 0
+                || field::<i64>(&row,4)? != 0 || field::<String>(&row,5)? != "retained"
+                || field::<Option<Uuid>>(&row,6)?.is_some() {
+                return Err(ControlError::Corrupt);
+            }
+            let digest=description.object.digest()?;
+            let expected=by_id.get(&digest).ok_or(ControlError::Corrupt)?;
+            if expected.object!=description.object || expected.sha256!=description.sha256
+                || expected.bytes!=description.bytes {return Err(ControlError::Corrupt);}
+            roots.insert(digest);protected.insert(digest);
+        }
+    }
+
     for row in db.query("SELECT reference_sha256 FROM signal_control.object_pins WHERE state='retained' UNION SELECT unnest(object_hashes) FROM signal_control.snapshots",&[]).await.map_err(crate::client::database_error)? {
         let hash:[u8;32]=field::<Vec<u8>>(&row,0)?.try_into().map_err(|_|ControlError::Corrupt)?;
         if !by_id.contains_key(&hash) {return Err(ControlError::Corrupt);}roots.insert(hash);protected.insert(hash);
@@ -689,6 +712,48 @@ async fn inventory(
     result.validate()?;
     Ok(result)
 }
+/// Decode only the reserved custody domain; unrelated opaque source references
+/// remain opaque. Canonical bytes prevent silently rewriting historical identity.
+fn restore_custody_description(
+    bytes: &[u8],
+    id: Uuid,
+    scope: &crate::Scope,
+) -> Result<Option<crate::ObjectCustodyDescription>, ControlError> {
+    if bytes.len() > 65536 {
+        return Err(ControlError::Full);
+    }
+    let value: serde_json::Value = match serde_json::from_slice(bytes) {
+        Ok(value) => value,
+        Err(_) if bytes.starts_with(b"{\"kind\":\"object_custody_v1\"") => {
+            return Err(ControlError::Corrupt);
+        }
+        Err(_) => return Ok(None),
+    };
+    if value.get("kind").and_then(serde_json::Value::as_str) != Some("object_custody_v1")
+        && !bytes.starts_with(b"{\"kind\":\"object_custody_v1\"")
+    {
+        return Ok(None);
+    }
+    #[derive(Deserialize, Serialize)]
+    #[serde(deny_unknown_fields)]
+    struct Reference {
+        kind: String,
+        description: crate::ObjectCustodyDescription,
+    }
+    let reference: Reference = serde_json::from_slice(bytes).map_err(|_| ControlError::Corrupt)?;
+    reference
+        .description
+        .validate()
+        .map_err(|_| ControlError::Corrupt)?;
+    if reference.description.id != id
+        || reference.description.scope != *scope
+        || serde_json::to_vec(&reference).map_err(|_| ControlError::Corrupt)? != bytes
+    {
+        return Err(ControlError::Corrupt);
+    }
+    Ok(Some(reference.description))
+}
+
 async fn cursor_digest(db: &Client, store: Uuid, position: u64) -> Result<[u8; 32], ControlError> {
     if position == 0 {
         return Ok(Sha256::digest(
@@ -1005,5 +1070,87 @@ pub(crate) fn validate_reply(
             Ok(())
         }
         _ => Err(ControlError::Corrupt),
+    }
+}
+
+#[cfg(test)]
+mod restore_custody_tests {
+    use super::*;
+    #[test]
+    fn restore_custody_description_preserves_domain_identity_and_rejects_substitution()
+    -> Result<(), ControlError> {
+        let scope = crate::Scope {
+            schema_version: 1,
+            store_id: Uuid::new_v4(),
+            generation: Uuid::new_v4(),
+            tenant: "synthetic".into(),
+            stream: Uuid::new_v4(),
+            partition_id: Uuid::new_v4(),
+        };
+        let description = crate::ObjectCustodyDescription {
+            schema_version: 1,
+            id: Uuid::new_v4(),
+            scope: scope.clone(),
+            object: CanonicalObjectRef {
+                schema_version: 1,
+                backend_id: Uuid::new_v4(),
+                key: "original/body".into(),
+                version: "exact-v1".into(),
+            },
+            bytes: 4,
+            sha256: [7; 32],
+            retain_until: chrono::Utc::now() + chrono::Duration::hours(1),
+        };
+        #[derive(Serialize)]
+        struct Reference<'a> {
+            kind: &'static str,
+            description: &'a crate::ObjectCustodyDescription,
+        }
+        let bytes = serde_json::to_vec(&Reference {
+            kind: "object_custody_v1",
+            description: &description,
+        })
+        .map_err(|_| ControlError::Corrupt)?;
+        assert_eq!(
+            restore_custody_description(&bytes, description.id, &scope)?,
+            Some(description.clone())
+        );
+        assert!(matches!(
+            restore_custody_description(&bytes, Uuid::new_v4(), &scope),
+            Err(ControlError::Corrupt)
+        ));
+        let mut wrong = scope.clone();
+        wrong.generation = Uuid::new_v4();
+        assert!(matches!(
+            restore_custody_description(&bytes, description.id, &wrong),
+            Err(ControlError::Corrupt)
+        ));
+        let mut altered = bytes.clone();
+        altered.push(b' ');
+        assert!(matches!(
+            restore_custody_description(&altered, description.id, &scope),
+            Err(ControlError::Corrupt)
+        ));
+        assert!(matches!(
+            restore_custody_description(
+                b"{\"kind\":\"object_custody_v1\",",
+                description.id,
+                &scope
+            ),
+            Err(ControlError::Corrupt)
+        ));
+        assert!(matches!(
+            restore_custody_description(
+                b"{\"kind\":\"object_custody_v1\",\"kind\":\"opaque\"}",
+                description.id,
+                &scope
+            ),
+            Err(ControlError::Corrupt)
+        ));
+        assert_eq!(
+            restore_custody_description(b"opaque original source cursor", description.id, &scope)?,
+            None
+        );
+        Ok(())
     }
 }
