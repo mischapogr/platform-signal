@@ -173,6 +173,7 @@ impl RestoreCustody for Custody {
                     "x-amz-date",
                     chrono::Utc::now().format("%Y%m%dT%H%M%SZ").to_string(),
                 )
+                .header("x-amz-expected-bucket-owner", "123456789012")
                 .send()
                 .await
                 .map_err(|_| ControlError::Corrupt)?;
@@ -328,8 +329,23 @@ pub async fn qualify(source: &Client, f: &Fixture, root: &Path) -> Result {
             );
         }
     }
+    let custody_selected = document.get("custody").is_some();
+    if custody_selected {
+        let d: ObjectCustodyDescription =
+            serde_json::from_slice(&read(&root.join("custody-description.json"), 4096)?)?;
+        d.validate()?;
+        assert_eq!(d.scope, scope);
+        objects.insert(
+            d.object.digest()?,
+            RestoreObject {
+                object: d.object,
+                sha256: d.sha256,
+                bytes: d.bytes,
+            },
+        );
+    }
     let objects: Vec<_> = objects.into_values().collect();
-    assert_eq!(objects.len(), 3);
+    assert_eq!(objects.len(), if custody_selected { 4 } else { 3 });
     let destination = RestoreDestination {
         id: Uuid::new_v4(),
         credential_binding_sha256: Sha256::digest(Uuid::new_v4().as_bytes()).into(),
@@ -465,7 +481,12 @@ pub async fn qualify(source: &Client, f: &Fixture, root: &Path) -> Result {
   timeout(Duration::from_secs(2),dest.batch_execute("GRANT UPDATE(artifact_sha256) ON signal_custody_restore.contract TO signal_standard_producer")).await??;
   assert!(producer.verify_restored_custody_producer_credentials("signal_control_owner".into(),context()?).await.is_err());
   timeout(Duration::from_secs(2),dest.batch_execute("REVOKE UPDATE(artifact_sha256) ON signal_custody_restore.contract FROM signal_standard_producer; REVOKE EXECUTE ON FUNCTION signal_custody_restore.resolve(jsonb,bytea,bytea,bytea,bytea),signal_control.record_receipt(jsonb,bytea,bytea,bytea) FROM signal_standard_producer; REVOKE SELECT ON signal_custody_restore.contract FROM signal_standard_producer; REVOKE USAGE ON SCHEMA signal_custody_restore FROM signal_standard_producer")).await??;
-  producer.verify_producer_credentials("signal_control_owner".into(),context()?).await?;producer.shutdown(context()?).await?;
+  if custody_selected {
+      timeout(Duration::from_secs(2),dest.batch_execute("GRANT USAGE ON SCHEMA signal_custody_restore TO signal_standard_producer; GRANT SELECT ON signal_custody_restore.contract TO signal_standard_producer; GRANT EXECUTE ON FUNCTION signal_custody_restore.resolve(jsonb,bytea,bytea,bytea,bytea),signal_control.record_receipt(jsonb,bytea,bytea,bytea) TO signal_standard_producer")).await??;
+      producer.verify_restored_custody_producer_credentials("signal_control_owner".into(),context()?).await?;
+      document["custody"]["restored_receipts"]=serde_json::json!(true);
+  } else {producer.verify_producer_credentials("signal_control_owner".into(),context()?).await?;}
+  producer.shutdown(context()?).await?;
   println!("phase: Standard-restored-custody-selected-profile-exact-readonly-grants-ordinary-denial-qualified");
   document["scope"]=serde_json::to_value(current_scope)?;document["catalog_profile"]=serde_json::json!("restored_catalog5");document["database"]["database"]=serde_json::json!(DEST);
   fs::write(root.join("restored-shared.json"),serde_json::to_vec(&document)?)?;fs::write(root.join("scoped-restore-receipt.json"),serde_json::to_vec(&serde_json::json!({"schema_version":1,"generation":generation,"old_generation":scope.generation,"ready":receipt.ready,"inventory":original,"scope_original_bytes_preserved":true,"consumer_current_reconciled":true,"scoped_ddl_error_rollback":true,"scoped_ddl_cancel_rollback":true,"scoped_lost_commit_resolved":true,"scoped_consumer_resume_refused":true}))?)?;

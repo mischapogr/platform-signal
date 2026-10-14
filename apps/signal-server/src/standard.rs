@@ -782,7 +782,14 @@ mod host {
             let (control, reader) = doc.clients(&settings)?;
             resources.control = Some(control.clone());
             resources.reader = Some(reader.clone());
-            if doc.custody.is_some() {
+            if doc.custody.as_ref().is_some_and(|c| c.restored_receipts) {
+                control
+                    .verify_restored_custody_producer_credentials(
+                        doc.schema_owner.clone(),
+                        context(&stopping)?.limited_to(startup.deadline()),
+                    )
+                    .await?;
+            } else if doc.custody.is_some() {
                 control
                     .verify_custody_producer_credentials(
                         doc.schema_owner.clone(),
@@ -980,12 +987,17 @@ mod host {
                 .as_ref()
                 .map(|c| {
                     let objects = resources.custody_io.clone().ok_or(ControlError::Invalid)?;
-                    let verifier = Arc::new(
+                    let verifier = Arc::new(if c.restored_receipts {
+                        signal_server::shared_custody::ConfiguredCustodyVerifier::new_restored(
+                            c.binding(&doc),
+                            objects,
+                        )?
+                    } else {
                         signal_server::shared_custody::ConfiguredCustodyVerifier::new(
                             c.binding(&doc),
                             objects,
-                        )?,
-                    );
+                        )?
+                    });
                     signal_server::shared_custody_api::CustodyApi::new(
                         sink.control.clone(),
                         token.clone(),

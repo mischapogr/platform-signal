@@ -30,6 +30,8 @@ pub(crate) struct Document {
 #[serde(deny_unknown_fields)]
 pub(crate) struct Custody {
     pub schema_version: u32,
+    #[serde(default)]
+    pub restored_receipts: bool,
     pub key_prefix: String,
     pub expected_bucket_owner: String,
     pub authority_revision: [u8; 32],
@@ -86,6 +88,8 @@ impl Document {
         let mut doc: Self = serde_json::from_str(text).map_err(|_| invalid())?;
         if let Some(c) = &doc.custody
             && (c.schema_version != 1
+                || (c.restored_receipts
+                    && !matches!(doc.catalog_profile, Profile::RestoredCatalog5))
                 || c.expected_bucket_owner.len() != 12
                 || !c.expected_bucket_owner.bytes().all(|b| b.is_ascii_digit())
                 || c.authority_revision == [0; 32]

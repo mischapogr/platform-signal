@@ -58,3 +58,38 @@ Evidence: `target/helm-runtime-config-20261012/`. This render proof alone did no
 close actual Standard startup/recovery/cleanup or independent full-item review;
 their later local acceptance is recorded below. EKS/release gates remain open.
 
+
+## Earlier incremental STANDARD-RECOVERY records
+
+STANDARD-RECOVERY is in progress — 2026-10-14. A37.90s owned actual Standard
+server-loss guard removes local WAL/cache after checked producer-copy release.
+The exact independently retained object is reconstructed, but replacement
+correctly refuses its missing enrolled WAL identity and drains. The recovered
+original stays retained. Evidence:`target/standard-recovery-20261014/ACCEPTANCE.json`.
+Follow-up:`target/standard-checkpoint-recovery-20261014/ACCEPTANCE.json` passes
+75.16s. Exact independently retained stopped-WAL bytes restore replacement in
+17.47s including lease expiry; corrupt backup refuses, same original receipt
+gets fresh custody. RPO0 covers only the4byte fixture with control/object domains
+surviving. Next:consistent control-domain backup/restore, stale owners and explicit
+production restore authority; general failover/RPO/RTO remain unqualified.
+
+Custody-only restore roots now pass7frozen gates:933default/994all-feature
+tests, both strict Clippy modes and18-case PostgreSQL matrix121.29s. Missing
+custody inventory or original bytes refuses restore; original receipt bytes
+remain unchanged. Evidence:`target/restore-custody-roots-20261014/ACCEPTANCE.json`.
+The existing-only lineage resolver now passes7frozen gates and PostgreSQL
+matrix137.01s. Explicit owner installation, sealed restored lineage/current
+owner, exact historical bytes, missing-record/conflict/seal/routine refusal and
+unchanged quota are exercised. Metadata remains separate from a release permit.
+Evidence:`target/restored-custody-lineage-20261014/ACCEPTANCE.json`.
+Fresh restored confirmation now passes7gates935default/996all-feature and
+PostgreSQL matrix124.66s: three existing-only lineage checks bracket two current
+retained reads; original description/digest and receipt/quota stay exact, and
+cancellation/missing originals refuse. Evidence:
+`target/restored-custody-confirmation-20261014/ACCEPTANCE.json`.
+Selected startup credentials now pass10gates, PostgreSQL143.37s and native
+restored Standard77.36s: exact readonly metadata/resolve grants, artifact/owner
+checks, ordinary-profile refusal and normal resume after test-only revocation.
+Evidence:`target/restored-custody-startup-20261014/ACCEPTANCE.json`.
+Next:configured native authenticated API/SDK restored reconfirmation.
+
