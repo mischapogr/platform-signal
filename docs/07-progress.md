@@ -84,6 +84,10 @@ PostgreSQL matrix124.66s: three existing-only lineage checks bracket two current
 retained reads; original description/digest and receipt/quota stay exact, and
 cancellation/missing originals refuse. Evidence:
 `target/restored-custody-confirmation-20261014/ACCEPTANCE.json`.
+Selected startup credentials now pass10gates, PostgreSQL143.37s and native
+restored Standard77.36s: exact readonly metadata/resolve grants, artifact/owner
+checks, ordinary-profile refusal and normal resume after test-only revocation.
+Evidence:`target/restored-custody-startup-20261014/ACCEPTANCE.json`.
 Next:configured native authenticated API/SDK restored reconfirmation.
 
 ## Actual local Standard Kubernetes accepted — 2026-10-12
