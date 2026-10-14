@@ -19,6 +19,7 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 
 mod revision;
+pub mod sensor_health;
 pub mod window;
 
 #[derive(Clone, Debug)]

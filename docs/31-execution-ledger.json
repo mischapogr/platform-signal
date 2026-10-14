@@ -1227,7 +1227,7 @@
     {
       "id": "SENSOR-HEALTH",
       "title": "Independent missing-telemetry detector D15",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "COVERAGE-OBSERVERS",
         "WINDOW"
@@ -1236,11 +1236,19 @@
         "Independent observer, no healthy silence on gaps; bounded heartbeat/lateness/failure-path evidence."
       ],
       "evidence": [
-        "target/goal-execution-20261007/SENSOR-HEALTH/"
+        "target/goal-execution-20261007/SENSOR-HEALTH/",
+        "target/sensor-health-20261015/ACCEPTANCE.json"
       ],
       "references": [
-        "docs/source-detection-catalog.md"
-      ]
+        "docs/source-detection-catalog.md",
+        "docs/65-sensor-health.md"
+      ],
+      "foundation_slice": {
+        "status": "passed_local",
+        "evidence": "target/sensor-health-20261015/ACCEPTANCE.json",
+        "whole_item_accepted": false
+      },
+      "notes": "Bounded deterministic evaluator and replay-safe structural snapshot foundation passes11focused regressions and1059workspace tests; native authenticated observer adapter, atomic outbox/checkpoint and actual Main crash recovery remain required."
     },
     {
       "id": "CORRELATION",
