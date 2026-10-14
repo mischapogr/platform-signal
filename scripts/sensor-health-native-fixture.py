@@ -38,8 +38,9 @@ def exercise(root, checkpoint, start, stop, request, hold_request):
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
             try:
-                if predicate():
-                    return
+                value = predicate()
+                if value:
+                    return value
             except sqlite3.OperationalError as error:
                 if error.sqlite_errorcode not in (sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED):
                     raise
@@ -68,7 +69,8 @@ def exercise(root, checkpoint, start, stop, request, hold_request):
                                                                'account': 'a', 'resource': 'resource-a'}}],
                              'title': 'Fixture collection gap', 'severity': 'high', 'max_proofs': 3,
                              'max_event_bytes': 16384, 'max_state_bytes': 262144,
-                             'max_record_bytes': 1048576, 'max_outputs': 4, 'max_output_bytes': 65536}}
+                             'max_record_bytes': 1048576, 'max_outputs': 4, 'max_output_bytes': 65536,
+                             'max_history_assessments': 1, 'max_history_bytes': 32768, 'history_retention_ms': 1000}}
     config = directory / 'config.json'
     config.write_text(json.dumps(document))
     overrides = {'SIGNAL_SENSOR_HEALTH_CONFIG': str(config)}
@@ -120,6 +122,8 @@ def exercise(root, checkpoint, start, stop, request, hold_request):
         start(overrides)
         wait(lambda: snapshot() is not None)
         assert metric('coverage_gap') == metric('indeterminate') == 1
+        assert metric('history_assessments') == metric('history_assessment_capacity') == 1
+        assert 0 < metric('history_bytes') <= metric('history_byte_capacity')
         checks.append('idle_without_independent_report_remains_indeterminate')
         send(event(1, forged=True), 422)
         wrong = event(1)
@@ -136,6 +140,11 @@ def exercise(root, checkpoint, start, stop, request, hold_request):
         checks.append('fresh_authenticated_independent_report_proves_current_NoMatch')
         # No new observation can prove absence after its observation time.
         wait(lambda: metric('coverage_gap') == 1)
+        wait(lambda: metric('history_expired_total') >= 1 and metric('history_evicted_total') >= 1)
+        history = wait(lambda: json.loads(bytes(snapshot()['state']))['history'])
+        assert len(history['entries']) == 1
+        assert history['expired'] >= 1 and history['evicted'] >= 1
+        checks.append('bounded_original_history_exposes_count_byte_capacity_expiry_and_eviction_without_healthy_silence')
         assert not [f for f in findings() if f['rule_id'] == policy['rule_id']]
         rows = findings()
         stop()

@@ -155,6 +155,12 @@ pub struct RuleSinkMetrics {
 /// Fixed-cardinality detector state; no source identifiers or original evidence.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SensorHealthSinkMetrics {
+    pub history_assessments: usize,
+    pub history_assessment_capacity: usize,
+    pub history_bytes: usize,
+    pub history_byte_capacity: usize,
+    pub history_expired: u64,
+    pub history_evicted: u64,
     pub sources: usize,
     pub source_capacity: usize,
     pub proofs: usize,

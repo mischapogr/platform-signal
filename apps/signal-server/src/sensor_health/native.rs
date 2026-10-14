@@ -22,6 +22,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 pub const ATTRIBUTE: &str = "signal.sensor_health.observation";
+mod history;
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("invalid native sensor-health state or policy")]
@@ -77,6 +78,9 @@ pub struct Config {
     pub max_record_bytes: usize,
     pub max_outputs: usize,
     pub max_output_bytes: usize,
+    pub max_history_assessments: usize,
+    pub max_history_bytes: usize,
+    pub history_retention_ms: i64,
 }
 fn identity(s: &str) -> bool {
     !s.is_empty() && s.len() <= 256 && s.trim() == s && !s.chars().any(char::is_control)
@@ -127,6 +131,10 @@ impl Config {
             || !(1024..=16384).contains(&self.max_event_bytes)
             || !(1024..=16 * 1024 * 1024).contains(&self.max_state_bytes)
             || self.max_state_bytes < self.policy.max_state_bytes
+            || !(1..=65536).contains(&self.max_history_assessments)
+            || !(1024..=8 * 1024 * 1024).contains(&self.max_history_bytes)
+            || self.max_history_bytes > self.max_state_bytes
+            || !(1..=86400000).contains(&self.history_retention_ms)
         {
             return Err(Error::Configuration);
         }
@@ -345,6 +353,21 @@ struct State {
     monitor: Vec<u8>,
     proofs: Vec<Proof>,
     known: Vec<Pending>,
+    history: history::History,
+}
+impl State {
+    fn fit_history(
+        &mut self,
+        config: &Config,
+        minimum: usize,
+        context: &RuleContext,
+    ) -> Result<(), Error> {
+        while encode(self, config.max_state_bytes).is_err() {
+            check(context)?;
+            self.history.evict_oldest(minimum)?;
+        }
+        Ok(())
+    }
 }
 fn decode(
     config: &Config,
@@ -356,7 +379,7 @@ fn decode(
         return Err(Error::Capacity);
     }
     let state: State = serde_json::from_slice(&record.state).map_err(|_| Error::Configuration)?;
-    if state.schema_version != 1
+    if state.schema_version != 2
         || state.proofs.len() > config.max_proofs
         || state.known.len() > config.policy.expected.len()
     {
@@ -375,6 +398,13 @@ fn decode(
         }
     }
     let monitor = Monitor::restore(config.policy.clone(), &state.monitor)?;
+    state.history.validate(
+        config,
+        verifier,
+        record.checkpoint,
+        monitor.clock_ms(),
+        context,
+    )?;
     if reconstruct(config, &state.proofs, monitor.clock_ms(), context)?.snapshot()? != state.monitor
         || required(&monitor, &state.proofs)?.len() != state.proofs.len()
     {
@@ -416,6 +446,10 @@ pub struct Completion {
     pub proofs: usize,
     pub bytes: usize,
     pub valid_until_ms: i64,
+    pub history_assessments: usize,
+    pub history_bytes: usize,
+    pub history_expired: u64,
+    pub history_evicted: u64,
 }
 /// Captured by the native host at startup. Serialization never authenticates it.
 #[derive(Clone, Serialize, Deserialize)]
@@ -530,13 +564,15 @@ impl Session {
         let mut state = match &current {
             Some(r) => decode(&self.config, &self.verifier, r, &context)?,
             None => State {
-                schema_version: 1,
+                schema_version: 2,
                 monitor: Monitor::new(self.config.policy.clone(), now)?.snapshot()?,
                 proofs: vec![],
                 known: vec![],
+                history: history::History::default(),
             },
         };
         let mut monitor = Monitor::restore(self.config.policy.clone(), &state.monitor)?;
+        state.history.expire(&self.config, now)?;
         let mut fresh = if trusted_current {
             self.fresh.clone()
         } else {
@@ -603,7 +639,7 @@ impl Session {
             if state.proofs.len() > self.config.max_proofs {
                 return Err(Error::Capacity);
             }
-            encode(&state, self.config.max_state_bytes)?;
+            state.fit_history(&self.config, 0, &context)?;
         }
         let assessments = assess(&mut monitor, now, &fresh, trusted_current)?;
         let mut outbox = current.as_ref().map_or_else(Vec::new, |r| r.outbox.clone());
@@ -640,9 +676,21 @@ impl Session {
                 .known
                 .retain(|old| old.assessment.source_id != a.source_id);
             state.known.push(p);
-            encode(&state, self.config.max_state_bytes)?;
+            state.fit_history(&self.config, 0, &context)?;
         }
         state.monitor = monitor.snapshot()?;
+        state.history.record(
+            &self.config,
+            history::Batch {
+                assessments: &assessments,
+                proofs: &state.proofs,
+                fresh: &fresh,
+                trusted: trusted_current,
+                now,
+            },
+            &context,
+        )?;
+        state.fit_history(&self.config, 1, &context)?;
         let expected = current.as_ref().map_or(0, |r| r.revision);
         let next = Record {
             schema_version: 1,
@@ -700,6 +748,10 @@ impl Session {
             proofs: state.proofs.len(),
             bytes: record.state.len(),
             valid_until_ms,
+            history_assessments: state.history.entries.len(),
+            history_bytes: encode(&state.history, self.config.max_history_bytes)?.len(),
+            history_expired: state.history.expired,
+            history_evicted: state.history.evicted,
         })
     }
     pub async fn acknowledge(

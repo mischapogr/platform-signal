@@ -134,7 +134,7 @@ data and idle cadence, commits original evidence/state/finding outbox/checkpoint
 publishes original scoped findings, retires confirmed outputs and only then
 acknowledges the WAL. Expiry between admission and consumption advances the
 checkpoint without granting observer health or creating a historical finding.
-Startup, expiry and failed work expose unknown coverage through15 fixed numeric
+Startup, expiry and failed work expose unknown coverage through21 fixed numeric
 `signal_sensor_health_*` metrics without identity labels. Shutdown closes the
 physical journal under the original drain deadline.
 
@@ -147,3 +147,35 @@ Focused tests and Clippy are evidence for this worktree only. Bounded assessment
 history/retention, Standard integration and current native release qualification
 remain required; slice acceptance is recorded separately from item or release
 acceptance.
+
+## Bounded assessment history work in progress
+
+Native configuration additionally requires `max_history_assessments`(1–65536),
+`max_history_bytes`(1024–8MiB, within `max_state_bytes`) and
+`history_retention_ms`(1–86400000). These limits join the complete persisted
+configuration binding. Native state uses schema version2; earlier native state
+and missing history configuration are refused. This unpublished development
+change supplies no automatic migration or permission to discard retained evidence.
+
+History retains original assessment transitions, rule revision and up to3original
+signed canonical proofs per source assessment. Repeated unchanged assessments
+do not add rows while the previous entry remains retained. Once it expires, the
+next evaluation records a new sample. Recovery reconstructs and verifies each
+historical assessment at its original assessment time. History never contributes
+to the current-session observer authority set.
+
+At evaluation time, entries expire at `assessed_at_ms + history_retention_ms`.
+Oldest entries are evicted to meet row, history-byte and shared state-byte limits;
+expiry and capacity eviction have separate persisted counters. Current state and
+the latest new assessment must still fit, otherwise the entire transaction is
+refused. History limits never expire or evict the original unpublished finding
+outbox or its retained evidence. History changes, counters, monitor state, current
+proofs, original finding outbox and checkpoint commit atomically. Exact replay
+preserves the original committed record.
+
+Fixed numeric metrics expose `history_assessments`, `history_assessment_capacity`,
+`history_bytes`, `history_byte_capacity`, `history_expired_total` and
+`history_evicted_total`, each prefixed with `signal_sensor_health_`. No source,
+account, rule or evidence identifiers become metric labels. This history work
+still needs frozen phase acceptance; Standard integration and whole-item release
+qualification remain open.

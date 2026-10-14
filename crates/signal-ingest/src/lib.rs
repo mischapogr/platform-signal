@@ -873,6 +873,30 @@ async fn metrics(State(service): State<IngestService>) -> Response {
         }
         if let Some(sensor) = rules.sensor_health {
             for (name, value) in [
+                (
+                    "signal_sensor_health_history_assessments",
+                    sensor.history_assessments as u64,
+                ),
+                (
+                    "signal_sensor_health_history_assessment_capacity",
+                    sensor.history_assessment_capacity as u64,
+                ),
+                (
+                    "signal_sensor_health_history_bytes",
+                    sensor.history_bytes as u64,
+                ),
+                (
+                    "signal_sensor_health_history_byte_capacity",
+                    sensor.history_byte_capacity as u64,
+                ),
+                (
+                    "signal_sensor_health_history_expired_total",
+                    sensor.history_expired,
+                ),
+                (
+                    "signal_sensor_health_history_evicted_total",
+                    sensor.history_evicted,
+                ),
                 ("signal_sensor_health_sources", sensor.sources as u64),
                 (
                     "signal_sensor_health_source_capacity",
