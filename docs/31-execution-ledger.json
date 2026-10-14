@@ -1106,7 +1106,7 @@
     {
       "id": "CATO",
       "title": "Cato API event collection",
-      "status": "pending",
+      "status": "passed_simulated",
       "dependencies": [
         "M365"
       ],
@@ -1114,11 +1114,14 @@
         "Bounded pagination/checkpoints/security normalization and provider-specific replay/retention failures; local simulation."
       ],
       "evidence": [
-        "target/goal-execution-20261007/CATO/"
+        "target/goal-execution-20261007/CATO/",
+        "target/cato-20261014/ACCEPTANCE.json"
       ],
       "references": [
-        "docs/26-ingestion-architecture-audit.md"
-      ]
+        "docs/26-ingestion-architecture-audit.md",
+        "docs/62-cato-eventsfeed-profile.md"
+      ],
+      "notes": "Selected one-account Security eventsFeed real loopback HTTP, explicit latest/resume, finite retries/body/records/pages/state, trusted private atomic journal and actual fsync/lost reply/fresh reload/SIGKILL. Scope/GraphQL/malformed/cycle/expired/capacity failures preserve custody and checkpoints. Opaque provider marker validity, independent completeness, native cross-page dedup, actual Cato permissions/credentials/current tenant retention and production host custody/publication are not qualified."
     },
     {
       "id": "CLOUDFLARE",
