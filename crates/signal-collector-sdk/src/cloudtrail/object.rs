@@ -1,11 +1,7 @@
 use super::{MAX_JSON_DEPTH, MAX_JSON_NODES, MAX_RECORD_BYTES, NormalizeError, decode_json};
 use crate::ExtensionContext;
-use flate2::bufread::GzDecoder;
-use sha2::{Digest, Sha256};
-use std::{io::Read, ops::Range};
+use std::ops::Range;
 use thiserror::Error;
-const COMPRESSED_LIMIT: usize = 8 * 1024 * 1024;
-const DECODED_LIMIT: usize = 32 * 1024 * 1024;
 const COUNT_LIMIT: usize = 1024;
 
 #[derive(Debug, Error)]
@@ -69,49 +65,17 @@ pub fn read_object(
     ctx: &ExtensionContext,
 ) -> Result<CloudTrailObject, ObjectReadError> {
     check(ctx)?;
-    if original.is_empty() || original.len() > COMPRESSED_LIMIT {
-        return Err(ObjectReadError::CaptureLimit);
-    }
-    let mut hash = Sha256::new();
-    for chunk in original.chunks(65536) {
-        check(ctx)?;
-        hash.update(chunk);
-    }
-    let original_sha256 = hash.finalize().into();
-    let mut gzip = GzDecoder::new(original);
-    check(ctx)?;
-    let mut decoded = Vec::new();
-    let mut chunk = [0; 65536];
-    loop {
-        check(ctx)?;
-        let n = gzip
-            .read(&mut chunk)
-            .map_err(|_| ObjectReadError::InvalidCompression)?;
-        if n == 0 {
-            break;
+    let object = crate::source_object::decode_gzip(original, ctx).map_err(|error| match error {
+        crate::source_object::DecodeError::CaptureLimit => ObjectReadError::CaptureLimit,
+        crate::source_object::DecodeError::InvalidCompression => {
+            ObjectReadError::InvalidCompression
         }
-        if decoded
-            .len()
-            .checked_add(n)
-            .is_none_or(|n| n > DECODED_LIMIT)
-        {
-            return Err(ObjectReadError::ObjectLimitsExceeded);
-        }
-        // Geometric growth cannot exceed the explicit decoded byte ceiling.
-        if decoded.len() + n > decoded.capacity() {
-            let capacity = (decoded.capacity().max(65536) * 2)
-                .min(DECODED_LIMIT)
-                .max(decoded.len() + n);
-            decoded
-                .try_reserve_exact(capacity - decoded.len())
-                .map_err(|_| ObjectReadError::ObjectLimitsExceeded)?;
-        }
-        decoded.extend_from_slice(&chunk[..n]);
-    }
-    check(ctx)?;
-    if !gzip.into_inner().is_empty() {
-        return Err(ObjectReadError::InvalidCompression);
-    }
+        crate::source_object::DecodeError::DecodedLimit => ObjectReadError::ObjectLimitsExceeded,
+        crate::source_object::DecodeError::Cancelled => ObjectReadError::Cancelled,
+        crate::source_object::DecodeError::Timeout => ObjectReadError::Timeout,
+    })?;
+    let decoded = object.bytes;
+    let original_sha256 = object.original_sha256;
     std::str::from_utf8(&decoded).map_err(|_| ObjectReadError::InvalidObjectJson)?;
     let records = records(&decoded, ctx)?;
     check(ctx)?;
