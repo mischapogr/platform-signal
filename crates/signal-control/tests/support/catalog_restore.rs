@@ -175,7 +175,7 @@ impl ObjectStore for DurableVersions {
         Err(object_error())
     }
 }
-fn io(root: &Path) -> Result<ObjectIo> {
+pub(super) fn io(root: &Path) -> Result<ObjectIo> {
     Ok(ObjectIo::remote(
         Arc::new(DurableVersions(LocalFileSystem::new_with_prefix(root)?)),
         tokio::runtime::Handle::current(),
@@ -292,7 +292,11 @@ impl RestoreCustody for Custody {
         })
     }
 }
-async fn initialize(f: &super::Fixture, name: &str, scope: &AdministrativeScope) -> Result {
+pub(super) async fn initialize(
+    f: &super::Fixture,
+    name: &str,
+    scope: &AdministrativeScope,
+) -> Result {
     let admin = ControlAdministrator::new(
         settings(f, name, "signal_migrator")?,
         "signal_control_owner".into(),

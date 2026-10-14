@@ -1,6 +1,6 @@
 # Implementation progress
 
-Current snapshot: 2026-10-14. No alpha/release is ready or published; package
+Current snapshot: 2026-10-15. No alpha/release is ready or published; package
 version is`0.1.0-dev.0` and no release version is selected. Read
 [release boundaries](21-release-readiness.md), [the finite ledger](31-execution-ledger.json)
 and [next task/routing](11-model-work-plan.md).
@@ -10,6 +10,9 @@ and [2026-10-10 progress archive](07-progress-history-20261010.md). Archives ret
 all original counts, source identities, diagnostic failures and evidence limits.
 
 ## Current implementation and evidence
+
+Latest accepted item:WINDOW (`passed_simulated`),35accepted/17unfinished. Exact
+local evidence and release boundaries are recorded in the final entry below.
 
 Standard integration is accepted locally at`1273054`; stopped lifecycle is
 writer-reviewed at`750b004`. Exact source-bound evidence:
@@ -410,3 +413,179 @@ Native runtime probe corrections pass locally — 2026-10-14. Primary-digest-ver
 ## Verified native runtime schema correction — 2026-10-14
 
 Verified native runtime schema correction passes locally — 2026-10-14. Primary-digest-verified run38626726116 at eece8c0 captures real execution/file-open/connection hooks on both native architectures with zero kernel drops and explicit lookup counters; later SDK projection fails on actual Falco shape. Corrected SDK accepts only the fixed internal metric literal, checks injected evt.time equality, and validates boot/reload/capture/event bounds without assuming reload follows capture start. Both real captures project locally; fresh current agent/server retains nine canonical records each exactly through synced offline spool/SIGKILL/restart/query. Eleven frozen gates pass995default/1056all-feature, both Clippy modes, formatting,14workspace boundaries, fresh build, both retained native delivery campaigns, refusal checks and workflow lint. Evidence:`target/host-native-schema-20261014/ACCEPTANCE.json`. Local replay is distinct from current native ARM64 execution. Develop pushes supersede obsolete same-ref CI; tag/release workflows are unchanged. Matching current native projection/full composed CI and independent coverage remain open; HOST-AUTH pending, inventory33accepted/19unfinished.
+
+## Selected host/runtime and authentication acceptance — 2026-10-14
+
+HOST-AUTH passes selected local/native simulation acceptance — 2026-10-14. Primary-digest-verified run38630135235 at42df283 provides both actual native AMD64/ARM64 kernel execution/file-open/connect capture, explicit drop/lookup counters and exact nine-record complete agent/spool/SIGKILL/server/query replay per architecture. Source/raw hashes, boot/process-start/PID/parent bindings, unique retained IDs and capture cleanup are verified. Authentication source remains qualified by its strict local profile. Evidence:`target/host-native-schema-20261014/HOST-AUTH-ACCEPTANCE.json`; [contract63](63-falco-runtime-profile.md). Production independent coverage, full-host visibility, credential-read proof, actual customer setup and prolonged/physical-device behavior are not assessed. Inventory34accepted/18unfinished; next authorized dependency-ready item:WINDOW event-time detector. Full current native container/Kubernetes/supply-chain qualification and external release gates remain separate.
+
+
+WINDOW shared history restore custody advances — 2026-10-15. Both optional archive
+tables now participate in stopped-restore locks, source checkpoints and transition
+fingerprints. Actual PostgreSQL/Parquet tests refuse omitted/deleted or
+self-consistently rewritten archive data and changed custody times; a valid fresh
+generation preserves original bytes/checkpoint/custody/expiry. Complete local
+server/native-HTTP campaign passes50checks in173.68s with owned cleanup:
+`target/window-20261014/shared-history-restore-postgres-prebuilt/report.json`.
+The archive record is owner-seeded for restore qualification; detector derivation
+is tested separately. WINDOW remains pending and inventory stays34accepted/
+18unfinished. Shared history reads/replay guards, remaining pin lifecycle,
+Standard integration and full acceptance remain open; see[contract64](64-authentication-window.md).
+
+
+WINDOW bounded shared history reads advance — 2026-10-15. Explicit owner-installed
+lease/head/state-bound reads now use the existing bounded control worker. Cursors
+bind the archive inventory, and exports enforce original cancellation plus
+monotonic lease/retention expiry. Actual PostgreSQL/server/native-HTTP51-check
+campaign passes207.32s with owned cleanup:
+`target/window-20261014/shared-history-reader-corrected-postgres/report.json`.
+78control tests, focused strict Clippy and37runner tests pass. This adds no public
+HTTP authority. WINDOW and the release goal remain incomplete; inventory stays
+34accepted/18unfinished. Next: Indeterminate history qualification and complete
+history/object use accounting before general obsolete-pin release and Standard
+consumer integration. See[contract64](64-authentication-window.md).
+
+
+WINDOW Indeterminate history and obsolete replay-pin accounting advance —
+2026-10-15. Real detector-to-shared-archive/read Indeterminate outcomes pass.
+A bounded fenced release routine accounts for all supported Window states and
+retained history, holding complete commit object sets conservatively. The actual
+fixture verifies history-only refusal, release after a sixth committed retention/
+TTL transition, current protection, stale inputs and exact replay. Complete local
+52-check PostgreSQL/server/native-HTTP campaign passes203.94s with owned cleanup:
+`target/window-20261014/obsolete-pin-postgres/report.json`.79control tests, focused
+strict Clippy and37serial runner tests pass. Automatic ledger-aware Standard
+cleanup and consumer/configuration integration remain open. Inventory stays
+34accepted/18unfinished; full WINDOW and release acceptance remain pending.
+
+
+WINDOW Standard foundation advances — 2026-10-15. Strict shared configuration
+schema2 preserves Small schema1 and adds no unused SQLite path. A lease-fenced
+profile read checks explicit bootstrap, quotas and runtime grants. Nested claims
+schema3 supports anchors sealed after an earlier batch's commit using exact prior
+state; schema2 remains strict. Actual delayed-anchor publication/SIGKILL recovery,
+bootstrap and grant cases pass in the complete53-check local campaign201.29s:
+`target/window-20261014/standard-window-foundation-postgres/report.json`.
+80control tests, two configuration tests, default/`s3-query` strict Clippy and
+37runner tests pass. Standard startup/consumer wiring remains next; shared-WINDOW
+runtime refusal stays enabled. Inventory stays34accepted/18unfinished.
+
+
+WINDOW Standard startup/consumer wiring advances, still gated — 2026-10-15.
+The single-consumer state holder now performs explicit bootstrap/recovery,
+coverage/tail-bound candidate evaluation, multi-event commit/ACK reconciliation,
+confirmed-idle known-pin cleanup and bounded health/history metrics. Same-timestamp
+finding deduplication is covered.80control, two configuration and two consumer
+boundary tests pass, with strict default/`s3-query` Clippy. Refreshed underlying
+53-check shared campaign passes180.56s with owned cleanup:
+`target/window-20261014/standard-window-consumer-postgres/report.json`.
+This does not exercise enabled Standard Main Window. The runtime refusal remains;
+actual Main startup/restart/batch/retry qualification is next. In particular,
+repeated canonical IDs needed original-sequence/content-aware handling before
+at-least-once retry acceptance; the following primitive slice addresses that
+foundation. Inventory34accepted/18unfinished.
+
+WINDOW retry foundation advances, still gated — 2026-10-15. Sequence-aware
+Parquet recovery selects protected original ID/sequence pairs, tolerates identical
+copies and refuses changed content; legacy ID-only recovery stays strict.
+Claims3 preserve original retained sequences. Explicit owner-installed016 adds a
+bounded lease/head-bound immutable finding comparison; the consumer filters known
+repeats without changing stored bytes or promoting legacy unknown scope. Actual
+Main batching/retry/restart qualification is still required.81control tests,
+strict control/server `s3-query` Clippy, formatting and37runner tests pass.
+The unchanged prebuilt53-check campaign passes204.83s with183 matching source
+hashes and owned cleanup:
+`target/window-20261014/window-retry-postgres-prebuilt/report.json`.
+The first campaign's native-wrapper compilation timeout is retained separately;
+no deadline was increased. Objects/host admission remain simulated; enabled
+Standard Main WINDOW is untested. Inventory stays34accepted/18unfinished.
+
+WINDOW actual Standard Main advances — 2026-10-15. Six composed scenarios pass
+137.91s: explicit/bootstrap and enrolled-quota refusals, same-time split batches,
+signed-watermark protected anchors, exact retries, confirmed-state SIGKILL/restart
+and blocked prepared-publication SIGKILL with byte-exact original SQL request,
+claims, manifest and findings recovery. The producer uses an explicit current-lease
+fence and narrow state-bound replay-pin helper017; general object control, table
+and schema mutation remain forbidden. Mixed stateless/Window readiness inventory
+and nullable optional-module privilege checks are corrected. The refreshed53-check
+shared campaign passes177.87s;81control tests,38runner guards, focused readiness
+regression, strict control/server `s3-query` Clippy and formatting pass. Both process
+campaigns have current source/binary bindings and owned cleanup:
+`target/window-20261014/window-main-process-v7/report.json`,
+`target/window-20261014/window-main-shared-final/report.json`.
+Actual PostgreSQL/Parquet/WAL; object/host authority simulated. WINDOW is now
+explicitly in_progress in the ledger; acceptance remains incomplete. Next: whole
+Small Main crash qualification, broader timestamp compatibility, remaining edge
+cases and full review/acceptance. Inventory34accepted/18unfinished.
+
+WINDOW Small Main crash qualification advances — 2026-10-15. Five composed checks
+verify split-batch sealing, actual SIGKILL after atomic outbox commit and before
+finding publication/WAL ACK, exact pending SQLite bytes, one original scoped
+finding after recovery, another confirmed-state SIGKILL, and real SQLite writer
+contention before commit. An uncommitted retained event remains unverified after
+restart. The inherited native identity/onboarding campaign and four ownership
+failure regressions pass;15owned children are reaped, including four observed
+SIGKILL exits across the full composition. Evidence:
+`target/window-20261014/SMALL-MAIN-ACCEPTANCE.json`. Local Small Main with actual
+SQLite/findings/WAL and TLS provider; host/source authority is synthetic. WINDOW
+remains in_progress. Next: canonical timestamp compatibility, remaining edge cases,
+focused review and full frozen acceptance. Inventory34accepted/18unfinished.
+
+WINDOW canonical timestamp compatibility — 2026-10-15. SQL012 now preserves
+Chrono's exact second/nanosecond pair for BCE/expanded years and leap seconds,
+without PostgreSQL microsecond timestamp casts. Actual PostgreSQL compares46
+canonical clocks against Chrono, rejects11invalid inputs and exercises7installed
+trigger progressions with one-nanosecond regression refusal; existing retired
+assessment resurrection guards still pass. The refreshed53-check shared campaign
+passes183.25s with245matching source hashes, owned cleanup and no errors.
+81control tests, strict control/server all-targets `s3-query` Clippy, formatting
+and14workspace boundaries pass. Evidence:
+`target/window-20261014/CLOCK-ACCEPTANCE.json`. Parser/trigger edge fixtures use
+owner-side rollback and do not qualify detector derivation or host authority for
+those synthetic dates. Actual local PostgreSQL/WAL/Parquet, simulated objects/host.
+WINDOW remains in progress; remaining consumer edges, review and full frozen
+acceptance are next. Inventory34accepted/18unfinished.
+
+WINDOW consumer edges — 2026-10-15. Six focused tests verify first-sequence
+retention, exact original bytes, unknown-scope preservation and changed
+body/generation/canonical-scope refusal. Actual Standard Main now passes8scenarios
+in169.97s under the unchanged180s deadline, including missing required replay-pin
+permission and policy-revision startup refusals. The owner oracle compares
+committed states/findings/commits/requests/checkpoint before and after refusal;
+original crash/retry scenarios remain passing. All266source hashes match, owned
+container cleanup passes without errors. Strict control/server all-targets
+all-feature Clippy,6all-feature regressions,38runner guards, formatting and
+14workspace boundaries pass. Consumer-only writer review and both harness
+corrections are retained in `target/window-20261014/CONSUMER-ACCEPTANCE.json`.
+Actual local PostgreSQL/TLS/WAL/Parquet; object/host authority simulated. Next:
+whole-WINDOW focused review, freeze and full acceptance; no further implementation
+is planned unless review exposes a defect. Inventory34accepted/18unfinished.
+
+WINDOW review corrections — 2026-10-15. Whole-scope writer review found two
+real boundary mismatches: a successful-login anchor can legitimately produce a
+NoMatch with zero failed attempts, but archive insertion and replay-pin history
+validation both rejected empty failure references. SQL012/014 now accept bounded
+empty NoMatch/Indeterminate evidence with empty canonical maps; empty Match stays
+invalid. The actual fixture now starts with a successful login and verifies its
+zero-failure archive. Fresh53-check PostgreSQL/WAL/Parquet/crash/history/pin
+qualification passes206.78s with246matching source hashes and clean owned cleanup.
+51rules tests, strict rules/control/server all-targets `s3-query` Clippy, formatting
+and14workspace boundaries pass. Evidence and pre-fix reproductions:
+`target/window-20261014/REVIEW-CORRECTIONS.json`. Whole-WINDOW review is still in
+progress; final frozen gates and acceptance remain open. The older eight-case
+Standard Main report predates these corrections and needs refresh at final
+acceptance. Inventory34accepted/18unfinished.
+
+WINDOW reader review correction — 2026-10-15. The owner fixture reproduced
+read-only enrollment inspection accepting UPDATE on optional WINDOW history. The
+guard now inspects protected core/addon namespaces across reachable roles and
+refuses schema/routine/table/column/sequence mutation authority, including PUBLIC
+and SET-capable role memberships. Seven temporary-grant refusals pass; original
+SELECT-only credentials work after each exact revoke. The complete8-scenario
+Main campaign passes175.08s under the unchanged180s deadline, with266matching
+source hashes and clean owned cleanup. Strict control/server all-targets
+all-feature Clippy and38runner guards pass. Evidence:
+`target/window-20261014/READER-ACCEPTANCE.json`. This closes the reproduced reader
+review finding locally; whole-WINDOW final frozen acceptance remains pending.
+Inventory34accepted/18unfinished.
+
+WINDOW passes local simulation acceptance — 2026-10-15. Bounded authentication event-time/watermark/lateness, canonical replay identity, key/event/byte/TTL/output/history limits, unknown coverage and atomic state/findings/checkpoint recovery are qualified. Six frozen workspace gates pass1048default/1117all-feature tests, both strict Clippy modes, formatting and14workspace boundaries. Actual Small Main passes5WINDOW/8onboarding checks; Standard Main passes8scenarios; shared recovery passes53checks in206.73s. Runtime source bindings109/266/246 match; retained Small/Standard executable identities match and owned cleanup succeeds. Writer review closed three reproduced findings; it is not independent release review. Evidence:`target/window-20261014/ACCEPTANCE.json`; [contract64](64-authentication-window.md). LinuxAMD64 with actual SQLite/PostgreSQL/Parquet/WAL and SIGKILL; signed host/object authority is synthetic. Inventory35accepted/17unfinished. Current remote/native/container/Kubernetes, AWS/EKS, released dependencies, version and publication remain separate. Next local dependency-ready detector:SENSOR-HEALTH; Phase9 AWS collection requires a separate task.

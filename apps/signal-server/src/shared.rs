@@ -147,6 +147,22 @@ pub struct ScopedPreparedPublication {
     prepared: PreparedPublication,
     request: signal_control::ScopedPublicationInput,
 }
+pub struct MultiEventPreparedPublication {
+    prepared: PreparedPublication,
+    request: signal_control::MultiEventPublicationInput,
+}
+enum RetainedPublication {
+    Scoped(signal_control::ScopedPublicationInput),
+    Multi(signal_control::MultiEventPublicationInput),
+}
+impl MultiEventPreparedPublication {
+    pub fn request(&self) -> &signal_control::MultiEventPublicationInput {
+        &self.request
+    }
+    pub fn deadline(&self) -> tokio::time::Instant {
+        self.prepared.deadline()
+    }
+}
 impl ScopedPreparedPublication {
     pub fn request(&self) -> &signal_control::ScopedPublicationInput {
         &self.request
@@ -238,14 +254,35 @@ impl SharedPublisher {
     ) -> Result<PublicationResult, SharedError> {
         context.check()?;
         request.validate(&self.scope)?;
-        self.recommit_inner(token, request.publication().clone(), Some(request), context)
-            .await
+        self.recommit_inner(
+            token,
+            request.publication().clone(),
+            Some(RetainedPublication::Scoped(request)),
+            context,
+        )
+        .await
+    }
+    pub async fn recommit_multi_event(
+        &self,
+        token: LeaseToken,
+        request: signal_control::MultiEventPublicationInput,
+        context: ControlContext,
+    ) -> Result<PublicationResult, SharedError> {
+        context.check()?;
+        request.validate(&self.scope)?;
+        self.recommit_inner(
+            token,
+            request.publication().clone(),
+            Some(RetainedPublication::Multi(request)),
+            context,
+        )
+        .await
     }
     async fn recommit_inner(
         &self,
         token: LeaseToken,
         request: PublicationInput,
-        scoped: Option<signal_control::ScopedPublicationInput>,
+        scoped: Option<RetainedPublication>,
         context: ControlContext,
     ) -> Result<PublicationResult, SharedError> {
         let mut observation = Observation {
@@ -295,14 +332,22 @@ impl SharedPublisher {
                 .await?;
         }
         context.check()?;
-        let result = if let Some(scoped) = scoped {
-            self.control
-                .publish_scoped(token, scoped, context.clone())
-                .await?
-        } else {
-            self.control
-                .publish(token, request, context.clone())
-                .await?
+        let result = match scoped {
+            Some(RetainedPublication::Scoped(scoped)) => {
+                self.control
+                    .publish_scoped(token, scoped, context.clone())
+                    .await?
+            }
+            Some(RetainedPublication::Multi(multi)) => {
+                self.control
+                    .publish_multi_event(token, multi, context.clone())
+                    .await?
+            }
+            None => {
+                self.control
+                    .publish(token, request, context.clone())
+                    .await?
+            }
         };
         context.check().map_err(|_| ControlError::Uncertain)?;
         self.committed.fetch_add(1, Ordering::Relaxed);
@@ -578,6 +623,67 @@ impl SharedPublisher {
         let request = draft.attach(prepared.request().clone())?;
         prepared.context.check()?;
         Ok(ScopedPreparedPublication { prepared, request })
+    }
+    pub async fn prepare_multi_event(
+        &self,
+        token: LeaseToken,
+        rows: &[StoredEvent],
+        draft: crate::shared_multi_event::MultiEventPublicationDraft,
+        context: ControlContext,
+    ) -> Result<MultiEventPreparedPublication, SharedError> {
+        context.check()?;
+        self.token(&token)?;
+        draft.validate(rows, &self.scope)?;
+        let prepared = self.prepare(token, rows, draft.render()?, context).await?;
+        let request = draft.attach(prepared.request().clone())?;
+        prepared.context.check()?;
+        Ok(MultiEventPreparedPublication { prepared, request })
+    }
+    pub async fn commit_multi_event(
+        &self,
+        prepared: MultiEventPreparedPublication,
+    ) -> Result<PublicationResult, SharedError> {
+        let mut observation = Observation {
+            rejected: &self.rejected,
+            failed: true,
+        };
+        let mut p = prepared.prepared;
+        p.context.check()?;
+        self.token(&p.token)?;
+        if !Arc::ptr_eq(&p.binding, &self.binding) {
+            return Err(ControlError::Fenced.into());
+        }
+        prepared.request.validate(&self.scope)?;
+        let result = self
+            .control
+            .publish_multi_event(p.token, prepared.request, p.context.clone())
+            .await?;
+        p.context.check().map_err(|_| ControlError::Uncertain)?;
+        p.objects_observed.confirmed = true;
+        self.committed.fetch_add(1, Ordering::Relaxed);
+        observation.failed = false;
+        Ok(result)
+    }
+    pub async fn resolve_multi_event(
+        &self,
+        token: LeaseToken,
+        request: signal_control::MultiEventPublicationInput,
+        context: ControlContext,
+    ) -> Result<PublicationResult, SharedError> {
+        let mut observation = Observation {
+            rejected: &self.rejected,
+            failed: true,
+        };
+        context.check()?;
+        self.token(&token)?;
+        request.validate(&self.scope)?;
+        let result = self
+            .control
+            .resolve_multi_event_publication(token, request, context.clone())
+            .await?;
+        context.check()?;
+        observation.failed = false;
+        Ok(result)
     }
     pub async fn commit_scoped(
         &self,

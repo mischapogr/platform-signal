@@ -194,6 +194,16 @@ pub(crate) async fn run(
         return Err(ControlError::Invalid);
     };
     crate::finding_scope::read_binding(db, &read.binding, profile, context).await?;
+    // read_binding already verified the optional module in this fixed snapshot.
+    let multi: bool = db
+        .query_one(
+            "SELECT to_regnamespace('signal_multi_event') IS NOT NULL",
+            &[],
+        )
+        .await
+        .map_err(crate::client::database_error)?
+        .try_get(0)
+        .map_err(|_| ControlError::Corrupt)?;
     let scopes = selectors(&read.grant)?;
     // Preserve Chrono's (whole seconds, fractional nanos) ordering. Leap
     // seconds use fractional nanos >=1e9; a two-billion radix keeps them
@@ -213,9 +223,17 @@ pub(crate) async fn run(
     // SQL chooses at most128 small metadata records. Fetch one <=64KiB body
     // at a time only after charging its conservative decoded allocation.
     let limit = read.query.limit as i64;
+    let list = if multi {
+        LIST.replace(
+            "LEFT JOIN signal_finding_scope.facts s ON",
+            "LEFT JOIN (SELECT finding_id,partition_id,scope_generation,source,account,resource FROM signal_finding_scope.facts UNION ALL SELECT finding_id,partition_id,scope_generation,convert_from(fact,'UTF8')::jsonb->>'source',convert_from(fact,'UTF8')::jsonb->>'account',convert_from(fact,'UTF8')::jsonb->>'resource' FROM signal_multi_event.facts) s ON",
+        )
+    } else {
+        LIST.to_owned()
+    };
     let metadata = db
         .query(
-            LIST,
+            &list,
             &[
                 &scopes,
                 &read.binding.scope_generation,

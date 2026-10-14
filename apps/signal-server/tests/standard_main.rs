@@ -23,6 +23,8 @@ const DB: &str = "signal_standard_main";
 mod standard_restore;
 #[path = "support/standard_retirement.rs"]
 mod standard_retirement;
+#[path = "support/standard_window.rs"]
+mod standard_window;
 #[derive(serde::Deserialize)]
 struct Fixture {
     port: u16,
@@ -82,6 +84,19 @@ async fn standard_offline_fixture() -> Result {
             let outbox=signal_collector_sdk::audit::outbox::AuditOutbox::open(&root.join("audit-outbox"),context).await?;
             drop(outbox);
         }
+        if matches!(phase.as_str(),"window_deny_pin"|"window_allow_pin") {
+            let grant=if phase=="window_deny_pin" { "REVOKE EXECUTE ON FUNCTION signal_window_pin.retain(jsonb,bytea,bytea,bytea) FROM signal_standard_producer" } else { "GRANT EXECUTE ON FUNCTION signal_window_pin.retain(jsonb,bytea,bytea,bytea) TO signal_standard_producer" };
+            db.batch_execute(grant).await?; println!("phase: Standard-WINDOW-{phase}-complete"); return Ok(());
+        }
+        if matches!(phase.as_str(),"window_guard_snapshot"|"window_guard_verify") {
+            let snapshot:serde_json::Value=db.query_one("SELECT jsonb_build_object('states',(SELECT jsonb_agg(to_jsonb(s) ORDER BY key) FROM signal_control.state s),'findings',(SELECT jsonb_agg(to_jsonb(f) ORDER BY id) FROM signal_control.findings f),'commits',(SELECT jsonb_agg(to_jsonb(c) ORDER BY id) FROM signal_control.commits c),'requests',(SELECT jsonb_agg(to_jsonb(r) ORDER BY commit_id) FROM signal_multi_event.requests r),'checkpoint',(SELECT checkpoint FROM signal_control.partitions WHERE kind='pipeline'))",&[]).await?.try_get(0)?;
+            let path=root.join("window-guard-original.json");
+            if phase=="window_guard_snapshot" { fs::write(path,serde_json::to_vec(&snapshot)?)?; }
+            else { assert_eq!(snapshot,serde_json::from_slice::<serde_json::Value>(&fs::read(path)?)?); }
+            println!("phase: Standard-WINDOW-{phase}-complete"); return Ok(());
+        }
+        if phase=="window_verify" { standard_window::verify(&db,&root).await?; return Ok(()); }
+        if matches!(phase.as_str(),"window_saved"|"window_recovered") { standard_window::recovery(&db,&root,phase=="window_recovered").await?; return Ok(()); }
         if phase=="verify_restored" {
             let row=timeout(Duration::from_secs(2),db.query_one("SELECT (SELECT count(*) FROM signal_control.findings),(SELECT count(*) FROM signal_finding_scope.facts),(SELECT checkpoint FROM signal_control.partitions WHERE kind='pipeline'),(SELECT wal_floor FROM signal_finding_scope.producers),(SELECT feed_position FROM signal_control.partitions WHERE kind='notification')",&[])).await??;
             assert_eq!(row.get::<_,i64>(0),3);assert_eq!(row.get::<_,i64>(1),3);assert_eq!(row.get::<_,i64>(2),3);assert_eq!(row.get::<_,i64>(3),0);assert_eq!(row.get::<_,i64>(4),2);
@@ -101,7 +116,8 @@ async fn standard_offline_fixture() -> Result {
             println!("phase: Standard-audit-lifecycle-original-empty-DB-WAL-floor-checkpoint-qualified");return Ok(());
         }
         if phase=="crash_lock" {
-            timeout(Duration::from_secs(2),db.batch_execute("BEGIN; LOCK TABLE signal_finding_scope.facts IN ACCESS EXCLUSIVE MODE")).await??;
+            let lock_sql=if std::env::var("SIGNAL_STANDARD_WINDOW").as_deref()==Ok("true") { "BEGIN; LOCK TABLE signal_multi_event.facts IN ACCESS EXCLUSIVE MODE" } else { "BEGIN; LOCK TABLE signal_finding_scope.facts IN ACCESS EXCLUSIVE MODE" };
+            timeout(Duration::from_secs(2),db.batch_execute(lock_sql)).await??;
             let until=tokio::time::Instant::now()+Duration::from_secs(12);
             fs::write(root.join("crash-lock-ready"),b"held")?;
             while tokio::time::Instant::now()<until {
@@ -277,6 +293,50 @@ async fn standard_offline_fixture() -> Result {
             timeout(Duration::from_secs(2),db.batch_execute("REVOKE UPDATE(checkpoint) ON signal_control.partitions FROM signal_standard_producer")).await??;
             producer.verify_custody_producer_credentials("signal_control_owner".into(),context()?).await?;
             assert!(matches!(producer.verify_producer_credentials("signal_control_owner".into(),context()?).await,Err(signal_control::ControlError::Fenced)));
+        }
+        if std::env::var("SIGNAL_STANDARD_WINDOW").as_deref()==Ok("true") {
+            // The ordinary credential guards above run with optional modules
+            // absent. Provision addons only after proving their absence cannot
+            // turn a forbidden grant into a nullable allowlist result.
+            db.batch_execute("UPDATE signal_control.store SET ready=false").await?;
+            standard_window::prepare(&db,&scope,scope_generation).await?;
+            db.batch_execute("UPDATE signal_control.store SET ready=true").await?;
+            assert!(matches!(producer.verify_window_producer_credentials("signal_control_owner".into(),false,false,context()?).await,Err(signal_control::ControlError::Fenced)));
+            db.batch_execute("GRANT EXECUTE ON FUNCTION signal_control.check_token(jsonb,bytea,bytea) TO signal_standard_producer").await?;
+            producer.verify_window_producer_credentials("signal_control_owner".into(),false,false,context()?).await?;
+            assert!(matches!(producer.verify_producer_credentials("signal_control_owner".into(),context()?).await,Err(signal_control::ControlError::Fenced)));
+            for (grant,revoke) in [
+                ("GRANT EXECUTE ON FUNCTION signal_control.object_control(jsonb,bytea,bytea,bytea) TO signal_standard_producer", "REVOKE EXECUTE ON FUNCTION signal_control.object_control(jsonb,bytea,bytea,bytea) FROM signal_standard_producer"),
+                ("GRANT UPDATE ON signal_window_history.profile TO signal_standard_producer", "REVOKE UPDATE ON signal_window_history.profile FROM signal_standard_producer"),
+                ("GRANT CREATE ON SCHEMA signal_window_pin TO signal_standard_producer", "REVOKE CREATE ON SCHEMA signal_window_pin FROM signal_standard_producer")
+            ] {
+                db.batch_execute(grant).await?;
+                assert!(matches!(producer.verify_window_producer_credentials("signal_control_owner".into(),false,false,context()?).await,Err(signal_control::ControlError::Fenced)));
+                db.batch_execute(revoke).await?;
+                producer.verify_window_producer_credentials("signal_control_owner".into(),false,false,context()?).await?;
+            }
+        }
+        if std::env::var("SIGNAL_STANDARD_WINDOW").as_deref()==Ok("true") {
+            let reader=client("signal_standard_reader")?;
+            let binding=signal_control::ScopedFindingsBinding { store:scope.store_id,generation:scope.generation,scope_generation,schema_owner:"signal_control_owner".into() };
+            reader.inspect_existing_finding_scope(scope.clone(),binding.clone(),context()?).await?;
+            for (grant,revoke) in [
+                ("GRANT UPDATE ON signal_window_history.assessments TO signal_standard_reader","REVOKE UPDATE ON signal_window_history.assessments FROM signal_standard_reader"),
+                ("GRANT UPDATE(payload) ON signal_window_history.assessments TO signal_standard_reader","REVOKE UPDATE(payload) ON signal_window_history.assessments FROM signal_standard_reader"),
+                ("GRANT CREATE ON SCHEMA signal_window_history_read TO signal_standard_reader","REVOKE CREATE ON SCHEMA signal_window_history_read FROM signal_standard_reader"),
+                ("GRANT EXECUTE ON FUNCTION signal_window_history.timestamp_pair(text) TO signal_standard_reader","REVOKE EXECUTE ON FUNCTION signal_window_history.timestamp_pair(text) FROM signal_standard_reader"),
+                ("GRANT EXECUTE ON FUNCTION signal_window_history_read.read_page(jsonb,jsonb,bytea,bytea) TO signal_standard_reader","REVOKE EXECUTE ON FUNCTION signal_window_history_read.read_page(jsonb,jsonb,bytea,bytea) FROM signal_standard_reader"),
+                ("GRANT UPDATE ON signal_window_history.assessments TO PUBLIC","REVOKE UPDATE ON signal_window_history.assessments FROM PUBLIC"),
+                ("GRANT signal_standard_producer TO signal_standard_reader WITH INHERIT FALSE, SET TRUE","REVOKE signal_standard_producer FROM signal_standard_reader"),
+            ] {
+                db.batch_execute(grant).await?;
+                let result=reader.inspect_existing_finding_scope(scope.clone(),binding.clone(),context()?).await;
+                db.batch_execute(revoke).await?;
+                assert!(matches!(result,Err(signal_control::ControlError::Fenced)),"optional WINDOW history privilege accepted by read-only inspector");
+                reader.inspect_existing_finding_scope(scope.clone(),binding.clone(),context()?).await?;
+            }
+            reader.shutdown(context()?).await?;
+            println!("phase: Standard-WINDOW-readonly-optional-history-table-column-DDL-routine-PUBLIC-refusals-qualified");
         }
         producer.shutdown(context()?).await?;
         println!("phase: Standard-producer-verified-TLS-owner-reader-table-column-DDL-precancel-qualification-complete");

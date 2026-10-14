@@ -17,7 +17,7 @@ server-local loss75.55s. Replacement17.61s/RPO0 applies only to the4byte custody
 fixture. Source/binary/cleanup and exact original receipt/control/object/WAL/
 private progress are audited. Next:ONBOARDING; external/production gates remain.
 
-Current inventory:13 passed_local,18 passed_simulated,2 passed_external,15 pending/0in_progress,
+Current inventory:13 passed_local,19 passed_simulated,2 passed_external,13 pending/1in_progress,
 4 external_pending. Native Standard cluster CI wiring now passes local direct
 process/bundle/kind acceptance181.93s/170.05s; exact remote results are next:
 `target/standard-kind-ci-20261012/ACCEPTANCE.json`. Local provider/custody
@@ -446,7 +446,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | CATO | pending | M365 | Cato API event collection |
 | CLOUDFLARE | pending | OBJECT-READER, SMALL-PILOT | Cloudflare object-delivery normalization |
 | BASELINES | pending | EKS-AUDIT, AWS-PROFILES | Versioned generic baseline predicate packs |
-| WINDOW | pending | FINDINGS-CURSOR, HOST-AUTH, COVERAGE-OBSERVERS | First bounded window detector D10 |
+| WINDOW | passed_simulated | FINDINGS-CURSOR, HOST-AUTH, COVERAGE-OBSERVERS | First bounded window detector D10 |
 | STATE | pending | WINDOW, BASELINES | Scoped state lookup detectors D04/D06/D08/D09/D12/D13 |
 | SENSOR-HEALTH | pending | COVERAGE-OBSERVERS, WINDOW | Independent missing-telemetry detector D15 |
 | CORRELATION | pending | STATE, DISPOSITIONS, CATO, M365, SYSLOG | Bounded multi-stream episodes D11/D14 |
@@ -484,3 +484,14 @@ Native runtime probe wiring passes locally — 2026-10-14. Separate hosted AMD64
 Native runtime probe corrections pass locally — 2026-10-14. Primary-digest-verified AMD64/ARM64 run38624220049 at20aff08 fails before kernel capture because no rule file is loaded. Explicit owned minimal Falco configuration and -c/-r selection now pass capability-free dry-run. A separately reproduced Cargo crate-working-directory failure is corrected with workspace-root capture resolution; four refusal checks pass. Nine frozen gates pass994default/1055all-feature, both Clippy modes, formatting,14workspace boundaries, workflow lint and exact five-record simulated delivery. Evidence:`target/host-runtime-probe-fix-20261014/ACCEPTANCE.json`; original artifacts:`target/host-runtime-probe-20261014/failed-native/`. Corrected native capture/SDK projection and full original composed CI remain required. HOST-AUTH stays pending; inventory33accepted/19unfinished.
 
 Verified native runtime schema correction passes locally — 2026-10-14. Primary-digest-verified run38626726116 at eece8c0 captures real execution/file-open/connection hooks on both native architectures with zero kernel drops and explicit lookup counters; later SDK projection fails on actual Falco shape. Corrected SDK accepts only the fixed internal metric literal, checks injected evt.time equality, and validates boot/reload/capture/event bounds without assuming reload follows capture start. Both real captures project locally; fresh current agent/server retains nine canonical records each exactly through synced offline spool/SIGKILL/restart/query. Eleven frozen gates pass995default/1056all-feature, both Clippy modes, formatting,14workspace boundaries, fresh build, both retained native delivery campaigns, refusal checks and workflow lint. Evidence:`target/host-native-schema-20261014/ACCEPTANCE.json`. Local replay is distinct from current native ARM64 execution. Develop pushes supersede obsolete same-ref CI; tag/release workflows are unchanged. Matching current native projection/full composed CI and independent coverage remain open; HOST-AUTH pending, inventory33accepted/19unfinished.
+
+HOST-AUTH passes selected local/native simulation acceptance — 2026-10-14. Primary-digest-verified run38630135235 at42df283 provides both actual native AMD64/ARM64 kernel execution/file-open/connect capture, explicit drop/lookup counters and exact nine-record complete agent/spool/SIGKILL/server/query replay per architecture. Source/raw hashes, boot/process-start/PID/parent bindings, unique retained IDs and capture cleanup are verified. Authentication source remains qualified by its strict local profile. Evidence:`target/host-native-schema-20261014/HOST-AUTH-ACCEPTANCE.json`; [contract63](63-falco-runtime-profile.md). Production independent coverage, full-host visibility, credential-read proof, actual customer setup and prolonged/physical-device behavior are not assessed. Inventory34accepted/18unfinished; next authorized dependency-ready item:WINDOW event-time detector. Full current native container/Kubernetes/supply-chain qualification and external release gates remain separate.
+
+WINDOW is in_progress — 2026-10-15. Actual Standard Main bootstrap/quota refusal,
+split-batch watermark, exact retry and confirmed/blocked-publication SIGKILL
+recovery pass six scenarios (137.91s); the refreshed53-check shared campaign passes
+177.87s with owned cleanup. Evidence is linked in the machine ledger. Whole Small
+Main crash qualification, timestamp compatibility, review and full acceptance
+remain; inventory stays34accepted/18unfinished.
+
+WINDOW passes local simulation acceptance — 2026-10-15. Bounded authentication event-time/watermark/lateness, canonical replay identity, key/event/byte/TTL/output/history limits, unknown coverage and atomic state/findings/checkpoint recovery are qualified. Six frozen workspace gates pass1048default/1117all-feature tests, both strict Clippy modes, formatting and14workspace boundaries. Actual Small Main passes5WINDOW/8onboarding checks; Standard Main passes8scenarios; shared recovery passes53checks in206.73s. Runtime source bindings109/266/246 match; retained Small/Standard executable identities match and owned cleanup succeeds. Writer review closed three reproduced findings; it is not independent release review. Evidence:`target/window-20261014/ACCEPTANCE.json`; [contract64](64-authentication-window.md). LinuxAMD64 with actual SQLite/PostgreSQL/Parquet/WAL and SIGKILL; signed host/object authority is synthetic. Inventory35accepted/17unfinished. Current remote/native/container/Kubernetes, AWS/EKS, released dependencies, version and publication remain separate. Next local dependency-ready detector:SENSOR-HEALTH; Phase9 AWS collection requires a separate task.

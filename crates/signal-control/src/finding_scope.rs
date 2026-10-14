@@ -546,6 +546,7 @@ pub(crate) async fn read_binding(
     };
     limits.validate().map_err(|_| ControlError::Corrupt)?;
     counters(db, binding.scope_generation, limits, profile).await?;
+    crate::multi_event_module::inspect_read(db, binding, context).await?;
     context.check()?;
     Ok(FindingScopeBinding {
         store: binding.store,
@@ -571,8 +572,47 @@ pub(crate) async fn read_existing(
         .await
         .map_err(db_error)?;
     crate::scoped_read::privileges(db).await?;
-    let readonly = db.query_one("SELECT NOT pg_has_role(session_user,$1::name,'MEMBER') AND NOT has_schema_privilege(session_user,'signal_control','CREATE') AND NOT has_schema_privilege(session_user,'signal_finding_scope','CREATE') AND NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('signal_control','signal_finding_scope') AND has_function_privilege(session_user,p.oid,'EXECUTE')) AND NOT EXISTS(SELECT 1 FROM unnest(ARRAY['signal_control.store','signal_control.migrations','signal_control.findings','signal_control.partitions','signal_finding_scope.activation','signal_finding_scope.profile','signal_finding_scope.producers','signal_finding_scope.facts','signal_finding_scope.requests']) name WHERE has_table_privilege(session_user,name,'INSERT') OR has_table_privilege(session_user,name,'UPDATE') OR has_table_privilege(session_user,name,'DELETE') OR has_table_privilege(session_user,name,'TRUNCATE') OR has_table_privilege(session_user,name,'TRIGGER') OR has_table_privilege(session_user,name,'REFERENCES'))", &[&binding.schema_owner]).await.map_err(db_error)?;
-    if !field::<bool>(&readonly, 0)? {
+    let readonly = db.query_one("SELECT NOT pg_has_role(session_user,$1::name,'MEMBER') AND NOT has_schema_privilege(session_user,'signal_control','CREATE') AND NOT has_schema_privilege(session_user,'signal_finding_scope','CREATE') AND NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('signal_control','signal_finding_scope','signal_multi_event','signal_replay_transfer','signal_replay_release','signal_window_profile','signal_finding_lookup','signal_window_pin') AND has_function_privilege(session_user,p.oid,'EXECUTE')) AND NOT EXISTS(SELECT 1 FROM unnest(ARRAY['signal_control.store','signal_control.migrations','signal_control.findings','signal_control.partitions','signal_finding_scope.activation','signal_finding_scope.profile','signal_finding_scope.producers','signal_finding_scope.facts','signal_finding_scope.requests']) name WHERE has_table_privilege(session_user,name,'INSERT') OR has_table_privilege(session_user,name,'UPDATE') OR has_table_privilege(session_user,name,'DELETE') OR has_table_privilege(session_user,name,'TRUNCATE') OR has_table_privilege(session_user,name,'TRIGGER') OR has_table_privilege(session_user,name,'REFERENCES'))", &[&binding.schema_owner]).await.map_err(db_error)?;
+    // Optional modules are part of the same read-only credential boundary.
+    // Inspect every reachable role so SET-capable memberships and PUBLIC grants
+    // cannot hide behind the reader's current effective table privileges.
+    let module_mutable: bool = db
+        .query_one(
+            r#"
+        SELECT EXISTS(
+          SELECT 1 FROM pg_roles r CROSS JOIN pg_namespace n
+          WHERE pg_has_role(session_user,r.oid,'MEMBER')
+            AND n.nspname IN ('signal_control','signal_finding_scope','signal_custody_restore',
+              'signal_state_read','signal_multi_event','signal_replay_transfer',
+              'signal_window_history','signal_window_history_read','signal_replay_release',
+              'signal_window_profile','signal_finding_lookup','signal_window_pin')
+            AND (has_schema_privilege(r.oid,n.oid,'CREATE')
+              OR pg_has_role(r.oid,n.nspowner,'MEMBER')
+              OR EXISTS(SELECT 1 FROM pg_proc p WHERE p.pronamespace=n.oid
+                AND has_function_privilege(r.oid,p.oid,'EXECUTE'))
+              OR EXISTS(SELECT 1 FROM pg_class c WHERE c.relnamespace=n.oid AND (
+                (c.relkind IN ('r','p','v','m','f') AND (
+                  has_table_privilege(r.oid,c.oid,'INSERT')
+                  OR has_table_privilege(r.oid,c.oid,'UPDATE')
+                  OR has_table_privilege(r.oid,c.oid,'DELETE')
+                  OR has_table_privilege(r.oid,c.oid,'TRUNCATE')
+                  OR has_table_privilege(r.oid,c.oid,'REFERENCES')
+                  OR has_table_privilege(r.oid,c.oid,'TRIGGER')
+                  OR has_table_privilege(r.oid,c.oid,'MAINTAIN')
+                  OR has_any_column_privilege(r.oid,c.oid,'INSERT')
+                  OR has_any_column_privilege(r.oid,c.oid,'UPDATE')
+                  OR has_any_column_privilege(r.oid,c.oid,'REFERENCES')))
+                OR (c.relkind='S' AND (has_sequence_privilege(r.oid,c.oid,'USAGE')
+                  OR has_sequence_privilege(r.oid,c.oid,'UPDATE'))))))
+        )
+    "#,
+            &[],
+        )
+        .await
+        .map_err(db_error)?
+        .try_get(0)
+        .map_err(|_| ControlError::Corrupt)?;
+    if module_mutable || !field::<bool>(&readonly, 0)? {
         return Err(ControlError::Fenced);
     }
     let profile = if routines == crate::catalog_schema_identity().1 {
@@ -761,6 +801,17 @@ pub(crate) async fn run(
         return Err(ControlError::Conflict);
     }
     counters(db, action.generation(), limits, profile).await?;
+    crate::multi_event_module::inspect_read(
+        db,
+        &crate::ScopedFindingsBinding {
+            store,
+            generation,
+            scope_generation: action.generation(),
+            schema_owner: owner.to_owned(),
+        },
+        context,
+    )
+    .await?;
     let mut producer = None;
     let mut checkpoint = None;
     if matches!(action, Action::Enroll(_) | Action::Inspect { .. }) {

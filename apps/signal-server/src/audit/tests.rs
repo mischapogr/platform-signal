@@ -1290,6 +1290,7 @@ fn runtime_revision_tracks_installed_limits_and_excludes_secret_and_path_values(
                     identity: false,
                     coverage: false,
                     onboarding,
+                    window: false,
                     separate_metrics: false,
                 },
                 &context()?,

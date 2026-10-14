@@ -3,6 +3,8 @@ import base64
 import copy
 import datetime as dt
 import json
+import os
+import importlib.util
 from pathlib import Path
 import struct
 import subprocess
@@ -13,7 +15,7 @@ import zlib
 DOMAIN = b'PLATFORM::SIGNAL/onboarding/v1\0'
 
 
-def exercise(root, repo, binding, profile, start, stop, request, coverage_request, counters):
+def exercise(root, repo, binding, profile, start, stop, request, coverage_request, counters, hold_request=None):
     began = time.monotonic()
     key, public = root / 'onboarding-fixture.key', root / 'onboarding-fixture.der'
     def openssl(*args):
@@ -129,6 +131,10 @@ def exercise(root, repo, binding, profile, start, stop, request, coverage_reques
         start({'SIGNAL_ONBOARDING_CONFIG': str(policy_path)})
         assert assess()[1]['stage'] == 'disconnected';admit(False);stop()
         checks.append('restart without current evidence does not inherit activation')
+        if os.environ.get('SIGNAL_TEST_WINDOW')=='1':
+            spec=importlib.util.spec_from_file_location('signal_small_window_fixture',repo/'scripts/window-native-fixture.py')
+            window=importlib.util.module_from_spec(spec);spec.loader.exec_module(window)
+            window.exercise(root,policy_path,policy,evidence,publish,assess,checkpoint,start,stop,request,hold_request)
         result = {'status': 'passed_simulated', 'scope': 'actual local Small Main, native TLS identity, signed synthetic host checks, WAL checkpoint and findings',
                   'passed': len(checks), 'checks': checks, 'elapsed_seconds': time.monotonic() - began,
                   'actual_timestamp': stamp(dt.datetime.now(dt.timezone.utc))}

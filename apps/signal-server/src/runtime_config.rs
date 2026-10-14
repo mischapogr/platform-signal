@@ -14,6 +14,7 @@ pub(crate) struct RuntimeConfig {
     pub identity: Option<signal_ingest::identity::IdentityBackend>,
     pub coverage_configuration: Option<coverage_api::Configuration>,
     pub onboarding: Option<std::sync::Arc<crate::onboarding::Host>>,
+    pub window_configuration: Option<crate::window::Configuration>,
     pub listen: SocketAddr,
     pub metrics_listen: Option<SocketAddr>,
     pub wal_config: BufferConfig,
@@ -200,7 +201,40 @@ pub(crate) async fn load(settings: &Settings) -> Result<RuntimeConfig, AppError>
     )
     .await?;
     // Validate provider transport/policy before opening persistence or readiness.
-    let onboarding = crate::onboarding::Host::load(settings, &rules).await?;
+    let window_configuration = crate::window::Configuration::load(settings).await?;
+    if window_configuration
+        .as_ref()
+        .is_some_and(|w| w.shared().is_some())
+        && settings.optional("SIGNAL_SHARED_CONFIG")?.is_none()
+    {
+        return Err(ConfigError::Invalid("shared window requires Standard runtime").into());
+    }
+    if window_configuration.is_some() {
+        if settings.optional("SIGNAL_SHARED_CONFIG")?.is_some()
+            && window_configuration
+                .as_ref()
+                .is_some_and(|w| w.shared().is_none())
+        {
+            return Err(ConfigError::Invalid("Standard window requires shared persistence").into());
+        }
+        if wal_config.policy == signal_buffer::Policy::DropOldest {
+            return Err(ConfigError::Invalid("window requires continuous WAL delivery").into());
+        }
+    }
+    let onboarding = match &window_configuration {
+        Some(window) => {
+            crate::onboarding::Host::load_with_detection(
+                settings,
+                &rules,
+                Some(&window.policy.rule_id),
+            )
+            .await?
+        }
+        None => crate::onboarding::Host::load(settings, &rules).await?,
+    };
+    if window_configuration.is_some() && onboarding.is_none() {
+        return Err(ConfigError::Invalid("window requires independent onboarding coverage").into());
+    }
     if let Some(host) = &onboarding {
         if identity_configuration.is_none() {
             return Err(ConfigError::Invalid("onboarding requires native identity").into());
@@ -220,6 +254,7 @@ pub(crate) async fn load(settings: &Settings) -> Result<RuntimeConfig, AppError>
         identity,
         coverage_configuration,
         onboarding,
+        window_configuration,
         listen,
         metrics_listen,
         wal_config,

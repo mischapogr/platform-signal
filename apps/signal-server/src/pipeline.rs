@@ -32,6 +32,7 @@ pub struct PipelineSink {
 }
 
 pub struct DetectionPipeline {
+    pub window: Option<Arc<crate::window::Detector>>,
     pub onboarding: Option<Arc<crate::onboarding::Host>>,
     /// Present only in native identity mode; retained startup WAL is unknown.
     pub authenticated_after: Option<u64>,
@@ -75,6 +76,7 @@ impl EventSink for PipelineSink {
                 evaluated: detection.evaluated.load(Ordering::Relaxed),
                 matches: detection.matches.load(Ordering::Relaxed),
                 failures: detection.failures.load(Ordering::Relaxed),
+                window: detection.window.as_ref().map(|window| window.metrics()),
             });
             metrics.findings = Some(FindingSinkMetrics {
                 findings: findings.findings,
@@ -170,6 +172,8 @@ pub enum PipelineError {
     Finding(#[from] FindingError),
     #[error(transparent)]
     Rule(#[from] RuleError),
+    #[error(transparent)]
+    Window(#[from] signal_rules::window::Error),
     #[error("detection completion deadline exceeded; unfinished events remain in WAL")]
     Deadline,
     #[error(transparent)]
@@ -295,7 +299,14 @@ async fn consume_inner(
             return Err(PipelineError::Receipt);
         }
         if let Some(detection) = &pipeline.detection {
-            let result = complete_findings(detection, &batch, deadline, &cancel).await;
+            let result = complete_findings(
+                detection,
+                &batch,
+                deadline,
+                &cancel,
+                pipeline.buffer.snapshot().last_sequence,
+            )
+            .await;
             if result.is_err() {
                 detection.failures.fetch_add(1, Ordering::Relaxed);
             }
@@ -342,6 +353,7 @@ async fn complete_findings(
     batch: &[signal_buffer::SequencedEvent],
     deadline: Instant,
     cancel: &CancellationToken,
+    source_tail: u64,
 ) -> Result<(), PipelineError> {
     let mut pending = Vec::new();
     let mut bytes = 0usize;
@@ -404,6 +416,51 @@ async fn complete_findings(
     }
     if !pending.is_empty() {
         persist_findings(detection, pending, deadline, cancel).await?;
+    }
+    if let Some(window) = &detection.window {
+        let findings = window
+            .complete(
+                batch,
+                detection
+                    .authenticated_after
+                    .ok_or(signal_rules::window::Error::Configuration)?,
+                source_tail,
+                RuleContext {
+                    deadline,
+                    cancellation: cancel.child_token(),
+                },
+            )
+            .await?;
+        let mut pending = Vec::new();
+        let mut bytes = 0usize;
+        for finding in findings.findings {
+            let finding = FindingOutput::Derived(finding);
+            let mut size = SizeCounter {
+                bytes: signal_findings::FINDING_FRAME_BYTES,
+                limit: detection.max_bytes,
+            };
+            serde_json::to_writer(&mut size, &finding.preview())
+                .map_err(|_| FindingError::Quota)?;
+            if pending.len() == detection.max_rows || bytes + size.bytes > detection.max_bytes {
+                persist_findings(detection, std::mem::take(&mut pending), deadline, cancel).await?;
+                bytes = 0;
+            }
+            bytes += size.bytes;
+            pending.push(finding);
+        }
+        if !pending.is_empty() {
+            persist_findings(detection, pending, deadline, cancel).await?;
+        }
+        window
+            .acknowledge(
+                findings.revision,
+                findings.assessments,
+                RuleContext {
+                    deadline,
+                    cancellation: cancel.child_token(),
+                },
+            )
+            .await?;
     }
     Ok(())
 }
@@ -672,6 +729,7 @@ mod tests {
             logging: None,
             coverage: None,
             detection: Some(Arc::new(DetectionPipeline {
+                window: None,
                 onboarding: None,
                 authenticated_after: None,
                 rules,
@@ -1160,6 +1218,7 @@ mod tests {
             &batch,
             Instant::now() + Duration::from_secs(5),
             &CancellationToken::new(),
+            batch.last().ok_or("empty fixture batch")?.sequence,
         )
         .await?;
         let query = signal_findings::FindingQuery {
@@ -1208,6 +1267,7 @@ mod tests {
             &batch,
             Instant::now() + Duration::from_secs(5),
             &CancellationToken::new(),
+            batch.last().ok_or("empty fixture batch")?.sequence,
         )
         .await?;
         assert_eq!(
