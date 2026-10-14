@@ -1086,7 +1086,7 @@
     {
       "id": "M365",
       "title": "Selected Microsoft 365 audit/authentication API feeds",
-      "status": "pending",
+      "status": "passed_simulated",
       "dependencies": [
         "SMALL-PILOT"
       ],
@@ -1094,11 +1094,14 @@
         "Finite paged API checkpoints, token refresh, 429/outage/retry/dedup and declared feed coverage; local provider simulation."
       ],
       "evidence": [
-        "target/goal-execution-20261007/M365/"
+        "target/goal-execution-20261007/M365/",
+        "target/m365-20261014/ACCEPTANCE.json"
       ],
       "references": [
-        "docs/26-ingestion-architecture-audit.md"
-      ]
+        "docs/26-ingestion-architecture-audit.md",
+        "docs/61-m365-activity-profile.md"
+      ],
+      "notes": "Selected local Management Activity Audit.AzureActiveDirectory profile accepted: actual bounded HTTP token refresh/429/5xx/outage, origin/tenant/feed/window/publisher guards, documented v1 continuation and preserved raw/effective request, atomic private-journal seam and actual fsync/lost-commit/SIGKILL disk reload, exact original/prepared reuse, finite identity dedup/conflicts. Six frozen gates979default/1040all-feature and11integration plus1delivery-identity regressions pass. Independent completeness/Graph sign-ins remain not_assessed; actual Microsoft permissions/credentials/subscriptions/private-host quotas/protected custody/cross-host loss remain external."
     },
     {
       "id": "CATO",
