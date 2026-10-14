@@ -376,6 +376,8 @@ pub async fn qualify(
     db.batch_execute("RESET ROLE; UPDATE signal_control.store SET ready=false")
         .await?;
     runtime.shutdown(super::context()?).await?;
+    super::multi_event_publication::qualify_installation(db).await?;
+    super::multi_event_publication::qualify_publication(db, f, &replacement).await?;
     println!(
         "phase: atomic-original-scoped-publication-facts-counters-and-startup-fencing-qualified"
     );
