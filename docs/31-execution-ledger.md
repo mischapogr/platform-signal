@@ -57,6 +57,8 @@ RELEASE-REVIEW passes focused local acceptance — 2026-10-14. Independent revie
 
 UPGRADE passes local simulated acceptance — 2026-10-14. The explicit development compatibility matrix binds supported exact schema migrations, fresh-generation restore and refusal of unknown/divergent history. Actual PostgreSQL 18-case matrix, isolated stopped Small WAL/spool/Parquet/findings restore and current native Standard restored custody pass with owned cleanup. Original/backup remain unchanged; the Small fixture ends at 9 events, 2 findings and checkpoint9. Evidence: `target/upgrade-20261014/ACCEPTANCE.json`; [compatibility contract](56-upgrade-compatibility.md). Current inventory:27 accepted/25 unfinished (13local/14simulated/19pending/6external). Released-to-released upgrade, actual AWS/EKS/provider and publication remain unqualified. Next release slice: current-revision KIND/remote CI qualification.
 
+Native CI test isolation correction — 2026-10-14. Verified public AMD64/ARM64 artifacts at8d4dc06 show positive onboarding fixtures racing the intentionally occupied configuration worker. Test-only shared fixture guards isolate four worker users; production capacity and fail-closed behavior remain unchanged. Six frozen gates pass:954default workspace and84all-feature server tests with16threads, both strict Clippy modes, formatting and14workspace boundaries. Evidence: `target/release-ci-20261014/ACCEPTANCE.json`. Corrected-revision remote CI/native container/Kubernetes qualification remains open; ledger counts remain27accepted/25unfinished.
+
 Earlier entries below retain their original historical evidence boundaries.
 
 Owner-authorized persistent Goal, frozen 2026-10-07. The machine-readable
