@@ -340,3 +340,5 @@ impl io::Write for CountingWriter<'_> {
 mod test_tls;
 
 pub mod syslog;
+
+pub mod m365;
