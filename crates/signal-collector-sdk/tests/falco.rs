@@ -272,5 +272,30 @@ fn native_capture_projects_all_owned_hooks_and_explicit_health_counters() {
         assert!(pair[1].captured_events >= pair[0].captured_events);
         assert!(pair[1].kernel_drops >= pair[0].kernel_drops);
     }
-    std::fs::write(directory.join("NATIVE-PROJECTION.json"),serde_json::to_vec_pretty(&json!({"status":"passed_native_projection","source_sha":manifest["source_sha"],"events":events.len(),"metrics":metrics.len(),"kinds":kinds,"kernel_capture_manifest":"NATIVE-CAPTURE.json","production_coverage":"not_assessed"})).unwrap()).unwrap();
+    std::fs::write(directory.join("NATIVE-PROJECTION.json"),serde_json::to_vec_pretty(&json!({"status":"passed_native_projection","source_sha":manifest["source_sha"],"events":events.len(),"metrics":metrics.len(),"kinds":kinds,"kernel_capture_manifest":"NATIVE-CAPTURE.json","production_coverage":"not_assessed","decoder_source_sha256":Sha256::digest(include_bytes!("../src/falco.rs")).iter().map(|b|format!("{b:02x}")).collect::<String>()})).unwrap()).unwrap();
+}
+
+#[test]
+fn native_metrics_fixed_message_and_reload_before_capture_start_are_validated() {
+    let mut v = metrics();
+    v["output"] = json!("Falco metrics snapshot");
+    let start = v["output_fields"]["falco.start_ts"].as_u64().unwrap();
+    v["output_fields"]["falco.reload_ts"] = json!(start - 100);
+    assert!(parse_metrics(&serde_json::to_vec(&v).unwrap()).is_ok());
+    v["output"] = json!("freeform secret");
+    assert!(parse_metrics(&serde_json::to_vec(&v).unwrap()).is_err());
+    let mut syscall = syscall();
+    syscall["output_fields"]["evt.time"] = syscall["output_fields"]["evt.rawtime"].clone();
+    assert!(normalize(&syscall, 10).is_ok());
+    syscall["output_fields"]["evt.time"] = json!(1);
+    assert!(normalize(&syscall, 10).is_err());
+    syscall["output_fields"]
+        .as_object_mut()
+        .unwrap()
+        .remove("evt.time");
+    syscall["output"] = json!("Falco metrics snapshot");
+    assert!(normalize(&syscall, 10).is_err());
+    v["output"] = json!("Falco metrics snapshot");
+    v["output_fields"]["falco.start_ts"] = json!(time().timestamp_nanos_opt().unwrap() as u64 + 1);
+    assert!(parse_metrics(&serde_json::to_vec(&v).unwrap()).is_err());
 }
