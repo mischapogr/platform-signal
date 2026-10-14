@@ -237,7 +237,7 @@ def qualify_test_output(output):
     if lines.count('phase: exact-version-retirement-qualification-complete')!=1:
         raise ValueError('exact-version retirement qualification did not complete exactly once')
     results=[line for line in lines if line.startswith('test result:')]
-    if len(results)!=1 or re.fullmatch(r'test result: ok\. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in [0-9]+(?:\.[0-9]+)?s',results[0]) is None:
+    if len(results)!=1 or re.fullmatch(r'test result: ok\. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in [0-9]+(?:\.[0-9]+)?s',results[0]) is None:
         raise ValueError('PostgreSQL fixture test counts')
 
 
@@ -279,7 +279,7 @@ def qualify_restart_probe(output):
     if lines.count('running 1 test')!=1 or lines.count('test postgres_matrix_restart_probe ... ok')!=1 or lines.count('phase: persistent-restart-fresh-client-qualified')!=1:
         raise ValueError('fresh-client restart probe must execute exactly once')
     results=[line for line in lines if line.startswith('test result:')]
-    if len(results)!=1 or re.fullmatch(r'test result: ok\. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in [0-9]+(?:\.[0-9]+)?s',results[0]) is None:
+    if len(results)!=1 or re.fullmatch(r'test result: ok\. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in [0-9]+(?:\.[0-9]+)?s',results[0]) is None:
         raise ValueError('fresh-client restart probe counts')
 
 

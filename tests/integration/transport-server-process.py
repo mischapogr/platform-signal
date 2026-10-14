@@ -524,7 +524,10 @@ def main():
             'qualification': 'Actual local TLS/process simulation; no AWS, ARM64, remote CI, production PKI or power-loss proof.'}
         (run.output / 'qualification.json').write_text(json.dumps(report, indent=2) + '\n')
     if report['status'] != 'passed_simulated':
-        print('Transport server gate failed: ' + str(failure))
+        print('Transport server gate failed: ' + json.dumps({
+            'failure_type': failure, 'failure_site': failure_site,
+            'last_completed_check': run.checks[-1] if run.checks else None,
+            'cleanup_errors': run.cleanup_errors}, sort_keys=True))
         return 1
     print('Transport server gate passed: ' + str(len(run.checks)) + ' compound checks')
     return 0
