@@ -307,3 +307,7 @@ tests, both strict Clippy modes, formatting and 14 workspace boundaries. Evidenc
 `target/ci-journal-lease-20261015/ACCEPTANCE.json`. Fresh native CI is required.
 The uncommitted SENSOR-HEALTH native-session/causal-deadline work is excluded from
 this correction and its acceptance. Inventory stays 35 accepted / 17 unfinished.
+
+## Sensor-health Small native integration — 2026-10-15
+
+SENSOR-HEALTH Small Main slice passes locally — 2026-10-15. Strict owner-controlled configuration and signed canonical admission, independent observer cadence, atomic original evidence/state/finding outbox/checkpoint, publication before WAL ACK, expiry-safe numeric metrics and original-deadline shutdown are integrated. Seven frozen gates pass 1097default/1166all-feature tests, both strict Clippy modes, formatting and14workspace boundaries in581.59s. Actual Small Main passes7sensor/8onboarding checks with122matching source bindings and actual SIGKILL/pending-outbox recovery. Writer review corrected causal deadline, file-loader ceiling, admitted-report expiry and an all-feature audit initializer; it is not independent release review. Evidence:`target/sensor-health-native-20261015/ACCEPTANCE.json`; [contract65](65-sensor-health.md). LinuxAMD64/SQLite/WAL/findings are actual; observer/identity authority is synthetic. Bounded history/retention, Standard integration and whole/current native release qualification remain required. SENSOR-HEALTH stays in_progress; inventory 35accepted/17unfinished. No release or publication acceptance.

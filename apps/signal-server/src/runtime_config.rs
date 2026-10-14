@@ -15,6 +15,7 @@ pub(crate) struct RuntimeConfig {
     pub coverage_configuration: Option<coverage_api::Configuration>,
     pub onboarding: Option<std::sync::Arc<crate::onboarding::Host>>,
     pub window_configuration: Option<crate::window::Configuration>,
+    pub sensor_configuration: Option<crate::sensor_runtime::Configuration>,
     pub listen: SocketAddr,
     pub metrics_listen: Option<SocketAddr>,
     pub wal_config: BufferConfig,
@@ -202,6 +203,31 @@ pub(crate) async fn load(settings: &Settings) -> Result<RuntimeConfig, AppError>
     .await?;
     // Validate provider transport/policy before opening persistence or readiness.
     let window_configuration = crate::window::Configuration::load(settings).await?;
+    let sensor_configuration = crate::sensor_runtime::Configuration::load(settings).await?;
+    if let Some(sensor) = &sensor_configuration {
+        if identity_configuration.is_none() {
+            return Err(ConfigError::Invalid("sensor health requires native identity").into());
+        }
+        if settings.optional("SIGNAL_SHARED_CONFIG")?.is_some() {
+            return Err(
+                ConfigError::Invalid("shared sensor health integration is not qualified").into(),
+            );
+        }
+        if wal_config.policy == signal_buffer::Policy::DropOldest {
+            return Err(
+                ConfigError::Invalid("sensor health requires continuous WAL delivery").into(),
+            );
+        }
+        if rules
+            .rule_ids()
+            .any(|id| id == sensor.detector.policy.rule_id)
+            || window_configuration
+                .as_ref()
+                .is_some_and(|w| w.policy.rule_id == sensor.detector.policy.rule_id)
+        {
+            return Err(ConfigError::Invalid("duplicate sensor health rule ID").into());
+        }
+    }
     if window_configuration
         .as_ref()
         .is_some_and(|w| w.shared().is_some())
@@ -255,6 +281,7 @@ pub(crate) async fn load(settings: &Settings) -> Result<RuntimeConfig, AppError>
         coverage_configuration,
         onboarding,
         window_configuration,
+        sensor_configuration,
         listen,
         metrics_listen,
         wal_config,

@@ -237,6 +237,7 @@ section!(Telemetry {
 });
 section!(Coverage { config: Text });
 section!(Window { config: Text });
+section!(SensorHealth { config: Text });
 section!(Access { config: Text });
 section!(Audit { config: Text });
 section!(Shared { config: Text });
@@ -265,6 +266,8 @@ struct Document {
     coverage: Coverage,
     #[serde(default, deserialize_with = "section_map")]
     window: Window,
+    #[serde(default, deserialize_with = "section_map")]
+    sensor_health: SensorHealth,
     #[serde(default, deserialize_with = "section_map")]
     access: Access,
     #[serde(default, deserialize_with = "section_map")]
@@ -471,6 +474,7 @@ impl Settings {
         mapping!(values,document.telemetry,{metrics_listen=>"SIGNAL_METRICS_LISTEN",queue_records=>"SIGNAL_LOG_RECORDS",queue_bytes=>"SIGNAL_LOG_BYTES",max_record_bytes=>"SIGNAL_LOG_RECORD_BYTES"});
         mapping!(values,document.coverage,{config=>"SIGNAL_COVERAGE_CONFIG"});
         mapping!(values,document.window,{config=>"SIGNAL_WINDOW_CONFIG"});
+        mapping!(values,document.sensor_health,{config=>"SIGNAL_SENSOR_HEALTH_CONFIG"});
         mapping!(values,document.access,{config=>"SIGNAL_ACCESS_CONFIG"});
         mapping!(values,document.audit,{config=>"SIGNAL_AUDIT_CONFIG"});
         mapping!(values,document.shared,{config=>"SIGNAL_SHARED_CONFIG"});
