@@ -31,6 +31,15 @@ test postgres_lease_authority_and_cancellation ... ok
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 3.83s
 """
 class Guards(unittest.TestCase):
+    def test_onboarding_selector_refuses_unfocused_and_kubernetes_campaigns_before_side_effects(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output=Path(temp)/'must-not-exist'
+            for options in [[],['--standard'],['--standard-only','--standard-kubernetes-image','fixture']]:
+                result=subprocess.run(['python3',str(ROOT/'scripts/check-shared-runtime.py'),'--standard-scenario','onboarding','--output',str(output),*options],capture_output=True,text=True,timeout=5)
+                self.assertEqual(result.returncode,2)
+                self.assertIn('--standard-scenario onboarding requires',result.stderr)
+                self.assertFalse(output.exists())
+
     def test_combined_standard_budget_preserves_separate_limits_and_rejects_overflow(self):
         self.assertFalse(module.elapsed_within_fixture_budget(240.001))
         self.assertTrue(module.elapsed_within_fixture_budget(240.001,combined_standard=True))

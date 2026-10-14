@@ -17,7 +17,7 @@ server-local loss75.55s. Replacement17.61s/RPO0 applies only to the4byte custody
 fixture. Source/binary/cleanup and exact original receipt/control/object/WAL/
 private progress are audited. Next:ONBOARDING; external/production gates remain.
 
-Current local inventory:12 passed_local,12 passed_simulated,21 pending/1in_progress,
+Current local inventory:12 passed_local,13 passed_simulated,21 pending/0in_progress,
 6 external_pending. Native Standard cluster CI wiring now passes local direct
 process/bundle/kind acceptance181.93s/170.05s; exact remote results are next:
 `target/standard-kind-ci-20261012/ACCEPTANCE.json`. Local provider/custody
@@ -45,6 +45,14 @@ gates both Main paths and an authorized read API/console.13frozen gates pass
 checks and corrected exact Standard baseline81.17s. Full ONBOARDING stays
 in_progress until Standard-enabled and composed browser/native qualification.
 Evidence:`target/onboarding-host-20261014/ACCEPTANCE.json`.
+ONBOARDING now passes local simulated acceptance:37launcher guards,14workspace
+boundaries, actual enabled Standard50.31s with14named scenarios/11WAL checkpoints
+and7composed real browser/native checks over verified backend mTLS. The local
+requirement audit closes states, unsupported and permission/category/state
+blockers, signature/expiry/scope/revocation/restart. Unchanged952default/1013all-
+feature Rust and exact binaries remain applicable. Vendor/source checks are
+synthetic; external/release gates stay open. Next: RELEASE-REVIEW. Evidence:
+`target/onboarding-standard-20261014/ACCEPTANCE.json`.
 Earlier entries below retain their original historical evidence boundaries.
 
 Owner-authorized persistent Goal, frozen 2026-10-07. The machine-readable

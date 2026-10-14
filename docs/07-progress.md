@@ -121,6 +121,21 @@ browser/native endpoint. Vendor checks/retention are simulated; actual provider
 checks, current native CI and release gates remain open. Counts stay24accepted/
 28unfinished (1in progress). Earlier integration status above is historical.
 
+## ONBOARDING local acceptance — 2026-10-14
+
+ONBOARDING passes simulated acceptance. The frozen tooling campaign passes
+37launcher guards/14workspace boundaries and actual enabled Standard50.31s:
+14named scenarios,11original WAL checkpoints and7real console/native checks
+over verified backend mTLS. Connected/unverified, verified/active and unsupported
+states, independent permission/category/state suppression, signature/expiry,
+scope/revocation and restart are audited. Unchanged Rust/build inputs and exact
+binaries retain952default/1013all-feature acceptance. [Contract55](55-onboarding-qualification.md), evidence:
+`target/onboarding-standard-20261014/ACCEPTANCE.json` and requirement audit.
+Earlier integration limits above describe their accepted revisions. Current
+inventory:25accepted/27unfinished (12local/13simulated/21pending/0in-progress/
+6external). Source/vendor checks and retention are synthetic, not actual AWS or
+release proof. Next: RELEASE-REVIEW; Phase9 remains separately scoped.
+
 ## Actual local Standard Kubernetes accepted — 2026-10-12
 
 Native CI now prepares one source/revision/architecture-bound executable bundle
