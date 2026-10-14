@@ -15,6 +15,7 @@ pub use admission::{
 pub mod access;
 pub mod audit;
 pub mod findings_feed;
+pub mod object_custody;
 pub mod query;
 pub mod transport;
 pub use query::{

@@ -23,6 +23,8 @@ import threading
 import time
 import urllib.parse
 import uuid
+import datetime
+import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
 def module(name, path):
@@ -54,6 +56,8 @@ class Run(BASE.Run):
         crl = self.pki.crl(ca, 'current')
         self.tls = self.pki.material('server', server, [ca], [crl])
         self.context = self.pki.context(ca, client)
+        if getattr(self,'custody_mode',False):
+            self.custody_client_tls=self.pki.material('custody-client',client,[ca],[crl])
         self.provider = self.thread = None
         self.server_config = None
 
@@ -63,6 +67,7 @@ class Run(BASE.Run):
         environment.update(SIGNAL_CONTROL_FIXTURE=str(self.control), SIGNAL_STANDARD_ROOT=str(self.out),
                            SIGNAL_STANDARD_BACKEND=self.fixture_id, SIGNAL_STANDARD_PHASE=phase)
         if getattr(self,'audit_mode',False):environment['SIGNAL_STANDARD_AUDIT']='true'
+        if getattr(self,'custody_mode',False):environment['SIGNAL_STANDARD_CUSTODY']='true'
         command = ([str(self.direct_offline),'standard_offline_fixture','--ignored','--exact','--nocapture']
                    if self.direct_offline is not None else
                    ['cargo','test','--locked','--offline','-p','signal-server','--all-features',
@@ -123,7 +128,7 @@ class Run(BASE.Run):
                 if owner.provider_calls>64 or self.path!='/token' or not 0<size<=16384 or self.headers.get('Authorization')!=expected:
                     self.send_error(400);return
                 token = urllib.parse.parse_qs(self.rfile.read(size).decode()).get('token',[''])[0]
-                payload = {'active':token in ('global','read-a','read-b'),'iss':'https://identity.example.test',
+                payload = {'active':token in ('global','read-a','read-b') or (getattr(owner,'custody_mode',False) and token=='custodian'),'iss':'https://identity.example.test',
                            'sub':token,'aud':'signal','exp':int(time.time())+60,'token_type':'Bearer','roles':['ignored'],'scope':'admin'}
                 body = json.dumps(payload).encode()
                 self.send_response(200);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
@@ -135,6 +140,9 @@ class Run(BASE.Run):
         all_scope = {name:{'mode':'all'} for name in ('sources','accounts','resources')}
         roles=[{'id':'global','permissions':[{'operation':op,'scope':all_scope} for op in ('ingest_events','query_events','read_findings','read_findings_feed','read_coverage')]}]
         bindings=[{'issuer':'https://identity.example.test','subject':'global','roles':['global']}]
+        if getattr(self,'custody_mode',False):
+            roles.append({'id':'custody','permissions':[{'operation':'confirm_object_custody','scope':all_scope}]})
+            bindings.append({'issuer':'https://identity.example.test','subject':'custodian','roles':['custody']})
         for account in ('a','b'):
             scope={'sources':{'mode':'only','values':['query-simulation']},'accounts':{'mode':'only','values':[account]},'resources':{'mode':'only','values':['host-'+account]}}
             roles.append({'id':'read-'+account,'permissions':[{'operation':op,'scope':scope} for op in ('query_events','read_findings')]})
@@ -442,6 +450,48 @@ class Run(BASE.Run):
         shutil.rmtree(self.pki.private)
         if errors:raise RuntimeError(', '.join(errors))
 
+class CustodyRun(Run):
+    custody_mode=True
+    def sdk(self,mode,label):
+        environment={k:v for k,v in os.environ.items() if not k.startswith('SIGNAL_')}
+        environment.update(SIGNAL_STANDARD_ROOT=str(self.out),SIGNAL_STANDARD_CUSTODY_MODE=mode,
+                           SIGNAL_STANDARD_CUSTODY_ENDPOINT=f'https://127.0.0.1:{self.server_port}/v1/custody/confirm',
+                           SIGNAL_STANDARD_CUSTODY_TLS=str(self.custody_client_tls),SIGNAL_STANDARD_CUSTODY_LABEL=label)
+        child=self.spawn([str(self.offline_binary),'standard_custody_sdk_client','--ignored','--exact','--nocapture'],environment,'custody-sdk-'+label)
+        try:
+            child.wait(timeout=10)
+            if child.returncode:raise RuntimeError('actual Standard SDK custody step failed')
+        finally:
+            if child.poll() is None:child.kill();child.wait(timeout=2)
+            self.reap_log(child);self.reaped(child)
+        text=(self.out/('custody-sdk-'+label+'.log')).read_text()
+        if text.splitlines().count('phase: actual-Standard-mounted-custody-SDK-mTLS-original-retention-qualified')!=1 or len(re.findall(r'^test result: ok\. 1 passed; 0 failed; 0 ignored;',text,re.MULTILINE))!=1:
+            raise RuntimeError('actual SDK custody proof marker/summary')
+    def run(self):
+        self.start_fixture();self.start_provider();self.offline('prepare');self.bootstrap_coverage()
+        doc=json.loads((self.out/'shared.json').read_text());key=f'query/{doc["scope"]["stream"]}/original/body'
+        until=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=1)).isoformat().replace('+00:00','Z')
+        doc['custody']={'schema_version':1,'key_prefix':key.rsplit('/',1)[0]+'/', 'expected_bucket_owner':'123456789012','authority_revision':[7]*32,'required_until':until}
+        (self.out/'shared.json').write_text(json.dumps(doc))
+        request=urllib.request.Request(self.endpoint+'/signal-fixture/'+key,data=b'body',method='PUT',headers={'Authorization':'AWS4-HMAC-SHA256 synthetic-fixture','x-amz-date':'synthetic','If-None-Match':'*'})
+        with urllib.request.urlopen(request,timeout=3) as response:
+            if response.status!=200:raise RuntimeError('independent original archive PUT')
+            version=response.headers['x-amz-version-id']
+        BASE.write_json(self.fixture_root/'custody-policy.json',{'key':key,'owner':'123456789012','mode':'COMPLIANCE','retain_until':until})
+        description={'schema_version':1,'id':str(uuid.uuid4()),'scope':doc['scope'],'object':{'schema_version':1,'backend_id':doc['backend_id'],'key':key,'version':version},'bytes':4,'sha256':list(hashlib.sha256(b'body').digest()),'retain_until':until}
+        BASE.write_json(self.out/'custody-description.json',description)
+        original=self.out/'producer-original';original.write_bytes(b'body')
+        self.sdk('offline','put-only-copy-held')
+        self.start_server();self.sdk('deny','ingest-role-denied');self.sdk('confirm','first')
+        self.stop('server');self.sdk('offline','stopped-original-held');time.sleep(16)
+        self.start_server();self.sdk('release','restart-fresh')
+        first=json.loads((self.out/'custody-first.json').read_text());fresh=json.loads((self.out/'custody-restart-fresh.json').read_text())
+        if first['request_nonce']==fresh['request_nonce'] or first['description_sha256']!=fresh['description_sha256'] or original.exists():raise RuntimeError('original-ID fresh producer restart/release')
+        status,metrics=self.request('/metrics/shared')
+        if status!=200 or b'signal_shared_custody_requests_capacity 4' not in metrics:raise RuntimeError('actual Main custody metrics')
+        self.stop('server')
+        self.record('actual_Standard_Main_selected_custody_mTLS_SDK_explicit_permission_stopped_original_restart_fresh_release',receipt_id=description['id'],description_sha256=fresh['description_sha256'])
+
 class PrivateRun(Run):
     """External private application consumes the actual native Standard feed."""
     def __init__(self,*args):
@@ -710,14 +760,16 @@ class AuditRun(Run):
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--server',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
-    parser.add_argument('--scenario',choices=('pipeline','audit','private','restore'),default='pipeline')
+    parser.add_argument('--scenario',choices=('pipeline','audit','private','restore','custody'),default='pipeline')
     args=parser.parse_args();args.output.mkdir(parents=True,mode=0o700)
-    fixture=Path(os.environ['SIGNAL_CONTROL_FIXTURE']);run=({'audit':AuditRun,'private':PrivateRun,'restore':PrivateRun}.get(args.scenario,Run))(args.output.resolve(),args.server.resolve(),fixture.resolve())
+    fixture=Path(os.environ['SIGNAL_CONTROL_FIXTURE']);run=({'audit':AuditRun,'private':PrivateRun,'restore':PrivateRun,'custody':CustodyRun}.get(args.scenario,Run))(args.output.resolve(),args.server.resolve(),fixture.resolve())
     run.restore_mode=args.scenario=='restore'
     report={'schema_version':1,'status':'failed','scope':'actual Standard executable, owned PostgreSQL TLS and persistent S3 protocol simulation; no AWS/ARM64/release proof'}
     try:
         run.run()
-        if args.scenario in ('private','restore'):
+        if args.scenario=='custody':
+            report.update(status='passed_simulated',scope='Actual Standard Main selected custody API with native mTLS SDK, explicit identity permission, stopped-original retention and fresh same-description restart/release; PostgreSQL TLS and S3 retention simulation; no AWS/HA/ARM64/release proof',scenarios=run.scenarios,binary_sha256=binary_digest(run.binary),provider_calls=run.provider_calls,child_capacity=3,log_capacity=24)
+        elif args.scenario in ('private','restore'):
             report['scope']='Actual native Standard feed, external private SQLite outbox and bounded loopback notification uncertainty/retries; no restore/AWS/ARM64/release claim'
             report.update(status='passed_simulated',scenarios=run.scenarios,binary_sha256=binary_digest(run.binary),child_capacity=3,log_capacity=24,
                           provider_calls=run.provider_calls,event_ids=run.private_event_ids,raw_feed_sha256=run.private_feed_sha256,

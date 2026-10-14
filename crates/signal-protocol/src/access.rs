@@ -21,6 +21,7 @@ const MAX_SELECTORS: usize = 64;
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Operation {
+    ConfirmObjectCustody,
     IngestEvents,
     QueryEvents,
     ReadFindings,
@@ -38,7 +39,11 @@ impl Operation {
     fn global_only(self) -> bool {
         matches!(
             self,
-            Self::ReadFindingsFeed | Self::Configure | Self::ManageRules | Self::ReadAudit
+            Self::ConfirmObjectCustody
+                | Self::ReadFindingsFeed
+                | Self::Configure
+                | Self::ManageRules
+                | Self::ReadAudit
         )
     }
 }

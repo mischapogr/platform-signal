@@ -23,6 +23,28 @@ pub(crate) struct Document {
     pub catalog_profile: Profile,
     pub lease_ms: u32,
     pub database: Database,
+    #[serde(default)]
+    pub custody: Option<Custody>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct Custody {
+    pub schema_version: u32,
+    pub key_prefix: String,
+    pub expected_bucket_owner: String,
+    pub authority_revision: [u8; 32],
+    pub required_until: chrono::DateTime<chrono::Utc>,
+}
+impl Custody {
+    pub fn binding(&self, doc: &Document) -> signal_server::shared_custody::CustodyBinding {
+        signal_server::shared_custody::CustodyBinding {
+            scope: doc.scope.clone(),
+            backend: doc.backend_id,
+            key_prefix: self.key_prefix.clone(),
+            authority_revision: self.authority_revision,
+            required_until: self.required_until,
+        }
+    }
 }
 #[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -62,6 +84,26 @@ impl Document {
     fn parse(text: &str) -> Result<Self, ConfigError> {
         let invalid = || ConfigError::Invalid("Standard configuration schema or bounds");
         let mut doc: Self = serde_json::from_str(text).map_err(|_| invalid())?;
+        if let Some(c) = &doc.custody
+            && (c.schema_version != 1
+                || c.expected_bucket_owner.len() != 12
+                || !c.expected_bucket_owner.bytes().all(|b| b.is_ascii_digit())
+                || c.authority_revision == [0; 32]
+                || c.required_until <= chrono::Utc::now()
+                || c.key_prefix.is_empty()
+                || c.key_prefix.len() >= 512
+                || !c
+                    .key_prefix
+                    .starts_with(&format!("query/{}/", doc.scope.stream))
+                || !c.key_prefix.ends_with('/')
+                || c.key_prefix.chars().any(char::is_control)
+                || c.key_prefix.contains(['\\', '%', '?', '#'])
+                || c.key_prefix
+                    .strip_suffix('/')
+                    .is_none_or(|p| p.split('/').any(|s| s.is_empty() || s == "." || s == "..")))
+        {
+            return Err(invalid());
+        }
         if doc.schema_version != 1
             || doc.scope.validate().is_err()
             || doc.scope_generation.is_nil()

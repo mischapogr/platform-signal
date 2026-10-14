@@ -23,21 +23,16 @@ compiled-fixture bundle reuse pass locally in181.93s/170.05s:
 now passes both complete native jobs and Standard cluster profiles107.40s/114.57s
 with verified source/bundle/image/WAL/PVC bindings:
 `target/standard-kind-ci-20261012/NATIVE-STANDARD-ACCEPTANCE.json`.
-Generic OBJECT-CUSTODY description/coordinator now passes924default/981all-feature
-tests and five focused guards: [contract51](51-object-custody.md),
-`target/object-custody-coordinator-20261012/ACCEPTANCE.json`. Independently reviewed
-actual PostgreSQL TLS replay/conflict/quota/observed COMMIT/takeover/reopen pass8.86s:
-`target/object-custody-postgres-20261012/ACCEPTANCE.json`. Independent archive files
-use simulated retention authority. S3 exact-version compliance readback now passes
-924default/985all-feature tests and4wire/cancellation guards:
-`target/object-custody-s3-20261012/ACCEPTANCE.json`. Configured server binding now
-passes926default/987all-feature tests and actual composed PostgreSQL TLS/S3 runtime
-8.13s: `target/object-custody-server-20261012/ACCEPTANCE.json`. Scope/backend/prefix/
-minimum horizon/authority are host-owned; uncertain COMMIT retries the original ID.
-Next, implement authenticated server/API and producer-copy retention; keep the full
-item in progress. Then STANDARD-RECOVERY follows
-ledger dependency order. Observe later`cc3744a` full CI
-separately; the bounded download retry fix does not close that gate locally.
+OBJECT-CUSTODY is now passed_simulated at its local boundary — 2026-10-14:
+932default/993all-feature tests, both strict Clippy modes and12frozen gates.
+Actual PostgreSQL TLS/S3/native identity/mTLS API/SDK passes13.56s; actual selected
+Standard Main/SDK PUT-only hold, stopped-copy retention and fresh restart/release
+passes38.34s with owned cleanup. [Contract51](51-object-custody.md), exact evidence:
+`target/object-custody-api-20261012/ACCEPTANCE.json`. Provider retention is simulated.
+Next, continue STANDARD-RECOVERY in ledger dependency order, reusing prior
+original-WAL/current-authority/restore evidence only while source inputs match.
+Observe current native/public CI separately; no release qualification follows
+from these local fixtures.
 Preserve one replica/Recreate and explicit external configuration;
 no runtime bootstrap, inferred custody, private policy or remote DELETE.
 Corrected native/current image/CI, actual AWS/EKS, released dependencies and

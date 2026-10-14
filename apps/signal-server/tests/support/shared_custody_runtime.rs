@@ -14,6 +14,8 @@ use tokio::{
     net::TcpListener,
 };
 use tokio_util::sync::CancellationToken;
+#[path = "shared_custody_api_runtime.rs"]
+mod api;
 type FixtureResult = std::result::Result<(), Box<dyn std::error::Error + Send + Sync>>;
 
 struct Endpoint {
@@ -60,6 +62,7 @@ impl Endpoint {
                     let lower=text.to_ascii_lowercase();assert!(lower.contains("x-amz-expected-bucket-owner: 123456789012"));assert!(lower.contains("authorization: aws4-hmac-sha256"));
                     let call=c.fetch_add(1,Ordering::SeqCst);let mode=m.load(Ordering::SeqCst);
                     let denied=mode==1&&call==1;
+                    if mode==3&&call==1 {tokio::time::sleep(Duration::from_millis(2200)).await;}
                     let body=if denied {Vec::new()} else {tokio::fs::read(directory.join(version)).await?};assert!(body.len()<=16);
                     let lock=if mode==2 {"GOVERNANCE"}else{"COMPLIANCE"};
                     let reply=format!("HTTP/1.1 {} Fixture\r\nContent-Length: {}\r\nx-amz-version-id: {version}\r\nx-amz-object-lock-mode: {lock}\r\nx-amz-object-lock-retain-until-date: {}\r\nConnection: close\r\n\r\n",if denied {403}else{200},body.len(),horizon.to_rfc3339());
@@ -416,6 +419,10 @@ async fn postgres_tls_s3_configured_custody() -> Result {
     ));
     assert_eq!(state(&db).await?, before);
     assert_eq!(tokio::fs::read(&original).await?, b"body");
+    if std::env::var_os("SIGNAL_CUSTODY_SERVER_TLS").is_some() {
+        api::qualify(&f, &next, &d, objects.clone(), &endpoint, &db).await?;
+    }
+    let before = state(&db).await?;
     client.shutdown(context()?).await?;
     let reopened = control(&f)?;
     let permit = coordinate_object_custody(
