@@ -340,6 +340,7 @@ def main():
     parser.add_argument('--server', action='store_true', help='actual monolithic server publication/rules/query coordinator qualification')
     parser.add_argument('--standard', action='store_true', help='actual Standard executable with owned TLS and persistent S3 protocol fixture')
     parser.add_argument('--standard-only', action='store_true', help='focused Standard process calibration; excludes library and crash matrices')
+    parser.add_argument('--standard-checkpoint-recovery-only',action='store_true',help='server-local loss with independently retained stopped-WAL checkpoint restoration; control/object domains survive')
     parser.add_argument('--standard-recovery-only',action='store_true',help='actual Standard server-local loss and retained-object/missing-WAL hold; excludes other matrices')
     parser.add_argument('--standard-custody-only',action='store_true',help='actual Standard Main custody API and native SDK producer; excludes other matrices')
     parser.add_argument('--standard-kubernetes-image', help='qualify this local image in an owned Standard kind cluster; requires --standard-only')
@@ -350,6 +351,9 @@ def main():
     parser.add_argument('--standard-restore-only',action='store_true',help='fresh scoped destination and actual restored Standard/private progress; excludes full matrices')
     parser.add_argument('--private-checkout',type=Path,default=ROOT.parent/'platform-signal-private')
     args = parser.parse_args()
+    if args.standard_checkpoint_recovery_only:
+        if args.standard_recovery_only:parser.error('recovery profiles exclude each other')
+        args.standard_recovery_only=True
     if args.standard_recovery_only:
         if any((args.matrix,args.server,args.standard,args.standard_only,args.standard_audit_only,args.standard_private_only,args.standard_restore_only,args.standard_custody_only,args.custody_only,args.custody_server_only,args.custody_api_only,args.standard_kubernetes_image)):
             parser.error('--standard-recovery-only excludes other profiles')
@@ -646,7 +650,7 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
                 for path in sorted((ROOT/component).rglob('*.rs')):report['source_hashes'][str(path.relative_to(ROOT))]=hashlib.sha256(path.read_bytes()).hexdigest()
             for source_name in ('crates/signal-collector-sdk/src/audit.rs','crates/signal-protocol/src/audit.rs'):
                 report['source_hashes'][source_name]=hashlib.sha256((ROOT/source_name).read_bytes()).hexdigest()
-            scenario='recovery' if args.standard_recovery_only else 'custody' if args.standard_custody_only else 'restore' if args.standard_restore_only else 'private' if args.standard_private_only else 'audit' if args.standard_audit_only else 'pipeline'
+            scenario='checkpoint-recovery' if args.standard_checkpoint_recovery_only else 'recovery' if args.standard_recovery_only else 'custody' if args.standard_custody_only else 'restore' if args.standard_restore_only else 'private' if args.standard_private_only else 'audit' if args.standard_audit_only else 'pipeline'
             if args.standard_kubernetes_image:
                 for source in ('scripts/check-standard-kubernetes.py', 'scripts/check-kubernetes.py', 'scripts/fixtures/standard-kubernetes.py',
                                'deploy/helm/signal/templates/deployment.yaml', 'deploy/helm/signal/templates/configmap.yaml',
@@ -675,18 +679,24 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
             elif args.standard_custody_only:
                 if (standard_report.get('status')!='passed_simulated' or standard_report.get('binary_sha256')!=report['standard_binary_sha256']
                         or standard_report.get('child_capacity')!=3 or standard_report.get('log_capacity')!=24
-                        or not 3<=standard_report.get('provider_calls',0)<=64 or len(standard_report.get('scenarios',[]))!=(2 if args.standard_recovery_only else 1)
+                        or not 3<=standard_report.get('provider_calls',0)<=64 or len(standard_report.get('scenarios',[]))!=(3 if args.standard_checkpoint_recovery_only else 2 if args.standard_recovery_only else 1)
                         or standard_report['scenarios'][-1].get('name')!='actual_Standard_Main_selected_custody_mTLS_SDK_explicit_permission_stopped_original_restart_fresh_release'):
                     raise ValueError('actual Standard Main custody acceptance missing')
                 report['checks'].append('actual_Standard_Main_selected_custody_mTLS_SDK_explicit_permission_stopped_original_restart_fresh_release')
                 report['scope']=standard_report['scope']
                 if args.standard_recovery_only:
                     if (standard_report.get('server_local_state_removed') is not True or standard_report.get('recovered_bytes')!=4
-                            or standard_report.get('replacement_held') is not True or standard_report.get('recovery_completed') is not False
+                            or standard_report.get('replacement_held') is not True or standard_report.get('recovery_completed') is not args.standard_checkpoint_recovery_only
                             or not 0<standard_report.get('guard_seconds',0)<30
                             or standard_report['scenarios'][0].get('name')!='actual_Standard_server_local_loss_exact_retained_original_missing_WAL_identity_held'):
                         raise ValueError('actual server-domain recovery evidence missing')
                     report['checks'].append('actual_Standard_server_local_loss_exact_retained_original_missing_WAL_identity_held')
+                    if args.standard_checkpoint_recovery_only:
+                        if (standard_report.get('checkpoint_restored') is not True or standard_report.get('custody_rpo_bytes')!=0
+                                or not 0<standard_report.get('recovery_seconds',0)<900
+                                or standard_report['scenarios'][1].get('name')!='actual_Standard_complete_stopped_WAL_checkpoint_corruption_refusal_replacement_fresh_custody'):
+                            raise ValueError('actual checkpoint replacement recovery evidence missing')
+                        report['checks'].append('actual_Standard_complete_stopped_WAL_checkpoint_corruption_refusal_replacement_fresh_custody')
             elif args.standard_restore_only:
                 qualify_standard_restore_report(standard_report,report['standard_binary_sha256'])
                 if private_source_hashes(args.private_checkout)!=report['private_source_hashes']:raise RuntimeError('private consumer source changed during restore qualification')
