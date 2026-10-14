@@ -15,6 +15,7 @@ use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
 pub mod audit;
+pub mod cato;
 pub mod cloudflare;
 pub mod cloudtrail;
 pub mod coverage;
