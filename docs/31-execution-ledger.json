@@ -1250,7 +1250,8 @@
         "target/goal-execution-20261007/SENSOR-HEALTH/",
         "target/sensor-health-20261015/ACCEPTANCE.json",
         "target/sensor-health-adapter-20261015/ACCEPTANCE.json",
-        "target/sensor-health-journal-20261015/ACCEPTANCE.json"
+        "target/sensor-health-journal-20261015/ACCEPTANCE.json",
+        "target/ci-journal-lease-20261015/ACCEPTANCE.json"
       ],
       "references": [
         "docs/source-detection-catalog.md",
@@ -1271,6 +1272,12 @@
         "status": "passed_local",
         "evidence": "target/sensor-health-journal-20261015/ACCEPTANCE.json",
         "whole_item_accepted": false
+      },
+      "journal_ci_correction": {
+        "status": "passed_local",
+        "evidence": "target/ci-journal-lease-20261015/ACCEPTANCE.json",
+        "native_session_WIP_excluded": true,
+        "remote_requalification": "pending"
       }
     },
     {
