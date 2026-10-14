@@ -452,19 +452,20 @@ class Run(BASE.Run):
 
 class CustodyRun(Run):
     custody_mode=True
-    def sdk(self,mode,label):
+    def sdk(self,mode,label,log_label=None):
+        log_label=log_label or label
         environment={k:v for k,v in os.environ.items() if not k.startswith('SIGNAL_')}
         environment.update(SIGNAL_STANDARD_ROOT=str(self.out),SIGNAL_STANDARD_CUSTODY_MODE=mode,
                            SIGNAL_STANDARD_CUSTODY_ENDPOINT=f'https://127.0.0.1:{self.server_port}/v1/custody/confirm',
                            SIGNAL_STANDARD_CUSTODY_TLS=str(self.custody_client_tls),SIGNAL_STANDARD_CUSTODY_LABEL=label)
-        child=self.spawn([str(self.offline_binary),'standard_custody_sdk_client','--ignored','--exact','--nocapture'],environment,'custody-sdk-'+label)
+        child=self.spawn([str(self.offline_binary),'standard_custody_sdk_client','--ignored','--exact','--nocapture'],environment,'custody-sdk-'+log_label)
         try:
             child.wait(timeout=10)
             if child.returncode:raise RuntimeError('actual Standard SDK custody step failed')
         finally:
             if child.poll() is None:child.kill();child.wait(timeout=2)
             self.reap_log(child);self.reaped(child)
-        text=(self.out/('custody-sdk-'+label+'.log')).read_text()
+        text=(self.out/('custody-sdk-'+log_label+'.log')).read_text()
         if text.splitlines().count('phase: actual-Standard-mounted-custody-SDK-mTLS-original-retention-qualified')!=1 or len(re.findall(r'^test result: ok\. 1 passed; 0 failed; 0 ignored;',text,re.MULTILINE))!=1:
             raise RuntimeError('actual SDK custody proof marker/summary')
     def run(self):
@@ -489,8 +490,53 @@ class CustodyRun(Run):
         if first['request_nonce']==fresh['request_nonce'] or first['description_sha256']!=fresh['description_sha256'] or original.exists():raise RuntimeError('original-ID fresh producer restart/release')
         status,metrics=self.request('/metrics/shared')
         if status!=200 or b'signal_shared_custody_requests_capacity 4' not in metrics:raise RuntimeError('actual Main custody metrics')
-        self.stop('server')
+        if getattr(self,'recovery_mode',False):self.recover_server_loss(description)
+        else:self.stop('server')
         self.record('actual_Standard_Main_selected_custody_mTLS_SDK_explicit_permission_stopped_original_restart_fresh_release',receipt_id=description['id'],description_sha256=fresh['description_sha256'])
+
+    def recover_server_loss(self,description):
+        # Only explicitly owned local server state is removed. Independent object
+        # and PostgreSQL control domains stay live; this is not an AZ-loss test.
+        original=self.out/'producer-original'
+        if original.exists():raise RuntimeError('producer copy was not explicitly released')
+        rules={p.relative_to(self.server_root/'rules'):p.read_bytes() for p in (self.server_root/'rules').rglob('*') if p.is_file()}
+        began=time.monotonic();self.stop('server',kill=True)
+        shutil.rmtree(self.server_root)
+        if self.server_root.exists():raise RuntimeError('owned server domain survived loss')
+        self.server_root.mkdir();(self.server_root/'rules').mkdir()
+        for path,data in rules.items():
+            target=self.server_root/'rules'/path;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
+        if any((self.server_root/p).exists() for p in ('wal','derived','control','findings')):
+            raise RuntimeError('replacement reused local recovery state')
+        obj=description['object']
+        query=urllib.parse.urlencode({'versionId':obj['version']})
+        request=urllib.request.Request(self.endpoint+'/signal-fixture/'+obj['key']+'?'+query,
+            headers={'Authorization':'AWS4-HMAC-SHA256 synthetic-fixture','x-amz-date':'synthetic','x-amz-expected-bucket-owner':'123456789012'})
+        with urllib.request.urlopen(request,timeout=3) as response:
+            body=response.read(description['bytes']+1)
+            if response.status!=200 or response.headers.get('x-amz-version-id')!=obj['version']:
+                raise RuntimeError('retained recovery object version')
+        if len(body)!=description['bytes'] or list(hashlib.sha256(body).digest())!=description['sha256']:
+            raise RuntimeError('retained recovery exact bytes/digest')
+        original.write_bytes(body)
+        # Missing enrolled WAL identity must hold replacement startup. Do not
+        # synthesize identity/checkpoint bytes or infer permission from raw objects.
+        child=self.spawn([str(self.binary)],self.env(),'replacement-missing-enrolled-wal')
+        try:
+            child.wait(timeout=7)
+            self.reap_log(child);self.reaped(child)
+            log=(self.out/'replacement-missing-enrolled-wal.log').read_text()
+            if (child.returncode==0 or 'shared control authority is stale or denied' not in log
+                    or 'Standard startup resources drained' not in log):
+                raise RuntimeError('replacement did not hold missing enrolled WAL identity')
+        finally:
+            if child.poll() is None:child.kill();child.wait(timeout=2);self.reap_log(child);self.reaped(child)
+        if original.read_bytes()!=body:raise RuntimeError('recovered original was released on startup refusal')
+        self.guard_seconds=time.monotonic()-began
+        self.recovered_bytes=len(body);self.replacement_held=True
+        self.record('actual_Standard_server_local_loss_exact_retained_original_missing_WAL_identity_held',
+                    receipt_id=description['id'],recovered_bytes=len(body),replacement_held=True,
+                    recovery_completed=False,guard_seconds=self.guard_seconds)
 
 class PrivateRun(Run):
     """External private application consumes the actual native Standard feed."""
@@ -760,15 +806,18 @@ class AuditRun(Run):
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--server',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
-    parser.add_argument('--scenario',choices=('pipeline','audit','private','restore','custody'),default='pipeline')
+    parser.add_argument('--scenario',choices=('pipeline','audit','private','restore','custody','recovery'),default='pipeline')
     args=parser.parse_args();args.output.mkdir(parents=True,mode=0o700)
-    fixture=Path(os.environ['SIGNAL_CONTROL_FIXTURE']);run=({'audit':AuditRun,'private':PrivateRun,'restore':PrivateRun,'custody':CustodyRun}.get(args.scenario,Run))(args.output.resolve(),args.server.resolve(),fixture.resolve())
+    fixture=Path(os.environ['SIGNAL_CONTROL_FIXTURE']);run=({'audit':AuditRun,'private':PrivateRun,'restore':PrivateRun,'custody':CustodyRun,'recovery':CustodyRun}.get(args.scenario,Run))(args.output.resolve(),args.server.resolve(),fixture.resolve())
     run.restore_mode=args.scenario=='restore'
+    run.recovery_mode=args.scenario=='recovery'
     report={'schema_version':1,'status':'failed','scope':'actual Standard executable, owned PostgreSQL TLS and persistent S3 protocol simulation; no AWS/ARM64/release proof'}
     try:
         run.run()
-        if args.scenario=='custody':
+        if args.scenario in ('custody','recovery'):
             report.update(status='passed_simulated',scope='Actual Standard Main selected custody API with native mTLS SDK, explicit identity permission, stopped-original retention and fresh same-description restart/release; PostgreSQL TLS and S3 retention simulation; no AWS/HA/ARM64/release proof',scenarios=run.scenarios,binary_sha256=binary_digest(run.binary),provider_calls=run.provider_calls,child_capacity=3,log_capacity=24)
+            if run.recovery_mode:
+                report.update(scope='Actual Standard server-local directory loss after checked producer release; exact independently retained object reconstructed and kept. Missing enrolled WAL identity correctly holds replacement startup. Recovery/RPO/RTO are not qualified; no AWS/AZ/HA/consistent backup/restore proof',guard_seconds=run.guard_seconds,recovered_bytes=run.recovered_bytes,replacement_held=run.replacement_held,recovery_completed=False,server_local_state_removed=True)
         elif args.scenario in ('private','restore'):
             report['scope']='Actual native Standard feed, external private SQLite outbox and bounded loopback notification uncertainty/retries; no restore/AWS/ARM64/release claim'
             report.update(status='passed_simulated',scenarios=run.scenarios,binary_sha256=binary_digest(run.binary),child_capacity=3,log_capacity=24,
