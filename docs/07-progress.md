@@ -35,7 +35,11 @@ transport checks and the18-case PostgreSQL matrix149.50s with owned cleanup:
 `target/native-ci-corrections-20261014/ACCEPTANCE.json`. Both native Rust jobs at`0991cdf` now pass993tests and18-case PostgreSQL matrices
 121.45s/102.10s with GitHub-digest-verified artifacts and cleanup:
 `target/native-ci-monitor-20261014/VERIFIED-CORRECTED-NATIVE-RUST.json`.
-Later restore changes and full container/Kubernetes/current release CI remain open.
+At`0991cdf`, both complete native container/Standard kind jobs now also pass,
+including supply-chain gates, bundle/source bindings, original WAL/PVC recovery
+and cleanup121.37s/98.31s. Verified artifacts:
+`target/native-ci-monitor-20261014/VERIFIED-CORRECTED-NATIVE-CONTAINERS.json`.
+Later restore changes and current release CI remain open.
 
 Earlier CI, agent-oracle and Helm preparation records are preserved in
 [the2026-10-14 history](07-progress-history-20261014.md).
@@ -75,7 +79,12 @@ matrix137.01s. Explicit owner installation, sealed restored lineage/current
 owner, exact historical bytes, missing-record/conflict/seal/routine refusal and
 unchanged quota are exercised. Metadata remains separate from a release permit.
 Evidence:`target/restored-custody-lineage-20261014/ACCEPTANCE.json`.
-Next:wire fresh object verification and native authenticated API/SDK reconfirmation.
+Fresh restored confirmation now passes7gates935default/996all-feature and
+PostgreSQL matrix124.66s: three existing-only lineage checks bracket two current
+retained reads; original description/digest and receipt/quota stay exact, and
+cancellation/missing originals refuse. Evidence:
+`target/restored-custody-confirmation-20261014/ACCEPTANCE.json`.
+Next:configured native authenticated API/SDK restored reconfirmation.
 
 ## Actual local Standard Kubernetes accepted — 2026-10-12
 
