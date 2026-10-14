@@ -229,3 +229,10 @@ Keep private policy, identity and environment values in the separate application
 </details>
 
 WINDOW passes local simulation acceptance — 2026-10-15. Bounded authentication event-time/watermark/lateness, canonical replay identity, key/event/byte/TTL/output/history limits, unknown coverage and atomic state/findings/checkpoint recovery are qualified. Six frozen workspace gates pass1048default/1117all-feature tests, both strict Clippy modes, formatting and14workspace boundaries. Actual Small Main passes5WINDOW/8onboarding checks; Standard Main passes8scenarios; shared recovery passes53checks in206.73s. Runtime source bindings109/266/246 match; retained Small/Standard executable identities match and owned cleanup succeeds. Writer review closed three reproduced findings; it is not independent release review. Evidence:`target/window-20261014/ACCEPTANCE.json`; [contract64](64-authentication-window.md). LinuxAMD64 with actual SQLite/PostgreSQL/Parquet/WAL and SIGKILL; signed host/object authority is synthetic. Inventory35accepted/17unfinished. Current remote/native/container/Kubernetes, AWS/EKS, released dependencies, version and publication remain separate. Next local dependency-ready detector:SENSOR-HEALTH; Phase9 AWS collection requires a separate task.
+
+WINDOW native CI wiring — 2026-10-15. Both existing AMD64/ARM64 Rust jobs now run
+the actual Small `--window` recovery fixture and Standard `--standard-scenario window`
+process fixture after exact all-feature builds. Existing fixture deadlines, pinned
+PostgreSQL image and artifact retention apply; the copied Standard executable is
+excluded from upload. Workflow lint and16CI-helper checks pass. Remote results
+remain unqualified; no publication is enabled.
