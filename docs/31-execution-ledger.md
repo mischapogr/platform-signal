@@ -34,6 +34,11 @@ both strict Clippy modes, formatting and14workspace boundaries. Historical/stale
 coverage and missing/unknown permission/category/state, unsupported or unloaded
 rules block readiness. Authenticated host integration, console and actual engine
 gating remain open. Evidence:`target/onboarding-sdk-20261014/ACCEPTANCE.json`.
+Its generic rule execution gate also passes4new regressions and6frozen gates:
+947default/1008all-feature and both Clippy/fmt/workspace. Explicit complete loaded
+inventory suppresses blocked matching rules and preserves enabled findings.
+Main/host/API/console integration remains open; current-health history stays
+unknown. Evidence:`target/onboarding-rules-20261014/ACCEPTANCE.json`.
 Earlier entries below retain their original historical evidence boundaries.
 
 Owner-authorized persistent Goal, frozen 2026-10-07. The machine-readable
