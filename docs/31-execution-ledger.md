@@ -17,8 +17,8 @@ server-local loss75.55s. Replacement17.61s/RPO0 applies only to the4byte custody
 fixture. Source/binary/cleanup and exact original receipt/control/object/WAL/
 private progress are audited. Next:ONBOARDING; external/production gates remain.
 
-Current local inventory:13 passed_local,14 passed_simulated,19 pending/0in_progress,
-6 external_pending. Native Standard cluster CI wiring now passes local direct
+Current inventory:13 passed_local,14 passed_simulated,2 passed_external,19 pending/0in_progress,
+4 external_pending. Native Standard cluster CI wiring now passes local direct
 process/bundle/kind acceptance181.93s/170.05s; exact remote results are next:
 `target/standard-kind-ci-20261012/ACCEPTANCE.json`. Local provider/custody
 simulation does not close corrected native/current CI, AWS/EKS or release gates.
@@ -64,6 +64,8 @@ RELEASE-TRUST offline mechanism slice — 2026-10-14. Externally pinned Ed25519 
 HOST-AUTH structured authentication slice — 2026-10-14. Opt-in agent auth-json and version1 SDK normalizer preserve source timestamp, authority/principal/target/method/session and producer checkpoints; unknown credential fields reject statically. Four focused regressions and8frozen gates pass:958default/1019all-feature, both strict Clippy modes/fmt/14workspace boundaries, current all-feature binaries and real agent/server process acceptance. Controlled success/failure and2invalid records traverse file/spool/authenticated server/Parquet; cursor restart adds no events and rejected credential bytes stay out of output/logs. [Contract58](58-host-authentication-profile.md), evidence:`target/host-auth-20261014/ACCEPTANCE.json`. File/stdin grants no runtime sensor coverage; full HOST-AUTH remains pending selected sensor qualification. Counts remain27accepted/25unfinished.
 
 Rustls security correction — 2026-10-14. Native ARM supply-chain atc1535f1 exposes four newly published Rustls0.23.45 advisories. All five exact pins and the lock now select0.23.46 with unchanged features, following the [upstream security release](https://github.com/rustls/rustls/releases/tag/v/0.23.46). Current unfiltered Cargo audit reports0vulnerabilities against fresh RustSec data. Eleven frozen gates pass958default/1019all-feature, both Clippy modes/fmt/14boundaries,21offline trust checks and current native mTLS/onboarding plus PostgreSQL/TLS/S3/Standard matrices. Evidence:`target/rustls-security-20261014/ACCEPTANCE.json`. Matching patched native CI/images/scans/Kubernetes still required; counts remain27accepted/25unfinished.
+
+Current native CI and ARM64 qualification accepted — 2026-10-14. Complete [run38583003350](https://github.com/mischapogr/platform-signal/actions/runs/38583003350) at reviewed e1555a4 succeeds. Both architectures pass48Rust gates/1019tests and18container gates. Primary GitHub artifact digests,181Standard source hashes, original/stripped executable bundle lineage and exact images match. Standard kind recovery passes114.53sAMD64/104.48sARM64 with original WAL checkpoint2/PVC replacement and owned cleanup. Cargo audit0 and containerHIGH/CRITICAL0;23MEDIUM/8LOW remain. Evidence:`target/rustls-security-20261014/EXTERNAL-ACCEPTANCE.json`. EXT-CI/EXT-ARM64 are passed_external. Inventory:29accepted/23unfinished (13local/14simulated/2external accepted/19pending/4external pending). Actual AWS/EKS/vendor, released-dependency, version and publication gates remain open; synthetic provider and finite-soak limits are retained.
 
 Earlier entries below retain their original historical evidence boundaries.
 
@@ -379,7 +381,9 @@ evidence and continue the next dependency-ready item without a routine approval
 stop. This Goal authorizes post-MVP implementation and bounded independent
 review/testing; it does not authorize external provisioning or publication.
 Use statuses `pending`, `in_progress`, `passed_local`, `passed_simulated`,
-`external_pending`. A dependency with both local and external aspects must be
+`passed_external`, `external_pending`. `passed_external` requires actual external
+execution matching the item and exact producing revision; local/synthetic evidence
+cannot substitute. A dependency with both local and external aspects must be
 split: local simulation acceptance never satisfies the real environment gate.
 Do not convert complexity or ordinary test failure into an external exception.
 
@@ -454,9 +458,9 @@ without adding capabilities or claiming general recovery from copied bits.
 | RELEASE-TRUST | pending | BASELINES, SECURITY-TRANSPORT | SBOM, provenance and signed release/rule verification |
 | UPGRADE | passed_simulated | SHARED-RUNTIME, STANDARD-RECOVERY | Supported migration/rollback/restore local rehearsals |
 | LOCAL-CANDIDATE | pending | SOC-UX, SCALE-DECISION, KIND, RELEASE-REVIEW, RELEASE-TRUST, UPGRADE | Final current-revision local release candidate |
-| EXT-ARM64 | external_pending | — | Native ARM64 qualification |
+| EXT-ARM64 | passed_external | — | Native ARM64 qualification |
 | EXT-AWS | external_pending | — | Actual AWS/EKS/storage/IAM/KMS/Object Lock qualification |
 | EXT-VENDORS | external_pending | — | Live SaaS/network-provider qualification |
-| EXT-CI | external_pending | — | Remote CI for reviewed revision |
+| EXT-CI | passed_external | — | Remote CI for reviewed revision |
 | EXT-DEPENDENCY | external_pending | — | Private overlay against actual released public dependency |
 | EXT-PUBLICATION | external_pending | — | Owner-directed version, publication and main merge |

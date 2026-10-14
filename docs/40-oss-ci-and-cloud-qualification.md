@@ -5,6 +5,15 @@ compute is free; job duration, concurrency and artifact storage remain bounded.
 See [GitHub runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
 and [Actions limits](https://docs.github.com/en/actions/reference/limits).
 
+## Current native qualification — 2026-10-14
+
+Current native CI and ARM64 qualification accepted — 2026-10-14. Complete [run38583003350](https://github.com/mischapogr/platform-signal/actions/runs/38583003350) at reviewed e1555a4 succeeds. Both architectures pass48Rust gates/1019tests and18container gates. Primary GitHub artifact digests,181Standard source hashes, original/stripped executable bundle lineage and exact images match. Standard kind recovery passes114.53sAMD64/104.48sARM64 with original WAL checkpoint2/PVC replacement and owned cleanup. Cargo audit0 and containerHIGH/CRITICAL0;23MEDIUM/8LOW remain. Evidence:`target/rustls-security-20261014/EXTERNAL-ACCEPTANCE.json`. EXT-CI/EXT-ARM64 are passed_external. Inventory:29accepted/23unfinished (13local/14simulated/2external accepted/19pending/4external pending). Actual AWS/EKS/vendor, released-dependency, version and publication gates remain open; synthetic provider and finite-soak limits are retained.
+
+The public GitHub artifact table exposes primary SHA256 digests even during
+anonymous REST API rate-limit cooldown. Retain the exact run/table/IDs and verify
+archives before inspecting evidence. Job HTML alone does not establish artifact
+acceptance. Stop exhausted API polling until reset or authenticated access.
+
 ## Observed remote execution — 2026-10-08
 
 [Run 37809129533](https://github.com/mischapogr/platform-signal/actions/runs/37809129533)
