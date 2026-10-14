@@ -1013,3 +1013,80 @@ async fn window_metrics_export_capacity_and_gap_without_evidence_or_identifiers(
     assert!(!body.contains("rule_revision"));
     Ok(())
 }
+
+#[tokio::test]
+async fn source_validation_refusal_is_422_without_admission_and_exports_bounded_health() -> Result {
+    struct Refusing;
+    impl EventSink for Refusing {
+        fn admit(&self, _: SignalEvent) -> AdmissionFuture<'_> {
+            Box::pin(async { Err(signal_protocol::AdmissionError::InvalidEvent) })
+        }
+        fn close(&self) {}
+        fn metrics(&self) -> SinkMetrics {
+            SinkMetrics {
+                rules: Some(signal_protocol::RuleSinkMetrics {
+                    sensor_health: Some(signal_protocol::SensorHealthSinkMetrics {
+                        sources: 2,
+                        source_capacity: 4,
+                        proofs: 3,
+                        proof_capacity: 12,
+                        pending: 1,
+                        pending_capacity: 8,
+                        bytes: 1024,
+                        byte_capacity: 8192,
+                        operations: 1,
+                        operation_capacity: 1,
+                        failures: 2,
+                        rejections: 3,
+                        indeterminate: 1,
+                        coverage_gap: true,
+                        closed: false,
+                    }),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }
+        }
+    }
+    let service = IngestService::new(IngestConfig::default(), Arc::new(Refusing))?;
+    let (status, response) = post(&service, "/v1/events", event()).await?;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!((response.accepted, response.rejected), (0, 1));
+    assert_eq!(metric(&service, "signal_events_accepted_total").await?, 0);
+    let response = service
+        .router()
+        .oneshot(Request::get("/metrics").body(Body::empty())?)
+        .await?;
+    let bytes = to_bytes(response.into_body(), 16384).await?;
+    let body = std::str::from_utf8(&bytes)?;
+    let lines: Vec<_> = body
+        .lines()
+        .filter(|s| s.starts_with("signal_sensor_health_"))
+        .collect();
+    assert_eq!(lines.len(), 15);
+    for (name, value) in [
+        ("sources", 2),
+        ("source_capacity", 4),
+        ("proofs", 3),
+        ("proof_capacity", 12),
+        ("pending", 1),
+        ("pending_capacity", 8),
+        ("bytes", 1024),
+        ("byte_capacity", 8192),
+        ("operations", 1),
+        ("operation_capacity", 1),
+        ("failures_total", 2),
+        ("rejections_total", 3),
+        ("indeterminate", 1),
+        ("coverage_gap", 1),
+        ("closed", 0),
+    ] {
+        assert!(
+            lines
+                .iter()
+                .any(|line| *line == format!("signal_sensor_health_{name} {value}"))
+        );
+    }
+    assert!(lines.iter().all(|line| !line.contains('{')));
+    Ok(())
+}

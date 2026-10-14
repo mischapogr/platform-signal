@@ -1257,6 +1257,7 @@ async fn activation_shares_the_access_slot_and_original_clock_without_renewal() 
 #[test]
 fn runtime_revision_tracks_installed_limits_and_excludes_secret_and_path_values() -> Result {
     let mut onboarding = false;
+    let mut sensor_health = false;
     let mut ingest = signal_ingest::IngestConfig {
         api_token: Some("PRIVATE_TOKEN_CANARY".into()),
         ..Default::default()
@@ -1291,6 +1292,7 @@ fn runtime_revision_tracks_installed_limits_and_excludes_secret_and_path_values(
                     coverage: false,
                     onboarding,
                     window: false,
+                    sensor_health,
                     separate_metrics: false,
                 },
                 &context()?,
@@ -1301,6 +1303,10 @@ fn runtime_revision_tracks_installed_limits_and_excludes_secret_and_path_values(
     onboarding = true;
     assert_ne!(baseline, digest!());
     onboarding = false;
+    assert_eq!(baseline, digest!());
+    sensor_health = true;
+    assert_ne!(baseline, digest!());
+    sensor_health = false;
     assert_eq!(baseline, digest!());
     assert_eq!(baseline.len(), 64);
     assert!(

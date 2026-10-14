@@ -184,6 +184,7 @@ pub enum Reason {
     ObserverUnhealthy,
     ObserverStale,
     CheckpointMissing,
+    ObservationIncomplete,
 }
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -263,6 +264,28 @@ impl Monitor {
     }
     pub fn metrics(&self) -> Metrics {
         self.metrics
+    }
+    pub fn clock_ms(&self) -> i64 {
+        self.state.clock_ms
+    }
+    /// Read-only provenance requirements for a host's bounded original-evidence
+    /// custody. Returned values confer no source or observer authority.
+    pub fn retained_progress(
+        &self,
+    ) -> impl Iterator<Item = (Uuid, Option<&Observation>, Option<i64>, Option<u64>)> {
+        self.state
+            .policy
+            .expected
+            .iter()
+            .zip(&self.state.slots)
+            .map(|(expected, slot)| {
+                (
+                    expected.source_id,
+                    slot.latest.as_ref(),
+                    slot.heartbeat_at_ms,
+                    slot.checkpoint,
+                )
+            })
     }
     pub fn snapshot(&self) -> Result<Vec<u8>, Error> {
         bound(&self.state)?;
@@ -405,6 +428,9 @@ impl Monitor {
                         && o.checkpoint.is_none() =>
                 {
                     (Outcome::Indeterminate, Reason::CheckpointMissing)
+                }
+                Some(o) if now >= deadline && o.observed_at_ms < deadline => {
+                    (Outcome::Indeterminate, Reason::ObservationIncomplete)
                 }
                 Some(_) if now >= deadline => (Outcome::Match, Reason::HeartbeatAbsent),
                 Some(_) if slot.heartbeat_at_ms.is_none() => {

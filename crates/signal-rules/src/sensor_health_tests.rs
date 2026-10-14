@@ -44,14 +44,16 @@ fn positive_negative_missing_data_and_exact_grace_boundary() {
     assert_eq!(one(&mut m, 1000).reason, Reason::ObserverUnknown);
     m.observe(observation(1, 1000, None), 1000).unwrap();
     assert_eq!(one(&mut m, 1119).outcome, Outcome::NoMatch);
+    m.observe(observation(2, 1120, None), 1120).unwrap();
     let gap = one(&mut m, 1120);
     assert_eq!(
         (gap.outcome, gap.reason),
         (Outcome::Match, Reason::HeartbeatAbsent)
     );
     assert_eq!(gap.gap_id, one(&mut m, 1121).gap_id);
-    m.observe(observation(2, 1130, Some(1130)), 1130).unwrap();
+    m.observe(observation(3, 1130, Some(1130)), 1130).unwrap();
     assert_eq!(one(&mut m, 1249).reason, Reason::HeartbeatCurrent);
+    m.observe(observation(4, 1250, Some(1130)), 1250).unwrap();
     assert_eq!(one(&mut m, 1250).outcome, Outcome::Match);
     assert_ne!(gap.gap_id, one(&mut m, 1251).gap_id);
 }
@@ -67,7 +69,10 @@ fn replay_and_restore_never_refresh_observer_or_heartbeat() {
     assert_eq!(bytes, m.snapshot().unwrap());
     let mut restored = Monitor::restore(p, &bytes).unwrap();
     restored.observe(original, 1499).unwrap();
-    assert_eq!(one(&mut restored, 1499).outcome, Outcome::Match);
+    assert_eq!(
+        one(&mut restored, 1499).reason,
+        Reason::ObservationIncomplete
+    );
     assert_eq!(one(&mut restored, 1500).reason, Reason::ObserverStale);
     assert_eq!(restored.metrics().replayed, 1);
 }
@@ -75,7 +80,7 @@ fn replay_and_restore_never_refresh_observer_or_heartbeat() {
 #[test]
 fn fresh_independent_probe_of_old_heartbeat_preserves_gap_identity_and_deadline() {
     let mut m = Monitor::new(policy(), 1000).unwrap();
-    m.observe(observation(1, 1000, Some(1000)), 1000).unwrap();
+    m.observe(observation(1, 1120, Some(1000)), 1120).unwrap();
     let gap = one(&mut m, 1120);
     let mut new = observation(2, 1600, Some(1000));
     new.checkpoint = Some(1);
@@ -223,7 +228,7 @@ fn multiple_expected_sources_are_isolated_and_output_count_is_bounded() {
         ..p.expected[0].clone()
     });
     let mut m = Monitor::new(p, 1000).unwrap();
-    m.observe(observation(1, 1000, Some(1000)), 1000).unwrap();
+    m.observe(observation(1, 1120, Some(1000)), 1120).unwrap();
     let result = m.assess(1120).unwrap();
     assert_eq!(result.len(), 2);
     assert_eq!(result[0].outcome, Outcome::Match);
@@ -256,4 +261,17 @@ fn evaluation_clock_growth_cannot_exceed_committed_byte_budget() {
     let original = m.snapshot().unwrap();
     assert_eq!(m.assess(MAX_TIME), Err(Error::Capacity));
     assert_eq!(m.snapshot().unwrap(), original);
+}
+
+#[test]
+fn fresh_observer_report_cannot_prove_absence_after_its_observation_time() {
+    let mut m = Monitor::new(policy(), 1000).unwrap();
+    m.observe(observation(1, 1000, Some(1000)), 1000).unwrap();
+    let unknown = one(&mut m, 1120);
+    assert_eq!(unknown.outcome, Outcome::Indeterminate);
+    assert_eq!(unknown.gap_id, None);
+    let mut later = observation(2, 1120, Some(1000));
+    later.checkpoint = Some(1);
+    m.observe(later, 1120).unwrap();
+    assert_eq!(one(&mut m, 1120).outcome, Outcome::Match);
 }

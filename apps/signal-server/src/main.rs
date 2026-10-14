@@ -10,6 +10,7 @@ mod onboarding;
 mod pipeline;
 mod query_api;
 mod runtime_config;
+mod sensor_runtime;
 mod standard;
 #[cfg(feature = "s3-query")]
 mod standard_config;
@@ -70,6 +71,8 @@ enum AppError {
     Rules(#[from] signal_rules::RuleError),
     #[error(transparent)]
     Window(#[from] signal_rules::window::Error),
+    #[error(transparent)]
+    SensorHealth(#[from] signal_server::sensor_health::native::Error),
     #[error(transparent)]
     Logger(#[from] logging::LoggingError),
     #[error(transparent)]
@@ -217,6 +220,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             coverage_configuration,
             onboarding,
             window_configuration,
+            sensor_configuration,
             listen,
             metrics_listen,
             wal_config,
@@ -258,6 +262,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
                         coverage: coverage_configuration.is_some(),
                         onboarding: onboarding.is_some(),
                         window: window_configuration.is_some(),
+                        sensor_health: sensor_configuration.is_some(),
                         separate_metrics: metrics_listen.is_some(),
                     },
                     &startup,
@@ -306,6 +311,10 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
                 .await?;
         }
         let detection = Arc::new(DetectionPipeline {
+            sensor_health: match sensor_configuration {
+                Some(c) => Some(Arc::new(c.open(wal).await?)),
+                None => None,
+            },
             window: match window_configuration {
                 Some(configuration) => Some(Arc::new(
                     configuration
@@ -664,6 +673,20 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             .map_err(AppError::from),
         None => Ok(()),
     };
+    let sensor_stopped = match pipeline
+        .detection
+        .as_ref()
+        .and_then(|d| d.sensor_health.as_ref())
+    {
+        Some(sensor) => sensor
+            .shutdown(RuleContext {
+                deadline,
+                cancellation: CancellationToken::new(),
+            })
+            .await
+            .map_err(AppError::from),
+        None => Ok(()),
+    };
     let coverage_stopped = match &coverage {
         Some(coverage) => coverage
             .store
@@ -690,6 +713,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
         .and(findings_flushed.map_err(AppError::from))
         .and(findings_stopped.map_err(AppError::from))
         .and(window_stopped)
+        .and(sensor_stopped)
         .and(query_stopped.map_err(AppError::from))
         .and(identity_closed)
         .and(identity_stopped)

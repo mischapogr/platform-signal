@@ -10,6 +10,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 use uuid::Uuid;
 
+pub mod native;
+
 pub const DOMAIN: &[u8] = b"platform-signal/sensor-health-observer/v1\0";
 pub const MAX_ENVELOPE_BYTES: usize = 8192;
 pub const MAX_PAYLOAD_BYTES: usize = 4096;

@@ -28,7 +28,7 @@ class Owned(BASE.Run):
     """Reuse the qualified finite process/log ownership seam only."""
     def __init__(self, out):
         self.out = out
-        self.child_capacity, self.log_capacity = 2, (24 if os.environ.get('SIGNAL_TEST_WINDOW')=='1' else 16)
+        self.child_capacity, self.log_capacity = 2, (24 if any(os.environ.get(k)=='1' for k in ('SIGNAL_TEST_WINDOW','SIGNAL_TEST_SENSOR_HEALTH')) else 16)
         self.logs, self.processes = [], []
         self.owned, self.drains, self.log_errors = {}, {}, {}
         self.server = self.fixture = None

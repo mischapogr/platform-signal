@@ -667,6 +667,7 @@ async fn authenticated_ingest(
                 Ok(Err(AdmissionError::Full)) => Err((StatusCode::TOO_MANY_REQUESTS, ErrorCode::Full, "admission capacity is full")),
                 Ok(Err(AdmissionError::Closed)) => Err((StatusCode::SERVICE_UNAVAILABLE, ErrorCode::Stopping, "admission is stopped")),
                 Ok(Err(AdmissionError::Unavailable)) => Err((StatusCode::SERVICE_UNAVAILABLE, ErrorCode::Unavailable, "admission is unavailable")),
+                Ok(Err(AdmissionError::InvalidEvent)) => Err((StatusCode::UNPROCESSABLE_ENTITY, ErrorCode::InvalidEvent, "event refused by source validation")),
                 Ok(Ok(())) => Ok(()),
             }
         };
@@ -869,6 +870,48 @@ async fn metrics(State(service): State<IngestService>) -> Response {
             ("signal_rules_failures_total", rules.failures),
         ] {
             let _ = writeln!(body, "{name} {value}");
+        }
+        if let Some(sensor) = rules.sensor_health {
+            for (name, value) in [
+                ("signal_sensor_health_sources", sensor.sources as u64),
+                (
+                    "signal_sensor_health_source_capacity",
+                    sensor.source_capacity as u64,
+                ),
+                ("signal_sensor_health_proofs", sensor.proofs as u64),
+                (
+                    "signal_sensor_health_proof_capacity",
+                    sensor.proof_capacity as u64,
+                ),
+                ("signal_sensor_health_pending", sensor.pending as u64),
+                (
+                    "signal_sensor_health_pending_capacity",
+                    sensor.pending_capacity as u64,
+                ),
+                ("signal_sensor_health_bytes", sensor.bytes as u64),
+                (
+                    "signal_sensor_health_byte_capacity",
+                    sensor.byte_capacity as u64,
+                ),
+                ("signal_sensor_health_operations", sensor.operations as u64),
+                (
+                    "signal_sensor_health_operation_capacity",
+                    sensor.operation_capacity as u64,
+                ),
+                ("signal_sensor_health_failures_total", sensor.failures),
+                ("signal_sensor_health_rejections_total", sensor.rejections),
+                (
+                    "signal_sensor_health_indeterminate",
+                    sensor.indeterminate as u64,
+                ),
+                (
+                    "signal_sensor_health_coverage_gap",
+                    u64::from(sensor.coverage_gap),
+                ),
+                ("signal_sensor_health_closed", u64::from(sensor.closed)),
+            ] {
+                let _ = writeln!(body, "{name} {value}");
+            }
         }
         if let Some(window) = rules.window {
             for (name, value) in [

@@ -1,8 +1,8 @@
 # Independent missing-telemetry detector
 
-SENSOR-HEALTH is in progress. The first slice implements bounded, deterministic
-heartbeat assessments; it does not yet install a running detector in Main or
-grant durable finding/checkpoint recovery acceptance.
+SENSOR-HEALTH is in progress. The bounded evaluator, signed observer adapter and
+atomic local journal are integrated into Small Main. Whole-item acceptance still
+requires the remaining history, Standard and qualification work described below.
 
 Private configuration pins an expected-source inventory, complete binding digest,
 independent observer identity, expectation start, configuration/rule revision,
@@ -12,8 +12,13 @@ constructing or deserializing an observation supplies no authentication authorit
 No incoming telemetry or self-reported healthy flag can replace that adapter.
 
 A healthy, current observer with a verified heartbeat produces NoMatch until the
-heartbeat interval plus grace expires. Once overdue, it produces Match for a
-collection gap, without attributing compromise or cause. If no heartbeat has ever
+heartbeat interval plus grace expires. A collection-gap Match requires a current
+independent observation at or after that deadline, still reporting an overdue
+verified heartbeat receipt. A report from before the deadline cannot establish
+later absence: the result is Indeterminate even while that report remains within
+its freshness budget. A Match attributes no compromise or cause. Heartbeat times
+are the independent observer's verified receipt times, not collector-supplied
+timestamps. If no heartbeat has ever
 been verified, the expectation start supplies the deadline. Missing or unknown
 expected inventory refuses configuration; the host must expose unavailable,
 indeterminate coverage. Missing/stale/unhealthy observer evidence or a required
@@ -35,7 +40,7 @@ Versioned snapshots bind the exact policy/inventory and validate all retained
 observations before restoration. Persisted snapshots alone are not independently
 current evidence.
 
-Completion still requires the authenticated independent-observer adapter, native
+Completion requires the authenticated independent-observer adapter, native
 Main lifecycle, persisted original assessment/finding outbox and checkpoint in one
 transaction, replay/lost-reply/crash recovery, bounded history/retention/metrics,
 focused source review and applicable frozen workspace/process/native gates. A
@@ -72,13 +77,14 @@ in ascending observer UUID order. SHA256 receives the domain
 `platform-signal/sensor-health-enrollment/v1` plus NUL, the 32-byte policy digest,
 the eight-byte big-endian key count, then each 16-byte observer UUID and 32-byte
 public key. Durable native state must pin this digest so key rotation cannot
-silently reauthorize an old snapshot. That recovery integration remains pending.
+silently reauthorize an old snapshot. The native session pins this binding.
 
 The verified result retains the original envelope, payload digest, policy digest,
 enrollment digest, observation and derived expiry. Its fields are private and it cannot be
 deserialized as verified evidence. This library seam owns no I/O or worker. Main
 configuration, canonical observation admission, atomic state/outbox/checkpoint
-and actual runtime recovery still need integration before item acceptance.
+and runtime recovery are implemented for Small Main; broader qualification and
+the remaining whole-item requirements still precede item acceptance.
 
 Verification is stateless: it validates a positive sequence, while Monitor checks
 monotonic progress. The durable host must also compare the original signed payload
@@ -109,6 +115,35 @@ future drop. Window and generic state journals share the existing process cap of
 confirmed shutdown closes SQLite and releases the writer lease before replying.
 Only absolute paths in a mode0700 directory and mode0600 single-link regular files
 are accepted. Symlink paths/sidecars, unknown schemas, oversized stored frames and
-changed bindings/configuration are refused. This primitive does not yet implement
-native detector state validation, history/expiry, Main wiring or Standard leases;
-those remain required for SENSOR-HEALTH completion.
+changed bindings/configuration are refused. The native session validates domain
+state and original signed evidence. Bounded assessment history/retention and
+Standard ownership still remain required for SENSOR-HEALTH completion.
+
+## Native Small Main work in progress
+
+The current implementation integrates the typed native session with Small
+Main. Owner-controlled `sensor_health.config` / `SIGNAL_SENSOR_HEALTH_CONFIG`
+selects a strict JSON document, capped at512KiB, with an absolute journal path,
+nonzero owner generation, bounded cadence and complete detector policy, keys,
+canonical source scopes and evidence/output budgets. Native identity and continuous
+WAL delivery are required. Standard mode refuses this configuration until its
+own integration is qualified.
+
+Signed canonical input is checked before WAL admission. The consumer evaluates
+data and idle cadence, commits original evidence/state/finding outbox/checkpoint,
+publishes original scoped findings, retires confirmed outputs and only then
+acknowledges the WAL. Expiry between admission and consumption advances the
+checkpoint without granting observer health or creating a historical finding.
+Startup, expiry and failed work expose unknown coverage through15 fixed numeric
+`signal_sensor_health_*` metrics without identity labels. Shutdown closes the
+physical journal under the original drain deadline.
+
+Local process evidence at`target/sensor-health-native-20261015/main-process-06/`
+passes7sensor scenarios plus8onboarding checks with actual native HTTP/TLS
+identity, SQLite, WAL, findings and SIGKILL. Independent observer authority is
+synthetic. Original gap evidence/body survives interrupted publication, recovery
+does not renew observer authority, and changed owner generation refuses startup.
+Focused tests and Clippy are evidence for this worktree only. Bounded assessment
+history/retention, Standard integration and current native release qualification
+remain required; slice acceptance is recorded separately from item or release
+acceptance.

@@ -135,6 +135,10 @@ def exercise(root, repo, binding, profile, start, stop, request, coverage_reques
             spec=importlib.util.spec_from_file_location('signal_small_window_fixture',repo/'scripts/window-native-fixture.py')
             window=importlib.util.module_from_spec(spec);spec.loader.exec_module(window)
             window.exercise(root,policy_path,policy,evidence,publish,assess,checkpoint,start,stop,request,hold_request)
+        if os.environ.get('SIGNAL_TEST_SENSOR_HEALTH')=='1':
+            spec=importlib.util.spec_from_file_location('signal_small_sensor_fixture',repo/'scripts/sensor-health-native-fixture.py')
+            sensor=importlib.util.module_from_spec(spec);spec.loader.exec_module(sensor)
+            sensor.exercise(root,checkpoint,start,stop,request,hold_request)
         result = {'status': 'passed_simulated', 'scope': 'actual local Small Main, native TLS identity, signed synthetic host checks, WAL checkpoint and findings',
                   'passed': len(checks), 'checks': checks, 'elapsed_seconds': time.monotonic() - began,
                   'actual_timestamp': stamp(dt.datetime.now(dt.timezone.utc))}

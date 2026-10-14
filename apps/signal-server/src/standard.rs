@@ -241,6 +241,7 @@ mod host {
                 matches: self.matches.load(Ordering::Relaxed),
                 failures: self.failures.load(Ordering::Relaxed),
                 window: self.window.as_ref().map(|w| w.metrics()),
+                sensor_health: None,
             });
             m.closed |= m.audit.is_some_and(|a| a.held)
                 || self
@@ -888,6 +889,7 @@ mod host {
                     coverage: cfg.coverage_configuration.is_some(),
                     onboarding: cfg.onboarding.is_some(),
                     window: cfg.window_configuration.is_some(),
+                    sensor_health: cfg.sensor_configuration.is_some(),
                     separate_metrics: cfg.metrics_listen.is_some(),
                 },
                 &startup,

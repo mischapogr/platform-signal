@@ -82,6 +82,8 @@ pub struct IngestResponse {
 /// Admission errors must not contain caller data or secret-bearing diagnostics.
 #[derive(Clone, Copy, Debug, Error, Eq, PartialEq)]
 pub enum AdmissionError {
+    #[error("event refused by source validation")]
+    InvalidEvent,
     #[error("admission capacity is full")]
     Full,
     #[error("admission is stopped")]
@@ -148,6 +150,26 @@ pub struct RuleSinkMetrics {
     pub matches: u64,
     pub failures: u64,
     pub window: Option<WindowSinkMetrics>,
+    pub sensor_health: Option<SensorHealthSinkMetrics>,
+}
+/// Fixed-cardinality detector state; no source identifiers or original evidence.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct SensorHealthSinkMetrics {
+    pub sources: usize,
+    pub source_capacity: usize,
+    pub proofs: usize,
+    pub proof_capacity: usize,
+    pub pending: usize,
+    pub pending_capacity: usize,
+    pub bytes: usize,
+    pub byte_capacity: usize,
+    pub operations: usize,
+    pub operation_capacity: usize,
+    pub failures: u64,
+    pub rejections: u64,
+    pub indeterminate: usize,
+    pub coverage_gap: bool,
+    pub closed: bool,
 }
 /// Bounded detector health only; no source identities, policy names or evidence.
 #[derive(Clone, Copy, Debug, Default)]

@@ -71,7 +71,9 @@ fn proof(v: &Verifier, o: Observation) -> Vec<u8> {
 #[test]
 fn authenticated_original_bytes_and_policy_bound_observation_drive_gap_assessment() {
     let v = verifier();
-    let raw = payload(&v, observation());
+    let mut observed = observation();
+    observed.observed_at_ms = 1120;
+    let raw = payload(&v, observed);
     let original = signed(&raw, &signer(3), DOMAIN, 2);
     let verified = v.verify(&original, 1120).unwrap();
     assert_eq!(verified.original_envelope(), original);
@@ -81,7 +83,7 @@ fn authenticated_original_bytes_and_policy_bound_observation_drive_gap_assessmen
     );
     assert_eq!(verified.policy_sha256(), v.policy_sha256());
     assert_eq!(verified.enrollment_sha256(), v.enrollment_sha256());
-    assert_eq!(verified.valid_until_ms(), 1500);
+    assert_eq!(verified.valid_until_ms(), 1620);
     let mut monitor = Monitor::new(policy(), 1000).unwrap();
     monitor
         .observe(verified.observation().clone(), 1120)
@@ -395,30 +397,32 @@ fn each_independent_observer_uses_its_own_enrolled_key() {
 fn fresh_signed_probe_of_old_heartbeat_renews_only_observer_visibility() {
     let v = verifier();
     let mut monitor = Monitor::new(policy(), 1000).unwrap();
+    let mut initial = observation();
+    initial.observed_at_ms = 1120;
     monitor
         .observe(
-            v.verify(&proof(&v, observation()), 1000)
+            v.verify(&proof(&v, initial), 1120)
                 .unwrap()
                 .observation()
                 .clone(),
-            1000,
+            1120,
         )
         .unwrap();
     let original = monitor.assess(1120).unwrap().remove(0);
     assert_eq!(
-        monitor.assess(1500).unwrap()[0].reason,
+        monitor.assess(1620).unwrap()[0].reason,
         Reason::ObserverStale
     );
     let mut o = observation();
     o.sequence = 2;
-    o.observed_at_ms = 1600;
+    o.observed_at_ms = 1700;
     monitor
         .observe(
-            v.verify(&proof(&v, o), 1600).unwrap().observation().clone(),
-            1600,
+            v.verify(&proof(&v, o), 1700).unwrap().observation().clone(),
+            1700,
         )
         .unwrap();
-    let current = monitor.assess(1600).unwrap().remove(0);
+    let current = monitor.assess(1700).unwrap().remove(0);
     assert_eq!(current.outcome, Outcome::Match);
     assert_eq!(
         (current.gap_id, current.deadline_ms),
