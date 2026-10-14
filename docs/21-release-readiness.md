@@ -49,7 +49,7 @@ summarized in [progress](07-progress.md).
 | Separate native runtime probe wiring — 2026-10-14 | Nine frozen local gates994/1055tests, refusal checks, workflow lint and unchanged delivery simulation; `target/host-runtime-probe-fix-20261014/ACCEPTANCE.json` | Actual native capture/SDK projection and full original composed CI still required; full HOST-AUTH remains pending |
 | Native runtime schema correction — 2026-10-14 | Eleven frozen local gates995/1056tests; actual verified AMD64/ARM64 input capture and nine-record exact local replay each; `target/host-native-schema-20261014/ACCEPTANCE.json` | Current native decoder/runtime and independent sensor coverage remain pending; no full HOST-AUTH closeout |
 | HOST-AUTH selected complete local/native profile — 2026-10-14 | Both native kernel/SDK/agent/spool/SIGKILL/server/query paths, nine exact records each, primary digests/source/identity/cleanup; `target/host-native-schema-20261014/HOST-AUTH-ACCEPTANCE.json` | Selected finite fixture scope; production independent coverage/full-host/credential-read/prolonged behavior unqualified |
-| Finite implementation ledger | 52 items: 13 passed_local, 20 passed_simulated, 2 passed_external, 13 pending, 0 in_progress, 4 external_pending | OBJECT-CUSTODY passes local simulation:932default/993all-feature tests; authenticated API/SDK13.56s and actual Standard custody38.34s with cleanup. Provider retention simulated; AWS/account/AZ loss and current external/release gates remain open. Whole implementation inventory includes later work, not a release-readiness percentage |
+| Finite implementation ledger | 52 items: 13 passed_local, 20 passed_simulated, 2 passed_external, 12 pending, 1 in_progress, 4 external_pending | OBJECT-CUSTODY passes local simulation:932default/993all-feature tests; authenticated API/SDK13.56s and actual Standard custody38.34s with cleanup. Provider retention simulated; AWS/account/AZ loss and current external/release gates remain open. Whole implementation inventory includes later work, not a release-readiness percentage |
 | Completed public CI38b3c6f (run38119398746) | Both native Rust jobs pass and production images build; verified artifacts show AMD64 query413 and ARM64 atomic diagnostic monitor race in pipeline qualification | Harness corrections under `target/native-ci-fixes-20261011T095750+0200/` require matching final acceptance and fresh complete remote CI |
 | Observed public CIc2bdf6c (run38120937629) | Both Rust jobs pass; ARM64 container job fails and AMD64 native qualification is still running at observation | Current1f2beff run38123061324 is queued; no complete reviewed-revision CI or ARM64 qualification claimed |
 
@@ -236,3 +236,16 @@ process fixture after exact all-feature builds. Existing fixture deadlines, pinn
 PostgreSQL image and artifact retention apply; the copied Standard executable is
 excluded from upload. Workflow lint and16CI-helper checks pass. Remote results
 remain unqualified; no publication is enabled.
+
+SENSOR-HEALTH foundation advances — 2026-10-15. A bounded pure evaluator now pins
+expected inventory, source binding, observer identity and policy revision. It
+separates overdue heartbeats from unknown/stale/unhealthy observers, preserves
+original freshness through replay/restore, refuses clock/checkpoint/identity
+regressions and caps inventory/state bytes. Eleven focused regressions and four
+frozen workspace gates pass: 1,059 tests, zero failures, strict Clippy, formatting
+and 14 workspace boundaries. Writer review and exact evidence:
+`target/sensor-health-20261015/ACCEPTANCE.json`; [contract65](65-sensor-health.md).
+SENSOR-HEALTH is in progress; the authenticated independent-observer adapter,
+Main lifecycle, atomic outbox/checkpoint and actual crash recovery remain required.
+Inventory stays 35 accepted / 17 unfinished. WINDOW native CI at `57024b7` remains
+live and unqualified; hold another develop push to preserve that campaign.

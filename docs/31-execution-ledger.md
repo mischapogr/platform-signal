@@ -448,7 +448,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | BASELINES | pending | EKS-AUDIT, AWS-PROFILES | Versioned generic baseline predicate packs |
 | WINDOW | passed_simulated | FINDINGS-CURSOR, HOST-AUTH, COVERAGE-OBSERVERS | First bounded window detector D10 |
 | STATE | pending | WINDOW, BASELINES | Scoped state lookup detectors D04/D06/D08/D09/D12/D13 |
-| SENSOR-HEALTH | pending | COVERAGE-OBSERVERS, WINDOW | Independent missing-telemetry detector D15 |
+| SENSOR-HEALTH | in_progress | COVERAGE-OBSERVERS, WINDOW | Independent missing-telemetry detector D15 |
 | CORRELATION | pending | STATE, DISPOSITIONS, CATO, M365, SYSLOG | Bounded multi-stream episodes D11/D14 |
 | SOC-UX | pending | CORRELATION, DISPOSITIONS, SECURITY-ACCESS | Planned advanced SOC case/disposition/workbench workflows |
 | PROFILE-LOAD | pending | STANDARD-RECOVERY, CORRELATION | Resource/profile and controlled-outage qualification |
@@ -495,3 +495,16 @@ Main crash qualification, timestamp compatibility, review and full acceptance
 remain; inventory stays34accepted/18unfinished.
 
 WINDOW passes local simulation acceptance — 2026-10-15. Bounded authentication event-time/watermark/lateness, canonical replay identity, key/event/byte/TTL/output/history limits, unknown coverage and atomic state/findings/checkpoint recovery are qualified. Six frozen workspace gates pass1048default/1117all-feature tests, both strict Clippy modes, formatting and14workspace boundaries. Actual Small Main passes5WINDOW/8onboarding checks; Standard Main passes8scenarios; shared recovery passes53checks in206.73s. Runtime source bindings109/266/246 match; retained Small/Standard executable identities match and owned cleanup succeeds. Writer review closed three reproduced findings; it is not independent release review. Evidence:`target/window-20261014/ACCEPTANCE.json`; [contract64](64-authentication-window.md). LinuxAMD64 with actual SQLite/PostgreSQL/Parquet/WAL and SIGKILL; signed host/object authority is synthetic. Inventory35accepted/17unfinished. Current remote/native/container/Kubernetes, AWS/EKS, released dependencies, version and publication remain separate. Next local dependency-ready detector:SENSOR-HEALTH; Phase9 AWS collection requires a separate task.
+
+SENSOR-HEALTH foundation advances — 2026-10-15. A bounded pure evaluator now pins
+expected inventory, source binding, observer identity and policy revision. It
+separates overdue heartbeats from unknown/stale/unhealthy observers, preserves
+original freshness through replay/restore, refuses clock/checkpoint/identity
+regressions and caps inventory/state bytes. Eleven focused regressions and four
+frozen workspace gates pass: 1,059 tests, zero failures, strict Clippy, formatting
+and 14 workspace boundaries. Writer review and exact evidence:
+`target/sensor-health-20261015/ACCEPTANCE.json`; [contract65](65-sensor-health.md).
+SENSOR-HEALTH is in progress; the authenticated independent-observer adapter,
+Main lifecycle, atomic outbox/checkpoint and actual crash recovery remain required.
+Inventory stays 35 accepted / 17 unfinished. WINDOW native CI at `57024b7` remains
+live and unqualified; hold another develop push to preserve that campaign.

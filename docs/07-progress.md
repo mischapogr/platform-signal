@@ -596,3 +596,16 @@ process fixture after exact all-feature builds. Existing fixture deadlines, pinn
 PostgreSQL image and artifact retention apply; the copied Standard executable is
 excluded from upload. Workflow lint and16CI-helper checks pass. Remote results
 remain unqualified; no publication is enabled.
+
+SENSOR-HEALTH foundation advances — 2026-10-15. A bounded pure evaluator now pins
+expected inventory, source binding, observer identity and policy revision. It
+separates overdue heartbeats from unknown/stale/unhealthy observers, preserves
+original freshness through replay/restore, refuses clock/checkpoint/identity
+regressions and caps inventory/state bytes. Eleven focused regressions and four
+frozen workspace gates pass: 1,059 tests, zero failures, strict Clippy, formatting
+and 14 workspace boundaries. Writer review and exact evidence:
+`target/sensor-health-20261015/ACCEPTANCE.json`; [contract65](65-sensor-health.md).
+SENSOR-HEALTH is in progress; the authenticated independent-observer adapter,
+Main lifecycle, atomic outbox/checkpoint and actual crash recovery remain required.
+Inventory stays 35 accepted / 17 unfinished. WINDOW native CI at `57024b7` remains
+live and unqualified; hold another develop push to preserve that campaign.
