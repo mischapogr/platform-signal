@@ -1237,7 +1237,8 @@
       ],
       "evidence": [
         "target/goal-execution-20261007/SENSOR-HEALTH/",
-        "target/sensor-health-20261015/ACCEPTANCE.json"
+        "target/sensor-health-20261015/ACCEPTANCE.json",
+        "target/sensor-health-adapter-20261015/ACCEPTANCE.json"
       ],
       "references": [
         "docs/source-detection-catalog.md",
@@ -1248,7 +1249,12 @@
         "evidence": "target/sensor-health-20261015/ACCEPTANCE.json",
         "whole_item_accepted": false
       },
-      "notes": "Bounded deterministic evaluator and replay-safe structural snapshot foundation passes11focused regressions and1059workspace tests; native authenticated observer adapter, atomic outbox/checkpoint and actual Main crash recovery remain required."
+      "notes": "Foundation and authenticated signed-verification library slices pass locally:12crypto/bridge and11core regressions;1071workspace tests and strict Clippy/format/boundaries. Original byte/domain/key/policy/source bindings and evaluator-aligned expiry are qualified. Complete enrollment digest is available for key-rotation recovery fencing. Native Main/cadence/atomic outbox/checkpoint/history/metrics and actual crash/lost-reply recovery remain required.",
+      "signed_observer_slice": {
+        "status": "passed_local",
+        "evidence": "target/sensor-health-adapter-20261015/ACCEPTANCE.json",
+        "whole_item_accepted": false
+      }
     },
     {
       "id": "CORRELATION",

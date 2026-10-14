@@ -114,7 +114,9 @@ pub struct Observation {
     pub checkpoint: Option<u64>,
 }
 impl Observation {
-    fn validate(&self, expected: &ExpectedSource, now: i64) -> Result<(), Error> {
+    /// Structural checks against an enrolled source and trusted receiver clock.
+    /// This does not authenticate a probe or establish observer independence.
+    pub fn validate(&self, expected: &ExpectedSource, now: i64) -> Result<(), Error> {
         if self.schema_version != 1 || self.sequence == 0 {
             return Err(Error::Configuration);
         }
@@ -124,7 +126,8 @@ impl Observation {
         {
             return Err(Error::Scope);
         }
-        if !valid_time(self.observed_at_ms)
+        if !valid_time(now)
+            || !valid_time(self.observed_at_ms)
             || self.observed_at_ms > now
             || self.observed_at_ms < expected.expected_since_ms
             || self
