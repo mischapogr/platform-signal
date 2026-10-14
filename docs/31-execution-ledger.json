@@ -1512,7 +1512,8 @@
         "target/rustls-security-20261014/ACCEPTANCE.json",
         "target/rustls-security-20261014/EXTERNAL-ACCEPTANCE.json",
         "target/rustls-security-20261014/VERIFIED-NATIVE-RUST.json",
-        "target/rustls-security-20261014/VERIFIED-PATCHED-NATIVE-IMAGES.json"
+        "target/rustls-security-20261014/VERIFIED-PATCHED-NATIVE-IMAGES.json",
+        "target/query-cancel-ci-20261014/ACCEPTANCE.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
@@ -1543,7 +1544,8 @@
         "status": "passed_local",
         "version": "0.23.46",
         "evidence": "target/rustls-security-20261014/ACCEPTANCE.json"
-      }
+      },
+      "current_revision_follow_up": "2026-10-14 native ARM at9bbfce6 exposed a query test physical-lease timing assumption. Test-only local correction passes5frozen gates/967workspace/17query tests; current matching remote CI remains pending, without replacing earlier e1555a4 external acceptance."
     },
     {
       "id": "EXT-DEPENDENCY",
