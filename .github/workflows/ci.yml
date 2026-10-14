@@ -107,6 +107,10 @@ jobs:
         run: python3 scripts/run-ci-check.py --name standard-fixture-build --timeout 1200 -- cargo test -p signal-server --all-features --test standard_main --no-run --locked --offline
       - name: Native Standard executable and stopped lifecycle qualification
         run: python3 scripts/run-ci-check.py --name standard-postgres --timeout 300 -- python3 scripts/check-shared-runtime.py --standard-only --image postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa --output target/ci/standard-postgres-qualification
+      - name: Native Small WINDOW crash and recovery qualification
+        run: python3 scripts/run-ci-check.py --name window-small --timeout 120 -- python3 scripts/check-onboarding-native.py target/debug/signal-server target/ci/window-small --window
+      - name: Native Standard WINDOW crash and recovery qualification
+        run: python3 scripts/run-ci-check.py --name window-standard --timeout 300 -- python3 scripts/check-shared-runtime.py --standard-only --standard-scenario window --image postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa --output target/ci/window-standard
       - name: Prepare qualified Standard executables for native Kubernetes
         run: python3 scripts/run-ci-check.py --name standard-bundle --timeout 180 -- python3 scripts/standard-runtime-bundle.py prepare --architecture ${{ matrix.arch }} --qualification target/ci/standard-postgres-qualification --output target/standard-kind-bundle
       - name: Retain source-bound Standard executable bundle
@@ -172,6 +176,7 @@ jobs:
           path: |
             target/ci/
             !target/ci/standard-postgres-qualification/standard-server
+            !target/ci/window-standard/standard-server
           retention-days: 1
           if-no-files-found: error
 
