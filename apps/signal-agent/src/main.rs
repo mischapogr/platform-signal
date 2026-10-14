@@ -8,7 +8,8 @@ const HELP: &str = "signal-agent --server URL [--stdin | --file PATH ...] [--onc
   --spool-dir PATH          Dedicated durable spool (default data/agent-spool)\n\
   --syslog-listen ADDRESS  Dedicated FortiGate octet-counting receiver\n\
   --syslog-tls-config PATH --syslog-peer-sha256 HEX  Explicit mTLS identity binding\n\
-  --format auto|plain|json|auth-json|fortigate  JSON objects become attributes; auth-json validates authentication records\n\
+  --runtime-boot-id UUID  Explicit private host boot binding for falco-json\n\
+  --format auto|plain|json|auth-json|fortigate|falco-json  JSON objects become attributes; auth-json validates authentication records\n\
   --source-type TYPE        Source type (default log)\n\
   --source-name NAME        Optional source name\n\
   --batch-events N          Maximum batch events (default 100)\n\

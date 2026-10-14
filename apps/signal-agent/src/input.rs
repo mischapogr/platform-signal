@@ -29,6 +29,7 @@ pub enum ParseMode {
     Auto,
     AuthenticationJson,
     Fortigate,
+    Falco { boot_id: Uuid },
 }
 #[derive(Clone, Debug)]
 pub enum InputKind {
@@ -401,6 +402,24 @@ fn read_anchor(file: &File, offset: u64) -> Result<Vec<u8>, InputError> {
     Ok(anchor)
 }
 fn parse_line(bytes: &[u8], mode: ParseMode, source: &Source) -> Option<SignalEvent> {
+    if let ParseMode::Falco { boot_id } = mode {
+        let profile =
+            signal_collector_sdk::falco::Profile::new(source.name.as_deref()?, boot_id).ok()?;
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+        return signal_collector_sdk::falco::normalize_syscall(
+            bytes,
+            &profile,
+            source.clone(),
+            id,
+            now,
+        )
+        .or_else(|_| {
+            signal_collector_sdk::falco::normalize_metrics(bytes, &profile, source.clone(), id, now)
+        })
+        .ok();
+    }
+
     if matches!(mode, ParseMode::AuthenticationJson) {
         return signal_collector_sdk::host_auth::normalize_authentication_json(
             bytes,
@@ -435,7 +454,9 @@ fn parse_line(bytes: &[u8], mode: ParseMode, source: &Source) -> Option<SignalEv
             }
         }
         ParseMode::Auto => Map::new(),
-        ParseMode::AuthenticationJson | ParseMode::Fortigate => return None,
+        ParseMode::AuthenticationJson | ParseMode::Fortigate | ParseMode::Falco { .. } => {
+            return None;
+        }
     };
     let message = attributes
         .get("message")
