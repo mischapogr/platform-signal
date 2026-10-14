@@ -17,7 +17,7 @@ server-local loss75.55s. Replacement17.61s/RPO0 applies only to the4byte custody
 fixture. Source/binary/cleanup and exact original receipt/control/object/WAL/
 private progress are audited. Next:ONBOARDING; external/production gates remain.
 
-Current inventory:13 passed_local,14 passed_simulated,2 passed_external,19 pending/0in_progress,
+Current inventory:13 passed_local,15 passed_simulated,2 passed_external,18 pending/0in_progress,
 4 external_pending. Native Standard cluster CI wiring now passes local direct
 process/bundle/kind acceptance181.93s/170.05s; exact remote results are next:
 `target/standard-kind-ci-20261012/ACCEPTANCE.json`. Local provider/custody
@@ -464,3 +464,5 @@ without adding capabilities or claiming general recovery from copied bits.
 | EXT-CI | passed_external | — | Remote CI for reviewed revision |
 | EXT-DEPENDENCY | external_pending | — | Private overlay against actual released public dependency |
 | EXT-PUBLICATION | external_pending | — | Owner-directed version, publication and main merge |
+
+CLOUDFLARE selected object profile passes simulated acceptance — 2026-10-14. Shared bounded complete-gzip decoding preserves CloudTrail behavior; selected http_requests RFC3339 records enforce five fields, configured account/zone scope and explicit unknown completeness. Four new and seven existing object regressions and six frozen gates pass (962 default / 1023 all-feature tests). Late malformed rows, gzip corruption, limits, cancellation and deadline reject; exact pinned context replays byte-identical events. Evidence: `target/cloudflare-profile-20261014/ACCEPTANCE.json`; [profile contract](59-cloudflare-logpush-profile.md). Actual vendor delivery, durable private custody/ACK and coverage remain external. Inventory:30 accepted /22 unfinished ({'passed_local': 13, 'passed_simulated': 15, 'pending': 18, 'passed_external': 2, 'external_pending': 4}).

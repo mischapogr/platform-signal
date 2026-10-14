@@ -15,12 +15,14 @@ use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
 pub mod audit;
+pub mod cloudflare;
 pub mod cloudtrail;
 pub mod coverage;
 pub mod host_auth;
 pub mod object_custody;
 mod providers;
 pub mod receipt;
+pub mod source_object;
 pub mod transport;
 pub use providers::{
     EnrichmentProvider, OverlayPath, RuleDocument, RuleDocumentLimits, RuleProvider, load_enricher,
