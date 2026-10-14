@@ -98,3 +98,12 @@ The native fixture supplies its own minimal Falco configuration and explicit
 fixture behavior. Relative native-test capture paths resolve from the workspace
 root, independent of Cargo integration-test working directory. Native capture
 failures and their digest-verified artifacts are retained before corrections.
+
+Native Falco0.44.1 injects evt.time into syscall output fields; when present it
+must exactly match evt.rawtime. Its internal metric message is the fixed literal
+Falco metrics snapshot, even with ordinary output disabled. Only that literal is
+accepted for internal metrics; syscall output and all other freeform values refuse.
+Reload and capture-start times independently lie between host boot and metric
+time; configuration reload can precede capture start. Verified native artifacts
+from both architectures establish these shapes. Local reprojection is identified
+separately from execution on a native runner and records the decoder source hash.

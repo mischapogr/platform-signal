@@ -41,6 +41,8 @@ fn identity(s: &str) -> bool {
 #[serde(deny_unknown_fields)]
 struct Record {
     source: String,
+    #[serde(default)]
+    output: Option<String>,
     time: DateTime<Utc>,
     #[serde(default)]
     hostname: Option<String>,
@@ -115,12 +117,13 @@ pub fn normalize_syscall(
 ) -> Result<SignalEvent, Error> {
     let r = record(raw)?;
     let f = &r.output_fields;
-    if r.source != "syscall" || id.is_nil() {
+    if r.source != "syscall" || r.output.is_some() || id.is_nil() {
         return Err(Error::Record);
     }
     let allowed = [
         "evt.num",
         "evt.rawtime",
+        "evt.time",
         "evt.type",
         "evt.rawres",
         "evt.is_open_read",
@@ -138,6 +141,9 @@ pub fn normalize_syscall(
     }
     let sequence = number(f, "evt.num")?;
     let nanos = number(f, "evt.rawtime")?;
+    if f.get("evt.time").is_some_and(|v| v.as_u64() != Some(nanos)) {
+        return Err(Error::Record);
+    }
     let seconds = i64::try_from(nanos / 1_000_000_000).map_err(|_| Error::Record)?;
     let timestamp = DateTime::<Utc>::from_timestamp(seconds, (nanos % 1_000_000_000) as u32)
         .ok_or(Error::Record)?;
@@ -242,6 +248,9 @@ pub fn parse_metrics(raw: &[u8]) -> Result<Metrics, Error> {
     let r = record(raw)?;
     let f = &r.output_fields;
     if r.source != "internal"
+        || r.output
+            .as_deref()
+            .is_some_and(|s| s != "Falco metrics snapshot")
         || r.rule.as_deref() != Some("Falco internal: metrics snapshot")
         || text(f, "evt.source")? != "syscall"
         || text(f, "scap.engine_name")? != "modern_bpf"
@@ -260,7 +269,7 @@ pub fn parse_metrics(raw: &[u8]) -> Result<Metrics, Error> {
     let start = number(f, "falco.start_ts")?;
     let reload = number(f, "falco.reload_ts")?;
     let boot = number(f, "falco.host_boot_ts")?;
-    if boot == 0 || start < boot || reload < start || reload > nanos {
+    if boot == 0 || start < boot || start > nanos || reload < boot || reload > nanos {
         return Err(Error::Record);
     }
     Ok(Metrics {
