@@ -13,9 +13,12 @@ mod runtime_config;
 mod standard;
 #[cfg(feature = "s3-query")]
 mod standard_config;
+#[cfg(feature = "s3-query")]
+mod standard_window;
 mod storage;
 mod tls;
 mod ui;
+mod window;
 use config::Settings;
 use logging::{LoggerGuard, LoggingConfig};
 use pipeline::{DetectionPipeline, PipelineSink};
@@ -65,6 +68,8 @@ enum AppError {
     Finding(#[from] signal_findings::FindingError),
     #[error(transparent)]
     Rules(#[from] signal_rules::RuleError),
+    #[error(transparent)]
+    Window(#[from] signal_rules::window::Error),
     #[error(transparent)]
     Logger(#[from] logging::LoggingError),
     #[error(transparent)]
@@ -211,6 +216,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             identity,
             coverage_configuration,
             onboarding,
+            window_configuration,
             listen,
             metrics_listen,
             wal_config,
@@ -251,6 +257,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
                         identity: identity.is_some(),
                         coverage: coverage_configuration.is_some(),
                         onboarding: onboarding.is_some(),
+                        window: window_configuration.is_some(),
                         separate_metrics: metrics_listen.is_some(),
                     },
                     &startup,
@@ -299,6 +306,19 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
                 .await?;
         }
         let detection = Arc::new(DetectionPipeline {
+            window: match window_configuration {
+                Some(configuration) => Some(Arc::new(
+                    configuration
+                        .open(
+                            wal,
+                            onboarding
+                                .clone()
+                                .ok_or(config::ConfigError::Invalid("window onboarding"))?,
+                        )
+                        .await?,
+                )),
+                None => None,
+            },
             onboarding: onboarding.clone(),
             authenticated_after: identity.as_ref().map(|_| wal.last_sequence),
             rules,
@@ -535,7 +555,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
     let cancel = CancellationToken::new();
     let failed = CancellationToken::new();
     let consumer = tokio::spawn(pipeline::consume(
-        pipeline,
+        pipeline.clone(),
         consumer_config,
         drain.clone(),
         cancel.clone(),
@@ -633,6 +653,17 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             cancellation: CancellationToken::new(),
         })
         .await;
+    let window_stopped = match pipeline.detection.as_ref().and_then(|d| d.window.as_ref()) {
+        Some(window) => window
+            .journal
+            .shutdown(RuleContext {
+                deadline,
+                cancellation: CancellationToken::new(),
+            })
+            .await
+            .map_err(AppError::from),
+        None => Ok(()),
+    };
     let coverage_stopped = match &coverage {
         Some(coverage) => coverage
             .store
@@ -658,6 +689,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
         .and(stopped)
         .and(findings_flushed.map_err(AppError::from))
         .and(findings_stopped.map_err(AppError::from))
+        .and(window_stopped)
         .and(query_stopped.map_err(AppError::from))
         .and(identity_closed)
         .and(identity_stopped)

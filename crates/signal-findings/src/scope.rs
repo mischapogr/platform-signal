@@ -81,6 +81,50 @@ impl DerivedFinding {
         if expected != base {
             return Err(FindingError::Invalid("derived finding/event binding"));
         }
+        Self::with_canonical_facts(expected, event, authenticated_new)
+    }
+    /// Host boundary for a detector that references several canonical events.
+    /// The host validates the detector output and proves authenticated admission
+    /// for every input before supplying `authenticated_new`. References must be
+    /// complete, ordered, distinct and in one canonical scope. Producer attributes
+    /// and caller-supplied reserved scope metadata never confer authority.
+    pub fn from_events(
+        base: Finding,
+        events: &[&SignalEvent],
+        authenticated_new: bool,
+    ) -> Result<Self, FindingError> {
+        base.validate()?;
+        if base.attributes.contains_key(KEY)
+            || events.is_empty()
+            || events.len() != base.event_ids.len()
+            || events.len() > 1000
+        {
+            return Err(FindingError::Invalid("derived finding/event references"));
+        }
+        let first = events[0];
+        let expected = ScopeFacts::event(first);
+        let mut seen = std::collections::HashSet::with_capacity(events.len());
+        for (event, id) in events.iter().zip(&base.event_ids) {
+            event
+                .validate()
+                .map_err(|_| FindingError::Invalid("canonical finding input"))?;
+            let actual = ScopeFacts::event(event);
+            if event.id != *id
+                || !seen.insert(*id)
+                || actual.source != expected.source
+                || actual.account != expected.account
+                || actual.resource != expected.resource
+            {
+                return Err(FindingError::Invalid("derived finding/event scope binding"));
+            }
+        }
+        Self::with_canonical_facts(base, first, authenticated_new)
+    }
+    fn with_canonical_facts(
+        base: Finding,
+        event: &SignalEvent,
+        authenticated_new: bool,
+    ) -> Result<Self, FindingError> {
         let facts = ScopeFacts::event(event);
         let values = [facts.source, facts.account, facts.resource];
         if values.iter().flatten().map(|s| s.len()).sum::<usize>() > 3 * 65_536 {
@@ -100,7 +144,7 @@ impl DerivedFinding {
         }
         Ok(Self {
             // Retain the bounded reconstruction, not caller spare allocation.
-            base: expected,
+            base,
             facts: Facts {
                 source: bounded(facts.source),
                 account: bounded(facts.account),

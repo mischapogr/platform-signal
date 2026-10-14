@@ -65,6 +65,9 @@ pub struct ControlMetrics {
     pub lease_renewed_results: u64,
 }
 enum Reply {
+    KnownFindings(Vec<Uuid>),
+    HistoryRead(crate::HistoryPage),
+    StateRead(crate::StateReadResult),
     ProducerCredentials,
     FindingScope(crate::FindingScopeBinding),
     Feed(crate::AuthorizedFindingsPage),
@@ -80,12 +83,27 @@ enum Reply {
     Object(ObjectControlResult),
 }
 enum Operation {
+    KnownFindings {
+        token: LeaseToken,
+        input: crate::finding_lookup::Input,
+    },
+    HistoryRead {
+        token: LeaseToken,
+        input: crate::HistoryInput,
+        output_context: ControlContext,
+    },
+    StateRead {
+        token: LeaseToken,
+        input: crate::StateReadInput,
+        profile: Option<crate::WindowProfile>,
+    },
     RestoredCustody(crate::restored_custody::Action),
     ProducerCredentials {
         owner: String,
         lifecycle: bool,
         custody: bool,
         restored_custody: bool,
+        window: bool,
     },
     ExistingFindingScope {
         scope: Scope,
@@ -127,6 +145,9 @@ enum Operation {
         id: Uuid,
         state: ObjectControlState,
         reference: Option<String>,
+        transfer: bool,
+        obsolete: bool,
+        window_pin: bool,
     },
     Snapshot {
         scope: Scope,
@@ -151,6 +172,7 @@ enum Operation {
         token: LeaseToken,
         raw: Vec<u8>,
         claims: Option<Vec<u8>>,
+        multi: bool,
         resolve_only: bool,
         expected: PublicationResult,
     },
@@ -295,6 +317,9 @@ impl ControlClient {
                             | Operation::Catalog { .. }
                             | Operation::Feed { .. }
                             | Operation::ScopedList { .. }
+                            | Operation::HistoryRead { .. }
+                            | Operation::KnownFindings { .. }
+                            | Operation::StateRead { .. }
                             | Operation::ExistingFindingScope { .. }
                             | Operation::ProducerCredentials { .. }
                     ) && completion.rollback_confirmed
@@ -414,6 +439,102 @@ impl ControlClient {
             _ => Err(ControlError::Corrupt),
         })
     }
+    /// Find immutable repeats in this producer partition without promoting legacy scope.
+    pub async fn known_findings(
+        &self,
+        token: LeaseToken,
+        head: Option<Uuid>,
+        items: Vec<crate::FindingInput>,
+        context: ControlContext,
+    ) -> Result<Vec<Uuid>, ControlError> {
+        token.validate()?;
+        let input = crate::finding_lookup::Input { head, items };
+        input.validate()?;
+        context.check()?;
+        match self
+            .submit(Operation::KnownFindings { token, input }, context)
+            .await?
+        {
+            Reply::KnownFindings(ids) => Ok(ids),
+            _ => Err(ControlError::Corrupt),
+        }
+    }
+    /// Current producer lease reads its own bounded retained metadata only.
+    pub async fn read_window_history(
+        &self,
+        token: LeaseToken,
+        input: crate::HistoryInput,
+        context: ControlContext,
+    ) -> Result<crate::HistoryPage, ControlError> {
+        input.validate(&token)?;
+        context.check()?;
+        match self
+            .submit(
+                Operation::HistoryRead {
+                    token,
+                    input,
+                    output_context: context.clone(),
+                },
+                context,
+            )
+            .await?
+        {
+            Reply::HistoryRead(result) => Ok(result),
+            _ => Err(ControlError::Corrupt),
+        }
+    }
+    /// Read state only after verifying explicit profile, quotas and runtime grants.
+    pub async fn read_window_state(
+        &self,
+        token: LeaseToken,
+        input: crate::StateReadInput,
+        profile: crate::WindowProfile,
+        context: ControlContext,
+    ) -> Result<crate::StateReadResult, ControlError> {
+        token.validate()?;
+        input.validate()?;
+        profile.validate()?;
+        context.check()?;
+        match self
+            .submit(
+                Operation::StateRead {
+                    token,
+                    input,
+                    profile: Some(profile),
+                },
+                context,
+            )
+            .await?
+        {
+            Reply::StateRead(result) => Ok(result),
+            _ => Err(ControlError::Corrupt),
+        }
+    }
+    /// Fenced exact-head metadata read; missing state does not authorize bootstrap.
+    pub async fn read_state(
+        &self,
+        token: LeaseToken,
+        input: crate::StateReadInput,
+        context: ControlContext,
+    ) -> Result<crate::StateReadResult, ControlError> {
+        token.validate()?;
+        input.validate()?;
+        context.check()?;
+        match self
+            .submit(
+                Operation::StateRead {
+                    token,
+                    input,
+                    profile: None,
+                },
+                context,
+            )
+            .await?
+        {
+            Reply::StateRead(result) => Ok(result),
+            _ => Err(ControlError::Corrupt),
+        }
+    }
     pub async fn renew(
         &self,
         token: LeaseToken,
@@ -475,7 +596,7 @@ impl ControlClient {
         publication: PublicationInput,
         context: ControlContext,
     ) -> Result<PublicationResult, ControlError> {
-        self.publication(token, publication, None, false, context)
+        self.publication(token, publication, None, false, false, context)
             .await
     }
     /// Resolve the exact retained request under current authority. Absence stays uncertain.
@@ -485,7 +606,7 @@ impl ControlClient {
         publication: PublicationInput,
         context: ControlContext,
     ) -> Result<PublicationResult, ControlError> {
-        self.publication(token, publication, None, true, context)
+        self.publication(token, publication, None, false, true, context)
             .await
     }
     pub async fn publish_scoped(
@@ -501,6 +622,7 @@ impl ControlClient {
             token,
             input.publication().clone(),
             Some(claims),
+            false,
             false,
             context,
         )
@@ -519,16 +641,40 @@ impl ControlClient {
             token,
             input.publication().clone(),
             Some(claims),
+            false,
             true,
             context,
         )
         .await
+    }
+    /// The host must verify native admission and all canonical/prior inputs.
+    /// Deserialized requests grant no authority; SQL checks current enrollment.
+    pub async fn publish_multi_event(
+        &self,
+        token: LeaseToken,
+        input: crate::MultiEventPublicationInput,
+        context: ControlContext,
+    ) -> Result<PublicationResult, ControlError> {
+        let (publication, claims) = input.sql_parts(&token.scope)?;
+        self.publication(token, publication, Some(claims), true, false, context)
+            .await
+    }
+    pub async fn resolve_multi_event_publication(
+        &self,
+        token: LeaseToken,
+        input: crate::MultiEventPublicationInput,
+        context: ControlContext,
+    ) -> Result<PublicationResult, ControlError> {
+        let (publication, claims) = input.sql_parts(&token.scope)?;
+        self.publication(token, publication, Some(claims), true, true, context)
+            .await
     }
     async fn publication(
         &self,
         token: LeaseToken,
         publication: PublicationInput,
         claims: Option<Vec<u8>>,
+        multi: bool,
         resolve_only: bool,
         context: ControlContext,
     ) -> Result<PublicationResult, ControlError> {
@@ -549,6 +695,7 @@ impl ControlClient {
                     token,
                     raw,
                     claims,
+                    multi,
                     resolve_only,
                     expected,
                 },
@@ -648,8 +795,30 @@ impl ControlClient {
         schema_owner: String,
         context: ControlContext,
     ) -> Result<(), ControlError> {
-        self.verify_credentials(schema_owner, false, false, false, context)
+        self.verify_credentials(schema_owner, false, false, false, false, context)
             .await
+    }
+    /// Explicit additive Window producer profile. Allows the current-lease fence,
+    /// never arbitrary scope inspection, table access or general object control.
+    pub async fn verify_window_producer_credentials(
+        &self,
+        schema_owner: String,
+        custody: bool,
+        restored_custody: bool,
+        context: ControlContext,
+    ) -> Result<(), ControlError> {
+        if restored_custody && !custody {
+            return Err(ControlError::Invalid);
+        }
+        self.verify_credentials(
+            schema_owner,
+            false,
+            custody,
+            restored_custody,
+            true,
+            context,
+        )
+        .await
     }
     /// Explicit producer + receipt capability; ordinary producers still refuse it.
     pub async fn verify_custody_producer_credentials(
@@ -657,7 +826,7 @@ impl ControlClient {
         schema_owner: String,
         context: ControlContext,
     ) -> Result<(), ControlError> {
-        self.verify_credentials(schema_owner, false, true, false, context)
+        self.verify_credentials(schema_owner, false, true, false, false, context)
             .await
     }
     /// Explicit producer/receipt plus existing-only restored resolution profile.
@@ -667,7 +836,7 @@ impl ControlClient {
         schema_owner: String,
         context: ControlContext,
     ) -> Result<(), ControlError> {
-        self.verify_credentials(schema_owner, false, true, true, context)
+        self.verify_credentials(schema_owner, false, true, true, false, context)
             .await
     }
     /// Validates addon-only access/identity; callers must also validate the full
@@ -696,7 +865,7 @@ impl ControlClient {
         schema_owner: String,
         context: ControlContext,
     ) -> Result<(), ControlError> {
-        self.verify_credentials(schema_owner, true, false, false, context)
+        self.verify_credentials(schema_owner, true, false, false, false, context)
             .await
     }
     async fn verify_credentials(
@@ -705,6 +874,7 @@ impl ControlClient {
         lifecycle: bool,
         custody: bool,
         restored_custody: bool,
+        window: bool,
         context: ControlContext,
     ) -> Result<(), ControlError> {
         if schema_owner.is_empty()
@@ -724,6 +894,7 @@ impl ControlClient {
                     lifecycle,
                     custody,
                     restored_custody,
+                    window,
                 },
                 context,
             )
@@ -801,6 +972,40 @@ impl ControlClient {
         }
         result
     }
+    /// Retain only an exact committed Window replay object; no release or retirement grant.
+    pub async fn pin_window_object(
+        &self,
+        token: LeaseToken,
+        input: RetentionPinInput,
+        context: ControlContext,
+    ) -> Result<ObjectControlResult, ControlError> {
+        token.validate()?;
+        context.check()?;
+        if input.kind != crate::RetentionKind::Replay {
+            return Err(ControlError::Invalid);
+        }
+        let raw = input.wire(&token.scope)?;
+        let reference = Some(crate::publication::hex(&input.object.digest()?));
+        match self
+            .submit(
+                Operation::Object {
+                    token,
+                    raw,
+                    id: input.id,
+                    state: ObjectControlState::Retained,
+                    reference,
+                    transfer: false,
+                    obsolete: false,
+                    window_pin: true,
+                },
+                context,
+            )
+            .await?
+        {
+            Reply::Object(result) => Ok(result),
+            _ => Err(ControlError::Corrupt),
+        }
+    }
     pub async fn pin_object(
         &self,
         token: LeaseToken,
@@ -834,6 +1039,68 @@ impl ControlClient {
             context,
         )
         .await
+    }
+    /// Release only after bounded complete state/history accounting excludes the object.
+    /// An exact existing release can be resolved after head advance; no object deletion.
+    pub async fn release_obsolete_replay_pin(
+        &self,
+        token: LeaseToken,
+        input: crate::ObsoleteReplayPin,
+        context: ControlContext,
+    ) -> Result<ObjectControlResult, ControlError> {
+        token.validate()?;
+        context.check()?;
+        let raw = input.wire()?;
+        match self
+            .submit(
+                Operation::Object {
+                    token,
+                    raw,
+                    id: input.id,
+                    state: ObjectControlState::Released,
+                    reference: None,
+                    transfer: false,
+                    obsolete: true,
+                    window_pin: false,
+                },
+                context,
+            )
+            .await?
+        {
+            Reply::Object(result) => Ok(result),
+            _ => Err(ControlError::Corrupt),
+        }
+    }
+    /// Release only under confirmed current state and retained same-version replacement.
+    /// This is never authority to retire or delete the physical object.
+    pub async fn release_replaced_replay_pin(
+        &self,
+        token: LeaseToken,
+        input: crate::ReplayPinReplacement,
+        context: ControlContext,
+    ) -> Result<ObjectControlResult, ControlError> {
+        token.validate()?;
+        context.check()?;
+        let raw = input.wire()?;
+        match self
+            .submit(
+                Operation::Object {
+                    token,
+                    raw,
+                    id: input.id,
+                    state: ObjectControlState::Released,
+                    reference: None,
+                    transfer: true,
+                    obsolete: false,
+                    window_pin: false,
+                },
+                context,
+            )
+            .await?
+        {
+            Reply::Object(result) => Ok(result),
+            _ => Err(ControlError::Corrupt),
+        }
     }
     /// Logical irreversible retirement only; never an authority to delete provider bytes.
     pub async fn retire_object(
@@ -942,6 +1209,9 @@ impl ControlClient {
                     id,
                     state,
                     reference,
+                    transfer: false,
+                    obsolete: false,
+                    window_pin: false,
                 },
                 context,
             )
@@ -1144,6 +1414,9 @@ async fn execute(
             | Operation::Catalog { .. }
             | Operation::Feed { .. }
             | Operation::ScopedList { .. }
+            | Operation::HistoryRead { .. }
+            | Operation::KnownFindings { .. }
+            | Operation::StateRead { .. }
             | Operation::ExistingFindingScope { .. }
             | Operation::ProducerCredentials { .. }
     ) {
@@ -1176,6 +1449,9 @@ async fn execute(
             | Operation::Catalog { .. }
             | Operation::Feed { .. }
             | Operation::ScopedList { .. }
+            | Operation::HistoryRead { .. }
+            | Operation::KnownFindings { .. }
+            | Operation::StateRead { .. }
             | Operation::ExistingFindingScope { .. }
             | Operation::ProducerCredentials { .. }
     ) {
@@ -1201,6 +1477,10 @@ async fn execute(
                         | Operation::Catalog { .. }
                         | Operation::Feed { .. }
                         | Operation::ScopedList { .. }
+                        | Operation::HistoryRead { .. }
+                        | Operation::KnownFindings { .. }
+                        | Operation::StateRead { .. }
+                        | Operation::Object { obsolete: true, .. }
                         | Operation::ExistingFindingScope { .. }
                         | Operation::ProducerCredentials { .. }
                 ) {
@@ -1229,18 +1509,20 @@ async fn execute(
             lifecycle,
             custody,
             restored_custody,
+            window,
         } = operation
         {
             let row = connection.client.query_one(
                 "SELECT NOT pg_has_role(session_user,$1::name,'MEMBER')
+                AND (NOT $5::boolean OR has_function_privilege(session_user,'signal_control.check_token(jsonb,bytea,bytea)','EXECUTE'))
                 AND (NOT $3::boolean OR has_function_privilege(session_user,'signal_control.record_receipt(jsonb,bytea,bytea,bytea)','EXECUTE'))
                 AND NOT EXISTS(SELECT 1 FROM pg_roles r WHERE pg_has_role(session_user,r.oid,'MEMBER')
                     AND (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls
                     OR has_database_privilege(r.oid,current_database(),'CREATE')
-                    OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname IN ('signal_control','signal_finding_scope','signal_custody_restore')
+                    OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname IN ('signal_control','signal_finding_scope','signal_custody_restore','signal_state_read','signal_multi_event','signal_replay_transfer','signal_window_history','signal_window_history_read','signal_replay_release','signal_window_profile','signal_finding_lookup','signal_window_pin')
                         AND (has_schema_privilege(r.oid,n.oid,'CREATE') OR pg_has_role(r.oid,n.nspowner,'MEMBER')))
                     OR EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-                        WHERE n.nspname IN ('signal_control','signal_finding_scope','signal_custody_restore')
+                        WHERE n.nspname IN ('signal_control','signal_finding_scope','signal_custody_restore','signal_state_read','signal_multi_event','signal_replay_transfer','signal_window_history','signal_window_history_read','signal_replay_release','signal_window_profile','signal_finding_lookup','signal_window_pin')
                         AND (has_function_privilege(r.oid,p.oid,'EXECUTE WITH GRANT OPTION')
                         OR (has_function_privilege(r.oid,p.oid,'EXECUTE') AND p.oid NOT IN (
                             'signal_control.acquire(jsonb,uuid,integer,bytea,bytea)'::regprocedure,
@@ -1250,10 +1532,20 @@ async fn execute(
                             OR (NOT $2::boolean AND p.oid IN (
                                 'signal_control.publish(jsonb,bytea,boolean,bytea,bytea)'::regprocedure,
                                 'signal_finding_scope.publish(jsonb,bytea,bytea,boolean,bytea,bytea,text,text)'::regprocedure))
+                            OR ($5::boolean AND NOT $2::boolean AND coalesce(p.oid=ANY(ARRAY[
+                                to_regprocedure('signal_state_read.read_state(jsonb,text,uuid,bytea,bytea)'),
+                                to_regprocedure('signal_multi_event.publish(jsonb,bytea,bytea,boolean,bytea,bytea)'),
+                                to_regprocedure('signal_replay_transfer.release_replaced(jsonb,bytea,bytea,bytea)'),
+                                to_regprocedure('signal_window_history_read.read_page(jsonb,jsonb,bytea,bytea)'),
+                                to_regprocedure('signal_replay_release.release_obsolete(jsonb,bytea,bytea,bytea)'),
+                                to_regprocedure('signal_window_profile.inspect(jsonb,jsonb,bytea,bytea)'),
+                                to_regprocedure('signal_finding_lookup.known(jsonb,jsonb,bytea,bytea)'),
+                                to_regprocedure('signal_window_pin.retain(jsonb,bytea,bytea,bytea)')]),false))
+                            OR ($5::boolean AND NOT $2::boolean AND p.oid='signal_control.check_token(jsonb,bytea,bytea)'::regprocedure)
                             OR ($3::boolean AND NOT $2::boolean AND p.oid='signal_control.record_receipt(jsonb,bytea,bytea,bytea)'::regprocedure)
                             OR ($4::boolean AND NOT $2::boolean AND p.oid=to_regprocedure('signal_custody_restore.resolve(jsonb,bytea,bytea,bytea,bytea)'))))))
                     OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-                        WHERE n.nspname IN ('signal_control','signal_finding_scope','signal_custody_restore')
+                        WHERE n.nspname IN ('signal_control','signal_finding_scope','signal_custody_restore','signal_state_read','signal_multi_event','signal_replay_transfer','signal_window_history','signal_window_history_read','signal_replay_release','signal_window_profile','signal_finding_lookup','signal_window_pin')
                         AND (pg_has_role(r.oid,c.relowner,'MEMBER')
                         OR (c.relkind IN ('r','p','v','m','f') AND
                             (has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
@@ -1262,7 +1554,7 @@ async fn execute(
                                 AND NOT has_table_privilege(r.oid,c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
                                 AND NOT has_any_column_privilege(r.oid,c.oid,'INSERT,UPDATE,REFERENCES')))
                         OR (c.relkind='S' AND has_sequence_privilege(r.oid,c.oid,'USAGE,SELECT,UPDATE'))))))",
-                &[owner, lifecycle, custody, restored_custody],
+                &[owner, lifecycle, custody, restored_custody, window],
             ).await.map_err(database_error)?;
             if !row
                 .try_get::<_, bool>(0)
@@ -1324,6 +1616,61 @@ async fn execute(
                 crate::global_feed::run(&connection.client, read, context, routines_identity)
                     .await?,
             )
+        } else if let Operation::HistoryRead {
+            token,
+            input,
+            output_context,
+        } = operation
+        {
+            Reply::HistoryRead(
+                crate::window_history_read::run(
+                    &connection.client,
+                    token,
+                    input,
+                    context,
+                    output_context,
+                    routines_identity,
+                )
+                .await?,
+            )
+        } else if let Operation::KnownFindings { token, input } = operation {
+            Reply::KnownFindings(
+                crate::finding_lookup::run(
+                    &connection.client,
+                    token,
+                    input,
+                    context,
+                    routines_identity,
+                )
+                .await?,
+            )
+        } else if let Operation::StateRead {
+            token,
+            input,
+            profile,
+        } = operation
+        {
+            if let Some(profile) = profile {
+                crate::window_profile::run(
+                    &connection.client,
+                    token,
+                    input,
+                    profile,
+                    context,
+                    routines_identity,
+                )
+                .await?;
+            }
+            Reply::StateRead(
+                crate::state_read::run(
+                    &connection.client,
+                    token,
+                    input,
+                    context,
+                    routines_identity,
+                )
+                .await?,
+            )
         } else if let Operation::ScopedList { read } = operation {
             Reply::ScopedList(
                 crate::scoped_read::run(&connection.client, read, context, routines_identity)
@@ -1354,7 +1701,7 @@ async fn execute(
                             )
                             .await
                     }
-                    Operation::RestoredCustody(_)
+                    Operation::HistoryRead { .. } | Operation::KnownFindings { .. } | Operation::StateRead { .. } | Operation::RestoredCustody(_)
                     | Operation::Administration { .. }
                     | Operation::Restore { .. }
                     | Operation::Feed { .. } | Operation::ScopedList { .. }
@@ -1374,9 +1721,22 @@ async fn execute(
                             )
                             .await
                     }
-                    Operation::Object { token, raw, .. } => {
+                    Operation::Object { token, raw, transfer, obsolete, window_pin, .. } => {
                         let token =
                             serde_json::to_value(token).map_err(|_| ControlError::Invalid)?;
+                        if *window_pin {
+                            connection.client.query_one("SELECT signal_control.check_token($1,$2,$3)",&[&token,&schema,&routines]).await.map_err(database_error)?;
+                            crate::window_pin::verify(&connection.client,context).await?;
+                            connection.client.query_one("SELECT signal_window_pin.retain($1,$2,$3,$4)",&[&token,raw,&schema,&routines]).await
+                        } else if *obsolete {
+                            connection.client.query_one("SELECT signal_control.check_token($1,$2,$3)",&[&token,&schema,&routines]).await.map_err(database_error)?;
+                            crate::replay_release::verify(&connection.client,context).await?;
+                            connection.client.query_one("SELECT signal_replay_release.release_obsolete($1,$2,$3,$4)",&[&token,raw,&schema,&routines]).await
+                        } else if *transfer {
+                            connection.client.query_one("SELECT signal_control.check_token($1,$2,$3)",&[&token,&schema,&routines]).await.map_err(database_error)?;
+                            crate::replay_transfer::verify(&connection.client,context).await?;
+                            connection.client.query_one("SELECT signal_replay_transfer.release_replaced($1,$2,$3,$4)",&[&token,raw,&schema,&routines]).await
+                        } else {
                         connection
                             .client
                             .query_one(
@@ -1384,6 +1744,7 @@ async fn execute(
                                 &[&token, raw, &schema, &routines],
                             )
                             .await
+                        }
                     }
                     Operation::Snapshot { scope, input, .. } => {
                         let scope =
@@ -1442,10 +1803,16 @@ async fn execute(
                             .await
                     }
                     Operation::Publish {
-                        token, raw, claims, resolve_only, ..
+                        token, raw, claims, multi, resolve_only, ..
                     } => {
                         let token = serde_json::to_value(token).map_err(|_| ControlError::Invalid)?;
-                        if let Some(claims) = claims {
+                        if *multi {
+                            let claims = claims.as_ref().ok_or(ControlError::Invalid)?;
+                            // Lock current store/partition before module inspection.
+                            connection.client.query_one("SELECT signal_control.check_token($1,$2,$3)", &[&token, &schema, &routines]).await.map_err(database_error)?;
+                            crate::multi_event_module::verify(&connection.client, context).await?;
+                            connection.client.query_one("SELECT signal_multi_event.publish($1,$2,$3,$4,$5,$6)", &[&token, raw, claims, resolve_only, &schema, &routines]).await
+                        } else if let Some(claims) = claims {
                             let catalog = include_str!("../../../schemas/shared-control/008-scoped-publication-catalog.sha256").trim();
                             let functions = include_str!("../../../schemas/shared-control/008-scoped-publication-functions.sha256").trim();
                             connection.client.query_one(
@@ -1467,6 +1834,9 @@ async fn execute(
                 Operation::RestoredCustody(_)
                 | Operation::Feed { .. }
                 | Operation::ScopedList { .. }
+                | Operation::HistoryRead { .. }
+                | Operation::KnownFindings { .. }
+                | Operation::StateRead { .. }
                 | Operation::ExistingFindingScope { .. }
                 | Operation::ProducerCredentials { .. }
                 | Operation::FindingScope { .. } => {

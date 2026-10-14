@@ -236,6 +236,7 @@ section!(Telemetry {
     max_record_bytes: Count,
 });
 section!(Coverage { config: Text });
+section!(Window { config: Text });
 section!(Access { config: Text });
 section!(Audit { config: Text });
 section!(Shared { config: Text });
@@ -262,6 +263,8 @@ struct Document {
     telemetry: Telemetry,
     #[serde(default, deserialize_with = "section_map")]
     coverage: Coverage,
+    #[serde(default, deserialize_with = "section_map")]
+    window: Window,
     #[serde(default, deserialize_with = "section_map")]
     access: Access,
     #[serde(default, deserialize_with = "section_map")]
@@ -467,6 +470,7 @@ impl Settings {
         mapping!(values,document.findings,{directory=>"SIGNAL_FINDINGS_DIR",max_disk_bytes=>"SIGNAL_FINDINGS_BYTES",max_findings=>"SIGNAL_FINDINGS_MAX_FINDINGS",max_record_bytes=>"SIGNAL_FINDINGS_RECORD_BYTES",max_append_rows=>"SIGNAL_FINDINGS_BATCH_EVENTS",max_append_bytes=>"SIGNAL_FINDINGS_BATCH_BYTES",max_query_rows=>"SIGNAL_FINDINGS_QUERY_LIMIT",max_query_bytes=>"SIGNAL_FINDINGS_QUERY_BYTES",max_index_bytes=>"SIGNAL_FINDINGS_INDEX_BYTES",command_capacity=>"SIGNAL_FINDINGS_COMMANDS"});
         mapping!(values,document.telemetry,{metrics_listen=>"SIGNAL_METRICS_LISTEN",queue_records=>"SIGNAL_LOG_RECORDS",queue_bytes=>"SIGNAL_LOG_BYTES",max_record_bytes=>"SIGNAL_LOG_RECORD_BYTES"});
         mapping!(values,document.coverage,{config=>"SIGNAL_COVERAGE_CONFIG"});
+        mapping!(values,document.window,{config=>"SIGNAL_WINDOW_CONFIG"});
         mapping!(values,document.access,{config=>"SIGNAL_ACCESS_CONFIG"});
         mapping!(values,document.audit,{config=>"SIGNAL_AUDIT_CONFIG"});
         mapping!(values,document.shared,{config=>"SIGNAL_SHARED_CONFIG"});

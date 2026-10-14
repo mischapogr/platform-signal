@@ -66,6 +66,7 @@ class Run(BASE.Run):
         environment = {k:v for k,v in os.environ.items() if not k.startswith('SIGNAL_')}
         environment.update(SIGNAL_CONTROL_FIXTURE=str(self.control), SIGNAL_STANDARD_ROOT=str(self.out),
                            SIGNAL_STANDARD_BACKEND=self.fixture_id, SIGNAL_STANDARD_PHASE=phase)
+        if getattr(self,'window_mode',False):environment['SIGNAL_STANDARD_WINDOW']='true'
         if getattr(self,'audit_mode',False):environment['SIGNAL_STANDARD_AUDIT']='true'
         if getattr(self,'custody_mode',False):environment['SIGNAL_STANDARD_CUSTODY']='true'
         command = ([str(self.direct_offline),'standard_offline_fixture','--ignored','--exact','--nocapture']
@@ -91,6 +92,14 @@ class Run(BASE.Run):
             'verify_restored':['phase: Standard-restored-native-publication-original-WAL-floor-and-private-cursor-qualified'],
             'restore_scope_stage':['phase: Standard-populated-scoped-restore-stage-core-only-denial-counter-corruption-qualified'],
             'verify_audit_empty':['phase: Standard-audit-lifecycle-original-empty-DB-WAL-floor-checkpoint-qualified'],
+            'window_saved':['phase: actual-Standard-WINDOW-original-prepared-crash-request-claims-DB-WAL-qualified'],
+            'window_recovered':['phase: actual-Standard-WINDOW-original-prepared-crash-request-claims-DB-WAL-qualified'],
+            'window_verify':['phase: actual-Standard-WINDOW-original-sequences-findings-history-DB-WAL-qualified'],
+            'window_guard_snapshot':['phase: Standard-WINDOW-window_guard_snapshot-complete'],
+            'window_guard_verify':['phase: Standard-WINDOW-window_guard_verify-complete'],
+            'window_deny_pin':['phase: Standard-WINDOW-window_deny_pin-complete'],
+            'window_allow_pin':['phase: Standard-WINDOW-window_allow_pin-complete'],
+
             'verify':['phase: Standard-process-exact-findings-facts-DB-WAL-checkpoint-original-floor-qualified'],
             'retirement':['phase: Standard-stopped-original-WAL-explicit-holds-retirement-stale-fence-qualified'],
             'retirement_restored':['phase: Standard-restored-stopped-original-WAL-explicit-holds-retirement-stale-fence-qualified'],
@@ -100,6 +109,8 @@ class Run(BASE.Run):
             'verify_unprepared_after':['phase: Standard-unprepared-native-restart-held-original-event-floor-checkpoints-unchanged-qualified'],
         }[phase]
         if phase=='prepare':
+            if getattr(self,'window_mode',False):
+                markers=markers+['phase: Standard-WINDOW-readonly-optional-history-table-column-DDL-routine-PUBLIC-refusals-qualified']
             if self.direct_offline is not None:
                 self.offline_binary = self.direct_offline
             else:
@@ -551,6 +562,173 @@ class OnboardingRun(Run):
             self.onboarding_checkpoint=self.checkpoint()
         finally:
             self.onboarding_revoked=False
+            self.host_evidence.close()
+
+class WindowRun(OnboardingRun):
+    window_mode=True
+
+    def env(self):
+        environment=super().env()
+        if (self.out/'window.json').exists():environment['SIGNAL_WINDOW_CONFIG']=str(self.out/'window.json')
+        return environment
+
+    def findings(self):
+        status,body=self.request('/v1/findings?limit=100')
+        if status!=200:raise RuntimeError('WINDOW findings request failed')
+        return json.loads(body)['findings']
+
+    def send(self,event,checkpoint):
+        status,body=self.request('/v1/events',method='POST',body=event)
+        if status!=202 or json.loads(body)['event_ids']!=[event['id']]:raise RuntimeError('WINDOW canonical admission')
+        self.wait(lambda:self.checkpoint()==checkpoint)
+
+    def oracle(self,checkpoint):
+        BASE.write_json(self.out/'window-expected.json',{'checkpoint':checkpoint,'event_ids':self.window_events})
+        self.offline('window_verify',label='window-oracle-'+str(checkpoint))
+
+    def reject_window_configuration(self):
+        path=self.out/'window.json';original=path.read_bytes()
+        for label,change in [('bootstrap',lambda d:d['shared'].update(bootstrap_checkpoint=1)),
+                              ('implicit-bootstrap',lambda d:d['shared'].pop('bootstrap_checkpoint')),
+                              ('quota',lambda d:d['policy'].update(max_history_assessments=31))]:
+            document=json.loads(original);change(document);BASE.write_json(path,document)
+            child=self.spawn([str(self.binary)],self.env(),'window-refused-'+label)
+            try:
+                child.wait(timeout=7)
+                if child.returncode==0:raise RuntimeError('invalid WINDOW configuration started')
+                text=(self.out/('window-refused-'+label+'.log')).read_text()
+                if 'shared control authority is stale or denied' not in text:raise RuntimeError('WINDOW refused for unexpected reason')
+            finally:
+                if child.poll() is None:child.kill();child.wait(timeout=2)
+                self.reap_log(child);self.reaped(child);path.write_bytes(original)
+            time.sleep(16)  # The refused startup's actual owner lease must expire.
+        self.record('Standard_WINDOW_explicit_bootstrap_and_enrolled_quota_mismatch_refused')
+
+    def reject_existing_state_changes(self):
+        self.offline('window_guard_snapshot')
+        path=self.out/'window.json';original=path.read_bytes()
+        for label,expected in [('missing-pin-permission','shared control authority is stale or denied'),
+                               ('revision-change','shared window control evidence refused: shared control request conflicts with retained state')]:
+            if label=='missing-pin-permission':self.offline('window_deny_pin')
+            else:
+                document=json.loads(original);document['policy']['revision']='fixture-v2'
+                BASE.write_json(path,document)
+            child=None
+            try:
+                child=self.spawn([str(self.binary)],self.env(),'window-refused-'+label)
+                child.wait(timeout=7)
+                if child.returncode==0:raise RuntimeError('WINDOW existing-state guard started')
+                if expected not in (self.out/('window-refused-'+label+'.log')).read_text():
+                    raise RuntimeError('WINDOW existing-state guard refused for unexpected reason: '+label)
+            finally:
+                if child is not None:
+                    if child.poll() is None:child.kill();child.wait(timeout=2)
+                    self.reap_log(child);self.reaped(child)
+                path.write_bytes(original)
+                if label=='missing-pin-permission':self.offline('window_allow_pin')
+            time.sleep(16)  # Preserve the real lease boundary after startup refusal.
+            self.record('Standard_WINDOW_'+label.replace('-','_')+'_startup_refused_original_state_unchanged')
+        self.offline('window_guard_verify')
+
+    def prepared_crash(self):
+        self.host_evidence.publish();self.start_server()
+        environment={k:v for k,v in os.environ.items() if not k.startswith('SIGNAL_')}
+        environment.update(SIGNAL_CONTROL_FIXTURE=str(self.control),SIGNAL_STANDARD_ROOT=str(self.out),
+            SIGNAL_STANDARD_BACKEND=self.fixture_id,SIGNAL_STANDARD_PHASE='crash_lock',SIGNAL_STANDARD_WINDOW='true')
+        child=self.spawn([str(self.offline_binary),'standard_offline_fixture','--ignored','--exact','--nocapture'],environment,'window-publication-lock')
+        try:
+            self.wait(lambda:(self.out/'crash-lock-ready').is_file(),seconds=3)
+            payload=self.host_evidence.evidence();self.host_evidence.publish(payload)
+            end=datetime.datetime.fromisoformat(payload['interval']['end'].replace('Z','+00:00'))
+            at=(end-datetime.timedelta(seconds=5)).isoformat().replace('+00:00','Z')
+            event={'id':str(uuid.uuid4()),'timestamp':at,'observed_at':at,'source':{'type':'query-simulation','name':'fixture-auth'},
+                'message':'WINDOW original prepared crash fixture','resource':{'kind':'host','id':'host-a','account_id':'a'},
+                'attributes':{'authentication':{'identity_authority':'fixture','principal_id':'next-user','target_id':'fixture-target','outcome':'failure'},'producer':{'boot_id':'fixture-boot','sequence':3}}}
+            if self.request('/v1/events',method='POST',body=event)[0]!=202:raise RuntimeError('WINDOW crash admission')
+            observed={};recovery=self.server_root/'wal/recovery'
+            def blocked():
+                if self.server.poll() is not None:raise RuntimeError('WINDOW producer exited before SIGKILL')
+                if not recovery.is_file() or not (self.out/'crash-commit-blocked').is_file():return False
+                frame=recovery.read_bytes()
+                if not 64<len(frame)<=4*1024*1024+64 or frame[:8]!=b'SIGREC01':raise RuntimeError('WINDOW original slot bounds')
+                if int.from_bytes(frame[24:32],'little')!=len(frame)-64 or hashlib.sha256(frame[:32]+frame[64:]).digest()!=frame[32:64]:raise RuntimeError('WINDOW original slot hash')
+                entry=json.loads(frame[64:])
+                if entry['phase']['state']!='multi_prepared':return False
+                observed.update(frame=frame,entry=entry);return True
+            self.wait(blocked,seconds=3)
+            if self.checkpoint()!=5:raise RuntimeError('WINDOW blocked publication advanced ACK')
+            (self.out/'window-crash-frame.bin').write_bytes(observed['frame']);BASE.write_json(self.out/'window-crash-entry.json',observed['entry'])
+            self.stop('server',kill=True);killed=time.monotonic()
+            child.wait(timeout=13);self.reap_log(child);self.reaped(child)
+            if child.returncode:raise RuntimeError('WINDOW owned lock cleanup failed')
+            self.offline('window_saved')
+            time.sleep(max(0,killed+16-time.monotonic()))
+            self.host_evidence.publish();self.start_server()
+            self.wait(lambda:self.checkpoint()==6)
+            self.stop('server');self.offline('window_recovered')
+            self.window_checkpoint=6
+            self.record('Standard_WINDOW_Main_blocked_publication_SIGKILL_original_request_claims_once_recovered')
+        finally:
+            if child.poll() is None:child.kill();child.wait(timeout=2);self.reap_log(child);self.reaped(child)
+
+    def run(self):
+        self.start_fixture();self.start_provider();self.offline('prepare');self.bootstrap_coverage()
+        host_module=module('standard_window_signed_host','scripts/fixtures/onboarding-host.py')
+        vectors=BASE.read_json(ROOT/'tests/fixtures/source-coverage/backend-vectors.json')
+        self.host_evidence=host_module.Host(self.out,ROOT,'standard-coverage',vectors['bindings'][0]['input'],
+            vectors['profiles'][0]['input'],'generic.object-query',{'source':'query-simulation','account':'a','resource':'host-a'})
+        onboarding=BASE.read_json(self.host_evidence.policy)
+        detection=dict(onboarding['detections'][0]);detection['id']='fixture.auth-window'
+        onboarding['detections'].append(detection);BASE.write_json(self.host_evidence.policy,onboarding)
+        scope=BASE.read_json(self.out/'shared.json')['scope']
+        policy={'schema_version':1,'partition':scope['partition_id'],'rule_id':detection['id'],'revision':'fixture-v1',
+                'title':'Fixture authentication window','severity':'high','threshold':2,'window_ms':60000,
+                'lateness_ms':10000,'ttl_ms':70000,'max_keys':4,'max_attempts_per_key':16,'max_attempts':32,
+                'max_outputs':32,'max_state_bytes':65536,'max_history_assessments':32,'max_history_bytes':262144,
+                'history_retention_ms':60000}
+        BASE.write_json(self.out/'window.json',{'schema_version':2,'shared':{'state_key':'standard-window','bootstrap_checkpoint':0,
+            'recovery':{'files':128,'object_bytes':67108864,'decoded_bytes':67108864,'scanned_rows':4096,'result_bytes':65536}},'policy':policy})
+        try:
+            self.reject_window_configuration()
+            self.start_server()
+            payload=self.host_evidence.evidence();self.host_evidence.publish(payload)
+            if self.readiness()[1]['stage']!='detections_active':raise RuntimeError('WINDOW signed detection inventory not active')
+            end=datetime.datetime.fromisoformat(payload['interval']['end'].replace('Z','+00:00'))
+            at=(end-datetime.timedelta(seconds=5)).isoformat().replace('+00:00','Z')
+            events=[{'id':str(uuid.uuid4()),'timestamp':at,'observed_at':at,'source':{'type':'query-simulation','name':'fixture-auth'},
+                'resource':{'kind':'host','id':'host-a','account_id':'a'},'message':'WINDOW Main fixture',
+                'attributes':{'authentication':{'identity_authority':'fixture','principal_id':'fixture-user','target_id':'fixture-target','outcome':'failure'},
+                              'producer':{'boot_id':'fixture-boot','sequence':sequence}}} for sequence in (1,2)]
+            self.window_events=[event['id'] for event in events]
+            for checkpoint,event in enumerate(events,1):self.send(event,checkpoint)
+            if len(self.findings())!=2:raise RuntimeError('WINDOW sealed before source watermark')
+            self.record('Standard_WINDOW_same_timestamp_split_batches_wait_for_source_watermark')
+            # Independently signed fixture coverage advances; no event attributes
+            # can move the watermark. Both attempts keep their original positions.
+            later=(end+datetime.timedelta(seconds=15)).isoformat().replace('+00:00','Z')
+            payload['interval']['end']=later;payload['coverage_record']['coverage_end']=later
+            payload['coverage_record']['last_verified_at']=later;payload['coverage_record']['provenance']['observed_at']=later
+            self.host_evidence.publish(payload)
+            self.send(events[0],3)
+            findings=self.findings();matches=[f for f in findings if f['rule_id']==detection['id']]
+            if len(findings)!=3 or len(matches)!=1 or matches[0]['event_ids']!=self.window_events:
+                raise RuntimeError('WINDOW delayed retained anchor or exact retry changed findings')
+            self.record('Standard_WINDOW_protected_delayed_anchor_and_exact_retry_original_findings')
+            self.send(events[0],4)
+            if self.findings()!=findings:raise RuntimeError('WINDOW second retry changed stored findings')
+            self.stop('server',kill=True);killed=time.monotonic();self.oracle(4)
+            self.record('Standard_WINDOW_SIGKILL_confirmed_original_state_history_checkpoint')
+            time.sleep(max(0,killed+16-time.monotonic()))
+            self.host_evidence.publish();self.start_server()
+            self.send(events[1],5)
+            if self.findings()!=findings:raise RuntimeError('WINDOW restart replay changed original findings')
+            self.stop('server');self.oracle(5)
+            self.window_checkpoint=5
+            self.record('Standard_WINDOW_Main_restart_duplicate_Parquet_original_sequence_scope_bytes_and_replay_pins')
+            time.sleep(16)
+            self.reject_existing_state_changes()
+            self.prepared_crash()
+        finally:
             self.host_evidence.close()
 
 class CustodyRun(Run):
@@ -1010,16 +1188,18 @@ class AuditRun(Run):
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--server',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
-    parser.add_argument('--scenario',choices=('pipeline','audit','private','restore','custody','recovery','checkpoint-recovery','restored-custody','onboarding'),default='pipeline')
+    parser.add_argument('--scenario',choices=('pipeline','audit','private','restore','custody','recovery','checkpoint-recovery','restored-custody','onboarding','window'),default='pipeline')
     args=parser.parse_args();args.output.mkdir(parents=True,mode=0o700)
-    fixture=Path(os.environ['SIGNAL_CONTROL_FIXTURE']);run=({'onboarding':OnboardingRun,'audit':AuditRun,'private':PrivateRun,'restore':PrivateRun,'custody':CustodyRun,'recovery':CustodyRun,'checkpoint-recovery':CustodyRun,'restored-custody':RestoredCustodyRun}.get(args.scenario,Run))(args.output.resolve(),args.server.resolve(),fixture.resolve())
+    fixture=Path(os.environ['SIGNAL_CONTROL_FIXTURE']);run=({'window':WindowRun,'onboarding':OnboardingRun,'audit':AuditRun,'private':PrivateRun,'restore':PrivateRun,'custody':CustodyRun,'recovery':CustodyRun,'checkpoint-recovery':CustodyRun,'restored-custody':RestoredCustodyRun}.get(args.scenario,Run))(args.output.resolve(),args.server.resolve(),fixture.resolve())
     run.restore_mode=args.scenario in ('restore','restored-custody')
     run.recovery_mode=args.scenario in ('recovery','checkpoint-recovery')
     run.checkpoint_recovery_mode=args.scenario=='checkpoint-recovery'
     report={'schema_version':1,'status':'failed','scope':'actual Standard executable, owned PostgreSQL TLS and persistent S3 protocol simulation; no AWS/ARM64/release proof'}
     try:
         run.run()
-        if args.scenario=='onboarding':
+        if args.scenario=='window':
+            report.update(status='passed_simulated',scope='Actual Standard WINDOW Main startup, split batches, signed source watermark, exact retries and SIGKILL/restart with PostgreSQL TLS and simulated S3/host authority; no AWS/ARM64/release proof',scenarios=run.scenarios,binary_sha256=binary_digest(run.binary),provider_calls=run.provider_calls,child_capacity=3,log_capacity=24,window_qualified=True,wal_checkpoint=run.window_checkpoint,event_ids=run.window_events)
+        elif args.scenario=='onboarding':
             report.update(status='passed_simulated',scope='Actual onboarding-enabled Standard Main, PostgreSQL TLS/S3 simulation, mTLS native identity, signed synthetic host checks and real Chromium through verified backend mTLS relay; no actual vendor/AWS/ARM64/release proof',scenarios=run.scenarios,binary_sha256=binary_digest(run.binary),provider_calls=run.provider_calls,child_capacity=3,log_capacity=24,onboarding_qualified=True,wal_checkpoint=run.onboarding_checkpoint,event_ids=run.onboarding_events,browser=run.browser_report,unsupported_browser=run.unsupported_browser_report)
         elif args.scenario in ('custody','recovery','checkpoint-recovery'):
             report.update(status='passed_simulated',scope='Actual Standard Main selected custody API with native mTLS SDK, explicit identity permission, stopped-original retention and fresh same-description restart/release; PostgreSQL TLS and S3 retention simulation; no AWS/HA/ARM64/release proof',scenarios=run.scenarios,binary_sha256=binary_digest(run.binary),provider_calls=run.provider_calls,child_capacity=3,log_capacity=24)

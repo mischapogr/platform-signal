@@ -1036,7 +1036,7 @@
     {
       "id": "HOST-AUTH",
       "title": "Selected host/runtime and authentication source profiles",
-      "status": "pending",
+      "status": "passed_simulated",
       "dependencies": [
         "SMALL-PILOT"
       ],
@@ -1049,7 +1049,8 @@
         "target/host-runtime-20261014/ACCEPTANCE.json",
         "target/host-runtime-probe-20261014/ACCEPTANCE.json",
         "target/host-runtime-probe-fix-20261014/ACCEPTANCE.json",
-        "target/host-native-schema-20261014/ACCEPTANCE.json"
+        "target/host-native-schema-20261014/ACCEPTANCE.json",
+        "target/host-native-schema-20261014/HOST-AUTH-ACCEPTANCE.json"
       ],
       "references": [
         "docs/source-detection-catalog.md",
@@ -1060,7 +1061,7 @@
         "status": "passed_simulated",
         "evidence": "target/host-auth-20261014/ACCEPTANCE.json"
       },
-      "notes": "2026-10-14 strict auth-json SDK/agent profile accepted:958default/1019all-feature and8frozen gates,4normalizer regressions and actual agent/file/spool/authenticated server/Parquet/cursor restart. Stable authority/principal/target/method/session/time and numeric producer continuity retained, IP context only; unknown credential and sensor-coverage claim fields rejected. Source producer synthetic; runtime_sensor_coverage remains not_assessed. Full item pending selected runtime sensor capture/coverage proof. Selected Falco0.44.1 metadata/health and explicit agent input foundation now accepted:994default/1055all-feature,9frozen gates and exact five-record synthetic spool/SIGKILL/query replay. Native CLI confirms supported fields and corrected evt.dir-free rules; actual native CI capture/independent coverage remains pending. Full HOST-AUTH stays pending.",
+      "notes": "2026-10-14 strict auth-json SDK/agent profile accepted:958default/1019all-feature and8frozen gates,4normalizer regressions and actual agent/file/spool/authenticated server/Parquet/cursor restart. Stable authority/principal/target/method/session/time and numeric producer continuity retained, IP context only; unknown credential and sensor-coverage claim fields rejected. Source producer synthetic; runtime_sensor_coverage remains not_assessed. Full item pending selected runtime sensor capture/coverage proof. Selected Falco0.44.1 metadata/health and explicit agent input foundation now accepted:994default/1055all-feature,9frozen gates and exact five-record synthetic spool/SIGKILL/query replay. Native CLI confirms supported fields and corrected evt.dir-free rules; actual native CI capture/independent coverage remains pending. Full HOST-AUTH stays pending. Selected complete local/native item acceptance verified at42df283: both hosted native kernel exec/file-open/connect and explicit counters, exact nine-record agent/spool/SIGKILL/server/query replay, source/raw/identity/cleanup and primary ZIP digests verified. Authentication source retains local simulation proof. Production independent coverage/full-host visibility/credential-read/prolonged scope not assessed.",
       "runtime_foundation_slice": {
         "status": "passed_simulated",
         "evidence": "target/host-runtime-20261014/ACCEPTANCE.json"
@@ -1182,7 +1183,7 @@
     {
       "id": "WINDOW",
       "title": "First bounded window detector D10",
-      "status": "pending",
+      "status": "passed_simulated",
       "dependencies": [
         "FINDINGS-CURSOR",
         "HOST-AUTH",
@@ -1192,11 +1193,17 @@
         "Finite key/event/byte/TTL bounds, event-time/watermark/lateness/overflow and replay; atomic state/finding/checkpoint recovery."
       ],
       "evidence": [
-        "target/goal-execution-20261007/WINDOW/"
+        "target/window-20261014/ACCEPTANCE.json",
+        "target/window-20261014/FINAL-WORKSPACE-ACCEPTANCE.json",
+        "target/window-20261014/window-final-small/window-native-report.json",
+        "target/window-20261014/window-reader-fixed/report.json",
+        "target/window-20261014/window-final-shared-authorized/report.json"
       ],
       "references": [
-        "docs/source-detection-catalog.md"
-      ]
+        "docs/source-detection-catalog.md",
+        "docs/64-authentication-window.md"
+      ],
+      "notes": "WINDOW passes local simulation acceptance \u2014 2026-10-15. Bounded authentication event-time/watermark/lateness, canonical replay identity, key/event/byte/TTL/output/history limits, unknown coverage and atomic state/findings/checkpoint recovery are qualified. Six frozen workspace gates pass1048default/1117all-feature tests, both strict Clippy modes, formatting and14workspace boundaries. Actual Small Main passes5WINDOW/8onboarding checks; Standard Main passes8scenarios; shared recovery passes53checks in206.73s. Runtime source bindings109/266/246 match; retained Small/Standard executable identities match and owned cleanup succeeds. Writer review closed three reproduced findings; it is not independent release review. Evidence:`target/window-20261014/ACCEPTANCE.json`; [contract64](64-authentication-window.md). LinuxAMD64 with actual SQLite/PostgreSQL/Parquet/WAL and SIGKILL; signed host/object authority is synthetic. Inventory35accepted/17unfinished. Current remote/native/container/Kubernetes, AWS/EKS, released dependencies, version and publication remain separate. Next local dependency-ready detector:SENSOR-HEALTH; Phase9 AWS collection requires a separate task."
     },
     {
       "id": "STATE",

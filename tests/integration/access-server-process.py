@@ -28,7 +28,7 @@ class Owned(BASE.Run):
     """Reuse the qualified finite process/log ownership seam only."""
     def __init__(self, out):
         self.out = out
-        self.child_capacity, self.log_capacity = 2, 16
+        self.child_capacity, self.log_capacity = 2, (24 if os.environ.get('SIGNAL_TEST_WINDOW')=='1' else 16)
         self.logs, self.processes = [], []
         self.owned, self.drains, self.log_errors = {}, {}, {}
         self.server = self.fixture = None
@@ -133,7 +133,9 @@ def main():
             if process.poll() is None:
                 process.send_signal(signal.SIGKILL if kill else signal.SIGTERM)
             result = process.wait(timeout=10)
-            if not kill:
+            if kill:
+                assert result == -signal.SIGKILL, "owned process was not actually killed"
+            else:
                 assert result == 0, "server shutdown failed"
         finally:
             if process.poll() is None:
@@ -283,6 +285,19 @@ def main():
                 return response.status, body_value, dict(response.getheaders())
             finally:
                 connection.close()
+
+        def hold_request():
+            connection=http.client.HTTPConnection(host,port,timeout=6)
+            connection.putrequest('POST','/v1/events/batch')
+            connection.putheader('Content-Type','application/json')
+            connection.putheader('Authorization','Bearer write-a')
+            connection.putheader('Content-Length','128')
+            connection.endheaders()
+            connection.send(b'{"events":[')
+            # A bounded incomplete body keeps graceful drain owned until the
+            # explicit request deadline; it cannot admit a WAL record.
+            time.sleep(.05)
+            return connection
 
         def start(overrides=None, fail=False):
             nonlocal process, port, generation
@@ -496,7 +511,7 @@ def main():
             spec = importlib.util.spec_from_file_location("signal_onboarding_fixture", REPO / "scripts/onboarding-native-fixture.py")
             fixture = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(fixture)
-            fixture.exercise(root, REPO, coverage_bindings[0], vectors["profiles"][0]["input"], start, stop, request, coverage_request, counters)
+            fixture.exercise(root, REPO, coverage_bindings[0], vectors["profiles"][0]["input"], start, stop, request, coverage_request, counters, hold_request)
         config["policy"]["bindings"] = [b for b in config["policy"]["bindings"] if b["subject"] != "read-a"]
         config_path.write_text(json.dumps(config))
         start()

@@ -54,6 +54,7 @@ pub(crate) struct RuntimeInputs<'a> {
     pub identity: bool,
     pub coverage: bool,
     pub onboarding: bool,
+    pub window: bool,
     pub separate_metrics: bool,
 }
 
@@ -191,6 +192,7 @@ pub(crate) fn runtime_revision(
         ("mode.identity", u128::from(input.identity)),
         ("mode.coverage", u128::from(input.coverage)),
         ("mode.onboarding", u128::from(input.onboarding)),
+        ("mode.window", u128::from(input.window)),
         ("mode.metrics", u128::from(input.separate_metrics)),
     ];
     for (name, value) in fields {

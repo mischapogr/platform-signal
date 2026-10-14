@@ -147,6 +147,29 @@ pub struct RuleSinkMetrics {
     pub evaluated: u64,
     pub matches: u64,
     pub failures: u64,
+    pub window: Option<WindowSinkMetrics>,
+}
+/// Bounded detector health only; no source identities, policy names or evidence.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct WindowSinkMetrics {
+    pub history_assessments: usize,
+    pub history_assessment_capacity: usize,
+    pub history_bytes: usize,
+    pub history_byte_capacity: usize,
+    pub operations: usize,
+    pub operation_capacity: usize,
+    pub failures: u64,
+    pub attempts: usize,
+    pub attempt_capacity: usize,
+    pub assessments: usize,
+    pub assessment_capacity: usize,
+    pub bytes: usize,
+    pub byte_capacity: usize,
+    pub rejected: u64,
+    pub duplicates: u64,
+    pub indeterminate: usize,
+    pub coverage_gap: bool,
+    pub closed: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default)]

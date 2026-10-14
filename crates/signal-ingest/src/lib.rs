@@ -870,6 +870,51 @@ async fn metrics(State(service): State<IngestService>) -> Response {
         ] {
             let _ = writeln!(body, "{name} {value}");
         }
+        if let Some(window) = rules.window {
+            for (name, value) in [
+                ("signal_window_operations", window.operations as u64),
+                (
+                    "signal_window_history_assessments",
+                    window.history_assessments as u64,
+                ),
+                (
+                    "signal_window_history_assessment_capacity",
+                    window.history_assessment_capacity as u64,
+                ),
+                ("signal_window_history_bytes", window.history_bytes as u64),
+                (
+                    "signal_window_history_byte_capacity",
+                    window.history_byte_capacity as u64,
+                ),
+                (
+                    "signal_window_operation_capacity",
+                    window.operation_capacity as u64,
+                ),
+                ("signal_window_failures_total", window.failures),
+                ("signal_window_attempts", window.attempts as u64),
+                (
+                    "signal_window_attempt_capacity",
+                    window.attempt_capacity as u64,
+                ),
+                ("signal_window_assessments", window.assessments as u64),
+                (
+                    "signal_window_assessment_capacity",
+                    window.assessment_capacity as u64,
+                ),
+                ("signal_window_bytes", window.bytes as u64),
+                ("signal_window_byte_capacity", window.byte_capacity as u64),
+                ("signal_window_rejected_total", window.rejected),
+                ("signal_window_duplicates_total", window.duplicates),
+                (
+                    "signal_window_indeterminate_assessments",
+                    window.indeterminate as u64,
+                ),
+                ("signal_window_coverage_gap", u64::from(window.coverage_gap)),
+                ("signal_window_closed", u64::from(window.closed)),
+            ] {
+                let _ = writeln!(body, "{name} {value}");
+            }
+        }
     }
     if let Some(findings) = sink.findings {
         use std::fmt::Write;

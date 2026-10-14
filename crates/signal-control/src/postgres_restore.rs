@@ -523,6 +523,36 @@ async fn lock(db: &Client, owner: &str, profile: RestoreProfile) -> Result<(), C
         // A core-only inventory cannot authorize unaccounted supplemental history.
         return Err(ControlError::Corrupt);
     }
+    let multi: bool = db
+        .query_one(
+            "SELECT to_regnamespace('signal_multi_event') IS NOT NULL",
+            &[],
+        )
+        .await
+        .map_err(crate::client::database_error)?
+        .try_get(0)
+        .map_err(|_| ControlError::Corrupt)?;
+    if multi {
+        if profile != RestoreProfile::CatalogScoped {
+            return Err(ControlError::Corrupt);
+        }
+        batch(db,"LOCK TABLE signal_multi_event.profile,signal_multi_event.facts,signal_multi_event.requests IN ACCESS EXCLUSIVE MODE NOWAIT").await?;
+    }
+    let history: bool = db
+        .query_one(
+            "SELECT to_regnamespace('signal_window_history') IS NOT NULL",
+            &[],
+        )
+        .await
+        .map_err(crate::client::database_error)?
+        .try_get(0)
+        .map_err(|_| ControlError::Corrupt)?;
+    if history {
+        if !multi || profile != RestoreProfile::CatalogScoped {
+            return Err(ControlError::Corrupt);
+        }
+        batch(db,"LOCK TABLE signal_window_history.profile,signal_window_history.assessments IN ACCESS EXCLUSIVE MODE NOWAIT").await?;
+    }
     Ok(())
 }
 fn hash_json<T: Serialize>(value: &T) -> Result<[u8; 32], ControlError> {
@@ -608,6 +638,9 @@ async fn inventory(
     let mut hashes = Vec::new();
     for table in plan.profile.tables() {
         hashes.push((table, table_hash(db, table).await?));
+    }
+    for (table, digest) in multi_event_hashes(db, plan.profile).await? {
+        hashes.push((table, digest));
     }
     let checkpoint_sha256 = hash_json(&hashes)?;
     let feed_position = field::<i64>(&head, 6)?
@@ -809,7 +842,63 @@ async fn data_hash(db: &Client, profile: RestoreProfile) -> Result<[u8; 32], Con
             values.push((table, digest.try_into().map_err(|_| ControlError::Corrupt)?));
         }
     }
+    values.extend(multi_event_hashes(db, profile).await?);
     hash_json(&values)
+}
+
+async fn multi_event_hashes(
+    db: &Client,
+    profile: RestoreProfile,
+) -> Result<Vec<(&'static str, [u8; 32])>, ControlError> {
+    let present: bool = db
+        .query_one(
+            "SELECT to_regnamespace('signal_multi_event') IS NOT NULL",
+            &[],
+        )
+        .await
+        .map_err(crate::client::database_error)?
+        .try_get(0)
+        .map_err(|_| ControlError::Corrupt)?;
+    if !present {
+        return Ok(Vec::new());
+    }
+    if profile != RestoreProfile::CatalogScoped {
+        return Err(ControlError::Corrupt);
+    }
+    let mut tables = vec![
+        "signal_multi_event.profile",
+        "signal_multi_event.facts",
+        "signal_multi_event.requests",
+    ];
+    let history: bool = db
+        .query_one(
+            "SELECT to_regnamespace('signal_window_history') IS NOT NULL",
+            &[],
+        )
+        .await
+        .map_err(crate::client::database_error)?
+        .try_get(0)
+        .map_err(|_| ControlError::Corrupt)?;
+    if history {
+        tables.extend([
+            "signal_window_history.profile",
+            "signal_window_history.assessments",
+        ]);
+    }
+    let mut values = Vec::with_capacity(tables.len());
+    for table in tables {
+        let sql = format!(
+            "SELECT sha256(convert_to(coalesce(jsonb_agg(h ORDER BY h),'[]'::jsonb)::text,'UTF8')) FROM (SELECT encode(sha256(convert_to(to_jsonb(t)::text,'UTF8')),'hex') AS h FROM {table} t) s"
+        );
+        let digest: Vec<u8> = db
+            .query_one(&sql, &[])
+            .await
+            .map_err(crate::client::database_error)?
+            .try_get(0)
+            .map_err(|_| ControlError::Corrupt)?;
+        values.push((table, digest.try_into().map_err(|_| ControlError::Corrupt)?));
+    }
+    Ok(values)
 }
 fn check_destination(
     plan: &RestorePlan,

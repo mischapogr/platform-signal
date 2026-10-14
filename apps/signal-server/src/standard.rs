@@ -1,6 +1,9 @@
 //! Standard executable composition; existing owner enrollment only.
 use crate::{AppError, config::Settings, logging::LoggerGuard};
 #[cfg(feature = "s3-query")]
+#[path = "standard_findings.rs"]
+mod finding_batch;
+#[cfg(feature = "s3-query")]
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum Error {
     #[error(transparent)]
@@ -9,6 +12,8 @@ pub(crate) enum Error {
     Recovery(#[from] signal_server::shared_recovery::RecoveryError),
     #[error(transparent)]
     Feed(#[from] signal_server::shared_feed::SharedFeedError),
+    #[error(transparent)]
+    Window(#[from] crate::standard_window::Error),
     #[error("Standard runtime held; unfinished events remain in WAL")]
     Held,
     #[error("Standard consumer task failed")]
@@ -172,12 +177,17 @@ mod host {
         matches: AtomicU64,
         failures: AtomicU64,
         logging: crate::logging::LogWriter,
+        window: Option<Arc<crate::standard_window::Health>>,
+        loaded_rules: usize,
     }
     impl Sink {
         fn deadline(&self) -> Option<Instant> {
             self.lease_deadline.lock().ok().map(|d| *d)
         }
         fn hold(&self) {
+            if let Some(window) = &self.window {
+                window.stop();
+            }
             self.held.store(true, Ordering::Release);
             self.admission.close();
         }
@@ -225,6 +235,13 @@ mod host {
             let mut m = self.admission.metrics();
             m.closed |= !self.live();
             m.audit = self.audit.as_ref().map(|a| a.metrics());
+            m.rules = Some(signal_protocol::RuleSinkMetrics {
+                loaded: self.loaded_rules,
+                evaluated: self.evaluated.load(Ordering::Relaxed),
+                matches: self.matches.load(Ordering::Relaxed),
+                failures: self.failures.load(Ordering::Relaxed),
+                window: self.window.as_ref().map(|w| w.metrics()),
+            });
             m.closed |= m.audit.is_some_and(|a| a.held)
                 || self
                     .coverage
@@ -408,6 +425,13 @@ mod host {
         for (name, value) in counters {
             let _ = writeln!(&mut out, "signal_shared_{name}_total {value}");
         }
+        if let Some(window) = &s.window {
+            let (pins, capacity) = window.pins();
+            let _ = writeln!(
+                &mut out,
+                "signal_shared_window_replay_pin_queue_depth {pins}\nsignal_shared_window_replay_pin_queue_capacity {capacity}"
+            );
+        }
         out
     }
     struct ConsumerGuard {
@@ -422,6 +446,7 @@ mod host {
     }
     struct Consumer {
         onboarding: Option<Arc<crate::onboarding::Host>>,
+        window: Option<crate::standard_window::Consumer>,
         sink: Arc<Sink>,
         token: LeaseToken,
         head: Option<Uuid>,
@@ -438,6 +463,7 @@ mod host {
     async fn consume(input: Consumer) -> Result<(), AppError> {
         let Consumer {
             onboarding,
+            mut window,
             sink,
             mut token,
             mut head,
@@ -541,7 +567,7 @@ mod host {
                     }
                 }
             }
-            let plan = PublicationDraft {
+            let mut plan = PublicationDraft {
                 schema_version: 1,
                 id: Uuid::new_v4(),
                 previous: head,
@@ -552,18 +578,92 @@ mod host {
                 work: vec![],
                 receipts: vec![],
             };
-            let scoped = ScopedPublicationDraft::from_host(
-                plan,
-                sink.admission.enrollment(),
-                &rows,
-                derived,
-            )?;
-            let prepared = sink
-                .recovery
-                .prepare_scoped(token.clone(), scoped, rows.len(), original)
-                .await
-                .map_err(Error::from)?;
-            let result = sink.recovery.commit(prepared).await.map_err(Error::from)?;
+            let result = if let Some(window) = window.as_mut() {
+                let mut candidate = window
+                    .prepare(
+                        &rows,
+                        sink.admission.admission_floor(),
+                        sink.wal.snapshot().last_sequence,
+                        &original,
+                    )
+                    .await
+                    .map_err(Error::from)?;
+                for (_, finding) in &candidate.derived {
+                    if derived.len() + plan.findings.len() + candidate.derived.len() > finding_rows
+                    {
+                        return Err(ControlError::Full.into());
+                    }
+                    finding_bytes = finding_bytes
+                        .checked_add(
+                            serde_json::to_vec(finding.finding())
+                                .map_err(|_| ControlError::Invalid)?
+                                .len(),
+                        )
+                        .ok_or(ControlError::Full)?;
+                    if finding_bytes > finding_bytes_limit {
+                        return Err(ControlError::Full.into());
+                    }
+                }
+                sink.matches
+                    .fetch_add(candidate.derived.len() as u64, Ordering::Relaxed);
+                derived.append(&mut candidate.derived);
+                // A canonical retry may occur in this batch or have already
+                // committed. Preserve the first fact and its original scope;
+                // never recreate provenance at the retry's WAL sequence.
+                let batch =
+                    super::finding_batch::reconcile(derived, std::mem::take(&mut plan.findings))?;
+                derived = batch.scoped;
+                plan.findings = batch.legacy;
+                let candidates = batch.candidates;
+                let known = sink
+                    .control
+                    .known_findings(token.clone(), head, candidates, original.clone())
+                    .await?;
+                derived.retain(|(_, finding)| !known.contains(&finding.finding().id));
+                plan.findings.retain(|finding| !known.contains(&finding.id));
+                plan.states = vec![candidate.value.clone()];
+                let draft=signal_server::shared_multi_event::MultiEventPublicationDraft::from_retained_anchor_host(plan,sink.admission.enrollment(),&rows,&window.retained,window.prior.clone(),&window.binding.key,derived)?;
+                let prepared = sink
+                    .recovery
+                    .prepare_multi_event(token.clone(), draft, rows.len(), original)
+                    .await
+                    .map_err(Error::from)?;
+                let result = sink.recovery.commit(prepared).await.map_err(Error::from)?;
+                if sink.wal.snapshot().checkpoint != result.last_sequence
+                    || sink
+                        .wal
+                        .read_recovery(context(&cancel)?.deadline())
+                        .await?
+                        .is_some()
+                {
+                    return Err(Error::Held.into());
+                }
+                window
+                    .accept(candidate, result.last_sequence)
+                    .map_err(Error::from)?;
+                window
+                    .cleanup(&sink.control, token.clone(), result.id, context(&cancel)?)
+                    .await
+                    .map_err(Error::from)?;
+                window
+                    .refresh_history(&sink.control, token.clone(), result.id, context(&cancel)?)
+                    .await
+                    .map_err(Error::from)?;
+                result
+            } else {
+                let scoped = ScopedPublicationDraft::from_host(
+                    plan,
+                    sink.admission.enrollment(),
+                    &rows,
+                    derived,
+                )?;
+                let prepared = sink
+                    .recovery
+                    .prepare_scoped(token.clone(), scoped, rows.len(), original)
+                    .await
+                    .map_err(Error::from)?;
+                sink.recovery.commit(prepared).await.map_err(Error::from)?
+            };
             head = Some(result.id);
         }
     }
@@ -718,7 +818,7 @@ mod host {
         let preparation = async {
             let audit = audit::Control::load(&settings, &startup).await?;
             let doc = standard_config::Document::load(&settings).await?;
-            let cfg = runtime_config::load(&settings).await?;
+            let mut cfg = runtime_config::load(&settings).await?;
             resources.identity = cfg.identity.clone();
             resources.shutdown_timeout = Some(cfg.limits.shutdown_timeout);
             if cfg.identity.is_none() || cfg.tls.is_none() || cfg.config.api_token.is_some() {
@@ -751,16 +851,26 @@ mod host {
                     cancellation: stopping.clone(),
                 },
             )?;
+            if let Some(window) = &cfg.window_configuration {
+                std::io::Write::write_all(
+                    &mut revision,
+                    b"platform-signal/shared-window-rule/v1\0",
+                )
+                .map_err(|_| Error::Held)?;
+                serde_json::to_writer(&mut revision, &window.policy)
+                    .map_err(|_| ControlError::Invalid)?;
+                if let Some(shared) = window.shared() {
+                    let host = cfg.onboarding.as_ref().ok_or(ControlError::Fenced)?;
+                    std::io::Write::write_all(
+                        &mut revision,
+                        &shared.source_binding(host.window_binding()),
+                    )
+                    .map_err(|_| Error::Held)?;
+                }
+            }
             let rule_revision: [u8; 32] = Sha256::digest(&revision).into();
             let mut writer = audit::HashWriter::new();
-            cfg.rules.write_revision(
-                &mut writer,
-                64 * 1024 * 1024,
-                &signal_rules::RuleContext {
-                    deadline: startup.deadline(),
-                    cancellation: stopping.clone(),
-                },
-            )?;
+            std::io::Write::write_all(&mut writer, &revision).map_err(|_| Error::Held)?;
             let rule_hash = writer.finish();
             let runtime_revision = audit::runtime_revision(
                 audit::RuntimeInputs {
@@ -777,6 +887,7 @@ mod host {
                     identity: true,
                     coverage: cfg.coverage_configuration.is_some(),
                     onboarding: cfg.onboarding.is_some(),
+                    window: cfg.window_configuration.is_some(),
                     separate_metrics: cfg.metrics_listen.is_some(),
                 },
                 &startup,
@@ -794,7 +905,16 @@ mod host {
             let (control, reader) = doc.clients(&settings)?;
             resources.control = Some(control.clone());
             resources.reader = Some(reader.clone());
-            if doc.custody.as_ref().is_some_and(|c| c.restored_receipts) {
+            if cfg.window_configuration.is_some() {
+                control
+                    .verify_window_producer_credentials(
+                        doc.schema_owner.clone(),
+                        doc.custody.is_some(),
+                        doc.custody.as_ref().is_some_and(|c| c.restored_receipts),
+                        context(&stopping)?.limited_to(startup.deadline()),
+                    )
+                    .await?;
+            } else if doc.custody.as_ref().is_some_and(|c| c.restored_receipts) {
                 control
                     .verify_restored_custody_producer_credentials(
                         doc.schema_owner.clone(),
@@ -886,6 +1006,30 @@ mod host {
                 return Err(ControlError::Fenced.into());
             }
             let head = catalog.head()?;
+            let window = match cfg.window_configuration.take() {
+                Some(configuration) => Some(
+                    crate::standard_window::Consumer::open(crate::standard_window::Startup {
+                        configuration,
+                        host: cfg.onboarding.clone().ok_or(ControlError::Fenced)?,
+                        producer: admission.enrollment().clone(),
+                        revision: rule_revision,
+                        backend: doc.backend_id,
+                        control: &control,
+                        objects: resources.publish_io.as_ref().ok_or(ControlError::Invalid)?,
+                        codec: resources
+                            .publish_codec
+                            .as_ref()
+                            .ok_or(ControlError::Invalid)?,
+                        token: token.clone(),
+                        head,
+                        wal_checkpoint: wal.snapshot().checkpoint,
+                        context: context(&stopping)?.limited_to(startup.deadline()),
+                    })
+                    .await
+                    .map_err(Error::from)?,
+                ),
+                None => None,
+            };
             // Parse every fallible cache setting while the registry still owns
             // the raw query worker; argument evaluation must not consume it early.
             let selection_config = SelectionConfig {
@@ -971,6 +1115,8 @@ mod host {
                 matches: AtomicU64::new(0),
                 failures: AtomicU64::new(0),
                 logging: logger.writer(),
+                window: window.as_ref().map(|w| w.health.clone()),
+                loaded_rules: cfg.rules.len() + usize::from(window.is_some()),
             });
             let service = IngestService::new_with_security(
                 cfg.config.clone(),
@@ -1111,6 +1257,7 @@ mod host {
             let task_failed = failed.clone();
             let consumer_input = Consumer {
                 onboarding: cfg.onboarding.clone(),
+                window,
                 sink: task_sink,
                 token,
                 head,

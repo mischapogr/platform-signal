@@ -66,6 +66,30 @@ def qualify_standard_onboarding_report(report,binary_sha256):
             or type(report.get('provider_calls')) is not int or not 0<report['provider_calls']<=128):
         raise ValueError('actual Standard onboarding/browser evidence missing')
 
+def qualify_standard_window_report(report,binary_sha256):
+    expected={
+        'Standard_WINDOW_explicit_bootstrap_and_enrolled_quota_mismatch_refused',
+        'Standard_WINDOW_missing_pin_permission_startup_refused_original_state_unchanged',
+        'Standard_WINDOW_revision_change_startup_refused_original_state_unchanged',
+        'Standard_WINDOW_Main_blocked_publication_SIGKILL_original_request_claims_once_recovered',
+        'Standard_WINDOW_same_timestamp_split_batches_wait_for_source_watermark',
+        'Standard_WINDOW_protected_delayed_anchor_and_exact_retry_original_findings',
+        'Standard_WINDOW_SIGKILL_confirmed_original_state_history_checkpoint',
+        'Standard_WINDOW_Main_restart_duplicate_Parquet_original_sequence_scope_bytes_and_replay_pins'}
+    if not isinstance(report,dict):raise ValueError('actual Standard WINDOW report shape')
+    events=report.get('event_ids');scenarios=report.get('scenarios')
+    if (report.get('status')!='passed_simulated' or report.get('window_qualified') is not True
+        or report.get('binary_sha256')!=binary_sha256 or report.get('wal_checkpoint')!=6
+        or report.get('child_capacity')!=3 or report.get('log_capacity')!=24
+        or type(report.get('provider_calls')) is not int or not 0<report['provider_calls']<=128
+        or not isinstance(events,list) or len(events)!=2
+        or any(not isinstance(e,str) or not re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',e) for e in events)
+        or len(set(events))!=2 or any(uuid.UUID(e).int==0 for e in events)
+        or not isinstance(scenarios,list) or len(scenarios)!=len(expected)
+        or any(not isinstance(x,dict) or not isinstance(x.get('name'),str) for x in scenarios)
+        or {x['name'] for x in scenarios}!=expected):
+        raise ValueError('actual Standard WINDOW process evidence missing')
+
 def qualify_standard_report(report, binary_sha256):
     if not isinstance(report,dict):
         raise ValueError('actual Standard executable report shape')
@@ -245,6 +269,28 @@ def qualify_test_output(output):
     if len(output.encode('utf-8'))>65536:
         raise ValueError('fixture test output byte capacity')
     lines=output.splitlines()
+    if lines.count('phase: recovered-state-object-retention-replay-and-fencing-qualified')!=1:
+        raise ValueError('state object retention qualification missing')
+    if lines.count('phase: pinned-canonical-recovery-bounds-and-missing-evidence-qualified')!=1:
+        raise ValueError('pinned canonical recovery qualification missing')
+    if lines.count('phase: populated-multi-event-and-history-restore-real-Parquet-omission-corruption-custody-and-fresh-generation-qualified')!=1:
+        raise ValueError('populated multi-event restore qualification missing')
+    if lines.count('phase: multi-event-administrative-and-readonly-producer-inspection-qualified')!=1:
+        raise ValueError('multi-event scope inspector qualification missing')
+    if lines.count('phase: multi-event-scoped-reader-paired-grants-privileges-and-corruption-qualified')!=1:
+        raise ValueError('multi-event scoped reader qualification missing')
+    if lines.count('phase: bounded-multi-event-client-original-commit-replay-and-fencing-qualified')!=1:
+        raise ValueError('bounded multi-event successful publication qualification missing')
+    if lines.count('phase: bounded-multi-event-client-module-identity-and-drift-refusal-qualified')!=1:
+        raise ValueError('bounded multi-event module identity qualification missing')
+    if lines.count('phase: protected-prior-state-multi-event-references-qualified')!=1:
+        raise ValueError('protected prior-state multi-event qualification missing')
+    if lines.count('phase: atomic-multi-event-publication-replay-quota-and-late-rollback-qualified')!=1:
+        raise ValueError('atomic multi-event publication qualification missing')
+    if lines.count('phase: stopped-additive-multi-event-installation-qualified')!=1:
+        raise ValueError('stopped multi-event installation qualification missing')
+    if lines.count('phase: fenced-revisioned-state-recovery-read-qualified')!=1:
+        raise ValueError('fenced revisioned-state recovery qualification missing')
     for marker in ('phase: globally-authorized-original-feed-qualified','phase: globally-authorized-restored-feed-qualified','phase: shared-finding-scope-stopped-schema-and-immutable-prefix-qualified','phase: current-finding-scope-activation-enrollment-counters-and-authority-qualified','phase: atomic-original-scoped-publication-facts-counters-and-startup-fencing-qualified'):
         if lines.count(marker)!=1:
             raise ValueError('current globally authorized original/restored feed qualification missing')
@@ -335,9 +381,20 @@ def qualify_server_output(output):
     recovery='phase: actual-server-durable-request-recovery-before-wal-checkpoint-qualified'
     scoped='phase: actual-server-scoped-wal-original-claims-crash-and-startup-fencing-qualified'
     scoped_commit='phase: actual-server-scoped-lost-commit-original-claims-and-checkpoint-qualified'
+    multi='phase: actual-server-multi-event-publisher-ledger-original-reconciliation-and-WAL-ack-qualified'
+    multi_commit='phase: actual-server-multi-event-observed-COMMIT-cancellation-and-exact-reconciliation-qualified'
+    multi_crash='phase: actual-server-multi-event-prepared-SIGKILL-boundaries-and-original-recovery-qualified'
+    multi_draft_crash='phase: actual-server-multi-event-preupload-draft-SIGKILL-and-original-recovery-qualified'
+    window_recovery='phase: actual-server-shared-WINDOW-fenced-state-canonical-Parquet-and-replay-pins-qualified'
+    pin_transfer='phase: actual-server-replay-pin-same-version-transfer-confirmed-state-and-last-protection-qualified'
+    window_history='phase: actual-server-shared-WINDOW-history-atomic-quota-outcome-expiry-pending-replay-and-retired-resurrection-qualified'
+    window_history_read='phase: actual-server-shared-WINDOW-history-read-scope-cursor-expiry-corruption-and-cancellation-qualified'
+    obsolete_pin='phase: actual-server-WINDOW-indeterminate-history-and-complete-obsolete-pin-accounting-qualified'
+    window_profile='phase: actual-server-WINDOW-profile-explicit-bootstrap-grants-quotas-and-protected-delayed-anchor-qualified'
+    multi_crashed=[f'recovery-process: multi-{mode} owned child SIGKILL observed and reaped' for mode in ('draft','before-commit','after-commit','after-ack')]
     crashed=[f'recovery-process: {mode} owned child SIGKILL observed and reaped' for mode in ('draft','before-commit','after-commit','after-ack')]
     scoped_crashed=[f'recovery-process: scoped-{mode} owned child SIGKILL observed and reaped' for mode in ('draft','before-commit','after-commit','after-ack')]
-    if any(output.splitlines().count(value)!=1 for value in [marker,startup,recovery,feed,scoped,scoped_commit,*crashed,*scoped_crashed]) or not re.search(r'test result: ok\. 1 passed; 0 failed; 0 ignored; 0 measured; [0-9]+ filtered out;',output):
+    if any(output.splitlines().count(value)!=1 for value in [marker,startup,recovery,feed,scoped,scoped_commit,multi,multi_commit,multi_crash,multi_draft_crash,window_recovery,pin_transfer,window_history,window_history_read,obsolete_pin,window_profile,*multi_crashed,*crashed,*scoped_crashed]) or not re.search(r'test result: ok\. 1 passed; 0 failed; 0 ignored; 0 measured; [0-9]+ filtered out;',output):
         raise ValueError('server shared publication qualification missing or ambiguous')
 
 
@@ -372,7 +429,7 @@ def main():
     parser.add_argument('--server', action='store_true', help='actual monolithic server publication/rules/query coordinator qualification')
     parser.add_argument('--standard', action='store_true', help='actual Standard executable with owned TLS and persistent S3 protocol fixture')
     parser.add_argument('--standard-only', action='store_true', help='focused Standard process calibration; excludes library and crash matrices')
-    parser.add_argument('--standard-scenario',choices=('pipeline','onboarding'),default='pipeline',help='focused --standard-only native scenario')
+    parser.add_argument('--standard-scenario',choices=('pipeline','onboarding','window'),default='pipeline',help='focused --standard-only native scenario')
     parser.add_argument('--standard-checkpoint-recovery-only',action='store_true',help='server-local loss with independently retained stopped-WAL checkpoint restoration; control/object domains survive')
     parser.add_argument('--standard-recovery-only',action='store_true',help='actual Standard server-local loss and retained-object/missing-WAL hold; excludes other matrices')
     parser.add_argument('--standard-custody-only',action='store_true',help='actual Standard Main custody API and native SDK producer; excludes other matrices')
@@ -420,7 +477,7 @@ def main():
             parser.error('--standard-only cannot claim the library/server crash matrices')
         args.standard=True
     if args.standard_scenario!='pipeline' and (not args.standard_only or args.standard_kubernetes_image):
-        parser.error('--standard-scenario onboarding requires focused --standard-only without Kubernetes')
+        parser.error(f'--standard-scenario {args.standard_scenario} requires focused --standard-only without Kubernetes')
     if args.standard_offline_fixture and not args.standard:
         parser.error('--standard-offline-fixture requires a Standard profile')
     out = args.output.resolve()
@@ -483,8 +540,8 @@ def main():
             mount=['--mount','type=volume,source='+volume_name+',target=/var/lib/postgresql/data']
             report['persistent_volume']=volume_name
         else:
-            mount=['--tmpfs','/var/lib/postgresql/data:rw,size=96m']
-        container = run(['docker','run','--detach','--name',name,'--memory','256m','--cpus','1','--pids-limit','64',
+            mount=['--tmpfs','/var/lib/postgresql/data:rw,size=256m']
+        container = run(['docker','run','--detach','--name',name,'--memory','512m','--cpus','1','--pids-limit','64',
                          '--label','signal.shared.runtime='+name,'--publish','127.0.0.1::5432',
                          '--env','POSTGRES_PASSWORD='+password,'--env','PGDATA=/var/lib/postgresql/data/pgdata',
                          *mount,image],10)
@@ -573,10 +630,13 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
                                *list((ROOT/'crates/signal-control').rglob('*.rs')),ROOT/'crates/signal-control/Cargo.toml',
                                *list((ROOT/'crates/signal-storage/src').rglob('*.rs')),ROOT/'crates/signal-storage/Cargo.toml',
                                *list((ROOT/'crates/signal-query/src').rglob('*.rs')),ROOT/'crates/signal-query/Cargo.toml',
-                               ROOT/'schemas/shared-control/v1.json',ROOT/'schemas/shared-control/001.sql',ROOT/'schemas/shared-control/002-functions.sql',ROOT/'schemas/shared-control/003-administration.sql',ROOT/'schemas/shared-control/004-restore.sql',ROOT/'schemas/shared-control/005-catalog.sql',ROOT/'schemas/shared-control/005-catalog.sha256',ROOT/'schemas/shared-control/007-finding-scope.sql',ROOT/'schemas/shared-control/007-finding-scope-catalog.sha256',ROOT/'schemas/shared-control/008-scoped-publication.sql',ROOT/'schemas/shared-control/008-scoped-publication-catalog.sha256',ROOT/'schemas/shared-control/008-scoped-publication-functions.sha256',ROOT/'schemas/shared-control/006-catalog-restore.sql',ROOT/'schemas/shared-control/006-catalog.sha256',ROOT/'schemas/shared-control/003-catalog.sha256',ROOT/'schemas/shared-control/004-catalog.sha256',ROOT/'schemas/shared-control/catalog-query.sql',ROOT/'schemas/shared-control/002-catalog.sha256'])}
+                               ROOT/'schemas/shared-control/v1.json',ROOT/'schemas/shared-control/001.sql',ROOT/'schemas/shared-control/002-functions.sql',ROOT/'schemas/shared-control/003-administration.sql',ROOT/'schemas/shared-control/004-restore.sql',ROOT/'schemas/shared-control/005-catalog.sql',ROOT/'schemas/shared-control/005-catalog.sha256',ROOT/'schemas/shared-control/007-finding-scope.sql',ROOT/'schemas/shared-control/007-finding-scope-catalog.sha256',ROOT/'schemas/shared-control/008-scoped-publication.sql',ROOT/'schemas/shared-control/008-scoped-publication-catalog.sha256',ROOT/'schemas/shared-control/008-scoped-publication-functions.sha256',ROOT/'schemas/shared-control/009-state-read.sql',ROOT/'schemas/shared-control/010-multi-event-publication.sql',ROOT/'schemas/shared-control/010-multi-event-catalog.sha256',ROOT/'schemas/shared-control/011-replay-pin-transfer.sql',ROOT/'schemas/shared-control/012-window-history.sql',ROOT/'schemas/shared-control/012-window-history-catalog.sha256',ROOT/'schemas/shared-control/013-window-history-read.sql',ROOT/'schemas/shared-control/014-obsolete-replay-pin.sql',ROOT/'schemas/shared-control/015-window-profile.sql',ROOT/'schemas/shared-control/016-known-findings.sql',ROOT/'schemas/shared-control/017-window-replay-pin.sql',ROOT/'schemas/shared-control/006-catalog-restore.sql',ROOT/'schemas/shared-control/006-catalog.sha256',ROOT/'schemas/shared-control/003-catalog.sha256',ROOT/'schemas/shared-control/004-catalog.sha256',ROOT/'schemas/shared-control/catalog-query.sql',ROOT/'schemas/shared-control/002-catalog.sha256'])}
         if args.server or args.standard or args.custody_server_only or args.custody_api_only:
             for source_name in ('tests/integration/shared-feed-provider.py', 'tests/integration/access-server-process.py', 'scripts/check-object-query.py','scripts/check-audit-role-composition.py','scripts/check-audit-receiver-permissions.py'):
                 report['source_hashes'][source_name]=hashlib.sha256((ROOT/source_name).read_bytes()).hexdigest()
+            for crate in ('signal-rules','signal-findings','signal-event','signal-protocol','signal-ingest','signal-coverage'):
+                for path in sorted([ROOT/'crates'/crate/'Cargo.toml',*list((ROOT/'crates'/crate/'src').rglob('*.rs'))]):
+                    report['source_hashes'][str(path.relative_to(ROOT))]=hashlib.sha256(path.read_bytes()).hexdigest()
             for path in sorted([ROOT/'apps/signal-server/Cargo.toml', *list((ROOT/'apps/signal-server/src').rglob('*.rs')), *list((ROOT/'apps/signal-server/tests').rglob('*.rs')), ROOT/'crates/signal-buffer/Cargo.toml', *list((ROOT/'crates/signal-buffer/src').rglob('*.rs'))]):
                 report['source_hashes'][str(path.relative_to(ROOT))]=hashlib.sha256(path.read_bytes()).hexdigest()
         if args.custody_api_only or args.standard_custody_only:
@@ -617,6 +677,17 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
             test_output=run(['cargo','test','--locked','--offline','-p','signal-control','--test','postgres','postgres_lease_authority_and_cancellation',
                  '--','--ignored','--exact','--nocapture'],150,env)
             qualify_test_output(test_output)
+            report['checks'].append('actual_fenced_revisioned_state_reads_stopped_install_current_owner_missing_stale_foreign_head_tamper')
+            report['checks'].append('actual_stopped_additive_multi_event_installation_runtime_denial_and_rollback')
+            report['checks'].append('actual_atomic_multi_event_publication_exact_replay_quotas_and_late_rollback')
+            report['checks'].append('actual_protected_prior_state_multi_event_identity_sequence_and_provenance')
+            report['checks'].append('actual_bounded_multi_event_client_catalog_routine_identity_and_drift_refusal')
+            report['checks'].append('actual_bounded_multi_event_client_original_commit_replay_fencing_and_owned_database_cleanup')
+            report['checks'].append('actual_multi_event_scoped_reader_paired_grants_read_privileges_and_semantic_corruption_refusal')
+            report['checks'].append('actual_multi_event_administrative_and_readonly_producer_inspection_corruption_and_mutable_credentials_refusal')
+            report['checks'].append('actual_populated_multi_event_and_history_restore_Parquet_omission_corruption_original_custody_expiry_fresh_generation_and_resolution')
+            report['checks'].append('actual_pinned_canonical_Parquet_recovery_complete_missing_duplicate_request_quota_cancellation')
+            report['checks'].append('actual_recovered_state_object_retention_replay_foreign_scope_and_retirement_hold')
             catalogs=re.findall(r'^catalog4-catalog: ([0-9a-f]{64})$',test_output,re.MULTILINE)
             expected=(ROOT/'schemas/shared-control/005-catalog.sha256').read_text().strip()
             if catalogs!=[expected]:
@@ -651,13 +722,23 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
             report['finding_scope_host_api_scope']='Actual bounded stopped-owner library activation/enrollment, exact replay/current generation/whole original prefix/logical counters/startup replacement and original context/shutdown checks, including fresh restart. Owner reports are not native event authentication; startup floor capture adapter is source/component only, no Main/native admission/scoped read proof.'
             report['finding_scope_schema_scope']='Stopped owner-only additive schema on exact catalog4/5, native full rollback, captured activation/prefix and producer-floor records, denied runtime access and original history. Records are synthetic fixture owner reports, not authenticated host activation or scoped runtime/counter enforcement. Original metadata survives actual persistent restart.'
             if args.server:
-                server_output=run(['cargo','test','--locked','--offline','-p','signal-server','--test','shared','postgres_server_publication_and_actual_query','--','--ignored','--exact','--nocapture'],30,env)
+                server_output=run(['cargo','test','--locked','--offline','-p','signal-server','--test','shared','postgres_server_publication_and_actual_query','--','--ignored','--exact','--nocapture'],60,env)
                 qualify_server_output(server_output)
                 report['checks'].append('actual_server_rule_parquet_atomic_publication_replay_query_and_orphan_fencing')
                 report['checks'].append('actual_server_explicit_catalog_startup_scope_backend_existing_WAL_binding')
                 report['checks'].append('actual_server_original_draft_request_SIGKILL_recovery_before_checkpoint_and_after_ACK')
                 report['checks'].append('actual_server_scoped_original_claims_SIGKILL_recovery_and_stale_startup_missing_operation_hold')
                 report['checks'].append('actual_server_scoped_observed_COMMIT_cancellation_original_claims_resolution_and_confirmed_WAL_checkpoint')
+                report['checks'].append('actual_server_multi_event_detector_metadata_publisher_ledger_missing_commit_committed_before_ack_and_acknowledged_slot_reconciliation')
+                report['checks'].append('actual_server_multi_event_observed_COMMIT_cancellation_original_request_retention_and_confirmed_WAL_reconciliation')
+                report['checks'].append('actual_server_multi_event_SIGKILL_before_commit_after_commit_and_after_WAL_ack_original_slot_recovery')
+                report['checks'].append('actual_server_multi_event_synced_preupload_draft_no_object_IO_SIGKILL_original_plan_and_state_recovery')
+                report['checks'].append('actual_server_WINDOW_exact_catalog_head_fenced_state_canonical_Parquet_hydration_and_retained_replay_pins')
+                report['checks'].append('actual_server_confirmed_state_same_object_replay_pin_transfer_replay_stale_hash_head_and_last_protection_refusal')
+                report['checks'].append('actual_server_shared_WINDOW_atomic_archive_quota_outcomes_expiry_pending_replay_retired_resurrection_and_nanosecond_watermark')
+                report['checks'].append('actual_server_shared_WINDOW_history_read_permissions_scope_cursor_expiry_corruption_cancellation_and_routine_identity')
+                report['checks'].append('actual_server_WINDOW_Indeterminate_archive_read_and_all_state_history_obsolete_pin_release_fencing_replay')
+                report['checks'].append('actual_server_WINDOW_explicit_profile_bootstrap_runtime_grants_quotas_and_protected_prior_anchor_publication_recovery')
                 report['server_scoped_recovery_scope']='Actual owned PostgreSQL and durable WAL original scoped schema2 draft/request through four producer SIGKILL boundaries and observed server COMMIT cancellation; byte-exact committed findings and companion claims resolve after current startup replacement, while a missing old-startup operation remains fenced with original slot and checkpoint held. Synthetic host authentication reports and emulated parent-retained object versions; no native authenticated admission, scoped reads, populated008 restore or Main readiness proof.'
                 report['checks'].append('actual_shared_findings_original_wire_prefix_quota_and_cursor_classes')
                 report['shared_findings_wire_scope']='Actual library adapter over PostgreSQL findings, original cursor/payload, finite caller seats and wire limit; ordinary Cargo route-denial regressions. No live authorized shared HTTP/provider roundtrip or main/scoped Standard readiness.'
@@ -683,7 +764,7 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
         if args.standard_only or args.standard_audit_only or args.standard_private_only or args.standard_restore_only or args.standard_custody_only:
             report['scope']='Focused actual Standard executable, owned PostgreSQL TLS and persistent loopback S3 protocol simulation only; no full library/crash matrix, AWS, ARM64 or release proof'
         if args.standard:
-            for source_name in ('tests/integration/standard-main-process.py','tests/integration/transport-server-process.py','scripts/fixtures/s3-query-server.py','apps/signal-server/tests/standard_main.rs','tests/fixtures/source-coverage/backend-vectors.json','scripts/check-object-query.py'):
+            for source_name in ('tests/integration/standard-main-process.py','tests/integration/transport-server-process.py','scripts/fixtures/s3-query-server.py','apps/signal-server/tests/standard_main.rs','apps/signal-server/tests/support/standard_window.rs','tests/fixtures/source-coverage/backend-vectors.json','scripts/check-object-query.py'):
                 report['source_hashes'][source_name]=hashlib.sha256((ROOT/source_name).read_bytes()).hexdigest()
             for component in ('crates/signal-collector-sdk/src/audit','crates/signal-collector-sdk/src/transport'):
                 for path in sorted((ROOT/component).rglob('*.rs')):report['source_hashes'][str(path.relative_to(ROOT))]=hashlib.sha256(path.read_bytes()).hexdigest()
@@ -691,7 +772,7 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
                 report['source_hashes'][source_name]=hashlib.sha256((ROOT/source_name).read_bytes()).hexdigest()
             scenario='restored-custody' if args.standard_restored_custody_only else 'checkpoint-recovery' if args.standard_checkpoint_recovery_only else 'recovery' if args.standard_recovery_only else 'custody' if args.standard_custody_only else 'restore' if args.standard_restore_only else 'private' if args.standard_private_only else 'audit' if args.standard_audit_only else 'pipeline'
             if args.standard_only:scenario=args.standard_scenario
-            if scenario=='onboarding':
+            if scenario in ('onboarding','window'):
                 for source_name in ('scripts/fixtures/onboarding-host.py','scripts/test-onboarding-native-browser.cjs','tests/fixtures/source-coverage/contract.json'):
                     report['source_hashes'][source_name]=hashlib.sha256((ROOT/source_name).read_bytes()).hexdigest()
             if args.standard_kubernetes_image:
@@ -719,6 +800,10 @@ ALTER ROLE signal_runtime SET idle_in_transaction_session_timeout='2s';
                     raise ValueError('Standard Kubernetes runtime acceptance missing')
                 report['checks'].append('actual_Standard_kind_image_regular_Secret_mounts_original_WAL_PVC_SIGKILL_and_replacement_recovery')
                 report['scope'] = standard_report['scope']
+            elif scenario=='window':
+                qualify_standard_window_report(standard_report,report['standard_binary_sha256'])
+                report['checks'].append('actual_Standard_WINDOW_Main_signed_watermark_split_batches_delayed_anchor_exact_retry_SIGKILL_restart_original_sequences_and_findings')
+                report['scope']=standard_report['scope']
             elif scenario=='onboarding':
                 qualify_standard_onboarding_report(standard_report,report['standard_binary_sha256'])
                 report['checks'].append('actual_onboarding_enabled_Standard_signed_scoped_current_coverage_prerequisite_suppression_native_browser_expiry_restart')

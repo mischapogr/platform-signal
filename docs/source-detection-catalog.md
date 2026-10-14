@@ -103,7 +103,7 @@ validated. Enabling digest delivery alone does not validate stored evidence.
 | [SIG-D07](#sig-d07) | Privileged Kubernetes workload admitted | predicate | Normalized native predicate |
 | [SIG-D08](#sig-d08) | Kubernetes effective RBAC privilege grant | state | Future contract only |
 | [SIG-D09](#sig-d09) | Unauthorized exec into sensitive workload | state | Future contract only |
-| [SIG-D10](#sig-d10) | Authentication failure burst | window | Future contract only |
+| [SIG-D10](#sig-d10) | Authentication failure burst | window | Bounded Small/Standard local simulation; [contract64](64-authentication-window.md) |
 | [SIG-D11](#sig-d11) | Authentication failures followed by success | correlation | Future contract only |
 | [SIG-D12](#sig-d12) | Unexpected privileged database login | state | Future contract only |
 | [SIG-D13](#sig-d13) | Unauthorized privileged host execution | state | Future contract only |
@@ -286,7 +286,7 @@ original is recorded as an evidence gap; do not fabricate an integrity assertion
 - **Severity / confidence:** Suggested medium; Medium; shared client/NAT and legitimate failures need context.
 - **Expected SecOps action:** Review principal/target and distributed-source context; validate user lockout and suspicious activity.
 - **Fixtures:** `SIG-D10-positive` → `match`, `SIG-D10-negative` → `no_match`, `SIG-D10-missing_data` → `indeterminate`.
-- **Capability status:** `planned`.
+- **Capability status:** `passed_simulated` for the bounded Small/Standard implementation; see [contract64](64-authentication-window.md). Production continuity, current native/container release qualification and external authority remain separate.
 
 <a id="sig-d11"></a>
 

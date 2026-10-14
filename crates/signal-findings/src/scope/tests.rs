@@ -109,3 +109,46 @@ fn sealed_unknown_selectors_preserve_full_binding_without_truncation() {
     assert_ne!(a.finding(), b.finding());
     assert_eq!(a.finding().id, b.finding().id);
 }
+
+#[test]
+fn multi_event_derivation_requires_complete_distinct_same_scope_references() {
+    let a = event("a");
+    let mut b = event("a");
+    b.id = Uuid::from_u128(2);
+    let mut base =
+        Finding::for_event("window-rule", &a, DetectionSeverity::Medium, "Window").unwrap();
+    base.id = Uuid::from_u128(10);
+    base.event_ids.push(b.id);
+    let derived = DerivedFinding::from_events(base.clone(), &[&a, &b], true).unwrap();
+    let scoped = derived.into_scoped(Uuid::from_u128(3)).unwrap();
+    assert_eq!(scoped.facts().account, Some("a"));
+    assert_eq!(scoped.finding().event_ids, vec![a.id, b.id]);
+    assert!(DerivedFinding::from_events(base.clone(), &[&a], true).is_err());
+    assert!(DerivedFinding::from_events(base.clone(), &[&b, &a], true).is_err());
+    assert!(DerivedFinding::from_events(base.clone(), &[&a, &a], true).is_err());
+    for dimension in ["account", "resource", "source"] {
+        let mut other = b.clone();
+        match dimension {
+            "account" => other.resource.as_mut().unwrap().account_id = Some("other".into()),
+            "resource" => other.resource.as_mut().unwrap().id = "other".into(),
+            _ => other.source.source_type = "other".into(),
+        }
+        assert!(DerivedFinding::from_events(base.clone(), &[&a, &other], true).is_err());
+    }
+    let mut spoofed = base.clone();
+    spoofed
+        .attributes
+        .insert(KEY.into(), serde_json::json!({"account":"a"}));
+    assert!(DerivedFinding::from_events(spoofed, &[&a, &b], true).is_err());
+    let mut duplicate = base;
+    duplicate.event_ids = vec![a.id, a.id];
+    assert!(DerivedFinding::from_events(duplicate, &[&a, &a], true).is_err());
+}
+
+#[test]
+fn multi_event_unverified_admission_cannot_gain_scope() {
+    let a = event("a");
+    let base = Finding::for_event("window-rule", &a, DetectionSeverity::Medium, "Window").unwrap();
+    let derived = DerivedFinding::from_events(base, &[&a], false).unwrap();
+    assert!(derived.into_scoped(Uuid::from_u128(3)).is_err());
+}

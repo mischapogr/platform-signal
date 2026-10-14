@@ -8,6 +8,13 @@ phase rows and measurements; completed rows are not new implementation tasks.
 
 ## Next task and plan order
 
+Latest local acceptance — 2026-10-15:WINDOW passes bounded simulation, six frozen
+workspace gates1048default/1117all-feature and current Small/Standard/shared
+recovery. Evidence:`target/window-20261014/ACCEPTANCE.json`. Inventory35accepted/
+17unfinished. Next local detector:SENSOR-HEALTH; its observer/WINDOW dependencies
+are accepted. Current remote/native/container and external/version/publication
+gates remain separate. Earlier next-task statements retain their dated boundaries.
+
 Read [current progress](07-progress.md), [release boundaries](21-release-readiness.md)
 and the [52-item ledger](31-execution-ledger.json). Local SHARED-RUNTIME is
 independently accepted at `b9c58da`; SHARED-METRICS-1 is resolved. Current source-

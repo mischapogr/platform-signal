@@ -113,18 +113,16 @@ async fn publish(
     token: LeaseToken,
     previous: Option<(Uuid, Vec<u8>)>,
     sequence: u64,
+    canonical: Option<signal_event::SignalEvent>,
 ) -> Result<(Uuid, Vec<u8>)> {
     let input: signal_event::IngestEvent = serde_json::from_value(
         serde_json::json!({"timestamp":"2026-10-10T10:00:00Z","source":{"type":"synthetic-query"},"message":format!("shared-query-{sequence}"),"attributes":{"nested":{"array":[true,null,42]}}}),
     )?;
+    let mut event = input.normalize(chrono::Utc::now())?;
+    event.id = Uuid::from_u128(u128::from(sequence));
+    let event = canonical.unwrap_or(event);
     let prepared = codec
-        .prepare(
-            &[StoredEvent {
-                sequence,
-                event: input.normalize(chrono::Utc::now())?,
-            }],
-            context(),
-        )
+        .prepare(&[StoredEvent { sequence, event }], context())
         .await?;
     let mut files = Vec::new();
     for file in prepared.files() {
@@ -229,7 +227,7 @@ pub async fn qualify(
     let token = runtime
         .acquire(scope.clone(), Uuid::new_v4(), 15000, super::context()?)
         .await?;
-    let first = publish(&runtime, &writer, &codec, token.clone(), None, 1).await?;
+    let first = publish(&runtime, &writer, &codec, token.clone(), None, 1, None).await?;
     let pin = runtime
         .read_catalog_snapshot(
             scope.clone(),
@@ -241,7 +239,165 @@ pub async fn qualify(
             super::context()?,
         )
         .await?;
-    let second = publish(&runtime, &writer, &codec, token, Some(first), 2).await?;
+    let second = publish(
+        &runtime,
+        &writer,
+        &codec,
+        token.clone(),
+        Some(first),
+        2,
+        None,
+    )
+    .await?;
+    let recovery = CanonicalRecoveryLimits {
+        backend: pin.backend()?,
+        files: 128,
+        object_bytes: 64 * 1024 * 1024,
+        decoded_bytes: 64 * 1024 * 1024,
+        scanned_rows: 4096,
+        result_bytes: 65536,
+    };
+    let retained_inputs = recover_canonical_inputs(
+        &pin,
+        &writer,
+        &codec,
+        &[Uuid::from_u128(1)],
+        recovery,
+        super::context()?,
+    )
+    .await?;
+    assert_eq!(retained_inputs.rows()?.len(), 1);
+    let original_event = retained_inputs.rows()?[0].event.clone();
+    let held = retain_canonical_inputs(
+        &runtime,
+        token.clone(),
+        &retained_inputs,
+        "fixture-window",
+        [2; 32],
+        [3; 32],
+        super::context()?,
+    )
+    .await?;
+    assert_eq!(held.len(), 1);
+    assert_eq!(
+        retain_canonical_inputs(
+            &runtime,
+            token.clone(),
+            &retained_inputs,
+            "fixture-window",
+            [2; 32],
+            [3; 32],
+            super::context()?
+        )
+        .await?,
+        held
+    );
+    let mut foreign = token.clone();
+    foreign.scope.tenant = "foreign-fixture".into();
+    assert!(matches!(
+        retain_canonical_inputs(
+            &runtime,
+            foreign,
+            &retained_inputs,
+            "fixture-window",
+            [2; 32],
+            [3; 32],
+            super::context()?
+        )
+        .await,
+        Err(ControlError::Fenced)
+    ));
+    let row=db.query_one("SELECT state,kind,request FROM signal_control.object_pins WHERE partition_id=$1 AND id=$2",&[&scope.partition_id,&held[0]]).await?;
+    assert_eq!(row.try_get::<_, String>(0)?, "retained");
+    assert_eq!(row.try_get::<_, String>(1)?, "replay");
+    let raw: Vec<u8> = row.try_get(2)?;
+    let request: serde_json::Value = serde_json::from_slice(&raw)?;
+    let object: CanonicalObjectRef = serde_json::from_value(request["object"].clone())?;
+    assert!(matches!(
+        runtime
+            .retire_object(
+                token.clone(),
+                RetirementInput {
+                    schema_version: 1,
+                    id: Uuid::new_v4(),
+                    object,
+                    reason: b"owned fixture retirement attempt".to_vec()
+                },
+                super::context()?
+            )
+            .await,
+        Err(ControlError::Conflict)
+    ));
+    eprintln!("phase: recovered-state-object-retention-replay-and-fencing-qualified");
+    let recovered = recover_canonical_rows(
+        &pin,
+        &writer,
+        &codec,
+        &[Uuid::from_u128(1)],
+        recovery,
+        super::context()?,
+    )
+    .await?;
+    assert_eq!(recovered.len(), 1);
+    assert_eq!(recovered[0].sequence, 1);
+    assert_eq!(
+        recovered[0].event.attributes.get("nested"),
+        Some(&serde_json::json!({"array":[true,null,42]}))
+    );
+    assert!(matches!(
+        recover_canonical_rows(
+            &pin,
+            &writer,
+            &codec,
+            &[Uuid::from_u128(2)],
+            recovery,
+            super::context()?
+        )
+        .await,
+        Err(ControlError::Unavailable)
+    ));
+    assert!(
+        recover_canonical_rows(
+            &pin,
+            &writer,
+            &codec,
+            &[Uuid::from_u128(1), Uuid::from_u128(1)],
+            recovery,
+            super::context()?
+        )
+        .await
+        .is_err()
+    );
+    let mut quota = recovery;
+    quota.result_bytes = 1;
+    assert!(matches!(
+        recover_canonical_rows(
+            &pin,
+            &writer,
+            &codec,
+            &[Uuid::from_u128(1)],
+            quota,
+            super::context()?
+        )
+        .await,
+        Err(ControlError::Full)
+    ));
+    let cancelled = super::context()?;
+    cancelled.cancel();
+    assert!(matches!(
+        recover_canonical_rows(
+            &pin,
+            &writer,
+            &codec,
+            &[Uuid::from_u128(1)],
+            recovery,
+            cancelled
+        )
+        .await,
+        Err(ControlError::Cancelled)
+    ));
+    eprintln!("phase: pinned-canonical-recovery-bounds-and-missing-evidence-qualified");
+
     let config = SelectionConfig {
         stream: scope.stream,
         backend: Uuid::from_u128(0x20),
@@ -356,7 +512,7 @@ pub async fn qualify(
     let expired_id = Uuid::new_v4();
     let expired = runtime
         .read_catalog_snapshot(
-            scope,
+            scope.clone(),
             CatalogInput {
                 schema_version: 1,
                 id: expired_id,
@@ -374,6 +530,101 @@ pub async fn qualify(
     drop(engine);
     source.shutdown(context()).await?;
     drop(source);
+    // Actual Parquet copies at distinct WAL positions must recover the original
+    // protected pair, while the legacy ID-only API remains deliberately strict.
+    let third = publish(
+        &runtime,
+        &writer,
+        &codec,
+        token.clone(),
+        Some(second),
+        3,
+        Some(original_event.clone()),
+    )
+    .await?;
+    let repeated = runtime
+        .read_catalog_snapshot(
+            scope.clone(),
+            CatalogInput {
+                schema_version: 1,
+                id: Uuid::new_v4(),
+                pin_ms: 5000,
+            },
+            super::context()?,
+        )
+        .await?;
+    for sequence in [1, 3] {
+        let recovered = recover_canonical_inputs_at(
+            &repeated,
+            &writer,
+            &codec,
+            &std::collections::BTreeMap::from([(original_event.id, sequence)]),
+            recovery,
+            super::context()?,
+        )
+        .await?;
+        assert_eq!(recovered.rows()?[0].sequence, sequence);
+        assert_eq!(recovered.rows()?[0].event, original_event);
+    }
+    assert!(matches!(
+        recover_canonical_inputs(
+            &repeated,
+            &writer,
+            &codec,
+            &[original_event.id],
+            recovery,
+            super::context()?
+        )
+        .await,
+        Err(ControlError::Conflict)
+    ));
+    assert!(matches!(
+        recover_canonical_inputs_at(
+            &repeated,
+            &writer,
+            &codec,
+            &std::collections::BTreeMap::from([(original_event.id, 2)]),
+            recovery,
+            super::context()?
+        )
+        .await,
+        Err(ControlError::Unavailable)
+    ));
+    let mut changed = original_event.clone();
+    changed.message = Some("conflicting retry".into());
+    publish(
+        &runtime,
+        &writer,
+        &codec,
+        token,
+        Some(third),
+        4,
+        Some(changed),
+    )
+    .await?;
+    let conflicting = runtime
+        .read_catalog_snapshot(
+            scope,
+            CatalogInput {
+                schema_version: 1,
+                id: Uuid::new_v4(),
+                pin_ms: 5000,
+            },
+            super::context()?,
+        )
+        .await?;
+    assert!(matches!(
+        recover_canonical_inputs_at(
+            &conflicting,
+            &writer,
+            &codec,
+            &std::collections::BTreeMap::from([(original_event.id, 1)]),
+            recovery,
+            super::context()?
+        )
+        .await,
+        Err(ControlError::Conflict)
+    ));
     codec.shutdown(context()).await?;
     writer.shutdown(context()).await?;
     eprintln!("phase: shared-catalog-actual-parquet-query-composition-complete");
