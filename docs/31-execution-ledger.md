@@ -17,7 +17,7 @@ server-local loss75.55s. Replacement17.61s/RPO0 applies only to the4byte custody
 fixture. Source/binary/cleanup and exact original receipt/control/object/WAL/
 private progress are audited. Next:ONBOARDING; external/production gates remain.
 
-Current local inventory:13 passed_local,13 passed_simulated,20 pending/0in_progress,
+Current local inventory:13 passed_local,14 passed_simulated,19 pending/0in_progress,
 6 external_pending. Native Standard cluster CI wiring now passes local direct
 process/bundle/kind acceptance181.93s/170.05s; exact remote results are next:
 `target/standard-kind-ci-20261012/ACCEPTANCE.json`. Local provider/custody
@@ -54,6 +54,8 @@ feature Rust and exact binaries remain applicable. Vendor/source checks are
 synthetic; external/release gates stay open. Next: RELEASE-REVIEW. Evidence:
 `target/onboarding-standard-20261014/ACCEPTANCE.json`.
 RELEASE-REVIEW passes focused local acceptance — 2026-10-14. Independent review covers durability, replay, cancellation, scope, quotas and production hazards. Account binding, ACK retry deadline and outdated security responsibilities are corrected. Frozen 9 gates pass: 954 default / 1015 all-feature tests, both strict Clippy modes, formatting, 14 workspace boundaries, actual Small and enabled Standard/browser regressions. Evidence: `target/release-review-20261014/ACCEPTANCE.json`. Current inventory: 26 accepted / 26 unfinished (13 local, 13 simulated, 20 pending, 6 external). Next: UPGRADE; current native CI, actual AWS/EKS/vendor and release gates remain open.
+
+UPGRADE passes local simulated acceptance — 2026-10-14. The explicit development compatibility matrix binds supported exact schema migrations, fresh-generation restore and refusal of unknown/divergent history. Actual PostgreSQL 18-case matrix, isolated stopped Small WAL/spool/Parquet/findings restore and current native Standard restored custody pass with owned cleanup. Original/backup remain unchanged; the Small fixture ends at 9 events, 2 findings and checkpoint9. Evidence: `target/upgrade-20261014/ACCEPTANCE.json`; [compatibility contract](56-upgrade-compatibility.md). Current inventory:27 accepted/25 unfinished (13local/14simulated/19pending/6external). Released-to-released upgrade, actual AWS/EKS/provider and publication remain unqualified. Next release slice: current-revision KIND/remote CI qualification.
 
 Earlier entries below retain their original historical evidence boundaries.
 
@@ -442,7 +444,7 @@ without adding capabilities or claiming general recovery from copied bits.
 | KIND | pending | CORE | Current-revision local Kubernetes persistence/restart gate |
 | RELEASE-REVIEW | passed_local | RECEIPT-PROGRESS | Independent source review and resolve findings |
 | RELEASE-TRUST | pending | BASELINES, SECURITY-TRANSPORT | SBOM, provenance and signed release/rule verification |
-| UPGRADE | pending | SHARED-RUNTIME, STANDARD-RECOVERY | Supported migration/rollback/restore local rehearsals |
+| UPGRADE | passed_simulated | SHARED-RUNTIME, STANDARD-RECOVERY | Supported migration/rollback/restore local rehearsals |
 | LOCAL-CANDIDATE | pending | SOC-UX, SCALE-DECISION, KIND, RELEASE-REVIEW, RELEASE-TRUST, UPGRADE | Final current-revision local release candidate |
 | EXT-ARM64 | external_pending | — | Native ARM64 qualification |
 | EXT-AWS | external_pending | — | Actual AWS/EKS/storage/IAM/KMS/Object Lock qualification |
