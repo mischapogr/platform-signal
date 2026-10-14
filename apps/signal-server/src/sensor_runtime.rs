@@ -106,6 +106,8 @@ impl Configuration {
                 source_capacity: self.detector.policy.max_sources,
                 proof_capacity: self.detector.max_proofs,
                 pending_capacity: self.detector.max_outputs,
+                history_assessment_capacity: self.detector.max_history_assessments,
+                history_byte_capacity: self.detector.max_history_bytes,
                 byte_capacity: self.detector.max_state_bytes,
                 indeterminate: self.detector.policy.expected.len(),
                 coverage_gap: true,
@@ -178,6 +180,10 @@ impl Detector {
             .health
             .lock()
             .map_err(|_| state_journal::Error::Closed)?;
+        health.history_assessments = result.history_assessments;
+        health.history_bytes = result.history_bytes;
+        health.history_expired = result.history_expired;
+        health.history_evicted = result.history_evicted;
         health.proofs = result.proofs;
         health.bytes = result.bytes;
         health.pending = result.published_prefix;
@@ -273,7 +279,8 @@ mod tests {
                     "event_scope": {"schema_version": 1, "source": "fixture", "account": "a", "resource": "r"}}],
                 "title": "Fixture telemetry gap", "severity": "high", "max_proofs": 3,
                 "max_event_bytes": 16384, "max_state_bytes": 262144,
-                "max_record_bytes": 1048576, "max_outputs": 4, "max_output_bytes": 65536
+                "max_record_bytes": 1048576, "max_outputs": 4, "max_output_bytes": 65536,
+                "max_history_assessments": 16, "max_history_bytes": 65536, "history_retention_ms": 1000
             }
         })
     }
