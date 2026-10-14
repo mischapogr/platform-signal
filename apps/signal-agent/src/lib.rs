@@ -8,3 +8,5 @@ pub mod probe;
 pub mod runtime;
 pub mod spool;
 pub mod tls;
+
+pub mod syslog;
