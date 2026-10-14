@@ -601,11 +601,13 @@ async fn retirement_control_crash_helper() -> Result {
     lease.advance_retirement_with(&record, &context(), |point| {
         if point == stage {
             let mut witness =
-                std::fs::File::create(root.join("witness")).map_err(StorageError::Io)?;
+                std::fs::File::create(root.join("witness.tmp")).map_err(StorageError::Io)?;
             witness
                 .write_all(point.as_bytes())
                 .map_err(StorageError::Io)?;
             witness.sync_all().map_err(StorageError::Io)?;
+            std::fs::rename(root.join("witness.tmp"), root.join("witness"))
+                .map_err(StorageError::Io)?;
             crate::fs::sync_dir(&root)?;
             std::thread::sleep(Duration::from_secs(5));
         }
