@@ -220,10 +220,14 @@ def simulated_capture(output):
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--preflight',action='store_true');parser.add_argument('--simulate',action='store_true');parser.add_argument('--agent',type=Path);parser.add_argument('--server',type=Path);parser.add_argument('--output',required=True,type=Path);args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--preflight',action='store_true');parser.add_argument('--simulate',action='store_true');parser.add_argument('--capture-only',action='store_true');parser.add_argument('--agent',type=Path);parser.add_argument('--server',type=Path);parser.add_argument('--output',required=True,type=Path);args=parser.parse_args()
     output=args.output.resolve();output.relative_to(ROOT/'target');output.mkdir(parents=True,exist_ok=False)
     preflight=report_preflight();(output/'preflight.json').write_text(json.dumps(preflight,indent=2)+'\n')
     if args.preflight:print(json.dumps(preflight));return
+    assert not (args.simulate and args.capture_only), 'simulation cannot grant capture-only native evidence'
+    if args.capture_only:
+        summary=capture(output);summary['status']='passed_native_capture'
+        (output/'NATIVE-CAPTURE.json').write_text(json.dumps(summary,indent=2)+'\n');print(json.dumps(summary));return
     assert args.agent and args.server
     summary=simulated_capture(output) if args.simulate else capture(output);summary['replay']=replay(args.agent.resolve(),args.server.resolve(),output,summary['boot_id']);summary['status']='passed_simulated_delivery' if args.simulate else 'passed_native_selected_runtime'
     (output/('SIMULATED-DELIVERY.json' if args.simulate else 'NATIVE-HOST-RUNTIME.json')).write_text(json.dumps(summary,indent=2)+'\n');print(json.dumps(summary))
