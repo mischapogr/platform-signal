@@ -80,6 +80,7 @@ enum Reply {
     Object(ObjectControlResult),
 }
 enum Operation {
+    RestoredCustody(crate::restored_custody::Action),
     ProducerCredentials {
         owner: String,
         lifecycle: bool,
@@ -967,6 +968,44 @@ impl ControlClient {
             _ => Err(ControlError::Corrupt),
         }
     }
+    /// Owner-only explicit installation on an already completed restored store.
+    /// Ordinary startup never invokes this operation.
+    pub async fn install_restored_custody(
+        &self,
+        owner: String,
+        context: ControlContext,
+    ) -> Result<(), ControlError> {
+        let action = crate::restored_custody::Action::Install { owner };
+        crate::restored_custody::validate(&action)?;
+        match self
+            .submit(Operation::RestoredCustody(action), context)
+            .await?
+        {
+            Reply::ProducerCredentials => Ok(()),
+            _ => Err(ControlError::Corrupt),
+        }
+    }
+    /// Resolves only an existing immutable historical custody record under the
+    /// current owner and sealed restore lineage. This is not a release permit.
+    pub async fn resolve_restored_custody(
+        &self,
+        token: LeaseToken,
+        description: crate::ObjectCustodyDescription,
+        context: ControlContext,
+    ) -> Result<ReceiptResult, ControlError> {
+        let action = crate::restored_custody::Action::Resolve {
+            token,
+            description: Box::new(description),
+        };
+        crate::restored_custody::validate(&action)?;
+        match self
+            .submit(Operation::RestoredCustody(action), context)
+            .await?
+        {
+            Reply::Receipt(result) => Ok(result),
+            _ => Err(ControlError::Corrupt),
+        }
+    }
     pub async fn shutdown(&self, context: ControlContext) -> Result<(), ControlError> {
         context.check()?;
         self.inner.stop.cancel();
@@ -1164,10 +1203,10 @@ async fn execute(
                 AND NOT EXISTS(SELECT 1 FROM pg_roles r WHERE pg_has_role(session_user,r.oid,'MEMBER')
                     AND (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls
                     OR has_database_privilege(r.oid,current_database(),'CREATE')
-                    OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname IN ('signal_control','signal_finding_scope')
+                    OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname IN ('signal_control','signal_finding_scope','signal_custody_restore')
                         AND (has_schema_privilege(r.oid,n.oid,'CREATE') OR pg_has_role(r.oid,n.nspowner,'MEMBER')))
                     OR EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-                        WHERE n.nspname IN ('signal_control','signal_finding_scope')
+                        WHERE n.nspname IN ('signal_control','signal_finding_scope','signal_custody_restore')
                         AND (has_function_privilege(r.oid,p.oid,'EXECUTE WITH GRANT OPTION')
                         OR (has_function_privilege(r.oid,p.oid,'EXECUTE') AND p.oid NOT IN (
                             'signal_control.acquire(jsonb,uuid,integer,bytea,bytea)'::regprocedure,
@@ -1179,7 +1218,7 @@ async fn execute(
                                 'signal_finding_scope.publish(jsonb,bytea,bytea,boolean,bytea,bytea,text,text)'::regprocedure))
                             OR ($3::boolean AND NOT $2::boolean AND p.oid='signal_control.record_receipt(jsonb,bytea,bytea,bytea)'::regprocedure)))))
                     OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-                        WHERE n.nspname IN ('signal_control','signal_finding_scope')
+                        WHERE n.nspname IN ('signal_control','signal_finding_scope','signal_custody_restore')
                         AND (pg_has_role(r.oid,c.relowner,'MEMBER')
                         OR (c.relkind IN ('r','p','v','m','f') AND
                             (has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
@@ -1194,6 +1233,26 @@ async fn execute(
                 return Err(ControlError::Fenced);
             }
             Reply::ProducerCredentials
+        } else if let Operation::RestoredCustody(action) = operation {
+            crate::restored_custody::validate(action)?;
+            match action {
+                crate::restored_custody::Action::Install { owner } => {
+                    crate::restored_custody::install(&connection.client, owner, routines, context)
+                        .await?;
+                    Reply::ProducerCredentials
+                }
+                crate::restored_custody::Action::Resolve { token, description } => Reply::Receipt(
+                    crate::restored_custody::resolve(
+                        &connection.client,
+                        token,
+                        description,
+                        schema,
+                        routines,
+                        context,
+                    )
+                    .await?,
+                ),
+            }
         } else if let Operation::FindingScope {
             owner,
             profile,
@@ -1250,7 +1309,8 @@ async fn execute(
                             )
                             .await
                     }
-                    Operation::Administration { .. }
+                    Operation::RestoredCustody(_)
+                    | Operation::Administration { .. }
                     | Operation::Restore { .. }
                     | Operation::Feed { .. } | Operation::ScopedList { .. }
                         | Operation::ExistingFindingScope { .. }
@@ -1359,7 +1419,8 @@ async fn execute(
             };
             let value: serde_json::Value = row.try_get(0).map_err(|_| ControlError::Corrupt)?;
             match operation {
-                Operation::Feed { .. }
+                Operation::RestoredCustody(_)
+                | Operation::Feed { .. }
                 | Operation::ScopedList { .. }
                 | Operation::ExistingFindingScope { .. }
                 | Operation::ProducerCredentials { .. }
