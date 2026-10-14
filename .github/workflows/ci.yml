@@ -67,6 +67,8 @@ jobs:
           key: ${{ steps.cargo-cache.outputs.cache-primary-key }}
       - name: Tests
         run: python3 scripts/run-ci-check.py --name tests --timeout 1200 -- cargo test --workspace --all-features --locked
+      - name: Native site syslog TCP and mTLS qualification
+        run: python3 scripts/run-ci-check.py --name syslog-native --timeout 180 -- python3 scripts/check-syslog.py target/debug/signal-agent target/debug/signal-server target/ci/syslog-native
       - name: Agent logical delivery guards
         run: python3 scripts/run-ci-check.py --name agent-process-helpers --timeout 60 -- python3 scripts/test-agent-process.py
       - name: Established IdP harness failure regressions
