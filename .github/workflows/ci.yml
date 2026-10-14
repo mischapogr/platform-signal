@@ -69,6 +69,8 @@ jobs:
         run: python3 scripts/run-ci-check.py --name tests --timeout 1200 -- cargo test --workspace --all-features --locked
       - name: Native site syslog TCP and mTLS qualification
         run: python3 scripts/run-ci-check.py --name syslog-native --timeout 180 -- python3 scripts/check-syslog.py target/debug/signal-agent target/debug/signal-server target/ci/syslog-native
+      - name: Native selected runtime sensor and exact spool replay
+        run: python3 scripts/run-ci-check.py --name host-runtime-native --timeout 180 -- python3 scripts/check-runtime-sensor.py --agent target/debug/signal-agent --server target/debug/signal-server --output target/ci/host-runtime-native
       - name: Agent logical delivery guards
         run: python3 scripts/run-ci-check.py --name agent-process-helpers --timeout 60 -- python3 scripts/test-agent-process.py
       - name: Established IdP harness failure regressions

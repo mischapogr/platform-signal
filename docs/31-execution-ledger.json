@@ -1045,17 +1045,23 @@
       ],
       "evidence": [
         "target/goal-execution-20261007/HOST-AUTH/",
-        "target/host-auth-20261014/ACCEPTANCE.json"
+        "target/host-auth-20261014/ACCEPTANCE.json",
+        "target/host-runtime-20261014/ACCEPTANCE.json"
       ],
       "references": [
         "docs/source-detection-catalog.md",
-        "docs/58-host-authentication-profile.md"
+        "docs/58-host-authentication-profile.md",
+        "docs/63-falco-runtime-profile.md"
       ],
       "authentication_slice": {
         "status": "passed_simulated",
         "evidence": "target/host-auth-20261014/ACCEPTANCE.json"
       },
-      "notes": "2026-10-14 strict auth-json SDK/agent profile accepted:958default/1019all-feature and8frozen gates,4normalizer regressions and actual agent/file/spool/authenticated server/Parquet/cursor restart. Stable authority/principal/target/method/session/time and numeric producer continuity retained, IP context only; unknown credential and sensor-coverage claim fields rejected. Source producer synthetic; runtime_sensor_coverage remains not_assessed. Full item pending selected runtime sensor capture/coverage proof."
+      "notes": "2026-10-14 strict auth-json SDK/agent profile accepted:958default/1019all-feature and8frozen gates,4normalizer regressions and actual agent/file/spool/authenticated server/Parquet/cursor restart. Stable authority/principal/target/method/session/time and numeric producer continuity retained, IP context only; unknown credential and sensor-coverage claim fields rejected. Source producer synthetic; runtime_sensor_coverage remains not_assessed. Full item pending selected runtime sensor capture/coverage proof. Selected Falco0.44.1 metadata/health and explicit agent input foundation now accepted:994default/1055all-feature,9frozen gates and exact five-record synthetic spool/SIGKILL/query replay. Native CLI confirms supported fields and corrected evt.dir-free rules; actual native CI capture/independent coverage remains pending. Full HOST-AUTH stays pending.",
+      "runtime_foundation_slice": {
+        "status": "passed_simulated",
+        "evidence": "target/host-runtime-20261014/ACCEPTANCE.json"
+      }
     },
     {
       "id": "SYSLOG",

@@ -19,6 +19,7 @@ pub mod cato;
 pub mod cloudflare;
 pub mod cloudtrail;
 pub mod coverage;
+pub mod falco;
 pub mod host_auth;
 pub mod object_custody;
 mod providers;
