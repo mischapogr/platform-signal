@@ -85,3 +85,10 @@ Sources checked2026-10-14 through Context7 and current upstream release:
 [supported syscall fields](https://falco.org/docs/reference/rules/supported-fields/),
 [native metrics](https://falco.org/docs/metrics/falco-metrics/),
 [modern eBPF container requirements](https://falco.org/docs/setup/container/).
+
+The separate `.github/workflows/runtime-sensor.yml` probe uses its own bounded
+queue and builds only the collector SDK after native capture succeeds. It runs
+actual capture then an explicitly ignored native-only Rust projection test,
+which fails without the owned capture manifest/source/digest binding. This
+shortens schema feedback without replacing the full CI agent/server replay gate.
+Native capture/projection and full composed acceptance remain distinct.

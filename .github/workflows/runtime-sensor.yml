@@ -1,0 +1,66 @@
+name: Native runtime sensor probe
+
+on:
+  push:
+    paths:
+      - '.github/workflows/runtime-sensor.yml'
+      - 'scripts/check-runtime-sensor.py'
+      - 'tests/integration/runtime-sensor-fixture.c'
+      - 'crates/signal-collector-sdk/src/falco.rs'
+      - 'crates/signal-collector-sdk/tests/falco.rs'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runtime-sensor-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: Native Falco capture and SDK projection (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Capture owned native hooks and explicit sensor counters
+        run: python3 scripts/run-ci-check.py --name runtime-capture --timeout 180 -- python3 scripts/check-runtime-sensor.py --capture-only --output target/ci/runtime-capture
+      - name: Restore public Cargo downloads
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-downloads-v1-${{ runner.os }}-${{ runner.arch }}-
+      - name: Project complete native capture through the selected SDK
+        env:
+          SIGNAL_OWNED_FALCO_CAPTURE: target/ci/runtime-capture
+        run: python3 scripts/run-ci-check.py --name runtime-projection --timeout 900 -- cargo test -p signal-collector-sdk --test falco --locked -- --ignored --exact native_capture_projects_all_owned_hooks_and_explicit_health_counters
+      - name: Preserve bounded source and failure evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: runtime-sensor-${{ matrix.arch }}
+          path: |
+            target/ci/runtime-capture/
+            target/ci/runtime-capture.json
+            target/ci/runtime-capture.log
+            target/ci/runtime-projection.json
+            target/ci/runtime-projection.log
+          retention-days: 1
+          if-no-files-found: error
