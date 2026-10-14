@@ -1112,7 +1112,7 @@
     {
       "id": "CLOUDFLARE",
       "title": "Cloudflare object-delivery normalization",
-      "status": "pending",
+      "status": "passed_simulated",
       "dependencies": [
         "OBJECT-READER",
         "SMALL-PILOT"
@@ -1121,11 +1121,14 @@
         "Reuse bounded object intake; pin selected schema/coverage and positive/negative/malformed fixtures."
       ],
       "evidence": [
-        "target/goal-execution-20261007/CLOUDFLARE/"
+        "target/goal-execution-20261007/CLOUDFLARE/",
+        "target/cloudflare-profile-20261014/ACCEPTANCE.json"
       ],
       "references": [
-        "docs/26-ingestion-architecture-audit.md"
-      ]
+        "docs/26-ingestion-architecture-audit.md",
+        "docs/59-cloudflare-logpush-profile.md"
+      ],
+      "notes": "Selected zone http_requests v1 gzip NDJSON schema accepted on synthetic objects: exact field whitelist, configured route-only account/zone scope, sampling/filter and unknown completeness, bounded complete-object validation and deterministic pinned replay. Four new and seven unchanged CloudTrail reader regressions pass. No live Logpush job, provider authenticity, private receipt custody/ACK or actual coverage claimed."
     },
     {
       "id": "BASELINES",
