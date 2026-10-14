@@ -135,10 +135,14 @@ actual image ID, fresh database metadata and unfiltered reports; reevaluate when
 the image, dependencies or databases change. Signed releases, builder identity
 attestation and released SDK dependency integration remain separate gates.
 
-The current server does not implement native TLS, OIDC/RBAC, tenant isolation,
-per-publisher rate limits, signed rule/config bundles or encryption at rest.
-Network controls, TLS termination, token custody/rotation, monitoring access,
-filesystem/PVC permissions and backups remain deployment responsibilities.
+Native identity mode implements TLS/mTLS, OIDC identity validation and scoped
+RBAC as specified in the access-control contract. Legacy bearer mode retains
+its documented compatibility boundary. These mechanisms do not establish
+qualified EKS operation or isolation from privileged host operators.
+Per-publisher rate limits, signed rule/config bundles and encryption at rest
+remain outside the current server contract. Network controls, certificate and
+token custody/rotation, monitoring access, filesystem/PVC permissions and
+backups remain deployment responsibilities.
 Resource quotas bound application-owned use, without establishing free-space or
 availability guarantees on shared host disks. A privileged host, a compromised
 operator or non-cooperative in-process provider can defeat this threat boundary.

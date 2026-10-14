@@ -1302,7 +1302,7 @@
     {
       "id": "RELEASE-REVIEW",
       "title": "Independent source review and resolve findings",
-      "status": "pending",
+      "status": "passed_local",
       "dependencies": [
         "RECEIPT-PROGRESS"
       ],
@@ -1310,12 +1310,16 @@
         "Review durability/replay/cancellation/scope/quotas and production hazards; retain review evidence per accepted slice."
       ],
       "evidence": [
-        "target/goal-execution-20261007/RELEASE-REVIEW/"
+        "target/goal-execution-20261007/RELEASE-REVIEW/",
+        "target/release-review-20261014/ACCEPTANCE.json",
+        "target/release-review-20261014/independent/REVIEW.json",
+        "target/release-review-20261014/independent/CORRECTION-REVIEW.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
         "docs/04-implementation-plan.md"
-      ]
+      ],
+      "notes": "2026-10-14 focused independent six-domain source review and correction review accepted. Account-restricted onboarding binding, original-deadline ACK retry and current security responsibility statement corrected. Frozen local AMD64 acceptance retained; current remote CI/ARM64, actual AWS/EKS/vendor, upgrade/trust and publication remain separate."
     },
     {
       "id": "RELEASE-TRUST",
