@@ -19,6 +19,10 @@ def main():
             assert not list((root/name).glob('NATIVE*.json')), 'no native success report'
         result=subprocess.run(['cargo','test','-p','signal-collector-sdk','--test','falco','--','--ignored','--exact','native_capture_projects_all_owned_hooks_and_explicit_health_counters'],cwd=ROOT,env=env,capture_output=True,timeout=120)
         assert result.returncode!=0 and b'owned capture directory' in result.stdout+result.stderr, 'native projection refuses absent manifest'
-    print(json.dumps({'status':'passed','checks':3,'native_kernel_capture':False}))
+        scoped=dict(env,SIGNAL_OWNED_FALCO_CAPTURE=str(root.relative_to(ROOT)))
+        result=subprocess.run(['cargo','test','-p','signal-collector-sdk','--test','falco','--','--ignored','--exact','native_capture_projects_all_owned_hooks_and_explicit_health_counters'],cwd=ROOT,env=scoped,capture_output=True,timeout=120)
+        assert result.returncode!=0 and b'native capture manifest' in result.stdout+result.stderr, 'relative workspace capture resolves before missing-manifest refusal'
+
+    print(json.dumps({'status':'passed','checks':4,'native_kernel_capture':False}))
 
 if __name__=='__main__':main()

@@ -33,6 +33,38 @@ def rules(executable):
     return '\n'.join(f'- rule: SIGNAL fixture {name}\n  desc: Owned synthetic runtime qualification\n  condition: {condition} and proc.exepath=\'{executable}\'\n  output: "{base}{extra}"\n  priority: INFORMATIONAL\n' for name, condition, extra in definitions)
 
 
+def configuration():
+    # A complete owned fixture selection; no image config.d or container plugins.
+    return """config_files: []
+rules_files:
+  - /fixture/rules.yaml
+load_plugins: []
+plugins: []
+engine:
+  kind: modern_ebpf
+json_output: true
+json_include_output_property: false
+json_include_message_property: false
+json_include_tags_property: false
+stdout_output:
+  enabled: true
+buffered_outputs: false
+log_stderr: true
+log_syslog: false
+webserver:
+  enabled: false
+metrics:
+  enabled: true
+  interval: 1s
+  include_empty_values: true
+  resource_utilization_enabled: true
+  rules_counters_enabled: true
+  state_counters_enabled: true
+  kernel_event_counters_enabled: true
+  output_rule: true
+"""
+
+
 def run_command(command, deadline, **kwargs):
     subprocess.run(command, timeout=max(.01, deadline-time.monotonic()), check=True, **kwargs)
 
@@ -55,12 +87,13 @@ def capture(output):
     protected.write_bytes(b'synthetic fixture material only\n')
     rule_file = output/'rules.yaml'
     rule_file.write_text(rules(executable))
+    (output/'falco.yaml').write_text(configuration())
     run_command(['docker', 'pull', IMAGE], deadline, stdout=subprocess.DEVNULL)
     architecture = subprocess.check_output(['docker','image','inspect',IMAGE,'--format','{{.Architecture}}'],timeout=5,text=True).strip()
     assert architecture == {'x86_64':'amd64','aarch64':'arm64'}.get(platform.machine()), 'native sensor architecture'
     owned = 'signal-runtime-'+uuid.uuid4().hex[:12]
     command = ['docker', 'run', '--rm', '--name', owned, '--network=none', '--pid=host', '--cap-drop=ALL', '--cap-add=SYS_ADMIN', '--cap-add=SYS_RESOURCE', '--cap-add=SYS_PTRACE', '-e', 'HOST_ROOT=/host', '-v', '/proc:/host/proc:ro', '-v', '/sys/kernel/btf:/sys/kernel/btf:ro', '-v', '/sys/kernel/tracing:/sys/kernel/tracing:ro', '-v', f'{output}:/fixture:ro', '--entrypoint', '/usr/bin/falco', IMAGE,
-               '-o', 'rules_files=[/fixture/rules.yaml]', '-o', 'engine.kind=modern_ebpf', '-o', 'json_output=true', '-o', 'json_include_output_property=false', '-o', 'json_include_message_property=false', '-o', 'json_include_tags_property=false', '-o', 'webserver.enabled=false', '-o', 'metrics.enabled=true', '-o', 'metrics.interval=1s', '-o', 'metrics.include_empty_values=true', '-o', 'metrics.state_counters_enabled=true', '-o', 'metrics.kernel_event_counters_enabled=true', '-o', 'metrics.output_rule=true']
+               '-c', '/fixture/falco.yaml', '-r', '/fixture/rules.yaml']
     listener = socket.socket()
     listener.bind(('127.0.0.1',0));listener.listen(1)
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)

@@ -92,3 +92,9 @@ actual capture then an explicitly ignored native-only Rust projection test,
 which fails without the owned capture manifest/source/digest binding. This
 shortens schema feedback without replacing the full CI agent/server replay gate.
 Native capture/projection and full composed acceptance remain distinct.
+
+The native fixture supplies its own minimal Falco configuration and explicit
+`-c`/`-r` selection; image config.d plugins and default rules do not supply
+fixture behavior. Relative native-test capture paths resolve from the workspace
+root, independent of Cargo integration-test working directory. Native capture
+failures and their digest-verified artifacts are retained before corrections.

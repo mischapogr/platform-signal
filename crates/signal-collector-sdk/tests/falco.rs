@@ -174,11 +174,22 @@ fn native_capture_projects_all_owned_hooks_and_explicit_health_counters() {
     let directory = std::path::PathBuf::from(
         std::env::var("SIGNAL_OWNED_FALCO_CAPTURE").expect("owned capture directory"),
     );
+    let workspace = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap();
+    let directory = if directory.is_absolute() {
+        directory
+    } else {
+        workspace.join(directory)
+    };
     let directory = directory.canonicalize().unwrap();
-    assert!(directory.starts_with(std::env::current_dir().unwrap().join("target")));
-    let manifest: Value =
-        serde_json::from_slice(&std::fs::read(directory.join("NATIVE-CAPTURE.json")).unwrap())
-            .unwrap();
+    assert!(directory.starts_with(workspace.join("target")));
+    let manifest: Value = serde_json::from_slice(
+        &std::fs::read(directory.join("NATIVE-CAPTURE.json")).expect("native capture manifest"),
+    )
+    .unwrap();
     assert_eq!(manifest["status"], "passed_native_capture");
     assert!(manifest.get("simulation").is_none());
     assert_eq!(manifest["cleanup"], true);
