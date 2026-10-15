@@ -12,16 +12,17 @@ Latest local acceptance — 2026-10-16:SENSOR-HEALTH passes local simulation,
 eight frozen gates1,121default/1,191all-feature tests and current Small/Standard
 sensor, mixed WINDOW, stopped-owner and fresh-generation restore campaigns.
 Evidence:`target/sensor-health-standard-20261016/ACCEPTANCE.json`.
-Inventory36accepted/16unfinished. Runtime`e1763e3` now has verified complete
+Inventory36accepted/16unfinished. Runtime`7fa481e` now has verified complete
 nativeAMD64/ARM64 CI, actual sensor/mixed/restore processes, production images,
-finite-soak and Standard kind WAL/PVC recovery. Evidence:
-`target/sensor-health-standard-20261016/ci-e1763e3/NATIVE-ACCEPTANCE.json`.
-Next runnable release gate: fresh native candidate qualification of the bounded
-retirement retry correction recorded in [release readiness](21-release-readiness.md).
-Candidate run38892772326 exposed a confirmed-abort cleanup race on ARM64; the
-correction has local source-bound acceptance. Independent current-source review
-also remains open; its bounded read-only scope is prepared and current-task
-delegation authorization is pending. Actual
+finite-soak and Standard kind WAL/PVC recovery. Both unsigned development
+candidates pass checksums, exact saved-image/chart/source payload verification
+and offline source relocation. Evidence:
+`target/candidate-replay-retry-20261016/NATIVE-ACCEPTANCE.json`.
+The confirmed-abort cleanup correction now passes the original ARM64 mixed gate.
+Next release gate: independent current-source review; its bounded read-only scope
+is prepared and current-task delegation authorization is pending. Final
+LOCAL-CANDIDATE still depends on unfinished SOC-UX, SCALE-DECISION and
+RELEASE-TRUST work; do not mark it accepted from CI bundle preparation. Actual
 AWS/EKS/vendor, released dependency and owner version/publication gates remain
 separate. Phase9 AWS collection still needs a separate task; do not bypass the
 unfinished dependencies of later detector items.

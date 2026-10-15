@@ -17,9 +17,12 @@ Guidance for AI coding agents (Claude Code, Codex, Cursor, Copilot, Gemini CLI, 
 Phases 0–8 and bounded Phase 10 hardening have local Linux AMD64 evidence.
 HTTP 202 means synced WAL admission; the consumer publishes Parquet, evaluates
 rules, persists findings, then advances the checkpoint. The dev0 local candidate
-is unpublished and is not an alpha or release. Runtime e1763e3 has verified
+is unpublished and is not an alpha or release. Runtime 7fa481e has verified
 native AMD64/ARM64 Rust/sensor, production image, hardening/pipeline/finite-soak,
-Standard kind WAL/PVC recovery and complete remote CI evidence (run38882944855).
+Standard kind WAL/PVC recovery and complete remote CI evidence (run38898992993).
+Both unsigned CI development candidates pass artifact/image/chart integrity and
+offline source relocation. Final LOCAL-CANDIDATE product prerequisites remain
+open; the CI bundles do not complete that ledger item.
 Current-source independent release review is still pending. Actual AWS/EKS/vendor,
 released-dependency, owner version/publication/main merge qualification remain
 open. Local kind and finite soaks do not prove AWS runtime, prolonged stability

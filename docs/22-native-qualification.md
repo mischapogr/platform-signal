@@ -1,6 +1,16 @@
 # Native architecture qualification
 
-Runtime revision`e1763e3` passes complete nativeAMD64/ARM64 Rust, sensor process,
+Runtime revision`7fa481e` passes complete nativeAMD64/ARM64 Rust/sensor, production
+image, finite-soak, supply-chain and Standard kind WAL/PVC qualification in
+[CI run38898992993](https://github.com/mischapogr/platform-signal/actions/runs/38898992993).
+Both unsigned CI candidates pass archive/file checksums, exact source/chart
+contents, offline source relocation and saved-image config/ordered-layer hashes.
+Evidence:`target/candidate-replay-retry-20261016/NATIVE-ACCEPTANCE.json`.
+This remains finite native/synthetic-provider development evidence; final
+LOCAL-CANDIDATE prerequisites, independent current-source review and external/
+owner release gates remain open.
+
+Earlier runtime revision`e1763e3` passes complete nativeAMD64/ARM64 Rust, sensor process,
 production image, hardening/pipeline/finite-soak, supply-chain and Standard kind
 WAL/PVC qualification in [CI run38882944855](https://github.com/mischapogr/platform-signal/actions/runs/38882944855).
 Primary artifact digests, exact source/ELF/binary identities and owned cleanup are

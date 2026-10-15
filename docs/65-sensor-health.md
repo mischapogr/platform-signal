@@ -404,3 +404,14 @@ acceptance passes190.67s and the actual mixed Main passes all five scenarios in
 60.13s with303source bindings, checkpoint9 and owned cleanup. Frozen Rust/helper
 evidence and limits are in `target/candidate-replay-retry-20261016/ACCEPTANCE.json`.
 Fresh native CI and independent current-source release review remain required.
+
+
+The corrected retirement path is now native-qualified at`7fa481e` on2026-10-16.
+Both architectures pass1,191Rust tests/18PostgreSQL cases and all Standard
+WINDOW/sensor/mixed/restore scenarios8/10/5/4, including the original failing
+ARM64 mixed gate42.995s. Exact primary artifact/source/binary/image and owned
+cleanup bindings are retained in
+`target/candidate-replay-retry-20261016/NATIVE-ACCEPTANCE.json`. Full native
+container/kind/supply-chain and unsigned development-candidate integrity also
+pass. Independent current-source review and final-candidate/external/owner gates
+remain separate; no alpha/release or prolonged production stability is claimed.
