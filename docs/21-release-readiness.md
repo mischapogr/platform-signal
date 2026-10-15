@@ -88,6 +88,19 @@ older report's documentation identities without rewriting accepted reports.
 
 ## Required gates still open
 
+Latest qualified runtime:`e1763e3`, complete nativeAMD64/ARM64 CI, images,
+finite-soak and Standard kind proof; exact evidence is in the final dated entry.
+
+| Gate | Remaining requirement |
+| --- | --- |
+| Independent current-source release review | Source-bound reviewer assessment of the current durability/sensor/restore changes; read-only scope is prepared and current-task delegation authorization is pending |
+| Actual EKS/AWS/vendor | Authorized environments and actual provider/storage/identity/runtime evidence; kind and synthetic endpoints do not close these gates |
+| Released external dependency | Private application against the actual released public version and locked dependency graph |
+| Version/publication/main merge | Owner-selected version and explicit authority, with applicable trust/security/restore/package/SBOM review |
+
+<details>
+<summary>Earlier gate snapshot, superseded by the current dated evidence</summary>
+
 | Gate | Remaining requirement |
 | --- | --- |
 | Standard Kubernetes | Complete27281e3 run38246315239 and primary-digest/source/bundle/image-bound native profiles pass107.40s AMD64/114.57s ARM64: native TLS/probes, regular Secret files, original CRC/WAL checkpoint2/floor0/database facts and same-PVC SIGKILL/pod replacement recovery/cleanup; `target/standard-kind-ci-20261012/NATIVE-STANDARD-ACCEPTANCE.json`. Synthetic identity/S3; actual EKS/AWS and later current-revision CI remain open; no replicas or remote DELETE |
@@ -97,6 +110,9 @@ older report's documentation identities without rewriting accepted reports.
 | Reviewed-revision remote CI | Reviewed metrics revision b9c58da run38237870960 succeeds. Later0c73951 run38243101139 passes both976-test/five Standard process jobs and AMD64 full native qualification; ARM64 passes container/pipeline/soak/kind but a pinned security-tool download returns HTTP504, leaving supply-chain/full CI unqualified. New Standard cluster workflow27281e3 run38246315239 is active and requires matching results |
 | Released external dependency | Private application against the actual released version and locked dependency graph |
 | Release review/version/publication | Applicable trust/security/restore/package/SBOM review, owner-selected version and explicit release authority |
+
+
+</details>
 
 Public OSS server/agent image publication is prepared in
 [the GHCR release workflow](50-ghcr-publication.md). It requires the exact
@@ -325,3 +341,8 @@ SENSOR-HEALTH passes local simulation acceptance — 2026-10-16. Eight frozen ga
 ## Native WINDOW fixture correction — 2026-10-16
 
 Native CI run38879619804 at178406c completed1,191all-feature tests and all18PostgreSQL crash/restore cases on bothAMD64/ARM64, with digest-verified artifacts and owned cleanup136.96s/141.87s. Both jobs then failed the WINDOW fixture with the same NameError: its finding assertion referenced the detection variable made local by shared setup extraction. The helper now returns the configured policy and the assertion uses that exact rule ID. All8actual WINDOW scenarios pass locally in169.11s with303matching source bindings, original WAL checkpoint6 and owned cleanup. Production Rust/SQL, assertions and deadlines are unchanged. CI now reuses the verified executable bundle for WINDOW as for sensor/mixed/restore, avoiding repeated Cargo calls and duplicate binary uploads. Evidence:`target/sensor-health-standard-20261016/NATIVE-WINDOW-FAILURE.json` and `target/sensor-health-standard-20261016/WINDOW-CORRECTION-ACCEPTANCE.json`. These are partial native results and a fixture correction; a fresh complete CI/native container/kind run remains required. Inventory36accepted/16unfinished; release/version/publication remain open.
+
+
+## Complete current native qualification — 2026-10-16
+
+Native CI and artifact verification pass for runtime revision`e1763e3` — 2026-10-16, [run38882944855](https://github.com/mischapogr/platform-signal/actions/runs/38882944855). All five jobs pass. Both nativeAMD64/ARM64 Rust jobs pass1,191tests, all18PostgreSQL crash/restore cases,8Small sensor checks and Standard WINDOW/sensor/mixed/restore scenarios8/10/5/4. Primary GitHub archive digests, exact source maps, actual ELF bytes and original/stripped executable identities are verified. Both production images pass native host/daemon/image architecture, hardening, seven pipeline profiles, two120s finite-soak profiles, supply-chain gates and Standard kind original-WAL/PVC recovery with owned cleanup110.83s/108.46s. Evidence:`target/sensor-health-standard-20261016/ci-e1763e3/NATIVE-ACCEPTANCE.json`. Identity/observer/restore authority and S3 remain synthetic; kind is not EKS/AWS and finite soak is not prolonged production stability or physical-device throughput. Runtime qualification is pinned to`e1763e3`; documentation-only status updates do not change its build inputs. Inventory36accepted/16unfinished. Independent current-source release review, actual AWS/EKS/vendor, released dependency and owner-selected version/publication/main merge remain open. No alpha or release is published.

@@ -3,9 +3,13 @@
 SENSOR-HEALTH passes local simulation acceptance — 2026-10-16. Small and Standard
 Main, bounded history, atomic original outputs/checkpoints, idle maintenance and
 fresh-generation restore pass current source-bound qualification. See
-`target/sensor-health-standard-20261016/ACCEPTANCE.json`. Current native release
-CI/container/cluster and external observer/environment/publication gates remain
-separate. Dated slices below retain their original evidence boundaries.
+`target/sensor-health-standard-20261016/ACCEPTANCE.json`. Native AMD64/ARM64
+Rust/image/finite-soak/Standard kind qualification now passes for runtime
+`e1763e3`; see
+`target/sensor-health-standard-20261016/ci-e1763e3/NATIVE-ACCEPTANCE.json`.
+Independent current-source release review and actual observer/environment/
+released-dependency/version/publication gates remain separate. Dated slices below
+retain their original evidence boundaries.
 
 Private configuration pins an expected-source inventory, complete binding digest,
 independent observer identity, expectation start, configuration/rule revision,
