@@ -125,3 +125,22 @@ private policy, database installation/migration or publication is introduced.
 Development schema upgrade and stopped restore compatibility are specified in
 [the compatibility matrix](56-upgrade-compatibility.md). Automatic startup
 migration and binary downgrade after committed schema changes are unsupported.
+
+## Native CI candidate preparation
+
+Pushes to `candidate/**` run the release-candidate workflow, which calls the
+complete reusable CI workflow with candidate preparation enabled. Ordinary push
+CI excludes this branch namespace to avoid duplicate qualification. Pull-request
+CI and manual dispatch remain available. Both native architectures must pass
+their existing gates; the workflow retains `contents: read` permissions.
+
+The bounded evidence archive retains qualification reports and the Standard
+runtime bundle manifest, including executable digests. It excludes only the two
+redundant executable copies under `target/ci/standard-kind-qualification/`.
+The separate qualified bundle retains those executables. Standard bundle
+verification and Standard kind checks are mandatory candidate prerequisites.
+The 64 MiB report budget and rejection of symlinks remain enforced.
+
+These unsigned development artifacts are retained by CI; preparation does not
+select a release version, publish images, create a GitHub release or qualify
+actual AWS/EKS, vendor environments or released dependencies.

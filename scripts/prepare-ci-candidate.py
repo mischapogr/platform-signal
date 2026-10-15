@@ -28,7 +28,8 @@ JSON_CAP = 2 * 1024 * 1024
 IMAGE_CAP = 512 * 1024 * 1024
 EVIDENCE_CAP = 64 * 1024 * 1024
 REQUIRED = ('image-build', 'container', 'native', 'kind', 'supply-chain',
-            'helm-default', 'helm-optional', 'helm-render', 'helm-render-optional')
+            'standard-kind', 'standard-bundle-verify', 'helm-default',
+            'helm-optional', 'helm-render', 'helm-render-optional')
 
 
 def read_json(path):
@@ -97,11 +98,21 @@ def require_image_evidence(root, image_id, architecture, binary_hash):
 def archive_evidence(root, destination):
     files = []
     total = 0
-    for relative in ('target/ci', 'target/native-qualification', 'target/supply-chain/reports'):
+    # These copied test executables are retained in the qualified runtime bundle,
+    # not the bounded report archive. Keep every report and the bundle manifest.
+    excluded = {'target/ci/standard-kind-qualification/standard-server',
+                'target/ci/standard-kind-qualification/standard-offline-fixture'}
+    manifest = root / 'target/standard-kind-bundle/manifest.json'
+    read_json(manifest)
+    for relative in ('target/ci', 'target/native-qualification', 'target/supply-chain/reports',
+                     'target/standard-kind-bundle/manifest.json'):
         directory = root / relative
-        for path in sorted(directory.rglob('*')):
+        paths = [directory] if directory.is_file() else sorted(directory.rglob('*'))
+        for path in paths:
             if path.is_symlink():
                 raise RuntimeError('symlink in evidence')
+            if str(path.relative_to(root)) in excluded:
+                continue
             if path.is_file():
                 size = path.stat().st_size
                 total += size

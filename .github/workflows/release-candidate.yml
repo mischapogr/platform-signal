@@ -2,6 +2,9 @@ name: Release candidate preparation
 
 # Read-only preparation. Publication remains a separate owner-held operation.
 on:
+  push:
+    branches:
+      - 'candidate/**'
   workflow_dispatch:
 
 permissions:
