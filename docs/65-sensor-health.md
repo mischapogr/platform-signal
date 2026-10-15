@@ -382,3 +382,25 @@ Parquet and Main are actual; observer/restore authority and S3 custody are
 synthetic. This is a restore slice, not whole SENSOR-HEALTH or release acceptance.
 The complete staged PostgreSQL campaign and frozen Small/Standard/workspace
 refresh remain required after these source changes.
+
+
+## Confirmed-abort replay-pin cleanup — 2026-10-16
+
+The native mixed recovery campaign exposed a concurrent store-row update during
+obsolete-pin retirement after checkpoint9. A confirmed PostgreSQL serialization
+abort previously stopped the consumer. Only obsolete retirement now joins the
+worker's bounded whole-operation retry path: at most three attempts retain the
+exact request, original cancellation/deadline and shared two-second transaction
+budget, and require confirmed rollback with a retryable result. Uncertain COMMITs
+remain uncertain and cannot enter this path. Other writes retain their existing
+retry/reconciliation behavior. Retirement retries are counted separately from
+snapshot retries and exported as `signal_shared_producer_retirement_retries` and
+`signal_shared_reader_retirement_retries`.
+
+Actual PostgreSQL lock/serialization and permanent-abort regressions prove one
+race retry, exactly three exhausted attempts preserving the original pin,
+cancelled/expired refusal and idempotent release. Full local server/native HTTP
+acceptance passes190.67s and the actual mixed Main passes all five scenarios in
+60.13s with303source bindings, checkpoint9 and owned cleanup. Frozen Rust/helper
+evidence and limits are in `target/candidate-replay-retry-20261016/ACCEPTANCE.json`.
+Fresh native CI and independent current-source release review remain required.

@@ -11,7 +11,7 @@ use signal_server::{
     shared_window::SharedWindowBinding,
 };
 use signal_storage::StoredEvent;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use uuid::Uuid;
 const DB: &str = "signal_shared_multi_recovery";
 pub(super) fn connection(f: &Fixture) -> std::result::Result<ConnectionSettings, ControlError> {
@@ -1174,9 +1174,92 @@ pub(super) async fn qualify(f: &Fixture) -> Result {
             .await,
         Err(ControlError::Fenced)
     ));
-    let released = control
-        .release_obsolete_replay_pin(token.clone(), release.clone(), context()?)
-        .await?;
+    // The native mixed-recovery gate exposed this exact race: a catalog update
+    // commits after the worker establishes its snapshot, while obsolete-pin
+    // retirement is waiting inside check_token. Re-run the whole SQL operation
+    // only after rollback, retaining the original request and deadline.
+    let before: serde_json::Value = db
+        .query_one(
+            "SELECT to_jsonb(p) FROM signal_control.object_pins p WHERE id=$1",
+            &[&old_pin],
+        )
+        .await?
+        .try_get(0)?;
+    db.batch_execute("CREATE SEQUENCE public.synthetic_retirement_round; GRANT USAGE ON SEQUENCE public.synthetic_retirement_round TO signal_control_owner; CREATE FUNCTION public.synthetic_retirement_retry() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM nextval('public.synthetic_retirement_round'); RAISE EXCEPTION USING ERRCODE='40001',MESSAGE='synthetic retirement serialization failure'; END $$; CREATE TRIGGER synthetic_retirement_retry BEFORE UPDATE ON signal_control.object_pins FOR EACH ROW EXECUTE FUNCTION public.synthetic_retirement_retry()").await?;
+    let retries_before = control.metrics().retirement_retries;
+    assert!(matches!(
+        control
+            .release_obsolete_replay_pin(token.clone(), release.clone(), context()?)
+            .await,
+        Err(ControlError::Retryable)
+    ));
+    assert_eq!(control.metrics().retirement_retries, retries_before + 2);
+    assert_eq!(
+        db.query_one(
+            "SELECT last_value FROM public.synthetic_retirement_round",
+            &[]
+        )
+        .await?
+        .get::<_, i64>(0),
+        3
+    );
+    assert_eq!(
+        db.query_one(
+            "SELECT to_jsonb(p) FROM signal_control.object_pins p WHERE id=$1",
+            &[&old_pin],
+        )
+        .await?
+        .get::<_, serde_json::Value>(0),
+        before
+    );
+    db.batch_execute("DROP TRIGGER synthetic_retirement_retry ON signal_control.object_pins; DROP FUNCTION public.synthetic_retirement_retry(); DROP SEQUENCE public.synthetic_retirement_round").await?;
+    let retries_before = control.metrics().retirement_retries;
+    let cancelled = context()?;
+    cancelled.cancel();
+    assert!(matches!(
+        control
+            .release_obsolete_replay_pin(token.clone(), release.clone(), cancelled)
+            .await,
+        Err(ControlError::Cancelled)
+    ));
+    let expired = context()?.limited_to(tokio::time::Instant::now());
+    assert!(matches!(
+        control
+            .release_obsolete_replay_pin(token.clone(), release.clone(), expired)
+            .await,
+        Err(ControlError::Timeout)
+    ));
+    assert_eq!(control.metrics().retirement_retries, retries_before);
+    let retries_before = control.metrics().retirement_retries;
+    db.batch_execute(
+        "BEGIN; UPDATE signal_control.store SET feed_position=feed_position WHERE singleton",
+    )
+    .await?;
+    let retirement_control = control.clone();
+    let retirement_token = token.clone();
+    let retirement_request = release.clone();
+    let retirement_context = context()?;
+    let contender = tokio::spawn(async move {
+        retirement_control
+            .release_obsolete_replay_pin(retirement_token, retirement_request, retirement_context)
+            .await
+    });
+    let observed = tokio::time::timeout(Duration::from_millis(750), async {
+        loop {
+            db.batch_execute("SELECT pg_stat_clear_snapshot()").await?;
+            let waiting = db.query_one("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query='SELECT signal_control.check_token($1,$2,$3)')", &[]).await?;
+            if waiting.get::<_, bool>(0) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        Ok::<(), tokio_postgres::Error>(())
+    })
+    .await;
+    db.batch_execute("COMMIT").await?;
+    observed??;
+    let released = contender.await??;
+    assert_eq!(control.metrics().retirement_retries, retries_before + 1);
     assert_eq!(released.state, ObjectControlState::Released);
     assert_eq!(
         control
