@@ -1,6 +1,6 @@
 # Release readiness audit
 
-Current snapshot: 2026-10-14. **No alpha or release is ready or published.**
+Current snapshot: 2026-10-15. **No alpha or release is ready or published.**
 The package remains `0.1.0-dev.0`; no release version/date has been selected.
 The [full prior audit](21-release-readiness-history-20261010.md) preserves every
 historical evidence row and image/source binding. Current implementation is
@@ -249,3 +249,18 @@ SENSOR-HEALTH is in progress; the authenticated independent-observer adapter,
 Main lifecycle, atomic outbox/checkpoint and actual crash recovery remain required.
 Inventory stays 35 accepted / 17 unfinished. WINDOW native CI at `57024b7` remains
 live and unqualified; hold another develop push to preserve that campaign.
+
+SENSOR-HEALTH signed observer seam advances — 2026-10-15. The server library now
+verifies bounded original payload bytes with an owner-enrolled Ed25519 observer
+key and separate signature domain. Exact policy/source/observer binding and
+half-open freshness agree with the evaluator; replay cannot renew verification.
+A complete enrollment digest includes all keys for the pending durable recovery
+binding. Twelve crypto/bridge regressions, eleven evaluator regressions and four
+frozen workspace gates pass: 1,071 tests, zero failures, strict Clippy, formatting
+and 14 workspace boundaries. Evidence and writer review:
+`target/sensor-health-adapter-20261015/ACCEPTANCE.json`; [contract65](65-sensor-health.md).
+This is a verification-library slice. SENSOR-HEALTH remains in progress until
+native Main admission/cadence, atomic original outbox/checkpoint, bounded history
+and actual crash recovery are qualified. Inventory stays 35 accepted / 17 unfinished.
+GitHub reports both Small/Standard WINDOW steps passed on AMD64/ARM64 at `57024b7`;
+full native/container CI and primary artifact verification are still pending.

@@ -41,3 +41,46 @@ transaction, replay/lost-reply/crash recovery, bounded history/retention/metrics
 focused source review and applicable frozen workspace/process/native gates. A
 counter or pure evaluator alone cannot close SENSOR-HEALTH. Production observer
 independence remains an explicit environment qualification boundary.
+
+## Signed observer adapter
+
+The server library exposes `sensor_health::Verifier`. Owner-selected enrollment
+maps each independently operated observer UUID to an Ed25519 public key. The
+inventory's exact observer set must be enrolled; duplicate, extra, missing, zero
+or unsupported-version key entries are refused. The signer and private key stay
+outside the server. Key enrollment requires owner authorization; a valid signature
+does not itself prove operational independence from the monitored collector.
+
+A v1 envelope contains `schema_version`, `observer_id`, `payload_base64` and
+`signature_base64`. The payload contains `schema_version: 1`, `policy_sha256` (a
+32-byte array) and the versioned `observation`. The policy digest is SHA256 of the
+compact serde_json encoding of the complete validated Policy, whose expected
+sources are in ascending UUID order. The signature covers the exact payload bytes
+prefixed by `platform-signal/sensor-health-observer/v1` and one NUL byte. Unknown
+fields and duplicate JSON fields are refused. Reserializing signed JSON cannot
+replace verification of its original bytes.
+
+Envelopes are capped at 8192 bytes and decoded payloads at 4096 bytes before
+copying or retaining evidence. Enrolled key, signed policy digest, source binding,
+observer identity, schema, sequence and receiver/observation clocks must agree.
+Validity is the half-open interval from the signed observation time to that time
+plus the policy's observer-freshness budget, exactly matching the evaluator.
+Re-verification does not extend validity. V1 has no independent per-report expiry.
+
+The complete enrollment digest additionally binds the policy digest and all keys
+in ascending observer UUID order. SHA256 receives the domain
+`platform-signal/sensor-health-enrollment/v1` plus NUL, the 32-byte policy digest,
+the eight-byte big-endian key count, then each 16-byte observer UUID and 32-byte
+public key. Durable native state must pin this digest so key rotation cannot
+silently reauthorize an old snapshot. That recovery integration remains pending.
+
+The verified result retains the original envelope, payload digest, policy digest,
+enrollment digest, observation and derived expiry. Its fields are private and it cannot be
+deserialized as verified evidence. This library seam owns no I/O or worker. Main
+configuration, canonical observation admission, atomic state/outbox/checkpoint
+and actual runtime recovery still need integration before item acceptance.
+
+Verification is stateless: it validates a positive sequence, while Monitor checks
+monotonic progress. The durable host must also compare the original signed payload
+digest and canonical references when reconciling a retained sequence. Equality of
+decoded observations alone cannot authorize replacement of its original evidence.
