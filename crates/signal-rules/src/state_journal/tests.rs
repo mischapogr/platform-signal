@@ -57,6 +57,20 @@ fn atomic_state_outbox_checkpoint_reopen_and_exact_lost_reply_reconciliation() {
 }
 
 #[test]
+fn inherited_lock_descriptor_cannot_retain_lease_after_database_owner_closes() {
+    let dir = directory();
+    let path = dir.path().join("state.sqlite");
+    let mut engine = Engine::open(&path, config()).unwrap();
+    engine.commit(0, record(1, 9)).unwrap();
+    let inherited = engine._lock.duplicate().unwrap();
+    drop(engine);
+    let reopened = Engine::open(&path, config()).unwrap();
+    assert_eq!(reopened.load().unwrap(), Some(record(1, 9)));
+    drop(reopened);
+    drop(inherited);
+}
+
+#[test]
 fn pending_original_outbox_is_immutable_until_explicit_revision_bound_retirement() {
     let dir = directory();
     let mut engine = Engine::open(&dir.path().join("state.sqlite"), config()).unwrap();

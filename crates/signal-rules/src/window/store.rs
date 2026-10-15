@@ -82,7 +82,7 @@ impl HistoryPage {
 pub struct Engine {
     connection: Connection,
     policy: Policy,
-    _lock: File,
+    _lock: crate::journal_lease::WriterLease,
 }
 impl Engine {
     /// Local owner read/export primitive, not an HTTP authority boundary. Exact
@@ -261,7 +261,11 @@ impl Engine {
         {
             return Err(Error::Configuration);
         }
-        lock.try_lock().map_err(|_| Error::Busy)?;
+        let lock =
+            crate::journal_lease::WriterLease::acquire(lock).map_err(|error| match error {
+                std::fs::TryLockError::WouldBlock => Error::Busy,
+                std::fs::TryLockError::Error(_) => Error::Journal,
+            })?;
         let file = OpenOptions::new()
             .read(true)
             .write(true)
