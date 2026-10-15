@@ -1026,6 +1026,12 @@ async fn source_validation_refusal_is_422_without_admission_and_exports_bounded_
             SinkMetrics {
                 rules: Some(signal_protocol::RuleSinkMetrics {
                     sensor_health: Some(signal_protocol::SensorHealthSinkMetrics {
+                        history_assessments: 2,
+                        history_assessment_capacity: 8,
+                        history_bytes: 1024,
+                        history_byte_capacity: 4096,
+                        history_expired: 3,
+                        history_evicted: 4,
                         sources: 2,
                         source_capacity: 4,
                         proofs: 3,
@@ -1063,8 +1069,14 @@ async fn source_validation_refusal_is_422_without_admission_and_exports_bounded_
         .lines()
         .filter(|s| s.starts_with("signal_sensor_health_"))
         .collect();
-    assert_eq!(lines.len(), 15);
+    assert_eq!(lines.len(), 21);
     for (name, value) in [
+        ("history_assessments", 2),
+        ("history_assessment_capacity", 8),
+        ("history_bytes", 1024),
+        ("history_byte_capacity", 4096),
+        ("history_expired_total", 3),
+        ("history_evicted_total", 4),
         ("sources", 2),
         ("source_capacity", 4),
         ("proofs", 3),

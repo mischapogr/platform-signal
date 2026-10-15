@@ -54,6 +54,9 @@ fn config() -> Config {
         max_record_bytes: 1048576,
         max_outputs: 4,
         max_output_bytes: 65536,
+        max_history_assessments: 16,
+        max_history_bytes: 65536,
+        history_retention_ms: 1000,
     }
 }
 fn epoch(checkpoint: u64, last: u64, now: i64) -> Epoch {
@@ -101,6 +104,304 @@ fn row(
         sequence: wal,
         event: input.normalize(at).unwrap(),
     }
+}
+
+#[tokio::test]
+async fn history_count_eviction_exact_retry_and_restart_preserve_original_assessments() {
+    let dir = directory();
+    let mut cfg = config();
+    cfg.max_history_assessments = 2;
+    let path = dir.path().join("native.sqlite");
+    let mut session = Session::open(cfg.clone(), path.clone(), epoch(0, 0, 1000), context())
+        .await
+        .unwrap();
+    session.complete(&[], 1000, true, context()).await.unwrap();
+    let first = row(&cfg, 1, 10, 1, 1010, Some(1010));
+    session
+        .complete(&[first], 1010, true, context())
+        .await
+        .unwrap();
+    let second = row(&cfg, 2, 11, 2, 1020, Some(1020));
+    let original = session
+        .complete(std::slice::from_ref(&second), 1020, true, context())
+        .await
+        .unwrap();
+    assert_eq!(
+        (original.history_assessments, original.history_evicted),
+        (2, 1)
+    );
+    let before = session.journal.load(context()).await.unwrap().unwrap();
+    session
+        .complete(&[second], 1021, true, context())
+        .await
+        .unwrap();
+    assert_eq!(
+        session.journal.load(context()).await.unwrap().unwrap(),
+        before
+    );
+    session.shutdown(context()).await.unwrap();
+    let mut reopened = Session::open(cfg, path, epoch(2, 2, 1030), context())
+        .await
+        .unwrap();
+    let current = reopened.complete(&[], 1030, true, context()).await.unwrap();
+    assert_eq!(current.assessments[0].outcome, Outcome::Indeterminate);
+    let record = reopened.journal.load(context()).await.unwrap().unwrap();
+    let state: State = serde_json::from_slice(&record.state).unwrap();
+    assert!(
+        state
+            .history
+            .entries
+            .iter()
+            .any(|e| e.assessment == original.assessments[0])
+    );
+    assert_eq!(state.history.evicted, 2);
+    reopened.shutdown(context()).await.unwrap();
+}
+
+#[tokio::test]
+async fn history_expiry_never_expires_the_original_unpublished_gap_outbox() {
+    let dir = directory();
+    let mut cfg = config();
+    cfg.history_retention_ms = 50;
+    let mut session = Session::open(
+        cfg.clone(),
+        dir.path().join("native.sqlite"),
+        epoch(0, 0, 1000),
+        context(),
+    )
+    .await
+    .unwrap();
+    session
+        .complete(
+            &[row(&cfg, 1, 10, 1, 1120, Some(1000))],
+            1120,
+            true,
+            context(),
+        )
+        .await
+        .unwrap();
+    let before = session.journal.load(context()).await.unwrap().unwrap();
+    let result = session.complete(&[], 1180, true, context()).await.unwrap();
+    assert_eq!((result.history_expired, result.history_assessments), (1, 1));
+    assert_eq!(
+        session
+            .journal
+            .load(context())
+            .await
+            .unwrap()
+            .unwrap()
+            .outbox,
+        before.outbox
+    );
+    assert_eq!(result.findings.len(), 1);
+    session.shutdown(context()).await.unwrap();
+}
+
+#[tokio::test]
+async fn history_byte_eviction_is_counted_and_single_entry_overflow_rolls_back() {
+    let dir = directory();
+    let mut cfg = config();
+    cfg.max_history_bytes = 8192;
+    let mut session = Session::open(
+        cfg.clone(),
+        dir.path().join("native.sqlite"),
+        epoch(0, 0, 1000),
+        context(),
+    )
+    .await
+    .unwrap();
+    for sequence in 1..=2 {
+        let at = 1000 + sequence as i64;
+        let mut input = row(&cfg, sequence, sequence as u128, sequence, at, Some(at));
+        input
+            .event
+            .attributes
+            .insert("padding".into(), serde_json::json!("x".repeat(3000)));
+        let result = session
+            .complete(&[input], at, true, context())
+            .await
+            .unwrap();
+        assert!(result.history_bytes <= cfg.max_history_bytes);
+        assert_eq!(result.history_assessments, 1);
+        assert_eq!(result.history_evicted, sequence - 1);
+    }
+    session.shutdown(context()).await.unwrap();
+    cfg.max_history_bytes = 1024;
+    let mut limited = Session::open(
+        cfg.clone(),
+        dir.path().join("limited.sqlite"),
+        epoch(0, 0, 1000),
+        context(),
+    )
+    .await
+    .unwrap();
+    assert!(matches!(
+        limited
+            .complete(
+                &[row(&cfg, 1, 10, 1, 1120, Some(1000))],
+                1120,
+                true,
+                context()
+            )
+            .await,
+        Err(Error::Capacity)
+    ));
+    assert!(limited.journal.load(context()).await.unwrap().is_none());
+    let result = limited.complete(&[], 1120, true, context()).await.unwrap();
+    assert!(result.findings.is_empty());
+    assert_eq!(
+        limited
+            .journal
+            .load(context())
+            .await
+            .unwrap()
+            .unwrap()
+            .checkpoint,
+        0
+    );
+    limited.shutdown(context()).await.unwrap();
+}
+
+#[tokio::test]
+async fn shared_state_byte_budget_evicts_old_history_before_refusing_current_progress() {
+    let dir = directory();
+    let mut cfg = config();
+    let mut first = row(&cfg, 1, 10, 1, 1001, Some(1001));
+    first
+        .event
+        .attributes
+        .insert("padding".into(), serde_json::json!("x".repeat(3000)));
+    let mut measured = Session::open(
+        cfg.clone(),
+        dir.path().join("measure.sqlite"),
+        epoch(0, 0, 1000),
+        context(),
+    )
+    .await
+    .unwrap();
+    let size = measured
+        .complete(std::slice::from_ref(&first), 1001, true, context())
+        .await
+        .unwrap()
+        .bytes;
+    measured.shutdown(context()).await.unwrap();
+    cfg.max_state_bytes = (size + 1024).max(cfg.policy.max_state_bytes);
+    cfg.max_history_bytes = cfg.max_state_bytes;
+    let mut session = Session::open(
+        cfg.clone(),
+        dir.path().join("limited.sqlite"),
+        epoch(0, 0, 1000),
+        context(),
+    )
+    .await
+    .unwrap();
+    session
+        .complete(&[first], 1001, true, context())
+        .await
+        .unwrap();
+    let mut second = row(&cfg, 2, 11, 2, 1002, Some(1002));
+    second
+        .event
+        .attributes
+        .insert("padding".into(), serde_json::json!("x".repeat(3000)));
+    let result = session
+        .complete(&[second], 1002, true, context())
+        .await
+        .unwrap();
+    assert_eq!((result.history_evicted, result.history_assessments), (1, 1));
+    assert!(result.bytes <= cfg.max_state_bytes);
+    assert_eq!(
+        session
+            .journal
+            .load(context())
+            .await
+            .unwrap()
+            .unwrap()
+            .checkpoint,
+        2
+    );
+    session.shutdown(context()).await.unwrap();
+}
+
+#[tokio::test]
+async fn history_limits_and_legacy_native_state_refuse_silent_recovery() {
+    let dir = directory();
+    let cfg = config();
+    let path = dir.path().join("native.sqlite");
+    let mut session = Session::open(cfg.clone(), path.clone(), epoch(0, 0, 1000), context())
+        .await
+        .unwrap();
+    session.complete(&[], 1000, true, context()).await.unwrap();
+    session.shutdown(context()).await.unwrap();
+    let mut changed = cfg.clone();
+    changed.max_history_assessments += 1;
+    assert!(
+        Session::open(changed, path.clone(), epoch(0, 0, 1001), context())
+            .await
+            .is_err()
+    );
+    let session = Session::open(cfg.clone(), path.clone(), epoch(0, 0, 1001), context())
+        .await
+        .unwrap();
+    let mut record = session.journal.load(context()).await.unwrap().unwrap();
+    let mut legacy: serde_json::Value = serde_json::from_slice(&record.state).unwrap();
+    legacy["schema_version"] = serde_json::json!(1);
+    legacy.as_object_mut().unwrap().remove("history");
+    record.revision += 1;
+    record.state = serde_json::to_vec(&legacy).unwrap();
+    session
+        .journal
+        .commit(record.revision - 1, record, context())
+        .await
+        .unwrap();
+    session.shutdown(context()).await.unwrap();
+    assert!(
+        Session::open(cfg, path, epoch(0, 0, 1002), context())
+            .await
+            .is_err()
+    );
+}
+
+#[tokio::test]
+async fn validly_framed_forged_history_is_refused_before_another_commit() {
+    let dir = directory();
+    let cfg = config();
+    let mut session = Session::open(
+        cfg.clone(),
+        dir.path().join("native.sqlite"),
+        epoch(0, 0, 1000),
+        context(),
+    )
+    .await
+    .unwrap();
+    session
+        .complete(
+            &[row(&cfg, 1, 10, 1, 1010, Some(1010))],
+            1010,
+            true,
+            context(),
+        )
+        .await
+        .unwrap();
+    let mut record = session.journal.load(context()).await.unwrap().unwrap();
+    let mut state: State = serde_json::from_slice(&record.state).unwrap();
+    state.history.entries[0].assessment.deadline_ms += 1;
+    record.revision += 1;
+    record.state = serde_json::to_vec(&state).unwrap();
+    session
+        .journal
+        .commit(record.revision - 1, record.clone(), context())
+        .await
+        .unwrap();
+    assert!(matches!(
+        session.complete(&[], 1020, true, context()).await,
+        Err(Error::Conflict)
+    ));
+    assert_eq!(
+        session.journal.load(context()).await.unwrap().unwrap(),
+        record
+    );
+    session.shutdown(context()).await.unwrap();
 }
 
 #[tokio::test]
