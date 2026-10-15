@@ -1,9 +1,15 @@
 # Native architecture qualification
 
-The public GitHub repository has actual native ARM64 Rust check evidence for
-revision `66a9ce7`, but that failed run skipped container/kind/native campaign
-checks. Complete qualification gates remain open. See
-[OSS CI and cloud qualification](40-oss-ci-and-cloud-qualification.md).
+Runtime revision`e1763e3` passes complete nativeAMD64/ARM64 Rust, sensor process,
+production image, hardening/pipeline/finite-soak, supply-chain and Standard kind
+WAL/PVC qualification in [CI run38882944855](https://github.com/mischapogr/platform-signal/actions/runs/38882944855).
+Primary artifact digests, exact source/ELF/binary identities and owned cleanup are
+verified in`target/sensor-health-standard-20261016/ci-e1763e3/NATIVE-ACCEPTANCE.json`.
+This qualifies that runtime source and finite synthetic/local provider scope;
+independent current-source release review, actual AWS/EKS/vendor, released
+dependency and owner version/publication gates remain open.
+See [release readiness](21-release-readiness.md) for current boundaries and
+[OSS CI and cloud qualification](40-oss-ci-and-cloud-qualification.md) for history.
 
 The Phase 10 runner uses an existing image on **native Linux AMD64 or ARM64**.
 It verifies host, Docker daemon, image and extracted ELF64 architecture; resolves

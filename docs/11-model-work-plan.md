@@ -12,11 +12,15 @@ Latest local acceptance — 2026-10-16:SENSOR-HEALTH passes local simulation,
 eight frozen gates1,121default/1,191all-feature tests and current Small/Standard
 sensor, mixed WINDOW, stopped-owner and fresh-generation restore campaigns.
 Evidence:`target/sensor-health-standard-20261016/ACCEPTANCE.json`.
-Inventory36accepted/16unfinished. Next runnable release work: current native CI
-sensor process coverage and runtime-bundle source binding, then scoped
-commit/push and current release qualification. Phase9 AWS collection still needs
-a separate task; do not bypass dependencies of the remaining detector items.
-External/environment/version/publication gates remain separate.
+Inventory36accepted/16unfinished. Runtime`e1763e3` now has verified complete
+nativeAMD64/ARM64 CI, actual sensor/mixed/restore processes, production images,
+finite-soak and Standard kind WAL/PVC recovery. Evidence:
+`target/sensor-health-standard-20261016/ci-e1763e3/NATIVE-ACCEPTANCE.json`.
+Next release gate: independent current-source review; the bounded read-only scope
+is prepared and current-task delegation authorization is pending. Actual
+AWS/EKS/vendor, released dependency and owner version/publication gates remain
+separate. Phase9 AWS collection still needs a separate task; do not bypass the
+unfinished dependencies of later detector items.
 
 Read [current progress](07-progress.md), [release boundaries](21-release-readiness.md)
 and the [52-item ledger](31-execution-ledger.json). Local SHARED-RUNTIME is
