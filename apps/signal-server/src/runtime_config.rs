@@ -208,10 +208,9 @@ pub(crate) async fn load(settings: &Settings) -> Result<RuntimeConfig, AppError>
         if identity_configuration.is_none() {
             return Err(ConfigError::Invalid("sensor health requires native identity").into());
         }
-        if settings.optional("SIGNAL_SHARED_CONFIG")?.is_some() {
-            return Err(
-                ConfigError::Invalid("shared sensor health integration is not qualified").into(),
-            );
+        let shared_runtime = settings.optional("SIGNAL_SHARED_CONFIG")?.is_some();
+        if sensor.shared().is_some() != shared_runtime {
+            return Err(ConfigError::Invalid("sensor health persistence/runtime mismatch").into());
         }
         if wal_config.policy == signal_buffer::Policy::DropOldest {
             return Err(

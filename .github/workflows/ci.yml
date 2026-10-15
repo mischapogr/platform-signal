@@ -115,6 +115,12 @@ jobs:
         run: python3 scripts/run-ci-check.py --name window-standard --timeout 300 -- python3 scripts/check-shared-runtime.py --standard-only --standard-scenario window --image postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa --output target/ci/window-standard
       - name: Prepare qualified Standard executables for native Kubernetes
         run: python3 scripts/run-ci-check.py --name standard-bundle --timeout 180 -- python3 scripts/standard-runtime-bundle.py prepare --architecture ${{ matrix.arch }} --qualification target/ci/standard-postgres-qualification --output target/standard-kind-bundle
+      - name: Native Standard sensor lifecycle and maintenance failures
+        run: python3 scripts/run-ci-check.py --name standard-sensor --timeout 300 -- python3 scripts/check-shared-runtime.py --standard-only --standard-scenario sensor --standard-server target/standard-kind-bundle/server --standard-offline-fixture target/standard-kind-bundle/offline-fixture --image postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa --output target/ci/standard-sensor
+      - name: Native Standard mixed sensor and WINDOW recovery
+        run: python3 scripts/run-ci-check.py --name standard-sensor-window --timeout 300 -- python3 scripts/check-shared-runtime.py --standard-only --standard-scenario sensor-window --standard-server target/standard-kind-bundle/server --standard-offline-fixture target/standard-kind-bundle/offline-fixture --image postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa --output target/ci/standard-sensor-window
+      - name: Native Standard sensor fresh-generation restore
+        run: python3 scripts/run-ci-check.py --name standard-sensor-restore --timeout 300 -- python3 scripts/check-shared-runtime.py --standard-only --standard-scenario sensor-restore --standard-server target/standard-kind-bundle/server --standard-offline-fixture target/standard-kind-bundle/offline-fixture --image postgres@sha256:6567bca8d7bc8c82c5922425a0baee57be8402df92bae5eacad5f01ae9544daa --output target/ci/standard-sensor-restore
       - name: Retain source-bound Standard executable bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -179,6 +185,12 @@ jobs:
             target/ci/
             !target/ci/standard-postgres-qualification/standard-server
             !target/ci/window-standard/standard-server
+            !target/ci/standard-sensor/standard-server
+            !target/ci/standard-sensor/standard-offline-fixture
+            !target/ci/standard-sensor-window/standard-server
+            !target/ci/standard-sensor-window/standard-offline-fixture
+            !target/ci/standard-sensor-restore/standard-server
+            !target/ci/standard-sensor-restore/standard-offline-fixture
           retention-days: 1
           if-no-files-found: error
 

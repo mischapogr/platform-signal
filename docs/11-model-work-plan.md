@@ -1,6 +1,6 @@
 # Remaining work and model routing
 
-Current routing snapshot: 2026-10-14. New-session defaults already use
+Current routing snapshot: 2026-10-16. New-session defaults already use
 Sol6.1/medium/Standard (Codex) and Sonnet/medium (Claude). Loading this plan does
 not change the active model, speed, permissions or global settings.
 [Historical plan](11-model-work-plan-history-20261010.md) preserves the earlier
@@ -8,12 +8,15 @@ phase rows and measurements; completed rows are not new implementation tasks.
 
 ## Next task and plan order
 
-Latest local acceptance — 2026-10-15:WINDOW passes bounded simulation, six frozen
-workspace gates1048default/1117all-feature and current Small/Standard/shared
-recovery. Evidence:`target/window-20261014/ACCEPTANCE.json`. Inventory35accepted/
-17unfinished. Next local detector:SENSOR-HEALTH; its observer/WINDOW dependencies
-are accepted. Current remote/native/container and external/version/publication
-gates remain separate. Earlier next-task statements retain their dated boundaries.
+Latest local acceptance — 2026-10-16:SENSOR-HEALTH passes local simulation,
+eight frozen gates1,121default/1,191all-feature tests and current Small/Standard
+sensor, mixed WINDOW, stopped-owner and fresh-generation restore campaigns.
+Evidence:`target/sensor-health-standard-20261016/ACCEPTANCE.json`.
+Inventory36accepted/16unfinished. Next runnable release work: current native CI
+sensor process coverage and runtime-bundle source binding, then scoped
+commit/push and current release qualification. Phase9 AWS collection still needs
+a separate task; do not bypass dependencies of the remaining detector items.
+External/environment/version/publication gates remain separate.
 
 Read [current progress](07-progress.md), [release boundaries](21-release-readiness.md)
 and the [52-item ledger](31-execution-ledger.json). Local SHARED-RUNTIME is

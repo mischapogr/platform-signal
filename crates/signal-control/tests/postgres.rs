@@ -26,6 +26,8 @@ mod matrix;
 mod multi_event_publication;
 #[path = "support/multi_event_restore.rs"]
 mod multi_event_restore;
+#[path = "support/multi_state_publication.rs"]
+mod multi_state_publication;
 #[path = "support/notification.rs"]
 mod notification;
 #[path = "support/publication.rs"]
@@ -36,6 +38,14 @@ mod restore;
 mod retention;
 #[path = "support/scoped_publication.rs"]
 mod scoped_publication;
+#[path = "support/sensor_bootstrap.rs"]
+mod sensor_bootstrap;
+#[path = "support/sensor_credentials.rs"]
+mod sensor_credentials;
+#[path = "support/sensor_maintenance.rs"]
+mod sensor_maintenance;
+#[path = "support/sensor_replay_pin.rs"]
+mod sensor_replay_pin;
 #[path = "support/snapshot.rs"]
 mod snapshot;
 #[path = "support/state_read.rs"]
@@ -140,14 +150,36 @@ async fn postgres_lease_authority_and_cancellation() -> Result<(), Box<dyn std::
     let f: Fixture = serde_json::from_slice(&std::fs::read(path)?)?;
     assert!(f.password.starts_with("synthetic-control-") && f.password.len() <= 64);
     let (db, driver) = admin(&f).await?;
-    administration::qualify(&db, &f).await?;
-    catalog::qualify(&db, &f).await?;
-    catalog_restore::qualify(&db, &f).await?;
-    global_feed::qualify(&db, &f).await?;
-    finding_scope::qualify(&db, &f).await?;
-    multi_event_publication::qualify_isolated_client(&db, &f).await?;
-    multi_event_restore::qualify(&db, &f).await?;
-    restore::qualify(&db, &f).await?;
+    if std::env::var("SIGNAL_CONTROL_SCOPE_REBIND_ONLY").as_deref() == Ok("true") {
+        let result = multi_event_restore::qualify(&db, &f).await;
+        drop(db);
+        let _ = driver.await;
+        return result;
+    }
+    let stage = std::env::var("SIGNAL_CONTROL_STAGE").ok();
+    if stage
+        .as_deref()
+        .is_some_and(|s| s != "helpers" && s != "primitives")
+    {
+        return Err("unknown qualification stage".into());
+    }
+    if stage.as_deref() != Some("primitives") {
+        administration::qualify(&db, &f).await?;
+        catalog::qualify(&db, &f).await?;
+        catalog_restore::qualify(&db, &f).await?;
+        global_feed::qualify(&db, &f).await?;
+        finding_scope::qualify(&db, &f).await?;
+        multi_event_publication::qualify_isolated_client(&db, &f).await?;
+        multi_event_restore::qualify(&db, &f).await?;
+        restore::qualify(&db, &f).await?;
+    }
+    if stage.as_deref() == Some("helpers") {
+        drop(db);
+        driver.abort();
+        let _ = driver.await;
+        println!("phase: shared-helper-stage-complete");
+        return Ok(());
+    }
     let runtime = runtime(&f, "signal_runtime")?;
     let scope = scope();
     let actor = Uuid::from_u128(10);
@@ -513,6 +545,9 @@ async fn postgres_lease_authority_and_cancellation() -> Result<(), Box<dyn std::
     drop(db);
     driver.abort();
     let _ = driver.await;
+    if stage.as_deref() == Some("primitives") {
+        println!("phase: shared-primitives-stage-complete");
+    }
     Ok(())
 }
 

@@ -1,8 +1,11 @@
 # Independent missing-telemetry detector
 
-SENSOR-HEALTH is in progress. The bounded evaluator, signed observer adapter and
-atomic local journal are integrated into Small Main. Whole-item acceptance still
-requires the remaining history, Standard and qualification work described below.
+SENSOR-HEALTH passes local simulation acceptance — 2026-10-16. Small and Standard
+Main, bounded history, atomic original outputs/checkpoints, idle maintenance and
+fresh-generation restore pass current source-bound qualification. See
+`target/sensor-health-standard-20261016/ACCEPTANCE.json`. Current native release
+CI/container/cluster and external observer/environment/publication gates remain
+separate. Dated slices below retain their original evidence boundaries.
 
 Private configuration pins an expected-source inventory, complete binding digest,
 independent observer identity, expectation start, configuration/rule revision,
@@ -126,8 +129,8 @@ Main. Owner-controlled `sensor_health.config` / `SIGNAL_SENSOR_HEALTH_CONFIG`
 selects a strict JSON document, capped at512KiB, with an absolute journal path,
 nonzero owner generation, bounded cadence and complete detector policy, keys,
 canonical source scopes and evidence/output budgets. Native identity and continuous
-WAL delivery are required. Standard mode refuses this configuration until its
-own integration is qualified.
+WAL delivery are required. Standard uses the explicit shared schema2 configuration
+described below; its complete qualification remains in progress.
 
 Signed canonical input is checked before WAL admission. The consumer evaluates
 data and idle cadence, commits original evidence/state/finding outbox/checkpoint,
@@ -176,6 +179,202 @@ preserves the original committed record.
 Fixed numeric metrics expose `history_assessments`, `history_assessment_capacity`,
 `history_bytes`, `history_byte_capacity`, `history_expired_total` and
 `history_evicted_total`, each prefixed with `signal_sensor_health_`. No source,
-account, rule or evidence identifiers become metric labels. This history work
-still needs frozen phase acceptance; Standard integration and whole-item release
-qualification remain open.
+account, rule or evidence identifiers become metric labels. The Small history
+slice has local frozen acceptance at
+`target/sensor-health-history-20261015/ACCEPTANCE.json`; Standard integration and
+whole-item release qualification remain open.
+
+## Standard foundation in progress
+
+The journal-free native engine prepares immutable candidates and confirms exact
+physically committed records. Preparation, metadata hydration and restart never
+renew independent observer authority. Shared framing pins complete control scope,
+generation, state key, rule revision and checkpoint; the original enrollment floor
+cannot exceed the process's captured admission floor. Restart preserves the
+original enrollment while a later process floor excludes retained reports from
+current observer authority. Original proof, history and pending-output bodies
+are detached into bounded canonical references without discarding evidence.
+
+Shared recovery borrows the existing control/object workers. One original deadline
+covers the live catalog capability, fenced state read, exact object/version and
+canonical-body recovery, domain validation and restricted replay pins. Partial or
+uncertain pin work remains retained; an error cannot establish readiness or permit
+pin release. Fresh-generation restore must explicitly validate original scoped
+outputs; this helper refuses silent scope rebinding.
+
+The stopped `019-sensor-replay-pin.sql` addon grants no general object control or
+retirement. It permits replay holds only for an exact committed sensor state and
+current activated producer generation, with a matching committed manifest object,
+version, length and digest. Local actual PostgreSQL primitive qualification is
+retained at `target/sensor-health-standard-20261015/postgres-03/report.json`;
+sensor payloads in that fixture are synthetic. This is not Standard Main proof.
+
+The explicit producer credential profile selects sensor and WINDOW independently.
+Sensor selection requires the narrow pin grant and verifies its exact routine
+identity. Ordinary producer, WINDOW-only and read-only profiles reject sensor
+grants. Database/table/schema authority, owner membership, grant options and
+unexpected functions reachable through member roles or PUBLIC are refused.
+Standard startup selects this profile and includes the complete detector and
+owner/shared-settings binding in its rule revision. Enabled sensor-only execution
+has local process evidence below; complete lifecycle qualification remains open.
+
+Configuration schema1 selects the absolute Small `database` path. Schema2 selects
+`shared` with `state_key`, explicit optional `bootstrap_checkpoint`, and `recovery`
+limits for files, object/decoded/result bytes and scanned rows. Exactly one storage
+form is required. Canonical result bytes are capped at1MiB. Both forms retain
+owner generation, cadence and complete detector configuration. Runtime/storage
+mismatches fail before persistence opens. Explicit shared sensor execution is
+locally enabled. Mixed WINDOW has the process baseline below; uncertain maintenance,
+restored-generation and final whole-item qualification remain required.
+
+Standard data-path wiring is present. One consumer owns
+the sensor engine, protected originals and health state. Admission validates signed
+reports before WAL writes. WINDOW and sensor candidates enter one v4 publication,
+each retaining its own prior state and finding provenance; exact known findings
+keep their original bytes. Confirmation follows the atomic control commit and
+verified WAL checkpoint. Replay-pin depth/capacity and sensor metrics use fixed
+numeric names without identity labels.
+
+The actual existing WINDOW Main regression passes eight scenarios on this path,
+including protected delayed anchors, exact retry, quota refusal, original scoped
+findings and SIGKILL recovery. Evidence is retained at
+`target/sensor-health-standard-20261015/window-consumer/report.json` with292matching
+source bindings and owned cleanup. That run predates the latest sensor-only fixture
+changes and needs a final source-bound refresh. The enabled sensor-only Main run
+at `target/sensor-health-standard-20261015/sensor-main-06/report.json` passes six
+scenarios in62.26s with297 matching source hashes, exact binary binding and owned
+cleanup: zero-event initialization/idle, signed current and causal overdue
+observations, atomic original gap and idle retirement, forged input rejection,
+SIGKILL/restart replay remaining unknown, and fresh post-restart health. PostgreSQL
+TLS, native HTTP identity, WAL, Parquet and findings are actual; independent
+observer and S3 authority are synthetic. The mixed baseline below adds coexistence;
+ambiguous maintenance and fresh-generation restore qualification remain open.
+SENSOR-HEALTH is not accepted.
+
+The mixed Main baseline at
+`target/sensor-health-standard-20261015/mixed-main-06/report.json` passes five
+scenarios in84.19s with300 matching source hashes, exact executable binding and
+owned cleanup. Sensor metadata initializes at checkpoint0; WINDOW state first
+persists with its first authentication event. Both states coexist with independent
+priors: a sensor gap preserves the unsealed authentication attempts, then a signed
+source watermark seals the WINDOW finding without changing the sensor finding.
+Retries and actual SIGKILL/restart preserve both original finding bodies and
+canonical sequence maps through checkpoint9; replay leaves sensor authority
+unknown. The synthetic process heartbeat interval is5s to observe current health
+through the two-state publication before causal expiry; production deadlines are
+unchanged. This is local PostgreSQL/TLS/WAL/Parquet process proof with synthetic
+observer/S3 authority, not maintenance COMMIT ambiguity or fresh-generation restore.
+
+The stopped `020-sensor-maintenance.sql` addon maintains an existing committed
+sensor state without changing the manifest head, findings or WAL checkpoint.
+It checks exact prior bytes/revision, current scope/generation and lease, permits
+only original canonical references, and retires only an original outbox prefix
+whose persisted finding bodies match. State-byte growth consumes the existing
+store quota. Failures roll back the whole transaction. Byte-identical target-state
+replay returns that state without another mutation; a later divergent state
+conflicts, so an uncertain caller cannot infer success or retry blindly.
+
+The existing single consumer now owns idle cadence and retirement; no additional
+worker or queue is created. Candidate confirmation precedes follow-up cleanup
+under new contexts. Startup reports the recovered original proof/history/outbox
+counts while keeping observer coverage unknown. Actual PostgreSQL mechanism
+qualification at `target/sensor-health-standard-20261015/postgres-07/report.json`
+passes with synthetic sensor metadata, including quota/late-write rollback,
+installer and retirement refusals and unchanged head/checkpoint replay. This
+does not prove the enabled native sensor process. Ambiguous maintenance COMMIT
+recovery and maintenance growth quota are covered by the native baselines below.
+Final process qualification and explicit fresh-generation restoration of original
+scoped outputs remain open.
+
+Explicit initial state is now supported by the stopped
+`021-sensor-bootstrap.sql` addon. The owner-selected `bootstrap_checkpoint` must
+match the current control/WAL checkpoint. Only an absent state key may be created;
+an identical target is an idempotent echo and a different existing state refuses
+replacement. Initial state has no canonical references, verified observations or
+pending findings. Its row/bytes consume the existing store quotas. No event,
+manifest, findings cursor or checkpoint is created or advanced.
+
+Checkpoint0 uses a null head and empty canonical maps. Startup confirms this
+initial unknown assessment before readiness; the same consumer can then persist
+idle evaluations before any input. Recovery validates the original frame and
+remains unknown. Source regressions cover empty-state recovery, an idle tick and
+the first signed event afterward. Actual PostgreSQL empty-partition qualification
+passes at `target/sensor-health-standard-20261015/postgres-08/report.json` with
+synthetic enrollment/state,132matching source bindings and owned cleanup. The
+sensor-only Main baseline above now executes this path; complete native process
+qualification remains open.
+
+Prepared engine candidates retain their original deadline/cancellation context.
+A fresh caller context cannot authorize confirmation after original cancellation
+or expiry. Detached metadata reuses one fully validated native state; capacity
+refusal does not bypass original history or signature checks.
+
+
+The native maintenance baseline at
+`target/sensor-health-standard-20261015/maintenance-main-03/report.json` passes
+nine sensor-only Main scenarios in72.08s with297 matching source hashes, exact
+binary binding and owned cleanup. An owned fixture lock holds an actual deferred
+maintenance COMMIT; the oracle observes the exact producer session blocked by
+that lock before the server is killed. After release, the database stores the
+original target bytes and expected byte-charge delta without changing head,
+checkpoint, commit count or original findings. The retained CAS prior and target
+bytes also pass typed TLS worker exact replay, cancelled-call and stale-owner
+refusal. After restart advances native state at the same head/checkpoint, replay
+of the old target conflicts and preserves the original findings. Observer authority
+remains unknown after recovery. Fixture triggers, functions and tables are removed
+before restart; no production routine or worker is replaced.
+
+This campaign also proves actual native bootstrap refusal under an exhausted
+store quota: no sensor row, event, manifest, finding, checkpoint or charged bytes
+are created. The subsequent campaign below adds maintenance growth quota and
+original-deadline uncertainty after observed COMMIT. The earlier six-case
+sensor-only and five-case mixed reports precede these fixture changes; a final
+frozen process refresh remains required. Fresh-generation restore must still
+preserve original output scope/body. SENSOR-HEALTH remains in progress.
+
+
+The final bounded maintenance-failure campaign at
+`target/sensor-health-standard-20261015/late-maintenance-main-03/report.json`
+passes ten scenarios in78.47s with298 matching source hashes, exact binary binding
+and owned cleanup. Saved Main prior/target frames drive actual typed TLS worker
+calls in the owned stopped fixture. After an exact COMMIT observation, caller
+cancellation returns uncertain and the target commits; original-deadline expiry
+returns uncertain and the exact prior remains after rollback. The oracle accepts
+only those complete original inventories, then a fresh-context exact-target call
+reconciles either outcome. It never confirms an expired native candidate.
+
+The same fixture hydrates the native engine from original canonical events and
+prepares bounded idle candidates. A genuine one-byte state growth is refused by
+an exhausted quota with the complete prior inventory unchanged. Restoring fixture
+capacity permits the original candidate to commit; native confirmation occurs
+only after that physical commit. No event, finding, head or WAL checkpoint is
+invented by this maintenance. Forty helper checks, strict control/server Clippy,
+formatting and14workspace boundaries pass. This does not replace final frozen
+workspace/process/native acceptance.
+
+The supported Standard restore changes physical `Scope.generation` while keeping
+logical `scope_generation` and original finding-scope producer/fact rows. Sensor
+restore must preserve that logical generation, original detector ownership and
+pending finding IDs/bodies. The explicit stopped owner migration in
+[the upgrade contract](56-upgrade-compatibility.md) now handles the physical state
+binding; runtime recovery never silently rebinds it. Changed logical finding
+generation remains outside that restore contract. Actual native sensor restore
+integration and its process qualification remain open.
+
+
+Native Standard sensor restore passes a bounded local campaign — 2026-10-16.
+`target/sensor-health-standard-20261016/SENSOR-RESTORE-BASELINE.json` binds four
+actual Main scenarios,300matching source hashes, server/offline executable
+identities and owned cleanup in55.07s. A fixture-only conditional retirement
+refusal retains a real atomic sensor publication with one original pending/known
+finding. After stopping Main, a fresh database receives trusted compiled DDL and
+original rows; current scoped restore verifies the pinned objects and sealed
+lineage. The explicit stopped owner migration changes physical scope generation,
+keeping logical finding generation, native snapshot/outbox and canonical originals.
+The restored Main retires that original pending output without changing the
+finding bytes; duplicate replay remains unknown and a fresh signed observation
+restores current health through WAL checkpoint4. Native PostgreSQL TLS, WAL,
+Parquet and Main are actual; observer/restore authority and S3 custody are
+synthetic. This is a restore slice, not whole SENSOR-HEALTH or release acceptance.
+The complete staged PostgreSQL campaign and frozen Small/Standard/workspace
+refresh remain required after these source changes.
