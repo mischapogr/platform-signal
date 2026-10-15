@@ -107,11 +107,13 @@ pub(crate) enum AdministrativeAction {
     Inspect(AdministrativeScope),
     CatalogMigrate(MigrationInput),
     CatalogInspect(AdministrativeScope),
+    StateScopeRebind(Box<crate::StateScopeRebindInput>),
 }
 impl AdministrativeAction {
     pub(crate) fn scope(&self) -> &AdministrativeScope {
         match self {
             Self::Initialize(i) => &i.scope,
+            Self::StateScopeRebind(i) => &i.scope,
             Self::Migrate(i) | Self::CatalogMigrate(i) => &i.scope,
             Self::Inspect(s) | Self::CatalogInspect(s) => s,
         }
@@ -119,6 +121,7 @@ impl AdministrativeAction {
     pub(crate) fn validate(&self) -> Result<(), ControlError> {
         self.scope().validate()?;
         match self {
+            Self::StateScopeRebind(i) => i.validate(),
             Self::Initialize(i)
                 if i.max_rows == 0
                     || i.max_rows > 65536
@@ -139,14 +142,18 @@ impl AdministrativeAction {
         }
     }
     pub(crate) fn revision(&self) -> u32 {
-        if matches!(self, Self::CatalogMigrate(_) | Self::CatalogInspect(_)) {
+        if matches!(self, Self::StateScopeRebind(_)) {
+            5
+        } else if matches!(self, Self::CatalogMigrate(_) | Self::CatalogInspect(_)) {
             4
         } else {
             2
         }
     }
     pub(crate) fn identity(&self) -> [u8; 32] {
-        if self.revision() == 4 {
+        if self.revision() == 5 {
+            crate::restored_catalog_schema_identity().1
+        } else if self.revision() == 4 {
             crate::catalog_schema_identity().1
         } else {
             crate::schema_identity().1
@@ -249,6 +256,21 @@ impl ControlAdministrator {
             .administer(
                 self.owner.clone(),
                 AdministrativeAction::CatalogInspect(scope),
+                context,
+            )
+            .await
+    }
+    /// Explicit stopped migration under sealed restore lineage. Does not change
+    /// logical finding generation, readiness, leases, checkpoints or outputs.
+    pub async fn rebind_state_scope(
+        &self,
+        input: crate::StateScopeRebindInput,
+        context: ControlContext,
+    ) -> Result<AdministrativeResult, ControlError> {
+        self.client
+            .administer(
+                self.owner.clone(),
+                AdministrativeAction::StateScopeRebind(Box::new(input)),
                 context,
             )
             .await
@@ -538,6 +560,12 @@ async fn run_catalog(
 }
 
 pub(crate) async fn validate_catalog_state(client: &Client) -> Result<(), ControlError> {
+    validate_catalog_census(client, false).await
+}
+pub(crate) async fn validate_restored_catalog_state(client: &Client) -> Result<(), ControlError> {
+    validate_catalog_census(client, true).await
+}
+async fn validate_catalog_census(client: &Client, restored: bool) -> Result<(), ControlError> {
     // Reuse the original full census, adding exactly the new immutable framing.
     let rows = "(SELECT count(*) FROM signal_control.notification_attempts))";
     let bytes = "FROM signal_control.notification_attempts)) INTO rows_total,bytes_total";
@@ -546,6 +574,12 @@ pub(crate) async fn validate_catalog_state(client: &Client) -> Result<(), Contro
     }
     let census=VALIDATE_SOURCE.replace(rows,"(SELECT count(*) FROM signal_control.notification_attempts)+(SELECT count(*) FROM signal_control.catalog_snapshots))")
         .replace(bytes,"FROM signal_control.notification_attempts)+(SELECT 320*count(*) FROM signal_control.catalog_snapshots)) INTO rows_total,bytes_total");
+    let census = if restored {
+        census.replace("(SELECT count(*) FROM signal_control.catalog_snapshots))","(SELECT count(*) FROM signal_control.catalog_snapshots)+(SELECT count(*) FROM signal_control.restore_record))")
+            .replace("FROM signal_control.catalog_snapshots)) INTO rows_total,bytes_total","FROM signal_control.catalog_snapshots)+(SELECT coalesce(sum(512+64*attempted_work),0) FROM signal_control.restore_record)) INTO rows_total,bytes_total")
+    } else {
+        census
+    };
     execute(client, &census).await?;
     execute(client,r#"DO $$
 BEGIN
@@ -571,6 +605,9 @@ pub(crate) async fn run(
         ),
     )
     .await?;
+    if let AdministrativeAction::StateScopeRebind(input) = action {
+        return crate::state_scope_rebind::run(client, owner, input).await;
+    }
     let scope = action.scope();
     if action.revision() == 4 {
         return run_catalog(client, owner, action).await;

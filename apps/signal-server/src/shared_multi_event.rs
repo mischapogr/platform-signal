@@ -114,6 +114,51 @@ impl MultiEventRecoveryInputs {
     }
 }
 impl MultiEventPublicationDraft {
+    /// The host protects each detector's retained canonical rows independently.
+    /// The union preserves original bodies; serialization cannot renew authority.
+    pub fn from_state_groups(
+        draft: PublicationDraft,
+        producer: &ProducerEnrollment,
+        current: &[StoredEvent],
+        primary: &str,
+        groups: Vec<signal_control::StateFindingGroup>,
+    ) -> Result<Self, ControlError> {
+        if groups.is_empty() || groups.len() > 128 || groups.capacity() > 128 {
+            return Err(ControlError::Full);
+        }
+        let mut retained: std::collections::BTreeMap<Uuid, StoredEvent> =
+            std::collections::BTreeMap::new();
+        let mut memory_budget = Budget::new();
+        for group in &groups {
+            if group.retained.len() > 4096 || group.retained.capacity() > 4096 {
+                return Err(ControlError::Full);
+            }
+            for row in &group.retained {
+                if let Some(old) = retained.get(&row.event.id) {
+                    if old.sequence != row.sequence || old.event != row.event {
+                        return Err(ControlError::Conflict);
+                    }
+                } else {
+                    if retained.len() >= 4096 {
+                        return Err(ControlError::Full);
+                    }
+                    memory_budget
+                        .write_all(&row.sequence.to_be_bytes())
+                        .map_err(|_| ControlError::Full)?;
+                    serde_json::to_writer(&mut memory_budget, &row.event)
+                        .map_err(|_| ControlError::Full)?;
+                    retained.insert(row.event.id, row.clone());
+                }
+            }
+        }
+        let retained = retained.into_values().collect::<Vec<_>>();
+        let budget = Self::retained_budget(&retained, primary)?;
+        let claims = MultiEventFindingClaims::from_state_groups(producer, current, groups)?;
+        if !claims.state_keys().iter().any(|key| key == primary) {
+            return Err(ControlError::Conflict);
+        }
+        Self::from_claims(draft, producer, current, &retained, primary, claims, budget)
+    }
     pub(crate) fn recovery_inputs(&self) -> MultiEventRecoveryInputs {
         MultiEventRecoveryInputs {
             schema_version: 1,
@@ -259,25 +304,44 @@ impl MultiEventPublicationDraft {
             .verify_rows(&self.producer.enrollment(), current, &retained)?;
         let draft = self.render()?;
         draft.validate(current)?;
-        if let Some(prior) = self.claims.prior()
-            && (prior.key != self.state_key
+        for prior in self.claims.priors() {
+            if (!self.claims.state_keys().is_empty()
+                && !self.claims.state_keys().contains(&prior.key))
+                || (self.claims.state_keys().is_empty() && prior.key != self.state_key)
                 || prior.revision != draft.rule_revision
-                || current.first().map(|r| r.sequence) != prior.checkpoint.checked_add(1))
-        {
-            return Err(ControlError::Conflict);
+                || current.first().map(|r| r.sequence) != prior.checkpoint.checked_add(1)
+            {
+                return Err(ControlError::Conflict);
+            }
         }
-        let state = draft
-            .states
-            .iter()
-            .find(|s| s.key == self.state_key)
-            .ok_or(ControlError::Invalid)?;
-        let envelope: MultiEventStateEnvelope =
-            serde_json::from_slice(&state.bytes).map_err(|_| ControlError::Corrupt)?;
-        envelope.encode()?;
-        if envelope.scope_generation != self.producer.scope_generation
-            || current.last().map(|r| r.sequence) != Some(envelope.checkpoint)
-        {
-            return Err(ControlError::Fenced);
+        let keys = if self.claims.state_keys().is_empty() {
+            vec![self.state_key.as_str()]
+        } else {
+            if !self.claims.state_keys().contains(&self.state_key)
+                || draft.states.len() != self.claims.state_keys().len()
+            {
+                return Err(ControlError::Conflict);
+            }
+            self.claims
+                .state_keys()
+                .iter()
+                .map(String::as_str)
+                .collect()
+        };
+        for key in keys {
+            let state = draft
+                .states
+                .iter()
+                .find(|s| s.key == key)
+                .ok_or(ControlError::Invalid)?;
+            let envelope: MultiEventStateEnvelope =
+                serde_json::from_slice(&state.bytes).map_err(|_| ControlError::Corrupt)?;
+            envelope.encode()?;
+            if envelope.scope_generation != self.producer.scope_generation
+                || current.last().map(|r| r.sequence) != Some(envelope.checkpoint)
+            {
+                return Err(ControlError::Fenced);
+            }
         }
         Ok(())
     }
@@ -355,6 +419,74 @@ mod tests {
             receipts: vec![],
         };
         Ok((producer, rows, draft, scoped))
+    }
+    #[test]
+    fn multiple_state_draft_preserves_independent_priors_and_original_retained_body_hash() -> Result
+    {
+        let (producer, rows, mut base, window) = fixture()?;
+        let mut sensor_state = base.states[0].clone();
+        sensor_state.key = "sensor-fixture".into();
+        base.states.push(sensor_state);
+        let mut sensor = Finding::for_event(
+            "fixture-sensor",
+            &rows[2].event,
+            DetectionSeverity::High,
+            "Sensor fixture",
+        )?;
+        sensor.event_ids = rows[1..].iter().map(|r| r.event.id).collect();
+        let sensor = DerivedFinding::from_events(
+            sensor,
+            &rows[1..].iter().map(|r| &r.event).collect::<Vec<_>>(),
+            true,
+        )?
+        .into_scoped(producer.scope_generation)?;
+        let prior = |key: &str| PriorStateProvenance {
+            schema_version: 1,
+            key: key.into(),
+            checkpoint: 2,
+            revision: [1; 32],
+            value_sha256: [2; 32],
+            scope_generation: producer.scope_generation,
+        };
+        let draft = MultiEventPublicationDraft::from_state_groups(
+            base,
+            &producer,
+            &rows[2..],
+            "window-fixture",
+            vec![
+                signal_control::StateFindingGroup {
+                    state_key: "window-fixture".into(),
+                    prior: Some(prior("window-fixture")),
+                    retained: rows[..2].to_vec(),
+                    derived: vec![(3, window)],
+                },
+                signal_control::StateFindingGroup {
+                    state_key: "sensor-fixture".into(),
+                    prior: Some(prior("sensor-fixture")),
+                    retained: rows[1..2].to_vec(),
+                    derived: vec![(3, sensor)],
+                },
+            ],
+        )?;
+        assert_eq!(draft.retained.len(), 2);
+        assert_eq!(draft.render()?.states.len(), 2);
+        assert_eq!(draft.render()?.findings.len(), 2);
+        let encoded = serde_json::to_vec(&draft)?;
+        let restored: MultiEventPublicationDraft = serde_json::from_slice(&encoded)?;
+        restored.validate(&rows[2..], &producer.scope)?;
+        let mut wire = serde_json::to_value(&draft)?;
+        wire["retained"][0]["event"]["message"] =
+            serde_json::json!("changed body with identical scope");
+        let changed: MultiEventPublicationDraft = serde_json::from_value(wire)?;
+        assert!(matches!(
+            changed.validate(&rows[2..], &producer.scope),
+            Err(ControlError::Corrupt)
+        ));
+        let mut wire = serde_json::to_value(&draft)?;
+        wire["claims"]["priors"]["sensor-fixture"]["revision"] = serde_json::json!(vec![9; 32]);
+        let changed: MultiEventPublicationDraft = serde_json::from_value(wire)?;
+        assert!(changed.validate(&rows[2..], &producer.scope).is_err());
+        Ok(())
     }
     #[test]
     fn multi_draft_roundtrip_preserves_original_finding_and_attaches_uploaded_span() -> Result {

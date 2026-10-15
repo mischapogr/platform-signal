@@ -55,7 +55,7 @@ pub async fn qualify_installation(db: &Client) -> Result<(), Box<dyn std::error:
     Ok(())
 }
 
-async fn call(
+pub(super) async fn call(
     db: &Client,
     token: &signal_control::LeaseToken,
     raw: &[u8],
@@ -82,7 +82,7 @@ async fn call(
     result.map(|row| row.get(0))
 }
 
-async fn witness(db: &Client) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+pub(super) async fn witness(db: &Client) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
     let core = super::publication::witness(db).await?;
     let companion: serde_json::Value = db.query_one("SELECT jsonb_build_object('profile',(SELECT to_jsonb(p) FROM signal_multi_event.profile p),'requests',(SELECT jsonb_agg(to_jsonb(r)) FROM signal_multi_event.requests r),'facts',(SELECT jsonb_agg(to_jsonb(f)) FROM signal_multi_event.facts f))", &[]).await?.try_get(0)?;
     Ok(serde_json::json!({"core":core,"companion":companion}))
@@ -353,6 +353,8 @@ pub async fn qualify_publication(
     // Resolving an older committed request does not need the now-replaced state.
     assert_eq!(call(db, &token, &raw, &claims, true).await?, result);
     assert_eq!(advanced, witness(db).await?);
+    super::multi_state_publication::qualify(db, producer, &token, next.publication(), &current)
+        .await?;
     db.batch_execute("ROLLBACK; RESET ROLE").await?;
     qualify_client(db, fixture, producer, token, bound).await?;
     println!("phase: atomic-multi-event-publication-replay-quota-and-late-rollback-qualified");
@@ -625,6 +627,7 @@ pub async fn qualify_isolated_client(
     assert_eq!(committed, witness(&db).await?);
     qualify_scoped_reader(&db, fixture, &producer, finding_id).await?;
     runtime.shutdown(super::context()?).await?;
+    super::sensor_credentials::qualify(&db, fixture, DATABASE).await?;
     drop(db);
     driver.await?;
     root.batch_execute("DROP DATABASE signal_multi_event_client_fixture")

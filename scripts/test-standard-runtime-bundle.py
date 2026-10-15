@@ -27,6 +27,26 @@ class BundleTests(unittest.TestCase):
         (root / 'manifest.json').write_text(json.dumps(manifest))
         return manifest
 
+    def test_changed_or_missing_qualified_runtime_input_refuses_bundle_before_copy(self):
+        for name in ['tests/integration/standard-sensor.py','schemas/shared-control/010-multi-event-catalog.sha256']:
+            for inputs in [{name:'c'*64},{}]:
+                with self.subTest(name=name,inputs=inputs), tempfile.TemporaryDirectory() as directory:
+                    root=Path(directory);qualification=root/'qualified';qualification.mkdir()
+                    (qualification/'standard-process').mkdir()
+                    report={'status':'passed_simulated','architecture':'amd64','container_removed':True,
+                        'cleanup_errors':[],'source_hashes':{name:'b'*64}}
+                    (qualification/'report.json').write_text(json.dumps(report))
+                    (qualification/'standard-process/report.json').write_text(json.dumps({'status':'passed_simulated'}))
+                    with self.assertRaisesRegex(ValueError,'runtime source drift'):
+                        MODULE.prepare(root/'bundle',qualification,'a'*40,'amd64',inputs)
+                    self.assertFalse((root/'bundle').exists())
+
+    def test_current_runtime_inventory_includes_sensor_and_compiled_catalog_pins(self):
+        inputs=MODULE.source_inputs()
+        for name in ['tests/integration/standard-sensor.py','scripts/fixtures/onboarding-host.py',
+            'schemas/shared-control/010-multi-event-catalog.sha256']:
+            self.assertEqual(inputs.get(name),MODULE.digest(MODULE.ROOT/name))
+
     def test_artifact_permissions_restored_only_after_all_checks(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

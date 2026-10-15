@@ -317,7 +317,7 @@ pub async fn qualify(root: &Client, f: &super::Fixture) -> Result {
         schema_version: 1,
         scope_generation: producer.scope_generation,
         checkpoint: 2,
-        metadata: serde_json::json!({"canonical_sha256":{}}),
+        metadata: serde_json::json!({"canonical_sha256":{},"scope":scope,"pending_outputs":[{"id":"fixture-original","body":[1,2,3]}]}),
         canonical_sequences: BTreeMap::new(),
     }
     .encode()?;
@@ -499,6 +499,11 @@ pub async fn qualify(root: &Client, f: &super::Fixture) -> Result {
     .await?;
     assert!(receipt.ready);
     assert_eq!(restore.resolve(super::context()?).await?, receipt);
+    let state = if std::env::var("SIGNAL_CONTROL_SCOPE_REBIND_ONLY").as_deref() == Ok("true") {
+        qualify_scope_rebind(f, &scope, generation, &state).await?
+    } else {
+        state
+    };
     let current = ControlClient::restored_catalog(settings(f, DEST, "signal_runtime")?)?;
     assert!(matches!(
         current.renew(token, 15000, super::context()?).await,
@@ -566,4 +571,139 @@ pub async fn qualify(root: &Client, f: &super::Fixture) -> Result {
         "phase: populated-multi-event-and-history-restore-real-Parquet-omission-corruption-custody-and-fresh-generation-qualified"
     );
     Ok(())
+}
+
+async fn qualify_scope_rebind(
+    f: &super::Fixture,
+    old: &Scope,
+    generation: Uuid,
+    source: &[u8],
+) -> Result<Vec<u8>> {
+    let (db, driver) = super::admin_database(f, DEST).await?;
+    let mut current = old.clone();
+    current.generation = generation;
+    let request = StateScopeRebindInput::new(
+        current.clone(),
+        old.generation,
+        RevisionedState {
+            key: "window-fixture".into(),
+            revision: [1; 32],
+            bytes: source.to_vec(),
+        },
+    )?;
+    let owner = ControlAdministrator::new(
+        settings(f, DEST, "signal_migrator")?,
+        "signal_control_owner".into(),
+    )?;
+    assert!(matches!(
+        owner
+            .rebind_state_scope(request.clone(), super::context()?)
+            .await,
+        Err(ControlError::Fenced)
+    ));
+    let runtime = ControlAdministrator::new(
+        settings(f, DEST, "signal_runtime")?,
+        "signal_control_owner".into(),
+    )?;
+    assert!(matches!(
+        runtime
+            .rebind_state_scope(request.clone(), super::context()?)
+            .await,
+        Err(ControlError::Fenced)
+    ));
+    runtime.shutdown(super::context()?).await?;
+    db.batch_execute("UPDATE signal_control.store SET ready=false; UPDATE signal_control.partitions SET owner=NULL,lease_until=NULL").await?;
+    let original:serde_json::Value=db.query_one("SELECT jsonb_build_object('findings',(SELECT jsonb_agg(encode(content,'hex') ORDER BY position) FROM signal_control.findings),'commits',(SELECT count(*) FROM signal_control.commits),'checkpoint',(SELECT checkpoint FROM signal_control.partitions WHERE kind='pipeline'),'used_rows',(SELECT used_rows FROM signal_control.store),'used_bytes',(SELECT used_bytes FROM signal_control.store))",&[]).await?.get(0);
+    db.batch_execute("UPDATE signal_control.restore_record SET seal=decode(repeat('00',32),'hex')")
+        .await?;
+    assert!(matches!(
+        owner
+            .rebind_state_scope(request.clone(), super::context()?)
+            .await,
+        Err(ControlError::Fenced)
+    ));
+    db.batch_execute(
+        "UPDATE signal_control.restore_record r SET seal=signal_control.restore_record_seal(r)",
+    )
+    .await?;
+    db.batch_execute("UPDATE signal_control.restore_record SET complete=false; UPDATE signal_control.restore_record r SET seal=signal_control.restore_record_seal(r)").await?;
+    assert!(matches!(
+        owner
+            .rebind_state_scope(request.clone(), super::context()?)
+            .await,
+        Err(ControlError::Fenced)
+    ));
+    db.batch_execute("UPDATE signal_control.restore_record SET complete=true; UPDATE signal_control.restore_record r SET seal=signal_control.restore_record_seal(r)").await?;
+    let stale = StateScopeRebindInput::new(current.clone(), old.generation, {
+        let mut state = request.source.clone();
+        let mut value: serde_json::Value = serde_json::from_slice(&state.bytes)?;
+        value["metadata"]["pending_outputs"] = serde_json::json!([]);
+        state.bytes = serde_json::to_vec(&value)?;
+        state
+    })?;
+    let stale_result = owner.rebind_state_scope(stale, super::context()?).await;
+    assert!(
+        matches!(stale_result, Err(ControlError::Conflict)),
+        "stale result: {stale_result:?}"
+    );
+    db.batch_execute("UPDATE signal_control.partitions SET owner='00000000-0000-0000-0000-000000000099',lease_until=clock_timestamp()+interval '1 second' WHERE kind='pipeline'").await?;
+    assert!(matches!(
+        owner
+            .rebind_state_scope(request.clone(), super::context()?)
+            .await,
+        Err(ControlError::Fenced)
+    ));
+    db.batch_execute("UPDATE signal_control.partitions SET owner=NULL,lease_until=NULL")
+        .await?;
+    let cancelled = super::context()?;
+    cancelled.cancel();
+    assert!(matches!(
+        owner.rebind_state_scope(request.clone(), cancelled).await,
+        Err(ControlError::Cancelled)
+    ));
+    db.batch_execute("UPDATE signal_control.store SET used_bytes=used_bytes+1")
+        .await?;
+    assert!(matches!(
+        owner
+            .rebind_state_scope(request.clone(), super::context()?)
+            .await,
+        Err(ControlError::Corrupt)
+    ));
+    db.batch_execute("UPDATE signal_control.store SET used_bytes=used_bytes-1")
+        .await?;
+    let result = owner
+        .rebind_state_scope(request.clone(), super::context()?)
+        .await
+        .map_err(|error| format!("scope rebind apply: {error}"))?;
+    assert!(!result.ready);
+    assert_eq!(result.generation, generation);
+    owner
+        .rebind_state_scope(request.clone(), super::context()?)
+        .await?;
+    let actual: Vec<u8> = db
+        .query_one(
+            "SELECT value FROM signal_control.state WHERE key='window-fixture'",
+            &[],
+        )
+        .await?
+        .get(0);
+    assert_eq!(actual, request.target.bytes);
+    let after:serde_json::Value=db.query_one("SELECT jsonb_build_object('findings',(SELECT jsonb_agg(encode(content,'hex') ORDER BY position) FROM signal_control.findings),'commits',(SELECT count(*) FROM signal_control.commits),'checkpoint',(SELECT checkpoint FROM signal_control.partitions WHERE kind='pipeline'),'used_rows',(SELECT used_rows FROM signal_control.store),'used_bytes',(SELECT used_bytes FROM signal_control.store))",&[]).await?.get(0);
+    for key in ["findings", "commits", "checkpoint", "used_rows"] {
+        assert_eq!(original[key], after[key], "{key}");
+    }
+    assert_eq!(
+        after["used_bytes"].as_i64().ok_or("bytes")?
+            - original["used_bytes"].as_i64().ok_or("bytes")?,
+        request.target.bytes.len() as i64 - source.len() as i64
+    );
+    db.batch_execute("UPDATE signal_control.store SET ready=true")
+        .await?;
+    owner.shutdown(super::context()?).await?;
+    drop(db);
+    driver.await?;
+    println!(
+        "phase: stopped-state-physical-scope-rebind-sealed-lineage-owner-CAS-quota-output-preservation-and-idempotence-qualified"
+    );
+    Ok(request.target.bytes)
 }

@@ -82,7 +82,26 @@ enum Reply {
     Catalog(CatalogPin),
     Object(ObjectControlResult),
 }
+/// Explicit detector capabilities selected by the host, never credentials.
+#[derive(Clone, Copy, Default)]
+pub struct ProducerDetectors {
+    pub window: bool,
+    pub sensor_health: bool,
+}
+#[derive(Clone, Copy)]
+enum ReplayPinKind {
+    Window,
+    Sensor,
+}
 enum Operation {
+    SensorBootstrap {
+        token: LeaseToken,
+        input: crate::SensorBootstrap,
+    },
+    SensorMaintenance {
+        token: LeaseToken,
+        input: crate::SensorMaintenance,
+    },
     KnownFindings {
         token: LeaseToken,
         input: crate::finding_lookup::Input,
@@ -103,7 +122,7 @@ enum Operation {
         lifecycle: bool,
         custody: bool,
         restored_custody: bool,
-        window: bool,
+        detectors: ProducerDetectors,
     },
     ExistingFindingScope {
         scope: Scope,
@@ -147,7 +166,7 @@ enum Operation {
         reference: Option<String>,
         transfer: bool,
         obsolete: bool,
-        window_pin: bool,
+        replay_pin: Option<ReplayPinKind>,
     },
     Snapshot {
         scope: Scope,
@@ -788,6 +807,44 @@ impl ControlClient {
             _ => Err(ControlError::Corrupt),
         }
     }
+    /// Initialize only an absent sensor state at the explicit current checkpoint.
+    /// Exact target-state echoes are idempotent; existing different state refuses.
+    pub async fn initialize_sensor_state(
+        &self,
+        token: LeaseToken,
+        input: crate::SensorBootstrap,
+        context: ControlContext,
+    ) -> Result<crate::StateReadResult, ControlError> {
+        token.validate()?;
+        context.check()?;
+        input.validate()?;
+        match self
+            .submit(Operation::SensorBootstrap { token, input }, context)
+            .await?
+        {
+            Reply::StateRead(result) => Ok(result),
+            _ => Err(ControlError::Corrupt),
+        }
+    }
+    /// Idempotently maintain one exact committed sensor state at its existing
+    /// head/checkpoint. A later divergent state is a conflict, never blind retry.
+    pub async fn maintain_sensor_state(
+        &self,
+        token: LeaseToken,
+        input: crate::SensorMaintenance,
+        context: ControlContext,
+    ) -> Result<crate::StateReadResult, ControlError> {
+        token.validate()?;
+        context.check()?;
+        input.validate()?;
+        match self
+            .submit(Operation::SensorMaintenance { token, input }, context)
+            .await?
+        {
+            Reply::StateRead(result) => Ok(result),
+            _ => Err(ControlError::Corrupt),
+        }
+    }
     /// Check captured runtime credentials without owner role switching or DDL.
     /// This proves privilege separation at inspection time, not future ACL state.
     pub async fn verify_producer_credentials(
@@ -795,8 +852,15 @@ impl ControlClient {
         schema_owner: String,
         context: ControlContext,
     ) -> Result<(), ControlError> {
-        self.verify_credentials(schema_owner, false, false, false, false, context)
-            .await
+        self.verify_credentials(
+            schema_owner,
+            false,
+            false,
+            false,
+            ProducerDetectors::default(),
+            context,
+        )
+        .await
     }
     /// Explicit additive Window producer profile. Allows the current-lease fence,
     /// never arbitrary scope inspection, table access or general object control.
@@ -815,7 +879,33 @@ impl ControlClient {
             false,
             custody,
             restored_custody,
-            true,
+            ProducerDetectors {
+                window: true,
+                sensor_health: false,
+            },
+            context,
+        )
+        .await
+    }
+    /// Explicit sensor/Window profile; runtime still needs fenced state/profile
+    /// checks before readiness. No table access or general object control.
+    pub async fn verify_detector_producer_credentials(
+        &self,
+        schema_owner: String,
+        custody: bool,
+        restored_custody: bool,
+        detectors: ProducerDetectors,
+        context: ControlContext,
+    ) -> Result<(), ControlError> {
+        if (!detectors.window && !detectors.sensor_health) || (restored_custody && !custody) {
+            return Err(ControlError::Invalid);
+        }
+        self.verify_credentials(
+            schema_owner,
+            false,
+            custody,
+            restored_custody,
+            detectors,
             context,
         )
         .await
@@ -826,8 +916,15 @@ impl ControlClient {
         schema_owner: String,
         context: ControlContext,
     ) -> Result<(), ControlError> {
-        self.verify_credentials(schema_owner, false, true, false, false, context)
-            .await
+        self.verify_credentials(
+            schema_owner,
+            false,
+            true,
+            false,
+            ProducerDetectors::default(),
+            context,
+        )
+        .await
     }
     /// Explicit producer/receipt plus existing-only restored resolution profile.
     /// Allows SELECT only on the singleton addon contract, never workflow tables.
@@ -836,8 +933,15 @@ impl ControlClient {
         schema_owner: String,
         context: ControlContext,
     ) -> Result<(), ControlError> {
-        self.verify_credentials(schema_owner, false, true, true, false, context)
-            .await
+        self.verify_credentials(
+            schema_owner,
+            false,
+            true,
+            true,
+            ProducerDetectors::default(),
+            context,
+        )
+        .await
     }
     /// Validates addon-only access/identity; callers must also validate the full
     /// producer profile before startup. Performs no installation or DDL.
@@ -865,8 +969,15 @@ impl ControlClient {
         schema_owner: String,
         context: ControlContext,
     ) -> Result<(), ControlError> {
-        self.verify_credentials(schema_owner, true, false, false, false, context)
-            .await
+        self.verify_credentials(
+            schema_owner,
+            true,
+            false,
+            false,
+            ProducerDetectors::default(),
+            context,
+        )
+        .await
     }
     async fn verify_credentials(
         &self,
@@ -874,7 +985,7 @@ impl ControlClient {
         lifecycle: bool,
         custody: bool,
         restored_custody: bool,
-        window: bool,
+        detectors: ProducerDetectors,
         context: ControlContext,
     ) -> Result<(), ControlError> {
         if schema_owner.is_empty()
@@ -894,7 +1005,7 @@ impl ControlClient {
                     lifecycle,
                     custody,
                     restored_custody,
-                    window,
+                    detectors,
                 },
                 context,
             )
@@ -979,6 +1090,27 @@ impl ControlClient {
         input: RetentionPinInput,
         context: ControlContext,
     ) -> Result<ObjectControlResult, ControlError> {
+        self.pin_replay_object(token, input, context, ReplayPinKind::Window)
+            .await
+    }
+    /// Retain an original object only for exact committed sensor state under
+    /// the active producer generation; no general object-control authority.
+    pub async fn pin_sensor_object(
+        &self,
+        token: LeaseToken,
+        input: RetentionPinInput,
+        context: ControlContext,
+    ) -> Result<ObjectControlResult, ControlError> {
+        self.pin_replay_object(token, input, context, ReplayPinKind::Sensor)
+            .await
+    }
+    async fn pin_replay_object(
+        &self,
+        token: LeaseToken,
+        input: RetentionPinInput,
+        context: ControlContext,
+        kind: ReplayPinKind,
+    ) -> Result<ObjectControlResult, ControlError> {
         token.validate()?;
         context.check()?;
         if input.kind != crate::RetentionKind::Replay {
@@ -996,7 +1128,7 @@ impl ControlClient {
                     reference,
                     transfer: false,
                     obsolete: false,
-                    window_pin: true,
+                    replay_pin: Some(kind),
                 },
                 context,
             )
@@ -1061,7 +1193,7 @@ impl ControlClient {
                     reference: None,
                     transfer: false,
                     obsolete: true,
-                    window_pin: false,
+                    replay_pin: None,
                 },
                 context,
             )
@@ -1092,7 +1224,7 @@ impl ControlClient {
                     reference: None,
                     transfer: true,
                     obsolete: false,
-                    window_pin: false,
+                    replay_pin: None,
                 },
                 context,
             )
@@ -1211,7 +1343,7 @@ impl ControlClient {
                     reference,
                     transfer: false,
                     obsolete: false,
-                    window_pin: false,
+                    replay_pin: None,
                 },
                 context,
             )
@@ -1509,20 +1641,23 @@ async fn execute(
             lifecycle,
             custody,
             restored_custody,
-            window,
+            detectors,
         } = operation
         {
             let row = connection.client.query_one(
                 "SELECT NOT pg_has_role(session_user,$1::name,'MEMBER')
-                AND (NOT $5::boolean OR has_function_privilege(session_user,'signal_control.check_token(jsonb,bytea,bytea)','EXECUTE'))
+                AND (NOT ($5::boolean OR $6::boolean) OR has_function_privilege(session_user,'signal_control.check_token(jsonb,bytea,bytea)','EXECUTE'))
+                AND (NOT $6::boolean OR coalesce(has_function_privilege(session_user,to_regprocedure('signal_sensor_pin.retain(jsonb,bytea,bytea,bytea)'),'EXECUTE'),false))
+                AND (NOT $6::boolean OR coalesce(has_function_privilege(session_user,to_regprocedure('signal_sensor_maintenance.apply(jsonb,bytea,bytea,bytea)'),'EXECUTE'),false))
+                AND (NOT $6::boolean OR coalesce(has_function_privilege(session_user,to_regprocedure('signal_sensor_bootstrap.initialize(jsonb,bytea,bytea,bytea)'),'EXECUTE'),false))
                 AND (NOT $3::boolean OR has_function_privilege(session_user,'signal_control.record_receipt(jsonb,bytea,bytea,bytea)','EXECUTE'))
                 AND NOT EXISTS(SELECT 1 FROM pg_roles r WHERE pg_has_role(session_user,r.oid,'MEMBER')
                     AND (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls
                     OR has_database_privilege(r.oid,current_database(),'CREATE')
-                    OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname IN ('signal_control','signal_finding_scope','signal_custody_restore','signal_state_read','signal_multi_event','signal_replay_transfer','signal_window_history','signal_window_history_read','signal_replay_release','signal_window_profile','signal_finding_lookup','signal_window_pin')
+                    OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname IN ('signal_control','signal_finding_scope','signal_custody_restore','signal_state_read','signal_multi_event','signal_replay_transfer','signal_window_history','signal_window_history_read','signal_replay_release','signal_window_profile','signal_finding_lookup','signal_window_pin','signal_sensor_pin','signal_sensor_maintenance','signal_sensor_bootstrap')
                         AND (has_schema_privilege(r.oid,n.oid,'CREATE') OR pg_has_role(r.oid,n.nspowner,'MEMBER')))
                     OR EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-                        WHERE n.nspname IN ('signal_control','signal_finding_scope','signal_custody_restore','signal_state_read','signal_multi_event','signal_replay_transfer','signal_window_history','signal_window_history_read','signal_replay_release','signal_window_profile','signal_finding_lookup','signal_window_pin')
+                        WHERE n.nspname IN ('signal_control','signal_finding_scope','signal_custody_restore','signal_state_read','signal_multi_event','signal_replay_transfer','signal_window_history','signal_window_history_read','signal_replay_release','signal_window_profile','signal_finding_lookup','signal_window_pin','signal_sensor_pin','signal_sensor_maintenance','signal_sensor_bootstrap')
                         AND (has_function_privilege(r.oid,p.oid,'EXECUTE WITH GRANT OPTION')
                         OR (has_function_privilege(r.oid,p.oid,'EXECUTE') AND p.oid NOT IN (
                             'signal_control.acquire(jsonb,uuid,integer,bytea,bytea)'::regprocedure,
@@ -1532,20 +1667,22 @@ async fn execute(
                             OR (NOT $2::boolean AND p.oid IN (
                                 'signal_control.publish(jsonb,bytea,boolean,bytea,bytea)'::regprocedure,
                                 'signal_finding_scope.publish(jsonb,bytea,bytea,boolean,bytea,bytea,text,text)'::regprocedure))
-                            OR ($5::boolean AND NOT $2::boolean AND coalesce(p.oid=ANY(ARRAY[
+                            OR (($5::boolean OR $6::boolean) AND NOT $2::boolean AND coalesce(p.oid=ANY(ARRAY[
                                 to_regprocedure('signal_state_read.read_state(jsonb,text,uuid,bytea,bytea)'),
                                 to_regprocedure('signal_multi_event.publish(jsonb,bytea,bytea,boolean,bytea,bytea)'),
                                 to_regprocedure('signal_replay_transfer.release_replaced(jsonb,bytea,bytea,bytea)'),
-                                to_regprocedure('signal_window_history_read.read_page(jsonb,jsonb,bytea,bytea)'),
                                 to_regprocedure('signal_replay_release.release_obsolete(jsonb,bytea,bytea,bytea)'),
+                                to_regprocedure('signal_finding_lookup.known(jsonb,jsonb,bytea,bytea)')]),false))
+                            OR ($5::boolean AND NOT $2::boolean AND coalesce(p.oid=ANY(ARRAY[
+                                to_regprocedure('signal_window_history_read.read_page(jsonb,jsonb,bytea,bytea)'),
                                 to_regprocedure('signal_window_profile.inspect(jsonb,jsonb,bytea,bytea)'),
-                                to_regprocedure('signal_finding_lookup.known(jsonb,jsonb,bytea,bytea)'),
                                 to_regprocedure('signal_window_pin.retain(jsonb,bytea,bytea,bytea)')]),false))
-                            OR ($5::boolean AND NOT $2::boolean AND p.oid='signal_control.check_token(jsonb,bytea,bytea)'::regprocedure)
+                            OR ($6::boolean AND NOT $2::boolean AND coalesce(p.oid=ANY(ARRAY[to_regprocedure('signal_sensor_pin.retain(jsonb,bytea,bytea,bytea)'),to_regprocedure('signal_sensor_maintenance.apply(jsonb,bytea,bytea,bytea)'),to_regprocedure('signal_sensor_bootstrap.initialize(jsonb,bytea,bytea,bytea)')]),false))
+                            OR (($5::boolean OR $6::boolean) AND NOT $2::boolean AND p.oid='signal_control.check_token(jsonb,bytea,bytea)'::regprocedure)
                             OR ($3::boolean AND NOT $2::boolean AND p.oid='signal_control.record_receipt(jsonb,bytea,bytea,bytea)'::regprocedure)
                             OR ($4::boolean AND NOT $2::boolean AND p.oid=to_regprocedure('signal_custody_restore.resolve(jsonb,bytea,bytea,bytea,bytea)'))))))
                     OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-                        WHERE n.nspname IN ('signal_control','signal_finding_scope','signal_custody_restore','signal_state_read','signal_multi_event','signal_replay_transfer','signal_window_history','signal_window_history_read','signal_replay_release','signal_window_profile','signal_finding_lookup','signal_window_pin')
+                        WHERE n.nspname IN ('signal_control','signal_finding_scope','signal_custody_restore','signal_state_read','signal_multi_event','signal_replay_transfer','signal_window_history','signal_window_history_read','signal_replay_release','signal_window_profile','signal_finding_lookup','signal_window_pin','signal_sensor_pin','signal_sensor_maintenance','signal_sensor_bootstrap')
                         AND (pg_has_role(r.oid,c.relowner,'MEMBER')
                         OR (c.relkind IN ('r','p','v','m','f') AND
                             (has_table_privilege(r.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
@@ -1554,13 +1691,18 @@ async fn execute(
                                 AND NOT has_table_privilege(r.oid,c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
                                 AND NOT has_any_column_privilege(r.oid,c.oid,'INSERT,UPDATE,REFERENCES')))
                         OR (c.relkind='S' AND has_sequence_privilege(r.oid,c.oid,'USAGE,SELECT,UPDATE'))))))",
-                &[owner, lifecycle, custody, restored_custody, window],
+                &[owner, lifecycle, custody, restored_custody, &detectors.window, &detectors.sensor_health],
             ).await.map_err(database_error)?;
             if !row
                 .try_get::<_, bool>(0)
                 .map_err(|_| ControlError::Corrupt)?
             {
                 return Err(ControlError::Fenced);
+            }
+            if detectors.sensor_health {
+                crate::sensor_pin::verify(&connection.client, context).await?;
+                crate::sensor_maintenance::verify(&connection.client, context).await?;
+                crate::sensor_bootstrap::verify(&connection.client, context).await?;
             }
             if *restored_custody {
                 crate::restored_custody::inspect(&connection.client, owner, context).await?;
@@ -1633,6 +1775,28 @@ async fn execute(
                 )
                 .await?,
             )
+        } else if let Operation::SensorBootstrap { token, input } = operation {
+            Reply::StateRead(
+                crate::sensor_bootstrap::run(
+                    &connection.client,
+                    token,
+                    input,
+                    context,
+                    routines_identity,
+                )
+                .await?,
+            )
+        } else if let Operation::SensorMaintenance { token, input } = operation {
+            Reply::StateRead(
+                crate::sensor_maintenance::run(
+                    &connection.client,
+                    token,
+                    input,
+                    context,
+                    routines_identity,
+                )
+                .await?,
+            )
         } else if let Operation::KnownFindings { token, input } = operation {
             Reply::KnownFindings(
                 crate::finding_lookup::run(
@@ -1701,7 +1865,7 @@ async fn execute(
                             )
                             .await
                     }
-                    Operation::HistoryRead { .. } | Operation::KnownFindings { .. } | Operation::StateRead { .. } | Operation::RestoredCustody(_)
+                    Operation::SensorBootstrap { .. } | Operation::SensorMaintenance { .. } | Operation::HistoryRead { .. } | Operation::KnownFindings { .. } | Operation::StateRead { .. } | Operation::RestoredCustody(_)
                     | Operation::Administration { .. }
                     | Operation::Restore { .. }
                     | Operation::Feed { .. } | Operation::ScopedList { .. }
@@ -1721,13 +1885,22 @@ async fn execute(
                             )
                             .await
                     }
-                    Operation::Object { token, raw, transfer, obsolete, window_pin, .. } => {
+                    Operation::Object { token, raw, transfer, obsolete, replay_pin, .. } => {
                         let token =
                             serde_json::to_value(token).map_err(|_| ControlError::Invalid)?;
-                        if *window_pin {
+                        if let Some(kind) = replay_pin {
                             connection.client.query_one("SELECT signal_control.check_token($1,$2,$3)",&[&token,&schema,&routines]).await.map_err(database_error)?;
-                            crate::window_pin::verify(&connection.client,context).await?;
-                            connection.client.query_one("SELECT signal_window_pin.retain($1,$2,$3,$4)",&[&token,raw,&schema,&routines]).await
+                            let query = match kind {
+                                ReplayPinKind::Window => {
+                                    crate::window_pin::verify(&connection.client,context).await?;
+                                    "SELECT signal_window_pin.retain($1,$2,$3,$4)"
+                                }
+                                ReplayPinKind::Sensor => {
+                                    crate::sensor_pin::verify(&connection.client,context).await?;
+                                    "SELECT signal_sensor_pin.retain($1,$2,$3,$4)"
+                                }
+                            };
+                            connection.client.query_one(query,&[&token,raw,&schema,&routines]).await
                         } else if *obsolete {
                             connection.client.query_one("SELECT signal_control.check_token($1,$2,$3)",&[&token,&schema,&routines]).await.map_err(database_error)?;
                             crate::replay_release::verify(&connection.client,context).await?;
@@ -1831,7 +2004,9 @@ async fn execute(
             };
             let value: serde_json::Value = row.try_get(0).map_err(|_| ControlError::Corrupt)?;
             match operation {
-                Operation::RestoredCustody(_)
+                Operation::SensorBootstrap { .. }
+                | Operation::SensorMaintenance { .. }
+                | Operation::RestoredCustody(_)
                 | Operation::Feed { .. }
                 | Operation::ScopedList { .. }
                 | Operation::HistoryRead { .. }

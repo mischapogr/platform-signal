@@ -61,7 +61,7 @@ fn unhex(text: &str, maximum: usize) -> Result<Vec<u8>, ControlError> {
         .map(|pair| Ok(digit(pair[0])? * 16 + digit(pair[1])?))
         .collect()
 }
-fn decode(
+pub(crate) fn decode(
     value: serde_json::Value,
     token: &LeaseToken,
     input: &StateReadInput,

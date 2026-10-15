@@ -23,6 +23,12 @@ const DB: &str = "signal_standard_main";
 mod standard_restore;
 #[path = "support/standard_retirement.rs"]
 mod standard_retirement;
+#[path = "support/standard_sensor.rs"]
+mod standard_sensor;
+#[path = "support/standard_sensor_failures.rs"]
+mod standard_sensor_failures;
+#[path = "support/standard_sensor_restore.rs"]
+mod standard_sensor_restore;
 #[path = "support/standard_window.rs"]
 mod standard_window;
 #[derive(serde::Deserialize)]
@@ -67,7 +73,10 @@ async fn standard_offline_fixture() -> Result {
         timeout(Duration::from_secs(2), driver).await???;
     }
     pg.dbname(
-        if matches!(phase.as_str(), "verify_restored" | "retirement_restored") {
+        if matches!(
+            phase.as_str(),
+            "verify_restored" | "retirement_restored" | "sensor_snapshot_restored"
+        ) {
             "signal_standard_restore"
         } else {
             DB
@@ -95,6 +104,12 @@ async fn standard_offline_fixture() -> Result {
             else { assert_eq!(snapshot,serde_json::from_slice::<serde_json::Value>(&fs::read(path)?)?); }
             println!("phase: Standard-WINDOW-{phase}-complete"); return Ok(());
         }
+        if matches!(phase.as_str(),"sensor_quota_limit"|"sensor_quota_restore") {standard_sensor::bootstrap_quota(&db,&root,phase=="sensor_quota_restore").await?; return Ok(());}
+        if phase=="sensor_maintenance_commit" {standard_sensor::maintenance_commit(&db,&root,&f).await?; return Ok(());}
+        if phase=="sensor_maintenance_diverged" {standard_sensor::replay_guards(&db,&root,&f,true).await?; return Ok(());}
+        if phase=="sensor_hold_retirement" {db.batch_execute("CREATE FUNCTION public.synthetic_sensor_hold_retirement() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF jsonb_array_length(convert_from(OLD.value,'UTF8')::jsonb#>'{metadata,sensor,snapshot,record,outbox}')>jsonb_array_length(convert_from(NEW.value,'UTF8')::jsonb#>'{metadata,sensor,snapshot,record,outbox}') THEN RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_FULL'; END IF; RETURN NEW; END $$; CREATE TRIGGER synthetic_sensor_hold_retirement BEFORE UPDATE ON signal_control.state FOR EACH ROW WHEN (OLD.key='standard-sensor') EXECUTE FUNCTION public.synthetic_sensor_hold_retirement()").await?; println!("phase: Standard-SENSOR-owned-retirement-refusal-installed"); return Ok(());}
+        if phase=="sensor_restore" {standard_sensor_restore::qualify(&db,&f,&root).await?; return Ok(());}
+        if matches!(phase.as_str(),"sensor_snapshot"|"sensor_snapshot_restored") {standard_sensor::snapshot(&db,&root).await?; return Ok(());}
         if phase=="window_verify" { standard_window::verify(&db,&root).await?; return Ok(()); }
         if matches!(phase.as_str(),"window_saved"|"window_recovered") { standard_window::recovery(&db,&root,phase=="window_recovered").await?; return Ok(()); }
         if phase=="verify_restored" {
@@ -337,6 +352,17 @@ async fn standard_offline_fixture() -> Result {
             }
             reader.shutdown(context()?).await?;
             println!("phase: Standard-WINDOW-readonly-optional-history-table-column-DDL-routine-PUBLIC-refusals-qualified");
+        }
+        if std::env::var("SIGNAL_STANDARD_SENSOR").as_deref()==Ok("true") {
+            db.batch_execute("UPDATE signal_control.store SET ready=false").await?;
+            if std::env::var("SIGNAL_STANDARD_WINDOW").as_deref()!=Ok("true") {
+                standard_window::prepare_modules(&db,&scope,scope_generation,false).await?;
+            }
+            standard_sensor::prepare(&db).await?;
+            db.batch_execute("UPDATE signal_control.store SET ready=true").await?;
+            producer.verify_detector_producer_credentials("signal_control_owner".into(),false,false,
+                signal_control::ProducerDetectors {window:std::env::var("SIGNAL_STANDARD_WINDOW").as_deref()==Ok("true"),sensor_health:true},context()?).await?;
+            println!("phase: Standard-SENSOR-exact-bootstrap-maintenance-pin-producer-profile-qualified");
         }
         producer.shutdown(context()?).await?;
         println!("phase: Standard-producer-verified-TLS-owner-reader-table-column-DDL-precancel-qualification-complete");

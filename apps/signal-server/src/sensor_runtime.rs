@@ -27,21 +27,72 @@ pub(crate) type Error = native::Error;
 #[serde(deny_unknown_fields)]
 pub(crate) struct Configuration {
     schema_version: u16,
-    database: PathBuf,
+    database: Option<PathBuf>,
+    shared: Option<SharedConfiguration>,
     owner_generation: Uuid,
     cadence_ms: u64,
     pub detector: native::Config,
 }
+#[derive(Clone, serde::Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct SharedConfiguration {
+    pub state_key: String,
+    pub bootstrap_checkpoint: Option<u64>,
+    pub recovery: RecoveryConfiguration,
+}
+#[derive(Clone, serde::Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RecoveryConfiguration {
+    pub files: usize,
+    pub object_bytes: u64,
+    pub decoded_bytes: u64,
+    pub scanned_rows: usize,
+    pub result_bytes: usize,
+}
+impl SharedConfiguration {
+    pub fn limits(
+        &self,
+        backend: Uuid,
+    ) -> Result<signal_control::CanonicalRecoveryLimits, signal_control::ControlError> {
+        let limits = signal_control::CanonicalRecoveryLimits {
+            backend,
+            files: self.recovery.files,
+            object_bytes: self.recovery.object_bytes,
+            decoded_bytes: self.recovery.decoded_bytes,
+            scanned_rows: self.recovery.scanned_rows,
+            result_bytes: self.recovery.result_bytes,
+        };
+        limits.validate()?;
+        if limits.result_bytes > 1048576 {
+            return Err(signal_control::ControlError::Full);
+        }
+        Ok(limits)
+    }
+}
 impl Configuration {
-    fn parse(text: &str) -> Result<Self, ConfigError> {
+    pub(crate) fn parse(text: &str) -> Result<Self, ConfigError> {
         let c: Self = serde_json::from_str(text)
             .map_err(|_| ConfigError::Invalid("sensor health configuration"))?;
         c.detector
             .validate()
             .map_err(|_| ConfigError::Invalid("sensor health policy"))?;
-        if c.schema_version != 1
-            || !c.database.is_absolute()
-            || c.database.as_os_str().len() > 4096
+        let persistence_valid = match (c.schema_version, &c.database, &c.shared) {
+            (1, Some(path), None) => path.is_absolute() && path.as_os_str().len() <= 4096,
+            (2, None, Some(shared)) => {
+                signal_control::StateReadInput {
+                    key: shared.state_key.clone(),
+                    expected_head: None,
+                }
+                .validate()
+                .is_ok()
+                    && shared
+                        .bootstrap_checkpoint
+                        .is_none_or(|n| n <= i64::MAX as u64)
+                    && shared.limits(Uuid::from_u128(1)).is_ok()
+            }
+            _ => false,
+        };
+        if !persistence_valid
             || c.owner_generation.is_nil()
             || c.cadence_ms == 0
             || c.cadence_ms > 60000
@@ -51,6 +102,12 @@ impl Configuration {
             return Err(ConfigError::Invalid("sensor health bounds"));
         }
         Ok(c)
+    }
+    pub fn cadence(&self) -> Duration {
+        Duration::from_millis(self.cadence_ms)
+    }
+    pub fn shared(&self) -> Option<&SharedConfiguration> {
+        self.shared.as_ref()
     }
     pub async fn load(settings: &Settings) -> Result<Option<Self>, ConfigError> {
         let Some(path) = settings.optional("SIGNAL_SENSOR_HEALTH_CONFIG")? else {
@@ -66,7 +123,7 @@ impl Configuration {
         .await
         .map(Some)
     }
-    pub async fn open(self, wal: BufferMetrics) -> Result<Detector, Error> {
+    pub fn source_binding(&self) -> Result<[u8; 32], Error> {
         let verifier = Verifier::new(
             self.detector.policy.clone(),
             self.detector.observer_keys.clone(),
@@ -78,17 +135,29 @@ impl Configuration {
             serde_json::to_vec(&self.detector.source_scopes).map_err(|_| Error::Configuration)?,
         );
         hash.update(verifier.enrollment_sha256());
+        if let Some(shared) = &self.shared {
+            hash.update(b"platform-signal/shared-sensor-source/v1\0");
+            hash.update(serde_json::to_vec(shared).map_err(|_| Error::Configuration)?);
+        }
+        Ok(hash.finalize().into())
+    }
+    pub async fn open(self, wal: BufferMetrics) -> Result<Detector, Error> {
+        let cadence = self.cadence();
+        let verifier = Verifier::new(
+            self.detector.policy.clone(),
+            self.detector.observer_keys.clone(),
+        )?;
         let epoch = Epoch {
             schema_version: 1,
             source_stream: wal.stream_id,
-            source_binding: hash.finalize().into(),
+            source_binding: self.source_binding()?,
             checkpoint: wal.checkpoint,
             last_sequence: wal.last_sequence,
             now_ms: chrono::Utc::now().timestamp_millis(),
         };
         let session = Session::open(
             self.detector.clone(),
-            self.database,
+            self.database.ok_or(Error::Configuration)?,
             epoch,
             RuleContext::new(Duration::from_secs(5)),
         )
@@ -99,7 +168,7 @@ impl Configuration {
             monitor,
             verifier,
             config: self.detector.clone(),
-            cadence: Duration::from_millis(self.cadence_ms),
+            cadence,
             next: Mutex::new(Instant::now()),
             health: Mutex::new(SensorHealthSinkMetrics {
                 sources: self.detector.policy.expected.len(),
@@ -254,13 +323,13 @@ impl Detector {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use serde_json::{Value, json};
     use std::os::unix::fs::PermissionsExt;
     type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-    fn configuration(database: &std::path::Path) -> Value {
+    pub(crate) fn configuration(database: &std::path::Path) -> Value {
         json!({
             "schema_version": 1, "database": database,
             "owner_generation": Uuid::from_u128(3), "cadence_ms": 10,
@@ -322,6 +391,68 @@ mod tests {
         assert!(Configuration::load(&settings).await?.is_some());
         std::fs::write(path, vec![b' '; 512 * 1024 + 1])?;
         assert!(Configuration::load(&settings).await.is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn shared_configuration_requires_explicit_storage_and_bounded_canonical_recovery() -> Result {
+        let local = configuration(std::path::Path::new("/fixture/native.sqlite"));
+        let mut shared = local.clone();
+        shared
+            .as_object_mut()
+            .ok_or("configuration object")?
+            .remove("database");
+        shared["schema_version"] = json!(2);
+        shared["shared"] = json!({
+            "state_key":"sensor-fixture", "bootstrap_checkpoint":0,
+            "recovery":{"files":4,"object_bytes":1048576,"decoded_bytes":1048576,
+                "scanned_rows":4096,"result_bytes":1048576}
+        });
+        assert!(Configuration::parse(&local.to_string())?.shared().is_none());
+        let parsed = Configuration::parse(&shared.to_string())?;
+        let settings = parsed.shared().ok_or("shared settings")?;
+        assert_eq!(settings.bootstrap_checkpoint, Some(0));
+        settings.limits(Uuid::from_u128(1))?;
+        let binding = parsed.source_binding()?;
+        for mode in 0..5 {
+            let mut changed = shared.clone();
+            match mode {
+                0 => changed["shared"]["state_key"] = json!("another-state"),
+                1 => changed["shared"]["bootstrap_checkpoint"] = json!(1),
+                2 => changed["shared"]["recovery"]["files"] = json!(5),
+                3 => changed["owner_generation"] = json!(Uuid::from_u128(4)),
+                _ => {
+                    changed["detector"]["source_scopes"][0]["event_scope"]["account"] =
+                        json!("another-account")
+                }
+            }
+            assert_ne!(
+                Configuration::parse(&changed.to_string())?.source_binding()?,
+                binding
+            );
+        }
+        for mode in 0..8 {
+            let mut invalid = shared.clone();
+            match mode {
+                0 => invalid["database"] = json!("/fixture/native.sqlite"),
+                1 => invalid["schema_version"] = json!(1),
+                2 => invalid["shared"]["state_key"] = json!(""),
+                3 => invalid["shared"]["bootstrap_checkpoint"] = json!(u64::MAX),
+                4 => invalid["shared"]["recovery"]["files"] = json!(129),
+                5 => invalid["shared"]["recovery"]["result_bytes"] = json!(1048577),
+                6 => invalid["shared"]["recovery"]["extra"] = json!(true),
+                _ => invalid
+                    .as_object_mut()
+                    .ok_or("configuration object")?
+                    .remove("shared")
+                    .map(|_| ())
+                    .ok_or("shared field")?,
+            }
+            assert!(
+                Configuration::parse(&invalid.to_string()).is_err(),
+                "mutation {mode}"
+            );
+        }
         Ok(())
     }
 

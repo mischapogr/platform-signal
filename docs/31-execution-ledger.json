@@ -1238,7 +1238,7 @@
     {
       "id": "SENSOR-HEALTH",
       "title": "Independent missing-telemetry detector D15",
-      "status": "in_progress",
+      "status": "passed_simulated",
       "dependencies": [
         "COVERAGE-OBSERVERS",
         "WINDOW"
@@ -1253,7 +1253,8 @@
         "target/sensor-health-journal-20261015/ACCEPTANCE.json",
         "target/ci-journal-lease-20261015/ACCEPTANCE.json",
         "target/sensor-health-native-20261015/ACCEPTANCE.json",
-        "target/sensor-health-history-20261015/ACCEPTANCE.json"
+        "target/sensor-health-history-20261015/ACCEPTANCE.json",
+        "target/sensor-health-standard-20261016/ACCEPTANCE.json"
       ],
       "references": [
         "docs/source-detection-catalog.md",
@@ -1264,7 +1265,7 @@
         "evidence": "target/sensor-health-20261015/ACCEPTANCE.json",
         "whole_item_accepted": false
       },
-      "notes": "SENSOR-HEALTH bounded history slice passes locally \u2014 2026-10-15. Original assessment changes, rule revision and signed canonical evidence are retained with explicit row/byte/TTL limits and persisted expiry/oldest-eviction counters. Shared state capacity evicts old history before refusing current progress; single unrepresentable assessments roll back atomically. Historical NoMatch never renews observer authority, and expiry preserves the original pending finding outbox. Native schema2 and changed history limits refuse silent recovery. Seven frozen gates pass1103default/1172all-feature tests, both strict Clippy modes, formatting and14workspace boundaries in529.75s. Actual Small Main passes8sensor/8onboarding checks with123matching source bindings,21numeric sensor metrics and actual SIGKILL recovery. The campaign also corrected an existing test-only retirement witness race by publishing synced witness bytes through atomic rename; production storage is unchanged. Evidence:`target/sensor-health-history-20261015/ACCEPTANCE.json`; writer review is not independent release review. Standard integration and whole/current native qualification remain open; SENSOR-HEALTH stays in_progress,35accepted/17unfinished.",
+      "notes": "SENSOR-HEALTH passes local simulation acceptance \u2014 2026-10-16. Eight frozen gates pass1,121default/1,191all-feature tests, both strict Clippy modes, formatting,14workspace boundaries and43launcher guards. Actual Small Main passes8sensor/8onboarding checks with129matching source bindings. Standard Main passes10sensor,5mixed WINDOW and4fresh-generation restore scenarios, with300/303/300matching source bindings, identical retained server identity and owned cleanup. All18frozen PostgreSQL failure cases and stopped-owner migration pass in154.35s with133matching sources. Original pending/known finding bytes, logical finding generation, canonical evidence and WAL checkpoints survive restore; replay remains unknown and fresh signed evidence restores health. Writer review is not independent release review. Evidence:`target/sensor-health-standard-20261016/ACCEPTANCE.json`; [contract65](65-sensor-health.md). LinuxAMD64 and actual SQLite/PostgreSQL/TLS/WAL/Parquet/Main are qualified locally; observer/restore authority and S3 custody are synthetic. Inventory36accepted/16unfinished. Current remote/native/container/cluster, actual AWS/EKS/vendor, released dependency and owner version/publication gates remain separate.",
       "signed_observer_slice": {
         "status": "passed_local",
         "evidence": "target/sensor-health-adapter-20261015/ACCEPTANCE.json",
@@ -1290,6 +1291,12 @@
         "status": "passed_local",
         "evidence": "target/sensor-health-history-20261015/ACCEPTANCE.json",
         "whole_item_accepted": false
+      },
+      "standard_integration": {
+        "status": "passed_simulated",
+        "evidence": "target/sensor-health-standard-20261016/ACCEPTANCE.json",
+        "whole_item_accepted_locally": true,
+        "external_release_qualified": false
       }
     },
     {

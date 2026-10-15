@@ -152,8 +152,8 @@ pub struct MultiEventPreparedPublication {
     request: signal_control::MultiEventPublicationInput,
 }
 enum RetainedPublication {
-    Scoped(signal_control::ScopedPublicationInput),
-    Multi(signal_control::MultiEventPublicationInput),
+    Scoped(Box<signal_control::ScopedPublicationInput>),
+    Multi(Box<signal_control::MultiEventPublicationInput>),
 }
 impl MultiEventPreparedPublication {
     pub fn request(&self) -> &signal_control::MultiEventPublicationInput {
@@ -257,7 +257,7 @@ impl SharedPublisher {
         self.recommit_inner(
             token,
             request.publication().clone(),
-            Some(RetainedPublication::Scoped(request)),
+            Some(RetainedPublication::Scoped(Box::new(request))),
             context,
         )
         .await
@@ -273,7 +273,7 @@ impl SharedPublisher {
         self.recommit_inner(
             token,
             request.publication().clone(),
-            Some(RetainedPublication::Multi(request)),
+            Some(RetainedPublication::Multi(Box::new(request))),
             context,
         )
         .await
@@ -335,12 +335,12 @@ impl SharedPublisher {
         let result = match scoped {
             Some(RetainedPublication::Scoped(scoped)) => {
                 self.control
-                    .publish_scoped(token, scoped, context.clone())
+                    .publish_scoped(token, *scoped, context.clone())
                     .await?
             }
             Some(RetainedPublication::Multi(multi)) => {
                 self.control
-                    .publish_multi_event(token, multi, context.clone())
+                    .publish_multi_event(token, *multi, context.clone())
                     .await?
             }
             None => {

@@ -14,6 +14,8 @@ pub(crate) enum Error {
     Feed(#[from] signal_server::shared_feed::SharedFeedError),
     #[error(transparent)]
     Window(#[from] crate::standard_window::Error),
+    #[error(transparent)]
+    Sensor(#[from] crate::standard_sensor::Error),
     #[error("Standard runtime held; unfinished events remain in WAL")]
     Held,
     #[error("Standard consumer task failed")]
@@ -178,6 +180,7 @@ mod host {
         failures: AtomicU64,
         logging: crate::logging::LogWriter,
         window: Option<Arc<crate::standard_window::Health>>,
+        sensor: Option<Arc<crate::standard_sensor::Health>>,
         loaded_rules: usize,
     }
     impl Sink {
@@ -187,6 +190,9 @@ mod host {
         fn hold(&self) {
             if let Some(window) = &self.window {
                 window.stop();
+            }
+            if let Some(sensor) = &self.sensor {
+                sensor.stop();
             }
             self.held.store(true, Ordering::Release);
             self.admission.close();
@@ -208,7 +214,12 @@ mod host {
     }
     impl EventSink for Sink {
         fn admit(&self, event: signal_event::SignalEvent) -> AdmissionFuture<'_> {
-            self.admission.admit(event)
+            Box::pin(async move {
+                if let Some(sensor) = &self.sensor {
+                    sensor.validate(&event)?;
+                }
+                self.admission.admit(event).await
+            })
         }
         fn admit_with_grant<'a>(
             &'a self,
@@ -223,6 +234,9 @@ mod host {
                 let lease = self
                     .deadline()
                     .ok_or(signal_protocol::AdmissionError::Unavailable)?;
+                if let Some(sensor) = &self.sensor {
+                    sensor.validate(&event)?;
+                }
                 self.admission
                     .admit_with_grant(event, grant, deadline.min(lease.into_std()))
                     .await
@@ -241,7 +255,7 @@ mod host {
                 matches: self.matches.load(Ordering::Relaxed),
                 failures: self.failures.load(Ordering::Relaxed),
                 window: self.window.as_ref().map(|w| w.metrics()),
-                sensor_health: None,
+                sensor_health: self.sensor.as_ref().map(|s| s.metrics()),
             });
             m.closed |= m.audit.is_some_and(|a| a.held)
                 || self
@@ -433,6 +447,13 @@ mod host {
                 "signal_shared_window_replay_pin_queue_depth {pins}\nsignal_shared_window_replay_pin_queue_capacity {capacity}"
             );
         }
+        if let Some(sensor) = &s.sensor {
+            let (pins, capacity) = sensor.pins();
+            let _ = writeln!(
+                &mut out,
+                "signal_shared_sensor_replay_pin_queue_depth {pins}\nsignal_shared_sensor_replay_pin_queue_capacity {capacity}"
+            );
+        }
         out
     }
     struct ConsumerGuard {
@@ -448,6 +469,7 @@ mod host {
     struct Consumer {
         onboarding: Option<Arc<crate::onboarding::Host>>,
         window: Option<crate::standard_window::Consumer>,
+        sensor: Option<crate::standard_sensor::Consumer>,
         sink: Arc<Sink>,
         token: LeaseToken,
         head: Option<Uuid>,
@@ -465,6 +487,7 @@ mod host {
         let Consumer {
             onboarding,
             mut window,
+            mut sensor,
             sink,
             mut token,
             mut head,
@@ -513,7 +536,26 @@ mod host {
                 if drain.is_cancelled() {
                     return Ok(());
                 }
-                tokio::select! {biased;_=cancel.cancelled()=>return Err(Error::Held.into()),_=drain.cancelled()=>{},_=tokio::time::sleep(cfg.flush_interval.min(Duration::from_secs(1)))=>{}}
+                if let Some(sensor) = sensor.as_mut()
+                    && sensor.due()
+                {
+                    sensor
+                        .maintain(&sink.control, token.clone(), head, original)
+                        .await
+                        .map_err(Error::from)?;
+                    if let Some(head) = head {
+                        sensor
+                            .cleanup(&sink.control, token.clone(), head, context(&cancel)?)
+                            .await
+                            .map_err(Error::from)?;
+                    }
+                }
+                let delay = sensor
+                    .as_ref()
+                    .map_or(Duration::from_secs(1), |s| s.wait())
+                    .min(cfg.flush_interval)
+                    .min(Duration::from_secs(1));
+                tokio::select! {biased;_=cancel.cancelled()=>return Err(Error::Held.into()),_=drain.cancelled()=>{},_=tokio::time::sleep(delay)=>{}}
                 continue;
             }
             let rows: Vec<_> = batch
@@ -579,54 +621,119 @@ mod host {
                 work: vec![],
                 receipts: vec![],
             };
-            let result = if let Some(window) = window.as_mut() {
-                let mut candidate = window
-                    .prepare(
-                        &rows,
-                        sink.admission.admission_floor(),
-                        sink.wal.snapshot().last_sequence,
-                        &original,
-                    )
-                    .await
-                    .map_err(Error::from)?;
-                for (_, finding) in &candidate.derived {
-                    if derived.len() + plan.findings.len() + candidate.derived.len() > finding_rows
-                    {
-                        return Err(ControlError::Full.into());
-                    }
-                    finding_bytes = finding_bytes
-                        .checked_add(
-                            serde_json::to_vec(finding.finding())
-                                .map_err(|_| ControlError::Invalid)?
-                                .len(),
-                        )
-                        .ok_or(ControlError::Full)?;
-                    if finding_bytes > finding_bytes_limit {
-                        return Err(ControlError::Full.into());
-                    }
+            let result = if window.is_some() || sensor.is_some() {
+                let primary = window
+                    .as_ref()
+                    .map(|w| w.binding.key.clone())
+                    .or_else(|| sensor.as_ref().map(|s| s.binding.key.clone()))
+                    .ok_or(ControlError::Invalid)?;
+                let mut owners = std::collections::BTreeMap::new();
+                for (_, finding) in &derived {
+                    owners
+                        .entry(finding.finding().id)
+                        .or_insert(primary.clone());
                 }
-                sink.matches
-                    .fetch_add(candidate.derived.len() as u64, Ordering::Relaxed);
-                derived.append(&mut candidate.derived);
-                // A canonical retry may occur in this batch or have already
-                // committed. Preserve the first fact and its original scope;
-                // never recreate provenance at the retry's WAL sequence.
+                let mut window_candidate = match window.as_mut() {
+                    Some(window) => Some(
+                        window
+                            .prepare(
+                                &rows,
+                                sink.admission.admission_floor(),
+                                sink.wal.snapshot().last_sequence,
+                                &original,
+                            )
+                            .await
+                            .map_err(Error::from)?,
+                    ),
+                    None => None,
+                };
+                let mut sensor_candidate = match sensor.as_mut() {
+                    Some(sensor) => Some(
+                        sensor
+                            .prepare(&rows, &original)
+                            .await
+                            .map_err(Error::from)?,
+                    ),
+                    None => None,
+                };
+                let mut groups = Vec::new();
+                if let (Some(window), Some(candidate)) =
+                    (window.as_ref(), window_candidate.as_mut())
+                {
+                    plan.states.push(candidate.value.clone());
+                    for (_, finding) in &candidate.derived {
+                        owners
+                            .entry(finding.finding().id)
+                            .or_insert(window.binding.key.clone());
+                    }
+                    sink.matches
+                        .fetch_add(candidate.derived.len() as u64, Ordering::Relaxed);
+                    derived.append(&mut candidate.derived);
+                    groups.push(signal_control::StateFindingGroup {
+                        state_key: window.binding.key.clone(),
+                        prior: window.prior.clone(),
+                        retained: window.retained.clone(),
+                        derived: Vec::new(),
+                    });
+                }
+                if let (Some(sensor), Some(candidate)) =
+                    (sensor.as_ref(), sensor_candidate.as_mut())
+                {
+                    if groups.iter().any(|g| g.state_key == sensor.binding.key) {
+                        return Err(ControlError::Conflict.into());
+                    }
+                    plan.states.push(candidate.value.clone());
+                    for (_, finding) in &candidate.derived {
+                        owners
+                            .entry(finding.finding().id)
+                            .or_insert(sensor.binding.key.clone());
+                    }
+                    sink.matches
+                        .fetch_add(candidate.derived.len() as u64, Ordering::Relaxed);
+                    derived.append(&mut candidate.derived);
+                    groups.push(signal_control::StateFindingGroup {
+                        state_key: sensor.binding.key.clone(),
+                        prior: sensor.prior.clone(),
+                        retained: sensor.retained.clone(),
+                        derived: Vec::new(),
+                    });
+                }
+                // Reconcile all detectors together before assigning each original
+                // fact to its first producer. Known findings retain original bytes.
                 let batch =
                     super::finding_batch::reconcile(derived, std::mem::take(&mut plan.findings))?;
-                derived = batch.scoped;
-                plan.findings = batch.legacy;
-                let candidates = batch.candidates;
+                if batch.candidates.len() > finding_rows {
+                    return Err(ControlError::Full.into());
+                }
+                let total_bytes = batch.candidates.iter().try_fold(0usize, |n, f| {
+                    n.checked_add(f.bytes.len()).ok_or(ControlError::Full)
+                })?;
+                if total_bytes > finding_bytes_limit {
+                    return Err(ControlError::Full.into());
+                }
                 let known = sink
                     .control
-                    .known_findings(token.clone(), head, candidates, original.clone())
+                    .known_findings(token.clone(), head, batch.candidates, original.clone())
                     .await?;
-                derived.retain(|(_, finding)| !known.contains(&finding.finding().id));
-                plan.findings.retain(|finding| !known.contains(&finding.id));
-                plan.states = vec![candidate.value.clone()];
-                let draft=signal_server::shared_multi_event::MultiEventPublicationDraft::from_retained_anchor_host(plan,sink.admission.enrollment(),&rows,&window.retained,window.prior.clone(),&window.binding.key,derived)?;
+                plan.findings = batch.legacy;
+                plan.findings.retain(|f| !known.contains(&f.id));
+                for (sequence, finding) in batch.scoped {
+                    if known.contains(&finding.finding().id) {
+                        continue;
+                    }
+                    let key = owners
+                        .get(&finding.finding().id)
+                        .ok_or(ControlError::Corrupt)?;
+                    let group = groups
+                        .iter_mut()
+                        .find(|g| &g.state_key == key)
+                        .ok_or(ControlError::Corrupt)?;
+                    group.derived.push((sequence, finding));
+                }
+                let draft=signal_server::shared_multi_event::MultiEventPublicationDraft::from_state_groups(plan,sink.admission.enrollment(),&rows,&primary,groups)?;
                 let prepared = sink
                     .recovery
-                    .prepare_multi_event(token.clone(), draft, rows.len(), original)
+                    .prepare_multi_event(token.clone(), draft, rows.len(), original.clone())
                     .await
                     .map_err(Error::from)?;
                 let result = sink.recovery.commit(prepared).await.map_err(Error::from)?;
@@ -639,17 +746,34 @@ mod host {
                 {
                     return Err(Error::Held.into());
                 }
-                window
-                    .accept(candidate, result.last_sequence)
-                    .map_err(Error::from)?;
-                window
-                    .cleanup(&sink.control, token.clone(), result.id, context(&cancel)?)
-                    .await
-                    .map_err(Error::from)?;
-                window
-                    .refresh_history(&sink.control, token.clone(), result.id, context(&cancel)?)
-                    .await
-                    .map_err(Error::from)?;
+                // Confirm both original candidates before follow-up operations
+                // can consume their immutable publication/confirmation deadline.
+                if let (Some(sensor), Some(candidate)) = (sensor.as_mut(), sensor_candidate) {
+                    sensor
+                        .accept(candidate, result.last_sequence, &original)
+                        .map_err(Error::from)?;
+                }
+                if let (Some(window), Some(candidate)) = (window.as_mut(), window_candidate) {
+                    window
+                        .accept(candidate, result.last_sequence)
+                        .map_err(Error::from)?;
+                }
+                if let Some(window) = window.as_mut() {
+                    window
+                        .cleanup(&sink.control, token.clone(), result.id, context(&cancel)?)
+                        .await
+                        .map_err(Error::from)?;
+                    window
+                        .refresh_history(&sink.control, token.clone(), result.id, context(&cancel)?)
+                        .await
+                        .map_err(Error::from)?;
+                }
+                if let Some(sensor) = sensor.as_mut() {
+                    sensor
+                        .cleanup(&sink.control, token.clone(), result.id, context(&cancel)?)
+                        .await
+                        .map_err(Error::from)?;
+                }
                 result
             } else {
                 let scoped = ScopedPublicationDraft::from_host(
@@ -869,6 +993,20 @@ mod host {
                     .map_err(|_| Error::Held)?;
                 }
             }
+            if let Some(sensor) = &cfg.sensor_configuration {
+                std::io::Write::write_all(
+                    &mut revision,
+                    b"platform-signal/shared-sensor-rule/v1\0",
+                )
+                .map_err(|_| Error::Held)?;
+                serde_json::to_writer(&mut revision, &sensor.detector)
+                    .map_err(|_| ControlError::Invalid)?;
+                std::io::Write::write_all(
+                    &mut revision,
+                    &sensor.source_binding().map_err(AppError::from)?,
+                )
+                .map_err(|_| Error::Held)?;
+            }
             let rule_revision: [u8; 32] = Sha256::digest(&revision).into();
             let mut writer = audit::HashWriter::new();
             std::io::Write::write_all(&mut writer, &revision).map_err(|_| Error::Held)?;
@@ -907,12 +1045,16 @@ mod host {
             let (control, reader) = doc.clients(&settings)?;
             resources.control = Some(control.clone());
             resources.reader = Some(reader.clone());
-            if cfg.window_configuration.is_some() {
+            if cfg.window_configuration.is_some() || cfg.sensor_configuration.is_some() {
                 control
-                    .verify_window_producer_credentials(
+                    .verify_detector_producer_credentials(
                         doc.schema_owner.clone(),
                         doc.custody.is_some(),
                         doc.custody.as_ref().is_some_and(|c| c.restored_receipts),
+                        signal_control::ProducerDetectors {
+                            window: cfg.window_configuration.is_some(),
+                            sensor_health: cfg.sensor_configuration.is_some(),
+                        },
                         context(&stopping)?.limited_to(startup.deadline()),
                     )
                     .await?;
@@ -1032,6 +1174,30 @@ mod host {
                 ),
                 None => None,
             };
+            let sensor = match cfg.sensor_configuration.take() {
+                Some(configuration) => Some(
+                    crate::standard_sensor::Consumer::open(crate::standard_sensor::Startup {
+                        configuration,
+                        producer: admission.enrollment().clone(),
+                        revision: rule_revision,
+                        backend: doc.backend_id,
+                        control: &control,
+                        objects: resources.publish_io.as_ref().ok_or(ControlError::Invalid)?,
+                        codec: resources
+                            .publish_codec
+                            .as_ref()
+                            .ok_or(ControlError::Invalid)?,
+                        token: token.clone(),
+                        head,
+                        wal: wal.snapshot(),
+                        admission_floor: admission.admission_floor(),
+                        context: context(&stopping)?.limited_to(startup.deadline()),
+                    })
+                    .await
+                    .map_err(Error::from)?,
+                ),
+                None => None,
+            };
             // Parse every fallible cache setting while the registry still owns
             // the raw query worker; argument evaluation must not consume it early.
             let selection_config = SelectionConfig {
@@ -1118,7 +1284,10 @@ mod host {
                 failures: AtomicU64::new(0),
                 logging: logger.writer(),
                 window: window.as_ref().map(|w| w.health.clone()),
-                loaded_rules: cfg.rules.len() + usize::from(window.is_some()),
+                sensor: sensor.as_ref().map(|s| s.health.clone()),
+                loaded_rules: cfg.rules.len()
+                    + usize::from(window.is_some())
+                    + usize::from(sensor.is_some()),
             });
             let service = IngestService::new_with_security(
                 cfg.config.clone(),
@@ -1260,6 +1429,7 @@ mod host {
             let consumer_input = Consumer {
                 onboarding: cfg.onboarding.clone(),
                 window,
+                sensor,
                 sink: task_sink,
                 token,
                 head,

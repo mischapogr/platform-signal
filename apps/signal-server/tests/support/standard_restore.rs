@@ -16,7 +16,7 @@ use tokio::time::timeout;
 use tokio_postgres::Client;
 use uuid::Uuid;
 const DEST: &str = "signal_standard_restore";
-const TABLES: &[&str] = &[
+pub(super) const TABLES: &[&str] = &[
     "store",
     "object_backends",
     "partitions",
@@ -34,7 +34,8 @@ const TABLES: &[&str] = &[
     "catalog_snapshots",
     "migrations",
 ];
-const SCOPE_TABLES: &[&str] = &["profile", "activation", "producers", "facts", "requests"];
+pub(super) const SCOPE_TABLES: &[&str] =
+    &["profile", "activation", "producers", "facts", "requests"];
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CurrentConsumer {
@@ -99,12 +100,12 @@ impl RestoreConsumers for Consumers {
         })
     }
 }
-struct Authority {
-    inventory: RestoreInventory,
-    destination: RestoreDestination,
-    generation: Uuid,
-    approval: Uuid,
-    allowed: AtomicBool,
+pub(super) struct Authority {
+    pub(super) inventory: RestoreInventory,
+    pub(super) destination: RestoreDestination,
+    pub(super) generation: Uuid,
+    pub(super) approval: Uuid,
+    pub(super) allowed: AtomicBool,
 }
 impl RestoreAuthority for Authority {
     fn authorize<'a>(
@@ -135,11 +136,11 @@ impl RestoreAuthority for Authority {
         })
     }
 }
-struct Custody {
-    client: reqwest::Client,
-    endpoint: String,
-    backend: Uuid,
-    allowed: AtomicBool,
+pub(super) struct Custody {
+    pub(super) client: reqwest::Client,
+    pub(super) endpoint: String,
+    pub(super) backend: Uuid,
+    pub(super) allowed: AtomicBool,
 }
 impl RestoreCustody for Custody {
     fn verify<'a>(
@@ -201,7 +202,7 @@ impl RestoreCustody for Custody {
         })
     }
 }
-fn settings(
+pub(super) fn settings(
     f: &Fixture,
     database: &str,
     user: &str,
@@ -214,7 +215,7 @@ fn settings(
         f.password.as_bytes().to_vec(),
     )
 }
-async fn dump(db: &Client, schema: &str, table: &str) -> Result<serde_json::Value> {
+pub(super) async fn dump(db: &Client, schema: &str, table: &str) -> Result<serde_json::Value> {
     let query = format!(
         "SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]'::jsonb) FROM {schema}.{table} t"
     );

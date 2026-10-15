@@ -5,13 +5,13 @@ use ring::signature::{Ed25519KeyPair, KeyPair};
 use signal_event::IngestEvent;
 use std::{os::unix::fs::PermissionsExt, time::Duration};
 
-fn context() -> RuleContext {
+pub(super) fn context() -> RuleContext {
     RuleContext::new(Duration::from_secs(5))
 }
 fn signer() -> Ed25519KeyPair {
     Ed25519KeyPair::from_seed_unchecked(&[3; 32]).unwrap()
 }
-fn config() -> Config {
+pub(super) fn config() -> Config {
     Config {
         schema_version: 1,
         policy: core::Policy {
@@ -59,7 +59,7 @@ fn config() -> Config {
         history_retention_ms: 1000,
     }
 }
-fn epoch(checkpoint: u64, last: u64, now: i64) -> Epoch {
+pub(super) fn epoch(checkpoint: u64, last: u64, now: i64) -> Epoch {
     Epoch {
         schema_version: 1,
         source_stream: Uuid::from_u128(1),
@@ -74,7 +74,7 @@ fn directory() -> tempfile::TempDir {
     std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     dir
 }
-fn row(
+pub(super) fn row(
     config: &Config,
     wal: u64,
     id: u128,

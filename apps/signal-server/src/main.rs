@@ -15,6 +15,8 @@ mod standard;
 #[cfg(feature = "s3-query")]
 mod standard_config;
 #[cfg(feature = "s3-query")]
+mod standard_sensor;
+#[cfg(feature = "s3-query")]
 mod standard_window;
 mod storage;
 mod tls;

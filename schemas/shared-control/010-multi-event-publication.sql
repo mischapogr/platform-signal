@@ -36,6 +36,7 @@ DECLARE p signal_control.partitions; a signal_finding_scope.activation; producer
  r jsonb;c jsonb;v jsonb;f jsonb;ref jsonb;metadata jsonb;old_value jsonb;new_value jsonb;selected_state jsonb;payload bytea;fact_bytes bytea;
  result jsonb;first_seq bigint;last_seq bigint;sequence bigint;identity uuid;count_refs bigint:=0;
  charge bigint;new_rows bigint:=1;count_rows bigint;count_bytes bigint;retained boolean;
+ multiple boolean;state_keys jsonb;selected_key text;selected_prior jsonb;old_values jsonb:='{}'::jsonb;old_present boolean;
 BEGIN
  p:=signal_control.check_token(t,expected_schema,expected_routines);
  IF p.kind<>'pipeline' OR raw IS NULL OR octet_length(raw) NOT BETWEEN 1 AND 1048576
@@ -50,8 +51,13 @@ BEGIN
   RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_FENCED'; END IF;
  r:=convert_from(raw,'UTF8')::jsonb;c:=convert_from(raw_claims,'UTF8')::jsonb;
  PERFORM signal_control.require_keys(r,ARRAY['schema_version','id','previous','first_sequence','last_sequence','manifest','rule_revision','normalizer_revision','states','findings','work','receipts']);
- PERFORM signal_control.require_keys(c,ARRAY['schema_version','scope_generation','startup','wal_floor','prior','facts','state_key']);
- IF c->'schema_version' NOT IN ('2'::jsonb,'3'::jsonb)
+ multiple:=c->'schema_version'='4'::jsonb;
+ IF multiple THEN
+  PERFORM signal_control.require_keys(c,ARRAY['schema_version','scope_generation','startup','wal_floor','prior','facts','state_key','state_keys','priors']);
+ ELSE
+  PERFORM signal_control.require_keys(c,ARRAY['schema_version','scope_generation','startup','wal_floor','prior','facts','state_key']);
+ END IF;
+ IF c->'schema_version' NOT IN ('2'::jsonb,'3'::jsonb,'4'::jsonb)
   OR jsonb_typeof(c->'scope_generation') IS DISTINCT FROM 'string' OR (c->>'scope_generation')::uuid IS DISTINCT FROM cfg.scope_generation
   OR jsonb_typeof(c->'startup') IS DISTINCT FROM 'string' OR (c->>'startup')::uuid='00000000-0000-0000-0000-000000000000'::uuid
   OR jsonb_typeof(c->'prior') NOT IN ('object','null')
@@ -62,12 +68,27 @@ BEGIN
   OR jsonb_typeof(c->'state_key') IS DISTINCT FROM 'string' OR octet_length(c->>'state_key') NOT BETWEEN 1 AND 256
   OR jsonb_typeof(c->'wal_floor') IS DISTINCT FROM 'number' OR (c->>'wal_floor')::bigint<0 THEN
   RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_INVALID'; END IF;
+ IF multiple THEN
+  IF c->'prior' IS DISTINCT FROM 'null'::jsonb OR jsonb_typeof(c->'priors') IS DISTINCT FROM 'object'
+   OR jsonb_typeof(c->'state_keys') IS DISTINCT FROM 'array' OR jsonb_array_length(c->'state_keys') NOT BETWEEN 1 AND 128 THEN
+   RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_INVALID'; END IF;
+  IF EXISTS(SELECT 1 FROM jsonb_array_elements(c->'state_keys') x WHERE jsonb_typeof(x) IS DISTINCT FROM 'string' OR octet_length(x#>>'{}') NOT BETWEEN 1 AND 256)
+   OR (SELECT count(DISTINCT x) FROM jsonb_array_elements(c->'state_keys') x)<>jsonb_array_length(c->'state_keys')
+   OR c->'state_keys' IS DISTINCT FROM (SELECT jsonb_agg(x ORDER BY (x#>>'{}') COLLATE "C") FROM jsonb_array_elements(c->'state_keys') x)
+   OR NOT (c->'state_keys' ? (c->>'state_key'))
+   OR EXISTS(SELECT 1 FROM jsonb_object_keys(c->'priors') k(name) WHERE NOT(c->'state_keys' ? k.name))
+   OR jsonb_array_length(r->'states')<>jsonb_array_length(c->'state_keys')
+   OR EXISTS(SELECT 1 FROM jsonb_array_elements(r->'states') x WHERE NOT(c->'state_keys' ? (x->>'key'))) THEN
+   RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_INVALID'; END IF;
+ END IF;
+ state_keys:=CASE WHEN multiple THEN c->'state_keys' ELSE jsonb_build_array(c->>'state_key') END;
  first_seq:=(r->>'first_sequence')::bigint;last_seq:=(r->>'last_sequence')::bigint;
  IF first_seq IS NULL OR first_seq<1 OR last_seq IS NULL OR last_seq<first_seq THEN
   RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_INVALID'; END IF;
- IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(r->'states') x WHERE x->>'key'=c->>'state_key') THEN
+ FOR selected_key IN SELECT x#>>'{}' FROM jsonb_array_elements(state_keys) x LOOP
+ IF NOT EXISTS(SELECT 1 FROM jsonb_array_elements(r->'states') x WHERE x->>'key'=selected_key) THEN
   RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_INVALID'; END IF;
- SELECT x INTO selected_state FROM jsonb_array_elements(r->'states') x WHERE x->>'key'=c->>'state_key';
+ SELECT x INTO selected_state FROM jsonb_array_elements(r->'states') x WHERE x->>'key'=selected_key;
  IF signal_control.hex_bytes(selected_state->'revision',32) IS DISTINCT FROM signal_control.hex_bytes(r->'rule_revision',32) THEN
   RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_CONFLICT'; END IF;
  new_value:=convert_from(signal_control.hex_bytes(selected_state->'bytes',65536),'UTF8')::jsonb;
@@ -93,6 +114,7 @@ BEGIN
  END LOOP;
  IF (SELECT count(*) FROM jsonb_object_keys(new_value->'canonical_sequences'))<>(SELECT count(*) FROM jsonb_object_keys(new_value->'metadata'->'canonical_sha256')) THEN
   RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_INVALID'; END IF;
+ END LOOP;
  SELECT * INTO saved FROM signal_multi_event.requests WHERE partition_id=p.id AND commit_id=(r->>'id')::uuid;
  retained:=FOUND;
  IF retained THEN
@@ -106,23 +128,32 @@ BEGIN
   IF NOT FOUND OR producer.scope_generation<>cfg.scope_generation OR producer.stream<>p.stream
    OR producer.startup_id IS DISTINCT FROM (c->>'startup')::uuid OR producer.wal_floor IS DISTINCT FROM (c->>'wal_floor')::bigint THEN
    RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_FENCED'; END IF;
-  IF c->'prior' IS DISTINCT FROM 'null'::jsonb THEN
-   PERFORM signal_control.require_keys(c->'prior',ARRAY['schema_version','key','checkpoint','revision','value_sha256','scope_generation']);
-   SELECT * INTO old FROM signal_control.state WHERE partition_id=p.id AND key=c->>'state_key' FOR UPDATE;
-   IF NOT FOUND OR c->'prior'->>'key' IS DISTINCT FROM c->>'state_key'
-    OR c->'prior'->'schema_version' IS DISTINCT FROM '1'::jsonb
-    OR (c->'prior'->>'checkpoint')::bigint IS DISTINCT FROM p.checkpoint OR p.checkpoint<>first_seq-1
-    OR signal_control.hex_bytes(c->'prior'->'revision',32) IS DISTINCT FROM old.revision
-    OR old.revision IS DISTINCT FROM signal_control.hex_bytes(r->'rule_revision',32)
-    OR signal_control.hex_bytes(c->'prior'->'value_sha256',32) IS DISTINCT FROM sha256(old.value)
-    OR (c->'prior'->>'scope_generation')::uuid IS DISTINCT FROM cfg.scope_generation THEN
-    RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_FENCED'; END IF;
-   old_value:=convert_from(old.value,'UTF8')::jsonb;
-   IF old_value->'schema_version' IS DISTINCT FROM '1'::jsonb
-    OR old_value->>'scope_generation' IS DISTINCT FROM cfg.scope_generation::text
-    OR (old_value->>'checkpoint')::bigint IS DISTINCT FROM p.checkpoint THEN
-    RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_FENCED'; END IF;
-  END IF;
+  FOR selected_key IN SELECT x#>>'{}' FROM jsonb_array_elements(state_keys) x LOOP
+   selected_prior:=CASE WHEN multiple THEN coalesce(c->'priors'->selected_key,'null'::jsonb) ELSE c->'prior' END;
+   IF multiple OR selected_prior IS DISTINCT FROM 'null'::jsonb THEN
+    SELECT * INTO old FROM signal_control.state WHERE partition_id=p.id AND key=selected_key FOR UPDATE;
+    old_present:=FOUND;
+    IF multiple AND old_present AND selected_prior='null'::jsonb THEN
+     RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_FENCED'; END IF;
+    IF selected_prior IS DISTINCT FROM 'null'::jsonb THEN
+     PERFORM signal_control.require_keys(selected_prior,ARRAY['schema_version','key','checkpoint','revision','value_sha256','scope_generation']);
+     IF NOT old_present OR selected_prior->>'key' IS DISTINCT FROM selected_key
+      OR selected_prior->'schema_version' IS DISTINCT FROM '1'::jsonb
+      OR (selected_prior->>'checkpoint')::bigint IS DISTINCT FROM p.checkpoint OR p.checkpoint<>first_seq-1
+      OR signal_control.hex_bytes(selected_prior->'revision',32) IS DISTINCT FROM old.revision
+      OR old.revision IS DISTINCT FROM signal_control.hex_bytes(r->'rule_revision',32)
+      OR signal_control.hex_bytes(selected_prior->'value_sha256',32) IS DISTINCT FROM sha256(old.value)
+      OR (selected_prior->>'scope_generation')::uuid IS DISTINCT FROM cfg.scope_generation THEN
+      RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_FENCED'; END IF;
+     old_value:=convert_from(old.value,'UTF8')::jsonb;
+     IF old_value->'schema_version' IS DISTINCT FROM '1'::jsonb
+      OR old_value->>'scope_generation' IS DISTINCT FROM cfg.scope_generation::text
+      OR (old_value->>'checkpoint')::bigint IS DISTINCT FROM p.checkpoint THEN
+      RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_FENCED'; END IF;
+     old_values:=old_values||jsonb_build_object(selected_key,old_value);
+    END IF;
+   END IF;
+  END LOOP;
  END IF;
  SELECT (SELECT count(*) FROM signal_multi_event.requests)+(SELECT count(*) FROM signal_multi_event.facts),
   (SELECT coalesce(sum(256+octet_length(claims)),0) FROM signal_multi_event.requests)+(SELECT coalesce(sum(512+octet_length(fact)),0) FROM signal_multi_event.facts)
@@ -135,11 +166,21 @@ BEGIN
   RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_INVALID'; END IF;
  charge:=256+octet_length(raw_claims);
  FOR v IN SELECT x FROM jsonb_array_elements(c->'facts') x LOOP
-  PERFORM signal_control.require_keys(v,ARRAY['id','anchor_sequence','references','source','account','resource','binding_digest']);
+  IF multiple THEN
+   PERFORM signal_control.require_keys(v,ARRAY['id','anchor_sequence','references','source','account','resource','binding_digest','state_key']);
+   IF jsonb_typeof(v->'state_key') IS DISTINCT FROM 'string' OR NOT(c->'state_keys' ? (v->>'state_key')) THEN
+    RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_INVALID'; END IF;
+   selected_prior:=coalesce(c->'priors'->(v->>'state_key'),'null'::jsonb);
+   old_value:=old_values->(v->>'state_key');
+  ELSE
+   PERFORM signal_control.require_keys(v,ARRAY['id','anchor_sequence','references','source','account','resource','binding_digest']);
+   selected_prior:=c->'prior';
+   old_value:=old_values->(c->>'state_key');
+  END IF;
   identity:=(v->>'id')::uuid;sequence:=(v->>'anchor_sequence')::bigint;
   IF jsonb_typeof(v->'id') IS DISTINCT FROM 'string' OR jsonb_typeof(v->'anchor_sequence') IS DISTINCT FROM 'number'
    OR identity IS NULL OR identity='00000000-0000-0000-0000-000000000000'::uuid OR sequence IS NULL OR sequence>last_seq
-   OR (sequence<first_seq AND (c->'schema_version'<>'3'::jsonb OR c->'prior'='null'::jsonb OR sequence>(c->'prior'->>'checkpoint')::bigint))
+   OR (sequence<first_seq AND (c->'schema_version' NOT IN ('3'::jsonb,'4'::jsonb) OR selected_prior='null'::jsonb OR sequence>(selected_prior->>'checkpoint')::bigint))
    OR jsonb_typeof(v->'binding_digest') IS DISTINCT FROM 'string'
    OR jsonb_typeof(v->'source') NOT IN ('string','null') OR jsonb_typeof(v->'account') NOT IN ('string','null') OR jsonb_typeof(v->'resource') NOT IN ('string','null')
    OR sequence<=(c->>'wal_floor')::bigint OR jsonb_typeof(v->'references') IS DISTINCT FROM 'array'
@@ -158,7 +199,7 @@ BEGIN
     OR (ref->>'sequence')::bigint IS NULL OR (ref->>'sequence')::bigint<1 THEN
     RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_INVALID'; END IF;
    IF (ref->>'sequence')::bigint NOT BETWEEN first_seq AND last_seq OR (ref->>'sequence')::bigint<=(c->>'wal_floor')::bigint THEN
-    IF c->'prior'='null'::jsonb OR (ref->>'sequence')::bigint>(c->'prior'->>'checkpoint')::bigint THEN
+    IF selected_prior='null'::jsonb OR (ref->>'sequence')::bigint>(selected_prior->>'checkpoint')::bigint THEN
      RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_FENCED'; END IF;
     IF NOT retained AND (old_value->'metadata'->'canonical_sha256' ? (ref->>'event_id')) IS DISTINCT FROM true THEN
      RAISE EXCEPTION USING ERRCODE='P0001',MESSAGE='SIGNAL_FENCED'; END IF;

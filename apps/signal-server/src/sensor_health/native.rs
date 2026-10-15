@@ -22,7 +22,12 @@ use thiserror::Error;
 use uuid::Uuid;
 
 pub const ATTRIBUTE: &str = "signal.sensor_health.observation";
+mod engine;
 mod history;
+pub use engine::{
+    Candidate, Detached, Engine, RecoveredSensor, SharedBinding, SharedError, SharedRecovery,
+    Snapshot,
+};
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("invalid native sensor-health state or policy")]
@@ -462,69 +467,34 @@ pub struct Epoch {
     pub last_sequence: u64,
     pub now_ms: i64,
 }
-/// Serial session: native admission floor/time and current source authority are
-/// supplied by the embedding host, never by event attributes or saved snapshots.
+/// Serial local owner: SQLite persistence delegates all typed transitions to Engine.
 pub struct Session {
-    config: Config,
-    verifier: Verifier,
+    engine: Engine,
     journal: Journal,
-    baseline: u64,
-    floor: u64,
-    epoch_ms: i64,
-    fresh: BTreeSet<Uuid>,
 }
 impl Session {
     pub async fn open(
-        mut config: Config,
+        config: Config,
         path: PathBuf,
         epoch: Epoch,
         context: RuleContext,
     ) -> Result<Self, Error> {
-        let Epoch {
-            schema_version,
-            source_stream: stream,
-            source_binding,
-            checkpoint,
-            last_sequence,
-            now_ms: now,
-        } = epoch;
-        config.validate()?;
-        if schema_version != 1 || last_sequence < checkpoint || source_binding == [0; 32] {
-            return Err(Error::Configuration);
-        }
-        Monitor::new(config.policy.clone(), now)?;
-        config.observer_keys.sort_by_key(|k| k.observer_id);
-        let verifier = Verifier::new(config.policy.clone(), config.observer_keys.clone())?;
-        let mut digest = Sha256::new();
-        digest.update(b"platform-signal/native-sensor-policy/v1\0");
-        digest.update(encode(&config, 4 * 1024 * 1024)?);
-        digest.update(verifier.enrollment_sha256());
-        let binding: [u8; 32] = digest.finalize().into();
+        let mut engine = Engine::new(config, epoch, None, &context)?;
         let (journal, ready) = Journal::begin_open(
             path,
-            config.journal(stream, source_binding, binding),
+            engine.config.journal(
+                engine.epoch.source_stream,
+                engine.epoch.source_binding,
+                engine.binding,
+            ),
             context.clone(),
         )?;
         ready.wait().await?;
-        let current = journal.load(context.clone()).await?;
-        if let Some(record) = &current {
-            if record.checkpoint < checkpoint || record.checkpoint > last_sequence {
-                return Err(Error::Conflict);
-            }
-            let state = decode(&config, &verifier, record, &context)?;
-            if Monitor::restore(config.policy.clone(), &state.monitor)?.clock_ms() > now {
-                return Err(core::Error::Clock.into());
-            }
+        if let Some(record) = journal.load(context.clone()).await? {
+            let snapshot = engine.wrap(record, &context)?;
+            engine.recover(&snapshot, &context)?;
         }
-        Ok(Self {
-            config,
-            verifier,
-            journal,
-            baseline: checkpoint,
-            floor: last_sequence,
-            epoch_ms: now,
-            fresh: BTreeSet::new(),
-        })
+        Ok(Self { engine, journal })
     }
     pub fn metrics(&self) -> (usize, usize, u64) {
         self.journal.metrics()
@@ -546,213 +516,34 @@ impl Session {
         trusted_current: bool,
         context: RuleContext,
     ) -> Result<Completion, Error> {
-        if rows.len() > 4096 {
-            return Err(Error::Capacity);
-        }
-        let current = self.journal.load(context.clone()).await?;
-        let checkpoint = current.as_ref().map_or(self.baseline, |r| r.checkpoint);
-        let last = rows.last().map_or(checkpoint, |r| r.sequence);
-        if !rows.is_empty() && last <= checkpoint {
-            return self.completion(
-                current.ok_or(Error::Conflict)?,
+        let current = self
+            .journal
+            .load(context.clone())
+            .await?
+            .map(|record| self.engine.wrap(record, &context))
+            .transpose()?;
+        let candidate = self
+            .engine
+            .prepare(
+                current.as_ref(),
+                rows,
                 now,
-                false,
-                &self.fresh,
-                &context,
-            );
-        }
-        let mut state = match &current {
-            Some(r) => decode(&self.config, &self.verifier, r, &context)?,
-            None => State {
-                schema_version: 2,
-                monitor: Monitor::new(self.config.policy.clone(), now)?.snapshot()?,
-                proofs: vec![],
-                known: vec![],
-                history: history::History::default(),
-            },
-        };
-        let mut monitor = Monitor::restore(self.config.policy.clone(), &state.monitor)?;
-        state.history.expire(&self.config, now)?;
-        let mut fresh = if trusted_current {
-            self.fresh.clone()
+                trusted_current,
+                context.clone(),
+            )
+            .await?;
+        let confirmed = if candidate.is_replay() {
+            candidate.snapshot().record().clone()
         } else {
-            BTreeSet::new()
+            self.journal
+                .commit(
+                    candidate.expected_revision(),
+                    candidate.snapshot().record().clone(),
+                    context.clone(),
+                )
+                .await?
         };
-        let mut previous = checkpoint;
-        for row in rows.iter().filter(|r| r.sequence > checkpoint) {
-            check(&context)?;
-            if row.sequence % 16 == 0 {
-                tokio::task::yield_now().await;
-            }
-            if previous.checked_add(1) != Some(row.sequence) {
-                return Err(Error::Conflict);
-            }
-            previous = row.sequence;
-            if !row.event.attributes.contains_key(ATTRIBUTE) {
-                continue;
-            }
-            if !trusted_current || row.sequence <= self.floor {
-                continue;
-            }
-            row.event.validate().map_err(|_| Error::Configuration)?;
-            encode(&row.event, self.config.max_event_bytes)?;
-            let verified = match self.verifier.verify(envelope(&row.event)?, now) {
-                Ok(verified) => verified,
-                // Admission and physical consumption have separate clocks. A
-                // legitimately admitted report may expire in the bounded WAL;
-                // consuming it grants no new health or historical finding.
-                Err(super::Error::Expired) => continue,
-                Err(error) => return Err(error.into()),
-            };
-            if verified.observation().observed_at_ms < self.epoch_ms {
-                continue;
-            }
-            let observation = verified.observation().clone();
-            if !self.config.includes(observation.source_id, &row.event) {
-                return Err(Error::Conflict);
-            }
-            if let Some(old) = state.proofs.iter().find(|p| {
-                p.observation.source_id == observation.source_id
-                    && p.observation.sequence == observation.sequence
-            }) {
-                if old.payload_sha256 != verified.payload_sha256() || old.event != row.event {
-                    return Err(Error::Conflict);
-                }
-                monitor.observe(observation, now)?;
-                continue;
-            }
-            let proof = Proof {
-                schema_version: 1,
-                wal_sequence: row.sequence,
-                authenticated_after: self.floor,
-                epoch_ms: self.epoch_ms,
-                event: row.event.clone(),
-                observation: observation.clone(),
-                payload_sha256: verified.payload_sha256(),
-            };
-            validate_proof(&self.config, &self.verifier, &proof)?;
-            if monitor.observe(observation.clone(), now)? == Admission::Accepted {
-                fresh.insert(observation.source_id);
-            }
-            state.proofs.push(proof);
-            state.proofs = required(&monitor, &state.proofs)?;
-            if state.proofs.len() > self.config.max_proofs {
-                return Err(Error::Capacity);
-            }
-            state.fit_history(&self.config, 0, &context)?;
-        }
-        let assessments = assess(&mut monitor, now, &fresh, trusted_current)?;
-        let mut outbox = current.as_ref().map_or_else(Vec::new, |r| r.outbox.clone());
-        for a in &assessments {
-            if a.outcome != Outcome::Match {
-                continue;
-            }
-            let id = a.gap_id.ok_or(Error::Conflict)?;
-            if state.known.iter().any(|p| p.finding.id == id) {
-                continue;
-            }
-            let evidence: Vec<_> = state
-                .proofs
-                .iter()
-                .filter(|p| p.observation.source_id == a.source_id)
-                .cloned()
-                .collect();
-            let p = Pending {
-                schema_version: 1,
-                assessment: a.clone(),
-                finding: finding(&self.config, a, &evidence)?,
-                evidence,
-            };
-            validate_pending(&self.config, &self.verifier, &p, &context)?;
-            if outbox.len() == self.config.max_outputs {
-                return Err(Error::Capacity);
-            }
-            outbox.push(Output {
-                schema_version: 1,
-                id,
-                bytes: encode(&p, self.config.max_output_bytes)?,
-            });
-            state
-                .known
-                .retain(|old| old.assessment.source_id != a.source_id);
-            state.known.push(p);
-            state.fit_history(&self.config, 0, &context)?;
-        }
-        state.monitor = monitor.snapshot()?;
-        state.history.record(
-            &self.config,
-            history::Batch {
-                assessments: &assessments,
-                proofs: &state.proofs,
-                fresh: &fresh,
-                trusted: trusted_current,
-                now,
-            },
-            &context,
-        )?;
-        state.fit_history(&self.config, 1, &context)?;
-        let expected = current.as_ref().map_or(0, |r| r.revision);
-        let next = Record {
-            schema_version: 1,
-            revision: expected.checked_add(1).ok_or(Error::Conflict)?,
-            checkpoint: last,
-            state: encode(&state, self.config.max_state_bytes)?,
-            outbox,
-        };
-        decode(&self.config, &self.verifier, &next, &context)?;
-        let committed = self.journal.commit(expected, next, context.clone()).await?;
-        let result = self.completion(committed, now, trusted_current, &fresh, &context)?;
-        check(&context)?;
-        self.fresh = fresh;
-        Ok(result)
-    }
-    fn completion(
-        &self,
-        record: Record,
-        now: i64,
-        trusted: bool,
-        fresh: &BTreeSet<Uuid>,
-        context: &RuleContext,
-    ) -> Result<Completion, Error> {
-        let state = decode(&self.config, &self.verifier, &record, context)?;
-        let mut monitor = Monitor::restore(self.config.policy.clone(), &state.monitor)?;
-        let assessments = assess(&mut monitor, now, fresh, trusted)?;
-        let valid_until_ms = if trusted && assessments.iter().all(|a| a.outcome == Outcome::NoMatch)
-        {
-            monitor
-                .retained_progress()
-                .filter_map(|(_, o, _, _)| {
-                    o.map(|o| o.observed_at_ms + self.config.policy.observer_freshness_ms)
-                })
-                .chain(assessments.iter().map(|a| a.deadline_ms))
-                .min()
-                .unwrap_or(0)
-        } else {
-            0
-        };
-        let mut findings = Vec::with_capacity(record.outbox.len());
-        for output in &record.outbox {
-            let p: Pending =
-                serde_json::from_slice(&output.bytes).map_err(|_| Error::Configuration)?;
-            findings.push(DerivedFinding::from_events(
-                p.finding,
-                &p.evidence.iter().map(|e| &e.event).collect::<Vec<_>>(),
-                true,
-            )?);
-        }
-        Ok(Completion {
-            revision: record.revision,
-            published_prefix: record.outbox.len(),
-            findings,
-            assessments,
-            proofs: state.proofs.len(),
-            bytes: record.state.len(),
-            valid_until_ms,
-            history_assessments: state.history.entries.len(),
-            history_bytes: encode(&state.history, self.config.max_history_bytes)?.len(),
-            history_expired: state.history.expired,
-            history_evicted: state.history.evicted,
-        })
+        self.engine.confirm(candidate, &confirmed, &context)
     }
     pub async fn acknowledge(
         &self,
@@ -773,7 +564,7 @@ impl Session {
                 .journal
                 .retire(revision, count, context.clone())
                 .await?;
-            decode(&self.config, &self.verifier, &record, &context)?;
+            self.engine.wrap(record, &context)?;
         }
         Ok(())
     }
@@ -806,3 +597,6 @@ fn assess(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod engine_tests;
