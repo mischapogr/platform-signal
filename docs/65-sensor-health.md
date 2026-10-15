@@ -84,3 +84,31 @@ Verification is stateless: it validates a positive sequence, while Monitor check
 monotonic progress. The durable host must also compare the original signed payload
 digest and canonical references when reconciling a retained sequence. Equality of
 decoded observations alone cannot authorize replacement of its original evidence.
+
+## Atomic journal primitive
+
+`signal_rules::state_journal` provides a bounded local state/outbox/checkpoint
+transaction for the pending native integration. Its exact versioned configuration
+pins the WAL stream, complete host scope/generation binding and observer enrollment
+digest, plus record/state/output count and byte budgets. SQLite FULL synchronous
+transactions retain original opaque state and output bytes together. A SHA256
+frame checksum detects corruption; filesystem-owner custody remains mandatory.
+The primitive validates its own framing and limits; the native host must validate
+the monitor state, signed originals, canonical references and delivery body schema.
+
+Commits require the expected revision and a non-regressing checkpoint. Unchanged
+checkpoints permit timer assessments. Exact lost-reply retries preserve the
+original frame; pending outputs must remain its exact prefix until a confirmed
+publication receipt retires that prefix at the expected revision. Retirement keeps
+state/checkpoint intact and cannot delete a later result with an old receipt.
+
+One retained worker owns SQLite and the filesystem writer lease. Its single
+operation slot stays reserved through physical I/O after cancellation, timeout or
+future drop. Window and generic state journals share the existing process cap of
+16 physical workers. Queue depth/capacity and unsuccessful calls are exposed;
+confirmed shutdown closes SQLite and releases the writer lease before replying.
+Only absolute paths in a mode0700 directory and mode0600 single-link regular files
+are accepted. Symlink paths/sidecars, unknown schemas, oversized stored frames and
+changed bindings/configuration are refused. This primitive does not yet implement
+native detector state validation, history/expiry, Main wiring or Standard leases;
+those remain required for SENSOR-HEALTH completion.

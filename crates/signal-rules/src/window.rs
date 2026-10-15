@@ -13,6 +13,7 @@ pub use store::{
 };
 use thiserror::Error;
 use uuid::Uuid;
+pub(crate) use worker::WORKERS;
 pub use worker::{Journal, Ready};
 #[derive(Clone, Debug, Error, Eq, PartialEq)]
 pub enum Error {
