@@ -34,6 +34,7 @@ struct Counters {
     notification_uncertain_results: AtomicU64,
     snapshot_expired: AtomicU64,
     snapshot_retries: AtomicU64,
+    retirement_retries: AtomicU64,
     fenced_results: AtomicU64,
     transaction_timeouts: AtomicU64,
     lease_acquired_results: AtomicU64,
@@ -53,6 +54,8 @@ pub struct ControlMetrics {
     pub notification_uncertain_results: u64,
     pub snapshot_expired: u64,
     pub snapshot_retries: u64,
+    /// Whole obsolete-pin retirement retries after confirmed transaction rollback.
+    pub retirement_retries: u64,
     /// Worker-observed stale or denied authority results, including abandoned callers.
     pub fenced_results: u64,
     /// Transaction budget expiry or PostgreSQL query-cancellation responses observed
@@ -313,8 +316,10 @@ impl ControlClient {
                         break;
                     };
                     job.mark.activate();
-                    // All read retries share the original admission context and
-                    // one transaction budget. Only confirmed aborted transactions retry.
+                    // Reads and obsolete-pin retirement share the original request,
+                    // admission context and one transaction budget across retries.
+                    // Only confirmed aborted transactions retry; an uncertain COMMIT
+                    // retains the existing caller reconciliation contract.
                     let budget = job
                         .context
                         .deadline
@@ -330,18 +335,22 @@ impl ControlClient {
                     )
                     .await;
                     job.mark.counters.observe(&job.operation, &completion);
-                    while matches!(
-                        &job.operation,
-                        Operation::Snapshot { .. }
-                            | Operation::Catalog { .. }
-                            | Operation::Feed { .. }
-                            | Operation::ScopedList { .. }
-                            | Operation::HistoryRead { .. }
-                            | Operation::KnownFindings { .. }
-                            | Operation::StateRead { .. }
-                            | Operation::ExistingFindingScope { .. }
-                            | Operation::ProducerCredentials { .. }
-                    ) && completion.rollback_confirmed
+                    let retirement =
+                        matches!(&job.operation, Operation::Object { obsolete: true, .. });
+                    while (retirement
+                        || matches!(
+                            &job.operation,
+                            Operation::Snapshot { .. }
+                                | Operation::Catalog { .. }
+                                | Operation::Feed { .. }
+                                | Operation::ScopedList { .. }
+                                | Operation::HistoryRead { .. }
+                                | Operation::KnownFindings { .. }
+                                | Operation::StateRead { .. }
+                                | Operation::ExistingFindingScope { .. }
+                                | Operation::ProducerCredentials { .. }
+                        ))
+                        && completion.rollback_confirmed
                         && matches!(&completion.result, Err(ControlError::Retryable))
                         && rounds < 3
                         && job.context.check().is_ok()
@@ -349,10 +358,12 @@ impl ControlClient {
                         && tokio::time::Instant::now() < budget
                     {
                         rounds += 1;
-                        job.mark
-                            .counters
-                            .snapshot_retries
-                            .fetch_add(1, Ordering::Relaxed);
+                        let retries = if retirement {
+                            &job.mark.counters.retirement_retries
+                        } else {
+                            &job.mark.counters.snapshot_retries
+                        };
+                        retries.fetch_add(1, Ordering::Relaxed);
                         completion = execute(
                             &settings,
                             &job.operation,
@@ -415,6 +426,11 @@ impl ControlClient {
                 .load(Ordering::Relaxed),
             snapshot_expired: self.inner.counters.snapshot_expired.load(Ordering::Relaxed),
             snapshot_retries: self.inner.counters.snapshot_retries.load(Ordering::Relaxed),
+            retirement_retries: self
+                .inner
+                .counters
+                .retirement_retries
+                .load(Ordering::Relaxed),
             fenced_results: self.inner.counters.fenced_results.load(Ordering::Relaxed),
             transaction_timeouts: self
                 .inner
