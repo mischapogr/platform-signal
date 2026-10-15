@@ -76,6 +76,27 @@ pub struct Journal {
     slots: Arc<Semaphore>,
     failures: Arc<AtomicU64>,
 }
+/// Read-only telemetry; it does not keep a dropped writer alive.
+#[derive(Clone)]
+pub struct Monitor {
+    sender: mpsc::WeakSender<Command>,
+    slots: Arc<Semaphore>,
+    failures: Arc<AtomicU64>,
+}
+impl Monitor {
+    pub fn metrics(&self) -> (usize, usize, u64) {
+        (
+            1 - self.slots.available_permits(),
+            1,
+            self.failures.load(Ordering::Relaxed),
+        )
+    }
+    pub fn is_closed(&self) -> bool {
+        self.sender
+            .upgrade()
+            .is_none_or(|sender| sender.is_closed())
+    }
+}
 pub struct Ready {
     reply: oneshot::Receiver<Result<(), Error>>,
     work: Work,
@@ -91,6 +112,13 @@ impl Ready {
     }
 }
 impl Journal {
+    pub fn monitor(&self) -> Monitor {
+        Monitor {
+            sender: self.sender.downgrade(),
+            slots: self.slots.clone(),
+            failures: self.failures.clone(),
+        }
+    }
     /// Handle exists before waiting for physical startup; dropping readiness
     /// cancels admission and the worker retires when opening physically ends.
     pub fn begin_open(

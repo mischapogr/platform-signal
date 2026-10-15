@@ -6,8 +6,8 @@ from pathlib import Path
 import sys
 
 REPO = Path(__file__).resolve().parents[1]
-if len(sys.argv) not in (3,4) or (len(sys.argv)==4 and sys.argv[3]!='--window'):
-    raise SystemExit('usage: check-onboarding-native.py BINARY OWNED_OUTPUT [--window]')
+if len(sys.argv) not in (3,4) or (len(sys.argv)==4 and sys.argv[3] not in ('--window','--sensor-health')):
+    raise SystemExit('usage: check-onboarding-native.py BINARY OWNED_OUTPUT [--window|--sensor-health]')
 binary, root = Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve()
 if not root.is_relative_to(REPO / 'target') or root.exists() or not binary.is_file():
     raise SystemExit('fresh owned target output and built binary required')
@@ -21,6 +21,8 @@ root.mkdir(parents=True)
     'max_vm_steps': 10000000, 'operation_timeout_ms': 1000}) + '\n')
 env = dict(os.environ, SIGNAL_TEST_ONBOARDING='1')
 env.pop('SIGNAL_TEST_WINDOW',None)
-if len(sys.argv)==4:env['SIGNAL_TEST_WINDOW']='1'
+env.pop('SIGNAL_TEST_SENSOR_HEALTH',None)
+if len(sys.argv)==4:
+    env['SIGNAL_TEST_WINDOW' if sys.argv[3]=='--window' else 'SIGNAL_TEST_SENSOR_HEALTH']='1'
 os.execvpe(sys.executable, [sys.executable, str(REPO / 'tests/integration/access-server-process.py'),
                           str(binary), str(root)], env)

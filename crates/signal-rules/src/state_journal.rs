@@ -14,7 +14,7 @@ use std::{
 };
 use thiserror::Error;
 use uuid::Uuid;
-pub use worker::{Journal, Ready};
+pub use worker::{Journal, Monitor, Ready};
 
 #[derive(Clone, Copy, Debug, Error, Eq, PartialEq)]
 pub enum Error {

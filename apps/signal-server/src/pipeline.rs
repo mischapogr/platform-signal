@@ -32,6 +32,7 @@ pub struct PipelineSink {
 }
 
 pub struct DetectionPipeline {
+    pub sensor_health: Option<Arc<crate::sensor_runtime::Detector>>,
     pub window: Option<Arc<crate::window::Detector>>,
     pub onboarding: Option<Arc<crate::onboarding::Host>>,
     /// Present only in native identity mode; retained startup WAL is unknown.
@@ -55,7 +56,52 @@ impl EventSink for PipelineSink {
         {
             self.buffer.close();
         }
+        if let Some(sensor) = self
+            .detection
+            .as_ref()
+            .and_then(|d| d.sensor_health.as_ref())
+            && let Err(error) = sensor.validate(&event)
+        {
+            return Box::pin(async move { Err(error) });
+        }
         self.buffer.admit(event)
+    }
+    fn admit_with_grant<'a>(
+        &'a self,
+        event: SignalEvent,
+        grant: &'a signal_protocol::access::RequestGrant,
+        deadline: std::time::Instant,
+    ) -> AdmissionFuture<'a> {
+        Box::pin(async move {
+            let now = u64::try_from(chrono::Utc::now().timestamp())
+                .map_err(|_| signal_protocol::AdmissionError::Unavailable)?;
+            if std::time::Instant::now() >= deadline
+                || !grant.allows(
+                    signal_protocol::access::Operation::IngestEvents,
+                    signal_protocol::access::ScopeFacts::event(&event),
+                    now,
+                )
+            {
+                return Err(signal_protocol::AdmissionError::Unavailable);
+            }
+            if self.store.metrics().fail_closed
+                || self.store.metrics().closed
+                || self
+                    .detection
+                    .as_ref()
+                    .is_some_and(|d| d.findings.metrics().closed)
+            {
+                self.buffer.close();
+            }
+            if let Some(sensor) = self
+                .detection
+                .as_ref()
+                .and_then(|d| d.sensor_health.as_ref())
+            {
+                sensor.validate(&event)?;
+            }
+            self.buffer.admit_with_grant(event, grant, deadline).await
+        })
     }
     fn close(&self) {
         self.buffer.close();
@@ -77,6 +123,10 @@ impl EventSink for PipelineSink {
                 matches: detection.matches.load(Ordering::Relaxed),
                 failures: detection.failures.load(Ordering::Relaxed),
                 window: detection.window.as_ref().map(|window| window.metrics()),
+                sensor_health: detection
+                    .sensor_health
+                    .as_ref()
+                    .map(|sensor| sensor.metrics()),
             });
             metrics.findings = Some(FindingSinkMetrics {
                 findings: findings.findings,
@@ -174,6 +224,8 @@ pub enum PipelineError {
     Rule(#[from] RuleError),
     #[error(transparent)]
     Window(#[from] signal_rules::window::Error),
+    #[error(transparent)]
+    SensorHealth(#[from] signal_server::sensor_health::native::Error),
     #[error("detection completion deadline exceeded; unfinished events remain in WAL")]
     Deadline,
     #[error(transparent)]
@@ -222,6 +274,20 @@ async fn consume_inner(
             pending_since = None;
             if drain.is_cancelled() {
                 return Ok(());
+            }
+            if let Some(detection) = &pipeline.detection
+                && detection
+                    .sensor_health
+                    .as_ref()
+                    .is_some_and(|sensor| sensor.due())
+            {
+                complete_sensor(
+                    detection,
+                    &[],
+                    Instant::now() + config.operation_timeout,
+                    &cancel,
+                )
+                .await?;
             }
             pause(&cancel).await?;
             continue;
@@ -462,6 +528,59 @@ async fn complete_findings(
             )
             .await?;
     }
+    complete_sensor(detection, batch, deadline, cancel).await?;
+    Ok(())
+}
+
+async fn complete_sensor(
+    detection: &DetectionPipeline,
+    batch: &[signal_buffer::SequencedEvent],
+    deadline: Instant,
+    cancel: &CancellationToken,
+) -> Result<(), PipelineError> {
+    let Some(sensor) = &detection.sensor_health else {
+        return Ok(());
+    };
+    let completed = sensor
+        .complete(
+            batch,
+            RuleContext {
+                deadline,
+                cancellation: cancel.child_token(),
+            },
+        )
+        .await?;
+    let revision = completed.revision;
+    let count = completed.published_prefix;
+    let mut pending = Vec::new();
+    let mut bytes = 0usize;
+    for finding in completed.findings {
+        let output = FindingOutput::Derived(finding);
+        let mut size = SizeCounter {
+            bytes: signal_findings::FINDING_FRAME_BYTES,
+            limit: detection.max_bytes,
+        };
+        serde_json::to_writer(&mut size, &output.preview()).map_err(|_| FindingError::Quota)?;
+        if pending.len() == detection.max_rows || bytes + size.bytes > detection.max_bytes {
+            persist_findings(detection, std::mem::take(&mut pending), deadline, cancel).await?;
+            bytes = 0;
+        }
+        bytes += size.bytes;
+        pending.push(output);
+    }
+    if !pending.is_empty() {
+        persist_findings(detection, pending, deadline, cancel).await?;
+    }
+    sensor
+        .acknowledge(
+            revision,
+            count,
+            RuleContext {
+                deadline,
+                cancellation: cancel.child_token(),
+            },
+        )
+        .await?;
     Ok(())
 }
 
@@ -730,6 +849,7 @@ mod tests {
             coverage: None,
             detection: Some(Arc::new(DetectionPipeline {
                 window: None,
+                sensor_health: None,
                 onboarding: None,
                 authenticated_after: None,
                 rules,
