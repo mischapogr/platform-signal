@@ -22,6 +22,10 @@ mod finding_scope;
 mod global_feed;
 #[path = "support/matrix.rs"]
 mod matrix;
+#[path = "support/multi_event_publication.rs"]
+mod multi_event_publication;
+#[path = "support/multi_event_restore.rs"]
+mod multi_event_restore;
 #[path = "support/notification.rs"]
 mod notification;
 #[path = "support/publication.rs"]
@@ -34,6 +38,8 @@ mod retention;
 mod scoped_publication;
 #[path = "support/snapshot.rs"]
 mod snapshot;
+#[path = "support/state_read.rs"]
+mod state_read;
 
 fn context() -> Result<ControlContext, ControlError> {
     ControlContext::new(Duration::from_secs(5))
@@ -139,6 +145,8 @@ async fn postgres_lease_authority_and_cancellation() -> Result<(), Box<dyn std::
     catalog_restore::qualify(&db, &f).await?;
     global_feed::qualify(&db, &f).await?;
     finding_scope::qualify(&db, &f).await?;
+    multi_event_publication::qualify_isolated_client(&db, &f).await?;
+    multi_event_restore::qualify(&db, &f).await?;
     restore::qualify(&db, &f).await?;
     let runtime = runtime(&f, "signal_runtime")?;
     let scope = scope();
@@ -181,6 +189,7 @@ async fn postgres_lease_authority_and_cancellation() -> Result<(), Box<dyn std::
     tls.shutdown(context()?).await?;
     assert_eq!(token.epoch, 1);
     publication::qualify(&db, &runtime, &token).await?;
+    state_read::qualify(&db, &runtime, &token).await?;
     snapshot::qualify(&db, &runtime, &token).await?;
     retention::qualify(&db, &runtime, &token).await?;
     notification::qualify(&db, &runtime, &token).await?;

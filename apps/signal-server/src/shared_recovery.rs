@@ -1,7 +1,9 @@
 //! Original publication identity survives uncertainty until synced WAL checkpoint.
 use crate::shared::{
-    PreparedPublication, PublicationDraft, ScopedPreparedPublication, SharedError, SharedPublisher,
+    MultiEventPreparedPublication, PreparedPublication, PublicationDraft,
+    ScopedPreparedPublication, SharedError, SharedPublisher,
 };
+use crate::shared_multi_event::{MultiEventPublicationDraft, MultiEventRecoveryInputs};
 use crate::shared_scoped::ScopedPublicationDraft;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -47,6 +49,13 @@ struct Entry {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
 enum Phase {
+    MultiDraft {
+        draft: Box<MultiEventPublicationDraft>,
+    },
+    MultiPrepared {
+        request: Box<signal_control::MultiEventPublicationInput>,
+        inputs: MultiEventRecoveryInputs,
+    },
     Draft {
         draft: PublicationDraft,
     },
@@ -146,18 +155,21 @@ pub struct RecoveryPrepared {
 enum RecoveryPublication {
     Raw(Box<PreparedPublication>),
     Scoped(Box<ScopedPreparedPublication>),
+    Multi(Box<MultiEventPreparedPublication>),
 }
 impl RecoveryPublication {
     fn request(&self) -> &PublicationInput {
         match self {
             Self::Raw(p) => p.request(),
             Self::Scoped(p) => p.request().publication(),
+            Self::Multi(p) => p.request().publication(),
         }
     }
     fn deadline(&self) -> tokio::time::Instant {
         match self {
             Self::Raw(p) => p.deadline(),
             Self::Scoped(p) => p.deadline(),
+            Self::Multi(p) => p.deadline(),
         }
     }
 }
@@ -167,8 +179,14 @@ impl RecoveryPrepared {
     }
     pub fn scoped_request(&self) -> Option<&signal_control::ScopedPublicationInput> {
         match &self.publication {
-            RecoveryPublication::Raw(_) => None,
+            RecoveryPublication::Raw(_) | RecoveryPublication::Multi(_) => None,
             RecoveryPublication::Scoped(p) => Some(p.request()),
+        }
+    }
+    pub fn multi_event_request(&self) -> Option<&signal_control::MultiEventPublicationInput> {
+        match &self.publication {
+            RecoveryPublication::Multi(p) => Some(p.request()),
+            _ => None,
         }
     }
 }
@@ -304,6 +322,23 @@ impl SharedRecovery {
         )
         .await
     }
+    pub async fn prepare_multi_event(
+        &self,
+        token: LeaseToken,
+        draft: MultiEventPublicationDraft,
+        max_events: usize,
+        context: ControlContext,
+    ) -> Result<RecoveryPrepared, RecoveryError> {
+        self.prepare_phase(
+            token,
+            Phase::MultiDraft {
+                draft: Box::new(draft),
+            },
+            max_events,
+            context,
+        )
+        .await
+    }
     async fn prepare_phase(
         &self,
         token: LeaseToken,
@@ -333,6 +368,10 @@ impl SharedRecovery {
             Phase::ScopedDraft { draft } => {
                 draft.validate(&rows, &token.scope)?;
                 2
+            }
+            Phase::MultiDraft { draft } => {
+                draft.validate(&rows, &token.scope)?;
+                3
             }
             _ => return Err(ControlError::Corrupt.into()),
         };
@@ -374,6 +413,14 @@ impl SharedRecovery {
         context: ControlContext,
     ) -> Result<RecoveryPrepared, RecoveryError> {
         let publication = match &entry.phase {
+            Phase::MultiDraft { draft } => {
+                draft.validate(&rows, &token.scope)?;
+                RecoveryPublication::Multi(Box::new(
+                    self.publisher
+                        .prepare_multi_event(token, &rows, (**draft).clone(), context.clone())
+                        .await?,
+                ))
+            }
             Phase::Draft { draft } => {
                 draft.validate(&rows)?;
                 RecoveryPublication::Raw(Box::new(
@@ -400,6 +447,13 @@ impl SharedRecovery {
             RecoveryPublication::Scoped(p) => Phase::ScopedPrepared {
                 request: Box::new(p.request().clone()),
             },
+            RecoveryPublication::Multi(p) => Phase::MultiPrepared {
+                request: Box::new(p.request().clone()),
+                inputs: match &entry.phase {
+                    Phase::MultiDraft { draft } => draft.recovery_inputs(),
+                    _ => return Err(ControlError::Corrupt.into()),
+                },
+            },
         };
         let record = self.save(&entry, Some(expected), &context).await?;
         Ok(RecoveryPrepared {
@@ -422,6 +476,7 @@ impl SharedRecovery {
         let result = match prepared.publication {
             RecoveryPublication::Raw(p) => self.publisher.commit(*p).await?,
             RecoveryPublication::Scoped(p) => self.publisher.commit_scoped(*p).await?,
+            RecoveryPublication::Multi(p) => self.publisher.commit_multi_event(*p).await?,
         };
         self.finish(&request, &result, prepared.record_sha256, &prepared.context)
             .await?;
@@ -490,6 +545,7 @@ impl SharedRecovery {
             (&entry.phase, entry.schema_version),
             (Phase::Draft { .. } | Phase::Prepared { .. }, 1)
                 | (Phase::ScopedDraft { .. } | Phase::ScopedPrepared { .. }, 2)
+                | (Phase::MultiDraft { .. } | Phase::MultiPrepared { .. }, 3)
         );
         if !compatible || entry.scope != token.scope || entry.backend != self.publisher.binding().1
         {
@@ -521,7 +577,7 @@ impl SharedRecovery {
             None
         };
         let result = match &entry.phase {
-            Phase::Draft { .. } | Phase::ScopedDraft { .. } => {
+            Phase::Draft { .. } | Phase::ScopedDraft { .. } | Phase::MultiDraft { .. } => {
                 let rows = rows.ok_or(ControlError::Corrupt)?;
                 let prepared = self
                     .prepare_entry(token, entry, record.sha256, rows, seat, context)
@@ -572,10 +628,34 @@ impl SharedRecovery {
                     Err(error) => return Err(error.into()),
                 }
             }
+            Phase::MultiPrepared { request, inputs } => {
+                request.validate(&entry.scope)?;
+                let base = request.publication();
+                if base.first_sequence != entry.first || base.last_sequence != entry.last {
+                    return Err(ControlError::Corrupt.into());
+                }
+                if let Some(rows) = &rows {
+                    inputs.verify(request, rows, &entry.scope)?;
+                }
+                match self
+                    .publisher
+                    .resolve_multi_event(token.clone(), (**request).clone(), context.clone())
+                    .await
+                {
+                    Ok(result) => result,
+                    Err(SharedError::Control(ControlError::Uncertain)) if rows.is_some() => {
+                        self.publisher
+                            .recommit_multi_event(token, (**request).clone(), context.clone())
+                            .await?
+                    }
+                    Err(error) => return Err(error.into()),
+                }
+            }
         };
         let request = match &entry.phase {
             Phase::Prepared { request } => request,
             Phase::ScopedPrepared { request } => request.publication(),
+            Phase::MultiPrepared { request, .. } => request.publication(),
             _ => return Err(ControlError::Corrupt.into()),
         };
         self.finish(request, &result, record.sha256, &context)

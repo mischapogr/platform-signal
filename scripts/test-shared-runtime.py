@@ -16,6 +16,17 @@ GOOD="""phase: atomic-original-scoped-publication-facts-counters-and-startup-fen
 phase: current-finding-scope-activation-enrollment-counters-and-authority-qualified
 phase: shared-finding-scope-stopped-schema-and-immutable-prefix-qualified
 phase: globally-authorized-original-feed-qualified
+phase: populated-multi-event-and-history-restore-real-Parquet-omission-corruption-custody-and-fresh-generation-qualified
+phase: multi-event-administrative-and-readonly-producer-inspection-qualified
+phase: multi-event-scoped-reader-paired-grants-privileges-and-corruption-qualified
+phase: bounded-multi-event-client-original-commit-replay-and-fencing-qualified
+phase: bounded-multi-event-client-module-identity-and-drift-refusal-qualified
+phase: protected-prior-state-multi-event-references-qualified
+phase: atomic-multi-event-publication-replay-quota-and-late-rollback-qualified
+phase: stopped-additive-multi-event-installation-qualified
+phase: fenced-revisioned-state-recovery-read-qualified
+phase: pinned-canonical-recovery-bounds-and-missing-evidence-qualified
+phase: recovered-state-object-retention-replay-and-fencing-qualified
 phase: globally-authorized-restored-feed-qualified
 phase: coordinated-stopped-restore-qualification-complete
 phase: dynamic-catalog-and-stopped-profile-qualification-complete
@@ -31,6 +42,26 @@ test postgres_lease_authority_and_cancellation ... ok
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 3.83s
 """
 class Guards(unittest.TestCase):
+    def test_window_report_requires_original_ids_revision_all_cases_and_finite_resources(self):
+        names=['Standard_WINDOW_explicit_bootstrap_and_enrolled_quota_mismatch_refused',
+        'Standard_WINDOW_missing_pin_permission_startup_refused_original_state_unchanged',
+        'Standard_WINDOW_revision_change_startup_refused_original_state_unchanged',
+               'Standard_WINDOW_Main_blocked_publication_SIGKILL_original_request_claims_once_recovered',
+               'Standard_WINDOW_same_timestamp_split_batches_wait_for_source_watermark',
+               'Standard_WINDOW_protected_delayed_anchor_and_exact_retry_original_findings',
+               'Standard_WINDOW_SIGKILL_confirmed_original_state_history_checkpoint',
+               'Standard_WINDOW_Main_restart_duplicate_Parquet_original_sequence_scope_bytes_and_replay_pins']
+        report={'status':'passed_simulated','window_qualified':True,'binary_sha256':'a'*64,
+                'wal_checkpoint':6,'child_capacity':3,'log_capacity':24,'provider_calls':12,
+                'event_ids':['00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002'],
+                'scenarios':[{'name':n} for n in names]}
+        module.qualify_standard_window_report(report,'a'*64)
+        for key,value in [('status','passed'),('window_qualified',False),('binary_sha256','b'*64),
+            ('wal_checkpoint',4),('child_capacity',4),('provider_calls',129),('event_ids',[report['event_ids'][0]]*2),
+            ('event_ids',['invalid',report['event_ids'][1]]),('scenarios',[{'name':names[0]}]*4)]:
+            with self.subTest(key=key),self.assertRaises(ValueError):
+                module.qualify_standard_window_report({**report,key:value},'a'*64)
+
     def test_onboarding_selector_refuses_unfocused_and_kubernetes_campaigns_before_side_effects(self):
         with tempfile.TemporaryDirectory() as temp:
             output=Path(temp)/'must-not-exist'
@@ -229,7 +260,7 @@ sys.exit(codes[min(len(calls),len(codes)-1)])
     def test_exact_executed_fixture_passes(self):
         module.qualify_test_output(GOOD)
     def test_global_feed_and_restored_markers_require_exact_execution(self):
-        for marker in ('phase: globally-authorized-original-feed-qualified\n', 'phase: globally-authorized-restored-feed-qualified\n', 'phase: shared-finding-scope-stopped-schema-and-immutable-prefix-qualified\n'):
+        for marker in ('phase: populated-multi-event-and-history-restore-real-Parquet-omission-corruption-custody-and-fresh-generation-qualified\n', 'phase: multi-event-administrative-and-readonly-producer-inspection-qualified\n', 'phase: multi-event-scoped-reader-paired-grants-privileges-and-corruption-qualified\n', 'phase: bounded-multi-event-client-original-commit-replay-and-fencing-qualified\n', 'phase: bounded-multi-event-client-module-identity-and-drift-refusal-qualified\n', 'phase: protected-prior-state-multi-event-references-qualified\n', 'phase: atomic-multi-event-publication-replay-quota-and-late-rollback-qualified\n', 'phase: stopped-additive-multi-event-installation-qualified\n', 'phase: recovered-state-object-retention-replay-and-fencing-qualified\n', 'phase: pinned-canonical-recovery-bounds-and-missing-evidence-qualified\n', 'phase: fenced-revisioned-state-recovery-read-qualified\n', 'phase: globally-authorized-original-feed-qualified\n', 'phase: globally-authorized-restored-feed-qualified\n', 'phase: shared-finding-scope-stopped-schema-and-immutable-prefix-qualified\n'):
             for output in (GOOD.replace(marker, ''), GOOD + marker):
                 with self.assertRaises(ValueError):module.qualify_test_output(output)
         good='phase: current-finding-scope-original-host-authority-after-restart-qualified\nphase: shared-finding-scope-persistent-restart-original-authority-qualified\nphase: persistent-restored-global-feed-qualified\nphase: persistent-catalog-restored-query-qualified\nphase: persistent-catalog-restart-fresh-client-qualified\nphase: persistent-restart-fresh-client-qualified\nrunning 1 test\ntest postgres_matrix_restart_probe ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.20s\n'
@@ -355,10 +386,21 @@ class ServerOutputGuards(unittest.TestCase):
         recovery='phase: actual-server-durable-request-recovery-before-wal-checkpoint-qualified'
         scoped='phase: actual-server-scoped-wal-original-claims-crash-and-startup-fencing-qualified'
         scoped_commit='phase: actual-server-scoped-lost-commit-original-claims-and-checkpoint-qualified'
+        multi='phase: actual-server-multi-event-publisher-ledger-original-reconciliation-and-WAL-ack-qualified'
+        multi_commit='phase: actual-server-multi-event-observed-COMMIT-cancellation-and-exact-reconciliation-qualified'
+        multi_crash='phase: actual-server-multi-event-prepared-SIGKILL-boundaries-and-original-recovery-qualified'
+        multi_draft_crash='phase: actual-server-multi-event-preupload-draft-SIGKILL-and-original-recovery-qualified'
+        window_recovery='phase: actual-server-shared-WINDOW-fenced-state-canonical-Parquet-and-replay-pins-qualified'
+        pin_transfer='phase: actual-server-replay-pin-same-version-transfer-confirmed-state-and-last-protection-qualified'
+        window_history='phase: actual-server-shared-WINDOW-history-atomic-quota-outcome-expiry-pending-replay-and-retired-resurrection-qualified'
+        window_history_read='phase: actual-server-shared-WINDOW-history-read-scope-cursor-expiry-corruption-and-cancellation-qualified'
+        obsolete_pin='phase: actual-server-WINDOW-indeterminate-history-and-complete-obsolete-pin-accounting-qualified'
+        window_profile='phase: actual-server-WINDOW-profile-explicit-bootstrap-grants-quotas-and-protected-delayed-anchor-qualified'
+        multi_crashed=[f'recovery-process: multi-{mode} owned child SIGKILL observed and reaped' for mode in ('draft','before-commit','after-commit','after-ack')]
         crashed=[f'recovery-process: {mode} owned child SIGKILL observed and reaped' for mode in ('draft','before-commit','after-commit','after-ack')]
         scoped_crashed=[f'recovery-process: scoped-{mode} owned child SIGKILL observed and reaped' for mode in ('draft','before-commit','after-commit','after-ack')]
         summary='test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out;'
-        required=[marker,startup,recovery,feed,scoped,scoped_commit,*crashed,*scoped_crashed]
+        required=[marker,startup,recovery,feed,scoped,scoped_commit,multi,multi_commit,multi_crash,multi_draft_crash,window_recovery,pin_transfer,window_history,window_history_read,obsolete_pin,window_profile,*multi_crashed,*crashed,*scoped_crashed]
         good='\n'.join([*required,summary])
         module.qualify_server_output(good)
         for output in [summary, *[good.replace(value+'\n','') for value in required], *[good+'\n'+value for value in required], good.replace('ok.', 'FAILED.')]:

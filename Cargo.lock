@@ -3355,15 +3355,18 @@ version = "0.1.0-dev.0"
 dependencies = [
  "chrono",
  "libc",
+ "rusqlite",
  "serde",
  "serde-saphyr",
  "serde_json",
+ "sha2",
  "signal-event",
  "signal-findings",
  "tempfile",
  "thiserror",
  "tokio",
  "tokio-util",
+ "uuid",
 ]
 
 [[package]]

@@ -217,6 +217,8 @@ async fn hostile_scope_gaps_metadata_and_cancellation_fail_before_any_io() -> Re
     Ok(())
 }
 
+#[path = "support/shared_multi_recovery.rs"]
+mod multi_recovery_support;
 #[path = "support/shared_recovery.rs"]
 mod recovery_support;
 #[path = "support/shared_scoped_recovery.rs"]
@@ -918,6 +920,7 @@ async fn postgres_server_publication_and_actual_query() -> Result {
     db_driver.await??;
     recovery_support::qualify(&f).await?;
     scoped_recovery_support::qualify(&f).await?;
+    multi_recovery_support::qualify(&f).await?;
     eprintln!("phase: actual-server-explicit-startup-wal-authority-qualified");
     eprintln!("phase: actual-server-shared-publication-replay-query-and-orphan-fencing-qualified");
     Ok(())

@@ -937,3 +937,79 @@ async fn aborting_a_client_request_releases_capacity_and_counts_unadmitted_event
     assert_eq!(metric(&service, "signal_events_rejected_total").await?, 1);
     Ok(())
 }
+
+#[tokio::test]
+async fn window_metrics_export_capacity_and_gap_without_evidence_or_identifiers() -> Result {
+    struct Health;
+    impl EventSink for Health {
+        fn admit(&self, _: SignalEvent) -> AdmissionFuture<'_> {
+            Box::pin(async { Err(signal_protocol::AdmissionError::Closed) })
+        }
+        fn close(&self) {}
+        fn metrics(&self) -> SinkMetrics {
+            SinkMetrics {
+                rules: Some(signal_protocol::RuleSinkMetrics {
+                    window: Some(signal_protocol::WindowSinkMetrics {
+                        operations: 1,
+                        operation_capacity: 1,
+                        failures: 3,
+                        attempts: 2,
+                        attempt_capacity: 8,
+                        assessments: 4,
+                        assessment_capacity: 16,
+                        bytes: 1024,
+                        byte_capacity: 4096,
+                        rejected: 2,
+                        duplicates: 5,
+                        indeterminate: 1,
+                        coverage_gap: true,
+                        closed: false,
+                        history_assessments: 8,
+                        history_assessment_capacity: 32,
+                        history_bytes: 2048,
+                        history_byte_capacity: 8192,
+                    }),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }
+        }
+    }
+    let service = IngestService::new(IngestConfig::default(), Arc::new(Health))?;
+    let response = service
+        .router()
+        .oneshot(Request::get("/metrics").body(Body::empty())?)
+        .await?;
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = to_bytes(response.into_body(), 16384).await?;
+    let body = std::str::from_utf8(&bytes)?;
+    for (name, value) in [
+        ("operations", 1),
+        ("operation_capacity", 1),
+        ("failures_total", 3),
+        ("attempts", 2),
+        ("attempt_capacity", 8),
+        ("assessments", 4),
+        ("assessment_capacity", 16),
+        ("bytes", 1024),
+        ("byte_capacity", 4096),
+        ("rejected_total", 2),
+        ("duplicates_total", 5),
+        ("indeterminate_assessments", 1),
+        ("coverage_gap", 1),
+        ("closed", 0),
+        ("history_assessments", 8),
+        ("history_assessment_capacity", 32),
+        ("history_bytes", 2048),
+        ("history_byte_capacity", 8192),
+    ] {
+        assert!(
+            body.lines()
+                .any(|line| line == format!("signal_window_{name} {value}"))
+        );
+    }
+    assert!(!body.contains("event_ids"));
+    assert!(!body.contains("principal"));
+    assert!(!body.contains("rule_revision"));
+    Ok(())
+}

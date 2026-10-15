@@ -19,6 +19,7 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 
 mod revision;
+pub mod window;
 
 #[derive(Clone, Debug)]
 pub struct RuleLimits {

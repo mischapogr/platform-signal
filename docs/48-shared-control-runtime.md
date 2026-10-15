@@ -192,7 +192,7 @@ real provider custody, HA and release qualification remain separate.
 
 Run `python3 scripts/check-shared-runtime.py --output <fresh-owned-directory>`
 with an already available PostgreSQL17+ fixture image. This launcher creates
-only its labelled container, a loopback published port and bounded96MiB tmpfs;
+only its labelled container, a loopback published port, bounded256MiB tmpfs and512MiB container memory;
 it generates synthetic TLS material, explicitly installs routines under the
 schema owner, enrolls two independent runtime roles and executes the named
 integration test. An overall 180s budget includes cleanup, with at most64 commands.

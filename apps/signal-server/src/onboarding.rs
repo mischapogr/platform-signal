@@ -144,6 +144,69 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn stateless_evaluation_keeps_separate_window_inventory_and_live_coverage() -> Result {
+        let _worker_fixture = config::FILE_WORKER_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("report.json");
+        let at = Utc::now();
+        let (mut host, payload, rules) = setup(&path, at)?;
+        Arc::get_mut(&mut host)
+            .ok_or_else(invalid)?
+            .policy
+            .detections
+            .push(PolicyDetection {
+                id: "fixture-window".into(),
+                supported: true,
+                permissions: vec!["read-audit".into()],
+                categories: vec!["audit".into()],
+                state: vec!["baseline".into()],
+            });
+        let event: signal_event::IngestEvent = serde_json::from_value(json!({
+            "timestamp":at,"source":{"type":"application"},"message":"fixture",
+            "resource":{"kind":"service","id":"api","account_id":"acct"}
+        }))?;
+        let event = event.normalize(at)?;
+        assert!(
+            host.evaluate(
+                &rules,
+                &event,
+                &RuleContext::new(Duration::from_secs(5)),
+                true
+            )
+            .await?
+            .is_empty()
+        );
+        std::fs::write(&path, envelope(&payload)?)?;
+        let snapshot = host
+            .snapshot(&RuleContext::new(Duration::from_secs(5)))
+            .await?;
+        assert_eq!(snapshot.report.detections.len(), 2);
+        assert!(snapshot.report.detections.iter().all(|d| d.active));
+        assert_eq!(
+            host.evaluate(
+                &rules,
+                &event,
+                &RuleContext::new(Duration::from_secs(5)),
+                true
+            )
+            .await?
+            .len(),
+            1
+        );
+        assert!(
+            host.evaluate(
+                &rules,
+                &event,
+                &RuleContext::new(Duration::from_secs(5)),
+                false
+            )
+            .await?
+            .is_empty()
+        );
+        Ok(())
+    }
+
     #[test]
     fn onboarding_startup_refuses_wrong_inventory_historical_context_and_unknown_options() -> Result
     {
@@ -330,6 +393,264 @@ mod tests {
         ));
         Ok(())
     }
+    #[tokio::test]
+    async fn window_actual_signed_coverage_atomic_outbox_publication_and_replay() -> Result {
+        use signal_buffer::{BufferMetrics, SequencedEvent};
+        use signal_findings::{FindingConfig, FindingContext, FindingStore};
+        use std::os::unix::fs::PermissionsExt;
+        let _worker_fixture = config::FILE_WORKER_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir()?;
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700))?;
+        let at = Utc::now();
+        let report_path = dir.path().join("report.json");
+        let (host, payload, _) = setup(&report_path, at)?;
+        std::fs::write(&report_path, envelope(&payload)?)?;
+        let window_path = dir.path().join("window.json");
+        let stream = uuid::Uuid::from_u128(20);
+        let policy = json!({"schema_version":1,"database":dir.path().join("window.sqlite"),"policy":{
+            "schema_version":1,"partition":uuid::Uuid::from_u128(10),"rule_id":"fixture-rule","revision":"fixture-v1",
+            "title":"fixture window","severity":"medium","threshold":3,"window_ms":10000,"lateness_ms":0,"ttl_ms":20000,
+            "max_keys":4,"max_attempts_per_key":8,"max_attempts":16,"max_outputs":16,"max_state_bytes":65536,"max_history_assessments":64,"max_history_bytes":262144,"history_retention_ms":60000}});
+        std::fs::write(&window_path, serde_json::to_vec(&policy)?)?;
+        let settings = Settings::for_test(
+            "schema_version: 1\n",
+            &[(
+                "SIGNAL_WINDOW_CONFIG",
+                window_path.to_str().ok_or_else(invalid)?,
+            )],
+        )?;
+        let wal = BufferMetrics {
+            stream_id: stream,
+            last_sequence: 3,
+            ..Default::default()
+        };
+        let detector = crate::window::Configuration::load(&settings)
+            .await?
+            .ok_or_else(invalid)?
+            .open(wal, host.clone())
+            .await?;
+        let end: DateTime<Utc> = payload["interval"]["end"]
+            .as_str()
+            .ok_or_else(invalid)?
+            .parse()?;
+        let mut batch = Vec::new();
+        for (sequence, seconds) in [(1, 8), (2, 5), (3, 2)] {
+            let time = end - chrono::TimeDelta::seconds(seconds);
+            let input: signal_event::IngestEvent = serde_json::from_value(
+                json!({"timestamp":time,
+                "source":{"type":"application","name":"fixture"},"message":"authentication fixture",
+                "resource":{"kind":"service","id":"api","account_id":"acct"},
+                "attributes":{"authentication":{"identity_authority":"fixture","principal_id":"user","target_id":"target","outcome":"failure","method":"password","session_id":"fixture"},
+                    "producer":{"boot_id":"fixture-boot","sequence":sequence}}}),
+            )?;
+            batch.push(SequencedEvent {
+                sequence,
+                event: input.normalize(at)?,
+            });
+        }
+        assert!(detector.metrics().coverage_gap);
+        let outputs = detector
+            .complete(&batch, 0, 3, RuleContext::new(Duration::from_secs(5)))
+            .await?;
+        assert_eq!(outputs.findings.len(), 1);
+        let health = detector.metrics();
+        assert_eq!((health.operations, health.operation_capacity), (0, 1));
+        assert_eq!((health.attempts, health.attempt_capacity), (3, 16));
+        assert_eq!((health.assessments, health.assessment_capacity), (3, 16));
+        assert!(health.bytes > 0 && health.bytes <= health.byte_capacity);
+        assert!(!health.coverage_gap);
+        let failed = RuleContext::new(Duration::from_secs(5));
+        failed.cancellation.cancel();
+        assert!(detector.complete(&batch, 0, 3, failed).await.is_err());
+        assert!(detector.metrics().coverage_gap);
+        let expected_id = outputs.findings[0].budget_preview().id;
+        let store = FindingStore::open(
+            FindingConfig {
+                directory: dir.path().join("findings"),
+                ..Default::default()
+            },
+            stream,
+        )
+        .await?;
+        store
+            .enable_scopes(FindingContext::new(Duration::from_secs(5)))
+            .await?;
+        let receipt = store
+            .append_derived(
+                outputs.findings,
+                FindingContext::new(Duration::from_secs(5)),
+            )
+            .await?;
+        assert_eq!((receipt.inserted, receipt.duplicates), (1, 0));
+        let saved = detector
+            .journal
+            .load(RuleContext::new(Duration::from_secs(5)))
+            .await?
+            .ok_or_else(invalid)?;
+        assert_eq!(saved.checkpoint, 3);
+        assert_eq!(
+            saved.findings[0].event_ids,
+            batch.iter().map(|r| r.event.id).collect::<Vec<_>>()
+        );
+        detector
+            .journal
+            .shutdown(RuleContext::new(Duration::from_secs(5)))
+            .await?;
+        assert!(detector.metrics().closed);
+        assert!(detector.metrics().coverage_gap);
+        let restarted = crate::window::Configuration::load(&settings)
+            .await?
+            .ok_or_else(invalid)?
+            .open(wal, host.clone())
+            .await?;
+        std::fs::remove_file(&report_path)?;
+        let replay = restarted
+            .complete(&batch, 3, 3, RuleContext::new(Duration::from_secs(5)))
+            .await?;
+        assert_eq!(replay.findings.len(), 1);
+        assert_eq!(replay.findings[0].budget_preview().id, expected_id);
+        let receipt = store
+            .append_derived(replay.findings, FindingContext::new(Duration::from_secs(5)))
+            .await?;
+        assert_eq!((receipt.inserted, receipt.duplicates), (0, 1));
+        restarted
+            .acknowledge(
+                replay.revision,
+                replay.assessments,
+                RuleContext::new(Duration::from_secs(5)),
+            )
+            .await?;
+        let retired = restarted
+            .journal
+            .load(RuleContext::new(Duration::from_secs(5)))
+            .await?
+            .ok_or_else(invalid)?;
+        assert_eq!(retired.checkpoint, 3);
+        assert!(retired.state.assessments().is_empty());
+        assert!(retired.findings.is_empty());
+        assert_eq!(restarted.metrics().assessments, 0);
+        assert_eq!(restarted.metrics().history_assessments, 3);
+        assert_eq!(restarted.metrics().history_assessment_capacity, 64);
+        assert!(restarted.metrics().history_bytes > 0);
+        assert!(
+            restarted
+                .acknowledge(
+                    replay.revision,
+                    replay.assessments,
+                    RuleContext::new(Duration::from_secs(5))
+                )
+                .await
+                .is_err()
+        );
+        restarted
+            .journal
+            .shutdown(RuleContext::new(Duration::from_secs(5)))
+            .await?;
+        // Retained WAL admitted before this identity generation cannot create a
+        // new scoped detector result, even with a currently valid signed report.
+        std::fs::write(&report_path, envelope(&payload)?)?;
+        let mut unknown_policy = policy.clone();
+        unknown_policy["database"] = json!(dir.path().join("unverified.sqlite"));
+        std::fs::write(&window_path, serde_json::to_vec(&unknown_policy)?)?;
+        let unknown = crate::window::Configuration::load(&settings)
+            .await?
+            .ok_or_else(invalid)?
+            .open(wal, host.clone())
+            .await?;
+        assert!(
+            unknown
+                .complete(&batch, 3, 3, RuleContext::new(Duration::from_secs(5)))
+                .await?
+                .findings
+                .is_empty()
+        );
+        let unknown_state = unknown
+            .journal
+            .load(RuleContext::new(Duration::from_secs(5)))
+            .await?
+            .ok_or_else(invalid)?;
+        assert_eq!(unknown_state.checkpoint, 3);
+        assert_eq!(
+            unknown_state
+                .state
+                .coverage_gap()
+                .ok_or_else(invalid)?
+                .rejected_inputs,
+            3
+        );
+        assert!(unknown_state.findings.is_empty());
+        unknown
+            .journal
+            .shutdown(RuleContext::new(Duration::from_secs(5)))
+            .await?;
+        std::fs::write(&window_path, serde_json::to_vec(&policy)?)?;
+        let mut changed_scope: Value =
+            serde_json::from_slice(&std::fs::read(dir.path().join("policy.json"))?)?;
+        changed_scope["event_scope"]["account"] = json!("other-account");
+        let other_host = Arc::new(Host::parse(
+            &serde_json::to_string(&changed_scope)?,
+            &["fixture-rule".into()],
+        )?);
+        assert!(matches!(
+            crate::window::Configuration::load(&settings)
+                .await?
+                .ok_or_else(invalid)?
+                .open(wal, other_host)
+                .await,
+            Err(signal_rules::window::Error::Conflict)
+        ));
+        let mut split_policy = policy.clone();
+        split_policy["database"] = json!(dir.path().join("split.sqlite"));
+        std::fs::write(&window_path, serde_json::to_vec(&split_policy)?)?;
+        let split = crate::window::Configuration::load(&settings)
+            .await?
+            .ok_or_else(invalid)?
+            .open(wal, host.clone())
+            .await?;
+        let prefix = split
+            .complete(&batch[..2], 0, 3, RuleContext::new(Duration::from_secs(5)))
+            .await?;
+        assert!(prefix.findings.is_empty());
+        let intermediate = split
+            .journal
+            .load(RuleContext::new(Duration::from_secs(5)))
+            .await?
+            .ok_or_else(invalid)?;
+        assert_eq!(intermediate.state.watermark(), None);
+        split
+            .acknowledge(
+                prefix.revision,
+                prefix.assessments,
+                RuleContext::new(Duration::from_secs(5)),
+            )
+            .await?;
+        let suffix = split
+            .complete(&batch[2..], 0, 3, RuleContext::new(Duration::from_secs(5)))
+            .await?;
+        assert_eq!(suffix.findings.len(), 1);
+        assert_eq!(suffix.findings[0].budget_preview().id, expected_id);
+        split
+            .journal
+            .shutdown(RuleContext::new(Duration::from_secs(5)))
+            .await?;
+        std::fs::write(&window_path, serde_json::to_vec(&policy)?)?;
+        let changed = BufferMetrics {
+            stream_id: uuid::Uuid::from_u128(99),
+            ..wal
+        };
+        assert!(matches!(
+            crate::window::Configuration::load(&settings)
+                .await?
+                .ok_or_else(invalid)?
+                .open(changed, host)
+                .await,
+            Err(signal_rules::window::Error::Conflict)
+        ));
+        store
+            .shutdown(FindingContext::new(Duration::from_secs(5)))
+            .await?;
+        Ok(())
+    }
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -391,6 +712,8 @@ pub(crate) struct Snapshot {
     pub report: OnboardingReport,
     pub assessed_at: DateTime<Utc>,
     pub valid_until: Option<DateTime<Utc>>,
+    #[serde(skip)]
+    pub source_interval: Option<(DateTime<Utc>, DateTime<Utc>)>,
 }
 
 fn invalid() -> ConfigError {
@@ -405,13 +728,26 @@ impl Host {
         settings: &Settings,
         rules: &RuleSet,
     ) -> Result<Option<Arc<Self>>, ConfigError> {
+        Self::load_with_detection(settings, rules, None).await
+    }
+    pub(crate) async fn load_with_detection(
+        settings: &Settings,
+        rules: &RuleSet,
+        additional: Option<&str>,
+    ) -> Result<Option<Arc<Self>>, ConfigError> {
         let Some(path) = settings.optional("SIGNAL_ONBOARDING_CONFIG")? else {
             return Ok(None);
         };
         if path.is_empty() || path.len() > 4096 {
             return Err(invalid());
         }
-        let ids: Vec<String> = rules.rule_ids().map(str::to_owned).collect();
+        let mut ids: Vec<String> = rules.rule_ids().map(str::to_owned).collect();
+        if let Some(id) = additional {
+            if ids.iter().any(|existing| existing == id) {
+                return Err(invalid());
+            }
+            ids.push(id.to_owned());
+        }
         let host = config::read_limited_document(
             path.into(),
             MAX_DOCUMENT,
@@ -652,6 +988,16 @@ impl Host {
             report,
             assessed_at: at,
             valid_until,
+            source_interval: evidence.and_then(|e| {
+                let parse = |field| {
+                    e.interval
+                        .get(field)?
+                        .as_str()?
+                        .parse::<DateTime<Utc>>()
+                        .ok()
+                };
+                Some((parse("start")?, parse("end")?))
+            }),
         })
     }
 
@@ -703,6 +1049,7 @@ impl Host {
                     .map_err(|_| RuleError::Invalid("onboarding policy"))?,
                 assessed_at: Utc::now(),
                 valid_until: None,
+                source_interval: None,
             }
         };
         let now = Utc::now();
@@ -711,6 +1058,9 @@ impl Host {
             .report
             .detections
             .iter()
+            // Window readiness belongs to its stateful evaluator. The strict
+            // stateless inventory still requires one decision per loaded rule.
+            .filter(|d| rules.rule_ids().any(|id| id == d.id))
             .map(|d| (d.id.as_str(), live && d.active))
             .collect();
         let deadline = if live {
@@ -737,5 +1087,31 @@ impl Host {
             return Err(RuleError::Timeout);
         }
         Ok(result)
+    }
+
+    pub(crate) fn includes_event(&self, event: &SignalEvent) -> bool {
+        let facts = ScopeFacts::event(event);
+        facts.source == Some(self.policy.event_scope.source.as_str())
+            && facts.account == Some(self.policy.event_scope.account.as_str())
+            && facts.resource == Some(self.policy.event_scope.resource.as_str())
+    }
+    pub(crate) fn window_binding(&self) -> [u8; 32] {
+        use sha2::{Digest, Sha256};
+        let mut digest = Sha256::new();
+        digest.update(b"PLATFORM::SIGNAL/window-source-binding/v1\0");
+        for value in [
+            &self.policy.scope_id,
+            &self.policy.event_scope.source,
+            &self.policy.event_scope.account,
+            &self.policy.event_scope.resource,
+            &self.policy.public_key_base64,
+            &self.policy.coverage_profile_json,
+        ] {
+            digest.update((value.len() as u64).to_be_bytes());
+            digest.update(value.as_bytes());
+        }
+        digest.update((self.binding.encoded().len() as u64).to_be_bytes());
+        digest.update(self.binding.encoded());
+        digest.finalize().into()
     }
 }

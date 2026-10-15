@@ -54,7 +54,13 @@ pub(super) async fn kill_worker(root: &Path, mode: &str, wal: &Path, token: &Lea
     std::fs::write(
         &path,
         serde_json::to_vec(&Job {
-            schema_version: if mode.starts_with("scoped-") { 2 } else { 1 },
+            schema_version: if mode.starts_with("multi-") {
+                3
+            } else if mode.starts_with("scoped-") {
+                2
+            } else {
+                1
+            },
             wal: wal.into(),
             marker: marker.clone(),
             mode: mode.into(),
@@ -106,8 +112,20 @@ pub(super) async fn worker() -> Result {
     }
     let job: Job = serde_json::from_slice(&bytes)?;
     let scoped = job.mode.starts_with("scoped-");
-    let mode = job.mode.strip_prefix("scoped-").unwrap_or(&job.mode);
-    if job.schema_version != if scoped { 2 } else { 1 }
+    let multi = job.mode.starts_with("multi-");
+    let mode = job
+        .mode
+        .strip_prefix("multi-")
+        .or_else(|| job.mode.strip_prefix("scoped-"))
+        .unwrap_or(&job.mode);
+    if job.schema_version
+        != if multi {
+            3
+        } else if scoped {
+            2
+        } else {
+            1
+        }
         || !["draft", "before-commit", "after-commit", "after-ack"].contains(&mode)
     {
         return Err("job contract".into());
@@ -132,25 +150,41 @@ pub(super) async fn worker() -> Result {
     if mode == "draft" {
         assert_eq!(
             entry["phase"]["state"],
-            if scoped { "scoped_draft" } else { "draft" }
+            if multi {
+                "multi_draft"
+            } else if scoped {
+                "scoped_draft"
+            } else {
+                "draft"
+            }
         );
     } else {
         assert_eq!(
             entry["phase"]["state"],
-            if scoped {
+            if multi {
+                "multi_prepared"
+            } else if scoped {
                 "scoped_prepared"
             } else {
                 "prepared"
             }
         );
         if mode != "before-commit" {
-            let settings = if scoped {
+            let settings = if multi {
+                super::multi_recovery_support::connection(&fixture)?
+            } else if scoped {
                 super::scoped_recovery_support::connection(&fixture)?
             } else {
                 connection(&fixture)?
             };
             let control = ControlClient::catalog(settings)?;
-            let result = if scoped {
+            let result = if multi {
+                let request: signal_control::MultiEventPublicationInput =
+                    serde_json::from_value(entry["phase"]["request"].clone())?;
+                control
+                    .publish_multi_event(job.token, request, context()?)
+                    .await?
+            } else if scoped {
                 let request: signal_control::ScopedPublicationInput =
                     serde_json::from_value(entry["phase"]["request"].clone())?;
                 control
