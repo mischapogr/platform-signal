@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import platform
 import tempfile
+import tarfile
 import unittest
 from unittest import mock
 
@@ -54,6 +55,13 @@ class CandidateEvidence(unittest.TestCase):
                 write(path, {'status': 'passed', 'source_sha': SHA, 'architecture': platform.machine(),
                              'log_sha256': c.gate.sha256(path.with_suffix('.log'))})
             self.assertEqual(set(c.require_checks(root, SHA)), set(c.REQUIRED))
+            for name in ('standard-kind', 'standard-bundle-verify'):
+                prerequisite = root / 'target/ci' / (name + '.json')
+                saved = prerequisite.read_bytes()
+                prerequisite.unlink()
+                with self.subTest(missing=name), self.assertRaises(RuntimeError):
+                    c.require_checks(root, SHA)
+                prerequisite.write_bytes(saved)
             path = root / 'target/ci/native.json'
             original = c.read_json(path)
             for field, value in [('status', 'failed'), ('source_sha', 'c' * 40),
@@ -105,6 +113,7 @@ class CandidateEvidence(unittest.TestCase):
     def test_archive_rejects_symlink_and_budget_overflow(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
+            write(root / 'target/standard-kind-bundle/manifest.json', {})
             path = root / 'target/ci/result.log'
             path.parent.mkdir(parents=True)
             path.write_text('12345678')
@@ -115,6 +124,46 @@ class CandidateEvidence(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 c.archive_evidence(root, root / 'symlink.tar.gz')
             self.assertFalse((root / 'symlink.tar.gz').exists())
+
+    def test_archive_retains_reports_without_duplicate_standard_executables(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            manifest = root / 'target/standard-kind-bundle/manifest.json'
+            write(manifest, {'source_revision': SHA})
+            report = root / 'target/ci/standard-kind-qualification/qualification.json'
+            write(report, {'status': 'passed'})
+            names = ('standard-server', 'standard-offline-fixture')
+            for name in names:
+                with (report.parent / name).open('wb') as executable:
+                    executable.truncate(c.EVIDENCE_CAP + 1)
+            output = root / 'evidence.tar.gz'
+            c.archive_evidence(root, output)
+            with tarfile.open(output) as archive:
+                self.assertEqual(set(archive.getnames()),
+                                 {str(p.relative_to(root)) for p in (manifest, report)})
+                self.assertEqual(archive.extractfile(str(report.relative_to(root))).read(),
+                                 report.read_bytes())
+                self.assertEqual(archive.extractfile(str(manifest.relative_to(root))).read(),
+                                 manifest.read_bytes())
+            for name in names:
+                path = report.parent / name
+                path.unlink()
+                path.symlink_to(manifest)
+                with self.subTest(name=name), self.assertRaisesRegex(RuntimeError, 'symlink'):
+                    c.archive_evidence(root, root / (name + '.tar.gz'))
+                path.unlink()
+
+    def test_archive_requires_regular_bundle_manifest(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            manifest = root / 'target/standard-kind-bundle/manifest.json'
+            with self.assertRaises(RuntimeError):
+                c.archive_evidence(root, root / 'missing.tar.gz')
+            write(root / 'other.json', {})
+            manifest.parent.mkdir(parents=True)
+            manifest.symlink_to(root / 'other.json')
+            with self.assertRaises(RuntimeError):
+                c.archive_evidence(root, root / 'linked.tar.gz')
 
     def test_no_source_identity_refuses_before_docker(self):
         with mock.patch.dict('os.environ', {}, clear=True), self.assertRaises(RuntimeError):
