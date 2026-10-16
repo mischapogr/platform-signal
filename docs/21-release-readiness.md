@@ -1,6 +1,6 @@
 # Release readiness audit
 
-Current snapshot: 2026-10-15. **No alpha or release is ready or published.**
+Current snapshot: 2026-10-16. **No alpha or release is ready or published.**
 The package remains `0.1.0-dev.0`; no release version/date has been selected.
 The [full prior audit](21-release-readiness-history-20261010.md) preserves every
 historical evidence row and image/source binding. Current implementation is
@@ -93,6 +93,7 @@ finite-soak and Standard kind proof; exact evidence is in the final dated entry.
 
 | Gate | Remaining requirement |
 | --- | --- |
+| Fresh native candidate qualification | Corrected obsolete-pin retirement source must pass complete AMD64/ARM64 CI and native candidate artifact verification; candidate run38892772326 failed ARM64 before container qualification |
 | Independent current-source release review | Source-bound reviewer assessment of the current durability/sensor/restore changes; read-only scope is prepared and current-task delegation authorization is pending |
 | Actual EKS/AWS/vendor | Authorized environments and actual provider/storage/identity/runtime evidence; kind and synthetic endpoints do not close these gates |
 | Released external dependency | Private application against the actual released public version and locked dependency graph |
@@ -346,3 +347,24 @@ Native CI run38879619804 at178406c completed1,191all-feature tests and all18Post
 ## Complete current native qualification — 2026-10-16
 
 Native CI and artifact verification pass for runtime revision`e1763e3` — 2026-10-16, [run38882944855](https://github.com/mischapogr/platform-signal/actions/runs/38882944855). All five jobs pass. Both nativeAMD64/ARM64 Rust jobs pass1,191tests, all18PostgreSQL crash/restore cases,8Small sensor checks and Standard WINDOW/sensor/mixed/restore scenarios8/10/5/4. Primary GitHub archive digests, exact source maps, actual ELF bytes and original/stripped executable identities are verified. Both production images pass native host/daemon/image architecture, hardening, seven pipeline profiles, two120s finite-soak profiles, supply-chain gates and Standard kind original-WAL/PVC recovery with owned cleanup110.83s/108.46s. Evidence:`target/sensor-health-standard-20261016/ci-e1763e3/NATIVE-ACCEPTANCE.json`. Identity/observer/restore authority and S3 remain synthetic; kind is not EKS/AWS and finite soak is not prolonged production stability or physical-device throughput. Runtime qualification is pinned to`e1763e3`; documentation-only status updates do not change its build inputs. Inventory36accepted/16unfinished. Independent current-source release review, actual AWS/EKS/vendor, released dependency and owner-selected version/publication/main merge remain open. No alpha or release is published.
+
+
+## Candidate cleanup serialization correction — 2026-10-16
+
+Candidate run38892772326 at`5850dfa` completes AMD64 Rust qualification but fails
+ARM64 mixed recovery after original checkpoint9. Verified primary artifact bytes
+show a PostgreSQL concurrent-update serialization abort in obsolete replay-pin
+cleanup; the consumer holds and query returns503. Downstream native container
+and candidate jobs are skipped. The previous`e1763e3` finite native evidence is
+retained at its exact source; it does not accept this failure or the correction.
+
+The correction has writer-reviewed local acceptance: deterministic PostgreSQL
+red-to-green retirement race, exact three-round exhaustion without releasing the
+pin, cancelled/expired refusal and idempotent replay; full server/native HTTP
+campaign60checks190.67s; actual Standard mixed recovery5scenarios60.13s with
+303source bindings and owned cleanup. Frozen acceptance passes1,121default/
+1,191all-feature tests, both strict Clippy modes, formatting,43helper checks and
+14workspace boundaries. `target/candidate-replay-retry-20261016/ACCEPTANCE.json`
+retains source and binary bindings. Fresh native candidate qualification, artifact
+integrity, independent current-source review and every external/owner gate above
+remain open. These are unsigned development artifacts, not an approved release.

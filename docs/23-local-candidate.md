@@ -1,10 +1,12 @@
 # Unpublished local candidate bundle
 
-This procedure prepares a bounded, unsigned local evidence bundle for the
-current development snapshot. It is not an alpha, a release candidate, a
-registry-ready package or evidence that `v0.1.0` is ready. The owner now permits
-local Conventional Commits on develop; pushes/publication remain on hold. No
-release version is selected or bumped here.
+This page retains the 2026-10-07 procedure for a bounded, unsigned local evidence
+bundle. Current native CI preparation is documented in
+[packaging](19-packaging.md#native-ci-candidate-preparation). This historical
+preview is not an alpha, a release candidate, a registry-ready package or evidence
+that `v0.1.0` is ready. Reviewed scoped commits and pushes are authorized under
+AGENTS.md; release publication remains separate. No release version is selected
+or bumped here.
 
 The tool does not build, pull, tag, load or publish an image. On native Linux
 AMD64, it inspects and saves the exact already-present image ID accepted by the

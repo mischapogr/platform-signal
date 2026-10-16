@@ -690,3 +690,28 @@ Native CI run38879619804 at178406c completed1,191all-feature tests and all18Post
 ## Complete current native qualification — 2026-10-16
 
 Native CI and artifact verification pass for runtime revision`e1763e3` — 2026-10-16, [run38882944855](https://github.com/mischapogr/platform-signal/actions/runs/38882944855). All five jobs pass. Both nativeAMD64/ARM64 Rust jobs pass1,191tests, all18PostgreSQL crash/restore cases,8Small sensor checks and Standard WINDOW/sensor/mixed/restore scenarios8/10/5/4. Primary GitHub archive digests, exact source maps, actual ELF bytes and original/stripped executable identities are verified. Both production images pass native host/daemon/image architecture, hardening, seven pipeline profiles, two120s finite-soak profiles, supply-chain gates and Standard kind original-WAL/PVC recovery with owned cleanup110.83s/108.46s. Evidence:`target/sensor-health-standard-20261016/ci-e1763e3/NATIVE-ACCEPTANCE.json`. Identity/observer/restore authority and S3 remain synthetic; kind is not EKS/AWS and finite soak is not prolonged production stability or physical-device throughput. Runtime qualification is pinned to`e1763e3`; documentation-only status updates do not change its build inputs. Inventory36accepted/16unfinished. Independent current-source release review, actual AWS/EKS/vendor, released dependency and owner-selected version/publication/main merge remain open. No alpha or release is published.
+
+
+## Native candidate retirement correction — 2026-10-16
+
+Unsigned candidate preparation is enabled on `candidate/**` with the full reusable
+CI pipeline. Its report archive keeps the 64 MiB limit and excludes only redundant
+Standard executable copies, retaining the bundle manifest and mandatory Standard
+gates. Candidate run38892772326 at`5850dfa` passes AMD64 Rust qualification but
+fails ARM64 mixed sensor/WINDOW recovery: a confirmed PostgreSQL serialization
+abort during obsolete-pin cleanup holds the consumer after checkpoint9. Native
+container/candidate packaging jobs are skipped; this run is not accepted.
+
+The locally accepted correction retries only the exact obsolete-pin retirement
+after confirmed rollback, at most three attempts sharing the original context
+and two-second transaction budget. Uncertain COMMIT, cancellation, expiry and
+other write behavior remain unchanged. Actual PostgreSQL tests reproduce the
+original failure, then verify race recovery, three-attempt exhaustion preserving
+the original pin, cancellation/expiry refusal and exact release replay. The full
+60-check PostgreSQL/server/native HTTP campaign passes190.67s; actual mixed Main
+passes five scenarios60.13s,303source bindings, checkpoint9 and owned cleanup.
+Seven frozen gates pass1,121default/1,191all-feature tests, both strict Clippy
+configurations, formatting,43helper tests and14workspace boundaries. Evidence:
+`target/candidate-replay-retry-20261016/ACCEPTANCE.json`. Fresh complete native
+candidate CI/artifacts and independent release review remain required. Inventory
+36accepted/16unfinished; no alpha/release version or publication is selected.

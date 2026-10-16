@@ -406,6 +406,8 @@ mod host {
             ("reader_snapshot_expired", q.snapshot_expired),
             ("producer_snapshot_retries", c.snapshot_retries),
             ("reader_snapshot_retries", q.snapshot_retries),
+            ("producer_retirement_retries", c.retirement_retries),
+            ("reader_retirement_retries", q.retirement_retries),
             (
                 "producer_notification_uncertain_results",
                 c.notification_uncertain_results,
