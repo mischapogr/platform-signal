@@ -697,10 +697,11 @@ class WindowRun(OnboardingRun):
                 'history_retention_ms':60000}
         BASE.write_json(self.out/'window.json',{'schema_version':2,'shared':{'state_key':'standard-window','bootstrap_checkpoint':0,
             'recovery':{'files':128,'object_bytes':67108864,'decoded_bytes':67108864,'scanned_rows':4096,'result_bytes':65536}},'policy':policy})
+        return policy
 
     def run(self):
         self.start_fixture();self.start_provider();self.offline('prepare');self.bootstrap_coverage()
-        self.configure_window()
+        policy=self.configure_window()
         try:
             self.reject_window_configuration()
             self.start_server()
@@ -723,7 +724,7 @@ class WindowRun(OnboardingRun):
             payload['coverage_record']['last_verified_at']=later;payload['coverage_record']['provenance']['observed_at']=later
             self.host_evidence.publish(payload)
             self.send(events[0],3)
-            findings=self.findings();matches=[f for f in findings if f['rule_id']==detection['id']]
+            findings=self.findings();matches=[f for f in findings if f['rule_id']==policy['rule_id']]
             if len(findings)!=3 or len(matches)!=1 or matches[0]['event_ids']!=self.window_events:
                 raise RuntimeError('WINDOW delayed retained anchor or exact retry changed findings')
             self.record('Standard_WINDOW_protected_delayed_anchor_and_exact_retry_original_findings')
