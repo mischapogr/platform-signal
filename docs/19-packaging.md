@@ -144,3 +144,28 @@ The 64 MiB report budget and rejection of symlinks remain enforced.
 These unsigned development artifacts are retained by CI; preparation does not
 select a release version, publish images, create a GitHub release or qualify
 actual AWS/EKS, vendor environments or released dependencies.
+
+
+### Downloading CI development artifacts
+
+Runtime`7fa481e` has verified AMD64/ARM64 development artifacts in
+[run38898992993](https://github.com/mischapogr/platform-signal/actions/runs/38898992993).
+The qualified source/image IDs and all eight primary artifact digests are retained
+in`target/candidate-replay-retry-20261016/NATIVE-ACCEPTANCE.json`. Both candidates
+pass source relocation, chart/source/evidence comparisons and saved-image layer
+verification. The final LOCAL-CANDIDATE ledger dependencies remain open.
+
+After downloading and extracting the architecture's candidate artifact, verify
+from that directory, then restore executable permissions only after every
+checksum passes:
+
+```bash
+sha256sum -c SHA256SUMS
+chmod u+x signal-server signal-agent signal-healthcheck
+```
+
+The uploader normalizes zipped files to0644; see its
+[documented permission behavior](https://github.com/actions/upload-artifact/blob/v7.0.1/README.md#permission-loss).
+The source, chart, evidence and saved-image tar payloads retain their internal
+metadata. Checksum verification establishes integrity; these development
+artifacts remain unsigned and version/publication decisions stay owner-controlled.

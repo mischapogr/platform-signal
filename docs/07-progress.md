@@ -715,3 +715,28 @@ configurations, formatting,43helper tests and14workspace boundaries. Evidence:
 `target/candidate-replay-retry-20261016/ACCEPTANCE.json`. Fresh complete native
 candidate CI/artifacts and independent release review remain required. Inventory
 36accepted/16unfinished; no alpha/release version or publication is selected.
+
+
+## Qualified native development candidates — 2026-10-16
+
+Runtime`7fa481e` passes all five jobs in
+[run38898992993](https://github.com/mischapogr/platform-signal/actions/runs/38898992993).
+Both architectures pass1,191Rust tests,18PostgreSQL cases,8Small sensor checks
+and Standard WINDOW/sensor/mixed/restore scenarios8/10/5/4. All eight primary
+GitHub artifact archive digests, exact source/binary lineage, native images,
+hardening, seven pipeline profiles, two120s finite-soak profiles, supply-chain
+checks and Standard kind original WAL/PVC recovery are verified with cleanup.
+Kind elapsed108.17s AMD64/105.91s ARM64. The original ARM64 cleanup failure is
+resolved at its actual native mixed-recovery gate.
+
+Both unsigned CI development bundles pass all file checksums,11chart-file
+comparisons, saved-image config/27ordered-layer hashes and exact source payload
+comparison. Offline relocation preserves14workspace packages,37internal path
+dependencies,64target source paths and the original lockfile. GitHub ZIP file
+permissions are restored only after hash verification; see
+[download verification](19-packaging.md#downloading-ci-development-artifacts).
+Evidence:`target/candidate-replay-retry-20261016/NATIVE-ACCEPTANCE.json`.
+Inventory remains36accepted/16unfinished. These bundles do not complete final
+LOCAL-CANDIDATE prerequisites or independent current-source review, actual
+AWS/EKS/vendor, released dependency, owner version/publication/main merge gates.
+No alpha or release is ready or published.

@@ -88,12 +88,13 @@ older report's documentation identities without rewriting accepted reports.
 
 ## Required gates still open
 
-Latest qualified runtime:`e1763e3`, complete nativeAMD64/ARM64 CI, images,
-finite-soak and Standard kind proof; exact evidence is in the final dated entry.
+Latest qualified runtime:`7fa481e`, complete nativeAMD64/ARM64 CI, images,
+finite-soak, Standard kind and unsigned candidate integrity/relocation proof;
+exact evidence is in the final dated entry.
 
 | Gate | Remaining requirement |
 | --- | --- |
-| Fresh native candidate qualification | Corrected obsolete-pin retirement source must pass complete AMD64/ARM64 CI and native candidate artifact verification; candidate run38892772326 failed ARM64 before container qualification |
+| Final LOCAL-CANDIDATE prerequisites | SOC-UX, SCALE-DECISION and RELEASE-TRUST remain pending through their unfinished baseline/correlation/Phase9 dependencies; a CI development bundle does not close these ledger items |
 | Independent current-source release review | Source-bound reviewer assessment of the current durability/sensor/restore changes; read-only scope is prepared and current-task delegation authorization is pending |
 | Actual EKS/AWS/vendor | Authorized environments and actual provider/storage/identity/runtime evidence; kind and synthetic endpoints do not close these gates |
 | Released external dependency | Private application against the actual released public version and locked dependency graph |
@@ -368,3 +369,30 @@ campaign60checks190.67s; actual Standard mixed recovery5scenarios60.13s with
 retains source and binary bindings. Fresh native candidate qualification, artifact
 integrity, independent current-source review and every external/owner gate above
 remain open. These are unsigned development artifacts, not an approved release.
+
+
+## Verified current native candidates — 2026-10-16
+
+All five jobs at`7fa481e` in
+[run38898992993](https://github.com/mischapogr/platform-signal/actions/runs/38898992993)
+pass. All eight official artifact digests are verified. Each architecture passes
+1,191tests/18PostgreSQL cases and exact native sensor/WINDOW/mixed/restore
+process/source/ELF bindings. Both images pass hardening, seven pipeline profiles,
+two120s finite-soak profiles, supply-chain and Standard kind original-WAL/PVC
+recovery with cleanup108.17s/105.91s. Exact image IDs, payload IDs, hashes and
+limits:`target/candidate-replay-retry-20261016/NATIVE-ACCEPTANCE.json`.
+
+Both unsigned candidates pass the closed nine-payload inventory plus manifest/
+checksums, all11packaged chart files, saved-image config/27ordered-layer hashes,
+source payload and offline14-package/37-path-dependency relocation. Source
+comparison accepts equivalent gzip encoding but rejects changed source or
+escaping links. ZIP-normalized execute permissions are restored after checksums;
+the running self-gate snapshot is matched to the finalized passed gate, and its
+log to the final log prefix. One empty owned-fixture hidden lock marker is
+verified explicitly; all other evidence is byte-compared to verified reports.
+These are consumer-format checks, not changes to qualified product source.
+
+The broader ledger remains36accepted/16unfinished:12product and4external items.
+Final LOCAL-CANDIDATE dependencies, independent current-source review and all
+external/owner gates remain open. Package version stays`0.1.0-dev.0`; no alpha,
+release version, registry publication or main merge is selected or approved here.
