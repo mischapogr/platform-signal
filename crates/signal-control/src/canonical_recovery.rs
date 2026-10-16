@@ -72,6 +72,11 @@ impl RecoveredCanonicalInputs {
         }
     }
 }
+enum ReplayPinProfile {
+    General,
+    Window,
+    Sensor,
+}
 /// Pin before the original catalog capability expires. Partial/uncertain work
 /// must retain its installed pins; release needs a separate explicit decision.
 pub async fn retain_canonical_inputs(
@@ -91,7 +96,7 @@ pub async fn retain_canonical_inputs(
         rule_revision,
         metadata_sha256,
         context,
-        false,
+        ReplayPinProfile::General,
     )
     .await
 }
@@ -113,7 +118,29 @@ pub async fn retain_window_canonical_inputs(
         rule_revision,
         metadata_sha256,
         context,
-        true,
+        ReplayPinProfile::Window,
+    )
+    .await
+}
+/// Exact committed sensor replay pins through the restricted producer grant.
+pub async fn retain_sensor_canonical_inputs(
+    client: &ControlClient,
+    token: LeaseToken,
+    inputs: &RecoveredCanonicalInputs,
+    state_key: &str,
+    rule_revision: [u8; 32],
+    metadata_sha256: [u8; 32],
+    context: ControlContext,
+) -> Result<Vec<Uuid>, ControlError> {
+    retain_inputs(
+        client,
+        token,
+        inputs,
+        state_key,
+        rule_revision,
+        metadata_sha256,
+        context,
+        ReplayPinProfile::Sensor,
     )
     .await
 }
@@ -126,7 +153,7 @@ async fn retain_inputs(
     rule_revision: [u8; 32],
     metadata_sha256: [u8; 32],
     context: ControlContext,
-    window: bool,
+    profile: ReplayPinProfile,
 ) -> Result<Vec<Uuid>, ControlError> {
     token.validate()?;
     context.check()?;
@@ -169,14 +196,22 @@ async fn retain_inputs(
             kind: RetentionKind::Replay,
             reference,
         };
-        let result = if window {
-            client
-                .pin_window_object(token.clone(), input, context.clone())
-                .await?
-        } else {
-            client
-                .pin_object(token.clone(), input, context.clone())
-                .await?
+        let result = match profile {
+            ReplayPinProfile::Window => {
+                client
+                    .pin_window_object(token.clone(), input, context.clone())
+                    .await?
+            }
+            ReplayPinProfile::Sensor => {
+                client
+                    .pin_sensor_object(token.clone(), input, context.clone())
+                    .await?
+            }
+            ReplayPinProfile::General => {
+                client
+                    .pin_object(token.clone(), input, context.clone())
+                    .await?
+            }
         };
         if result.state != ObjectControlState::Retained {
             return Err(ControlError::Corrupt);

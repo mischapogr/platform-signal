@@ -7,12 +7,19 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import uuid
 
 ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('shared_runtime',ROOT/'scripts/check-shared-runtime.py')
 module=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
-GOOD="""phase: atomic-original-scoped-publication-facts-counters-and-startup-fencing-qualified
+GOOD="""phase: sensor-explicit-empty-checkpoint-bootstrap-quota-refusal-no-events-idle-tick-and-exact-replay-qualified
+phase: sensor-idle-maintenance-original-head-checkpoint-prefix-refusal-late-rollback-and-target-replay-qualified
+phase: sensor-producer-credentials-worker-isolation-public-membership-grant-option-and-mixed-window-qualified
+phase: restricted-sensor-replay-pin-exact-state-scope-generation-object-refusal-and-replay-qualified
+phase: stopped-multi-state-exact-upgrade-ready-role-unknown-repeat-refusal-preserves-data-and-ACL-qualified
+phase: atomic-multiple-state-independent-priors-quota-late-rollback-and-exact-replay-qualified
+phase: atomic-original-scoped-publication-facts-counters-and-startup-fencing-qualified
 phase: current-finding-scope-activation-enrollment-counters-and-authority-qualified
 phase: shared-finding-scope-stopped-schema-and-immutable-prefix-qualified
 phase: globally-authorized-original-feed-qualified
@@ -42,6 +49,85 @@ test postgres_lease_authority_and_cancellation ... ok
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 3.83s
 """
 class Guards(unittest.TestCase):
+    def test_split_campaign_requires_both_complete_stages_and_two_real_results(self):
+        tail='running 1 test\ntest postgres_lease_authority_and_cancellation ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 2.00s'
+        evidence=GOOD+'\nphase: shared-helper-stage-complete\nphase: shared-primitives-stage-complete\n'+tail
+        module.qualify_test_output(evidence,expected_runs=2)
+        for bad in (evidence.replace('phase: shared-helper-stage-complete',''),evidence.replace('phase: shared-primitives-stage-complete',''),evidence+tail,evidence.replace('0 failed','1 failed')):
+            with self.assertRaises(ValueError):module.qualify_test_output(bad,expected_runs=2)
+        with self.assertRaises(ValueError):module.qualify_test_output(GOOD,expected_runs=2)
+
+    def test_scope_rebind_focused_output_requires_restored_database_and_exact_migration(self):
+        markers=['phase: stopped-state-physical-scope-rebind-sealed-lineage-owner-CAS-quota-output-preservation-and-idempotence-qualified',
+            'phase: populated-multi-event-and-history-restore-real-Parquet-omission-corruption-custody-and-fresh-generation-qualified']
+        summary='test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 2.00s'
+        good='\n'.join([*markers,summary]);module.qualify_scope_rebind_output(good)
+        for bad in [good.replace(markers[0],''),good.replace(markers[1],''),good+'\n'+markers[0],good+'\n'+summary,good.replace('0 failed','1 failed')]:
+            with self.assertRaises(ValueError):module.qualify_scope_rebind_output(bad)
+
+    def test_sensor_restore_requires_native_cases_pending_original_and_new_physical_generation(self):
+        names=['Standard_SENSOR_native_atomic_pending_output_preserved_at_stop',
+            'Standard_SENSOR_fresh_trusted_restore_owner_rebind_original_logical_identity',
+            'Standard_SENSOR_restored_Main_original_finding_retirement_and_unknown_coverage',
+            'Standard_SENSOR_restored_replay_unknown_original_canonical_and_fresh_health']
+        receipt={'schema_version':1,'generation':str(uuid.UUID(int=1)),'old_generation':str(uuid.UUID(int=2)),
+            'scope_generation':str(uuid.UUID(int=3)),'pending_outputs':1,'checkpoint':2,'original_findings':[{}]}
+        good={'status':'passed_simulated','sensor_restore_qualified':True,'binary_sha256':'a'*64,
+            'wal_checkpoint':4,'event_ids':['one','two','three'],'original_finding_sha256':'b'*64,
+            'scenarios':[{'name':n} for n in names],'restore_receipt':receipt,
+            'child_capacity':3,'log_capacity':24,'provider_calls':5}
+        module.qualify_standard_sensor_restore_report(good,'a'*64)
+        for key,value in [('scenarios',good['scenarios'][:-1]),('sensor_restore_qualified',False),
+            ('wal_checkpoint',2),('original_finding_sha256',''),('event_ids',['one']*3)]:
+            with self.subTest(key=key):
+                with self.assertRaises(ValueError):module.qualify_standard_sensor_restore_report({**good,key:value},'a'*64)
+        for key,value in [('generation',receipt['old_generation']),('generation','bad'),('pending_outputs',0),
+            ('original_findings',[]),('scope_generation',str(uuid.UUID(int=0)))]:
+            with self.subTest(receipt_key=key):
+                with self.assertRaises(ValueError):module.qualify_standard_sensor_restore_report({**good,'restore_receipt':{**receipt,key:value}},'a'*64)
+
+    def test_sensor_report_refuses_missing_cases_bad_identity_and_rewritten_body(self):
+        names=[
+            'Standard_SENSOR_explicit_zero_checkpoint_idle_without_events',
+            'Standard_SENSOR_current_signed_probe_and_causal_overdue_unknown',
+            'Standard_SENSOR_fresh_gap_atomic_finding_idle_prefix_retirement',
+            'Standard_SENSOR_forged_probe_refused_before_WAL',
+            'Standard_SENSOR_SIGKILL_restart_original_scope_bytes_and_replay_unknown',
+            'Standard_SENSOR_fresh_post_restart_probe_resumes_current_health',
+            'Standard_SENSOR_observed_maintenance_COMMIT_SIGKILL_exact_target_recovery',
+            'Standard_SENSOR_native_maintenance_exact_cancel_stale_and_later_divergence',
+            'Standard_SENSOR_native_bootstrap_quota_refusal_original_empty_inventory',
+            'Standard_SENSOR_late_COMMIT_cancel_deadline_uncertain_and_native_growth_quota']
+        events=['00000000-0000-0000-0000-00000000000'+str(n) for n in (1,2,3)]
+        good={'status':'passed_simulated','sensor_runtime_baseline':True,'binary_sha256':'a'*64,
+            'wal_checkpoint':4,'child_capacity':3,'log_capacity':24,'provider_calls':1,
+            'event_ids':events,'original_finding_sha256':'b'*64,
+            'scenarios':[{'name':n,'status':'passed_simulated'} for n in names]}
+        module.qualify_standard_sensor_report(good,'a'*64)
+        for key,value in [('sensor_runtime_baseline',False),('binary_sha256','b'*64),('wal_checkpoint',3),
+            ('provider_calls',129),('original_finding_sha256','bad'),('event_ids',[events[0]]*3),
+            ('event_ids',[{},events[1],events[2]]),('scenarios',good['scenarios'][:-1]),
+            ('scenarios',[dict(good['scenarios'][0],status='failed'),*good['scenarios'][1:]])]:
+            with self.subTest(key=key,value=value):
+                with self.assertRaises(ValueError):module.qualify_standard_sensor_report({**good,key:value},'a'*64)
+
+    def test_mixed_sensor_window_report_requires_both_detectors_and_restart(self):
+        names=['Standard_SENSOR_WINDOW_independent_zero_checkpoint_states',
+            'Standard_SENSOR_WINDOW_sensor_gap_preserves_unsealed_attempts',
+            'Standard_SENSOR_WINDOW_watermark_seals_original_attempts_preserves_sensor_finding',
+            'Standard_SENSOR_WINDOW_retries_preserve_original_bodies_and_canonical_positions',
+            'Standard_SENSOR_WINDOW_SIGKILL_restart_both_states_unknown_sensor_authority']
+        good={'status':'passed_simulated','sensor_window_baseline':True,'binary_sha256':'a'*64,
+            'wal_checkpoint':9,'child_capacity':3,'log_capacity':24,'provider_calls':1,
+            'event_ids':[str(uuid.UUID(int=n)) for n in (1,2,3,4)],'original_finding_sha256':'b'*64,
+            'scenarios':[{'name':n,'status':'passed_simulated'} for n in names]}
+        module.qualify_standard_sensor_report(good,'a'*64,mixed=True)
+        for key,value in [('sensor_window_baseline',False),('wal_checkpoint',8),
+                          ('event_ids',good['event_ids'][:3]),('scenarios',good['scenarios'][:-1])]:
+            with self.subTest(key=key):
+                with self.assertRaises(ValueError):module.qualify_standard_sensor_report({**good,key:value},'a'*64,mixed=True)
+        with self.assertRaises(ValueError):module.qualify_standard_sensor_report(good,'a'*64)
+
     def test_window_report_requires_original_ids_revision_all_cases_and_finite_resources(self):
         names=['Standard_WINDOW_explicit_bootstrap_and_enrolled_quota_mismatch_refused',
         'Standard_WINDOW_missing_pin_permission_startup_refused_original_state_unchanged',
@@ -201,13 +287,21 @@ class Guards(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             directory=Path(temporary)
             probe=directory/'pg_isready'
-            probe.write_text(r'''#!/usr/bin/python3
-import json, os, pathlib, sys
-p=pathlib.Path(os.environ['READY_TRACE'])
-calls=p.read_text().splitlines() if p.exists() else []
-p.write_text('\n'.join(calls+[json.dumps(sys.argv[1:])])+'\n')
-codes=json.loads(os.environ['READY_CODES'])
-sys.exit(codes[min(len(calls),len(codes)-1)])
+            probe.write_text(r'''#!/bin/sh
+probe_count=0
+if [ -f "$READY_TRACE" ]; then read -r probe_count < "$READY_TRACE.count"; fi
+probe_count=$((probe_count+1))
+printf '%s\n' "$probe_count" > "$READY_TRACE.count"
+printf '%s\t' "$@" >> "$READY_TRACE"
+printf '\n' >> "$READY_TRACE"
+probe_index=0
+probe_result=3
+for probe_code in $READY_CODES; do
+    probe_index=$((probe_index+1))
+    probe_result=$probe_code
+    if [ "$probe_index" -eq "$probe_count" ]; then break; fi
+done
+exit "$probe_result"
 ''')
             probe.chmod(0o700)
             pause=directory/'sleep'
@@ -223,10 +317,10 @@ sys.exit(codes[min(len(calls),len(codes)-1)])
                     if limit is not None:argv.extend(['signal-ready-fixture',limit])
                     result=subprocess.run(argv,
                         env=dict(os.environ,PATH=str(directory)+os.pathsep+os.environ['PATH'],
-                                 READY_TRACE=str(trace),READY_CODES=json.dumps(codes)),
+                                 READY_TRACE=str(trace),READY_CODES=" ".join(map(str,codes))),
                         capture_output=True,text=True,timeout=6)
                     self.assertEqual(result.returncode,status,result.stderr)
-                    calls=[json.loads(line) for line in trace.read_text().splitlines()] if trace.exists() else []
+                    calls=[line.split("\t")[:-1] for line in trace.read_text().splitlines()] if trace.exists() else []
                     self.assertEqual(len(calls),count)
                     self.assertTrue(all(call==['-q','-t','1','-h','127.0.0.1','-U','postgres'] for call in calls))
     def test_all_eighteen_cases_required(self):
@@ -260,7 +354,7 @@ sys.exit(codes[min(len(calls),len(codes)-1)])
     def test_exact_executed_fixture_passes(self):
         module.qualify_test_output(GOOD)
     def test_global_feed_and_restored_markers_require_exact_execution(self):
-        for marker in ('phase: populated-multi-event-and-history-restore-real-Parquet-omission-corruption-custody-and-fresh-generation-qualified\n', 'phase: multi-event-administrative-and-readonly-producer-inspection-qualified\n', 'phase: multi-event-scoped-reader-paired-grants-privileges-and-corruption-qualified\n', 'phase: bounded-multi-event-client-original-commit-replay-and-fencing-qualified\n', 'phase: bounded-multi-event-client-module-identity-and-drift-refusal-qualified\n', 'phase: protected-prior-state-multi-event-references-qualified\n', 'phase: atomic-multi-event-publication-replay-quota-and-late-rollback-qualified\n', 'phase: stopped-additive-multi-event-installation-qualified\n', 'phase: recovered-state-object-retention-replay-and-fencing-qualified\n', 'phase: pinned-canonical-recovery-bounds-and-missing-evidence-qualified\n', 'phase: fenced-revisioned-state-recovery-read-qualified\n', 'phase: globally-authorized-original-feed-qualified\n', 'phase: globally-authorized-restored-feed-qualified\n', 'phase: shared-finding-scope-stopped-schema-and-immutable-prefix-qualified\n'):
+        for marker in ('phase: sensor-explicit-empty-checkpoint-bootstrap-quota-refusal-no-events-idle-tick-and-exact-replay-qualified\n', 'phase: sensor-idle-maintenance-original-head-checkpoint-prefix-refusal-late-rollback-and-target-replay-qualified\n', 'phase: sensor-producer-credentials-worker-isolation-public-membership-grant-option-and-mixed-window-qualified\n', 'phase: restricted-sensor-replay-pin-exact-state-scope-generation-object-refusal-and-replay-qualified\n', 'phase: stopped-multi-state-exact-upgrade-ready-role-unknown-repeat-refusal-preserves-data-and-ACL-qualified\n', 'phase: atomic-multiple-state-independent-priors-quota-late-rollback-and-exact-replay-qualified\n', 'phase: populated-multi-event-and-history-restore-real-Parquet-omission-corruption-custody-and-fresh-generation-qualified\n', 'phase: multi-event-administrative-and-readonly-producer-inspection-qualified\n', 'phase: multi-event-scoped-reader-paired-grants-privileges-and-corruption-qualified\n', 'phase: bounded-multi-event-client-original-commit-replay-and-fencing-qualified\n', 'phase: bounded-multi-event-client-module-identity-and-drift-refusal-qualified\n', 'phase: protected-prior-state-multi-event-references-qualified\n', 'phase: atomic-multi-event-publication-replay-quota-and-late-rollback-qualified\n', 'phase: stopped-additive-multi-event-installation-qualified\n', 'phase: recovered-state-object-retention-replay-and-fencing-qualified\n', 'phase: pinned-canonical-recovery-bounds-and-missing-evidence-qualified\n', 'phase: fenced-revisioned-state-recovery-read-qualified\n', 'phase: globally-authorized-original-feed-qualified\n', 'phase: globally-authorized-restored-feed-qualified\n', 'phase: shared-finding-scope-stopped-schema-and-immutable-prefix-qualified\n'):
             for output in (GOOD.replace(marker, ''), GOOD + marker):
                 with self.assertRaises(ValueError):module.qualify_test_output(output)
         good='phase: current-finding-scope-original-host-authority-after-restart-qualified\nphase: shared-finding-scope-persistent-restart-original-authority-qualified\nphase: persistent-restored-global-feed-qualified\nphase: persistent-catalog-restored-query-qualified\nphase: persistent-catalog-restart-fresh-client-qualified\nphase: persistent-restart-fresh-client-qualified\nrunning 1 test\ntest postgres_matrix_restart_probe ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.20s\n'

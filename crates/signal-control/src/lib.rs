@@ -12,6 +12,8 @@ pub use notification::{
     NotificationAction, NotificationInput, NotificationOutcome, NotificationResult,
     NotificationState,
 };
+mod state_scope_rebind;
+pub use state_scope_rebind::StateScopeRebindInput;
 mod administration;
 pub use administration::{
     AdministrativeResult, AdministrativeScope, ControlAdministrator, InitializeInput,
@@ -32,7 +34,7 @@ pub use scoped_read::{AuthorizedFindingsList, ScopedFindingsBinding};
 mod client;
 pub use catalog::{CatalogInput, CatalogPin, catalog_schema_identity};
 mod connection;
-pub use client::{ControlClient, ControlMetrics, schema_identity};
+pub use client::{ControlClient, ControlMetrics, ProducerDetectors, schema_identity};
 mod publication;
 mod scoped_publication;
 pub use scoped_publication::{ScopedFindingClaims, ScopedPublicationInput};
@@ -100,7 +102,7 @@ mod canonical_recovery;
 pub use canonical_recovery::{
     CanonicalRecoveryLimits, RecoveredCanonicalInputs, recover_canonical_inputs,
     recover_canonical_inputs_at, recover_canonical_rows, retain_canonical_inputs,
-    retain_window_canonical_inputs,
+    retain_sensor_canonical_inputs, retain_window_canonical_inputs,
 };
 
 mod multi_event_claims;
@@ -109,7 +111,7 @@ mod replay_transfer;
 mod window_history;
 pub use multi_event_claims::{
     MultiEventFindingClaims, MultiEventPublicationInput, MultiEventStateEnvelope,
-    PriorStateProvenance,
+    PriorStateProvenance, StateFindingGroup,
 };
 pub use replay_transfer::ReplayPinReplacement;
 
@@ -124,4 +126,9 @@ pub use window_profile::WindowProfile;
 
 mod finding_lookup;
 
+mod sensor_bootstrap;
+mod sensor_maintenance;
+pub use sensor_bootstrap::SensorBootstrap;
+mod sensor_pin;
+pub use sensor_maintenance::SensorMaintenance;
 mod window_pin;

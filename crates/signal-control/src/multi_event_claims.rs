@@ -6,6 +6,8 @@ use signal_findings::{DerivedFinding, ScopedFinding};
 use signal_storage::StoredEvent;
 use std::collections::{BTreeMap, BTreeSet};
 use uuid::Uuid;
+mod multi_state;
+pub use multi_state::StateFindingGroup;
 
 /// Bounded metadata for recovering a multi-event detector at a protected
 /// checkpoint. It records provenance; it cannot authorize canonical inputs.
@@ -24,7 +26,7 @@ impl MultiEventStateEnvelope {
             || generation.is_nil()
             || self.scope_generation != generation
             || self.checkpoint != checkpoint
-            || checkpoint == 0
+            || (checkpoint == 0 && !self.canonical_sequences.is_empty())
             || checkpoint > i64::MAX as u64
             || self.canonical_sequences.len() > 4096
         {
@@ -84,6 +86,8 @@ struct Reference {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Fact {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    state_key: Option<String>,
     id: Uuid,
     anchor_sequence: u64,
     references: Vec<Reference>,
@@ -111,7 +115,11 @@ pub(crate) fn validate_stored_fact(
     let finding: signal_findings::Finding =
         serde_json::from_slice(finding_bytes).map_err(|_| ControlError::Corrupt)?;
     finding.validate().map_err(|_| ControlError::Corrupt)?;
-    if fact.id.is_nil()
+    if fact
+        .state_key
+        .as_ref()
+        .is_some_and(|key| !multi_state::valid_key(key))
+        || fact.id.is_nil()
         || fact.id != finding.id
         || fact.anchor_sequence == 0
         || fact.anchor_sequence > i64::MAX as u64
@@ -203,6 +211,10 @@ pub struct MultiEventFindingClaims {
     startup: Uuid,
     wal_floor: u64,
     prior: Option<PriorStateProvenance>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    state_keys: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    priors: BTreeMap<String, PriorStateProvenance>,
     facts: Vec<Fact>,
     findings: Vec<FindingInput>,
 }
@@ -212,6 +224,12 @@ impl MultiEventFindingClaims {
     }
     pub fn prior(&self) -> Option<&PriorStateProvenance> {
         self.prior.as_ref()
+    }
+    pub fn priors(&self) -> impl Iterator<Item = &PriorStateProvenance> {
+        self.prior.iter().chain(self.priors.values())
+    }
+    pub fn state_keys(&self) -> &[String] {
+        &self.state_keys
     }
     /// The host must establish native admission for all NEW inputs and verify
     /// protected prior state and retained canonical objects for older inputs.
@@ -350,6 +368,7 @@ impl MultiEventFindingClaims {
             }
             let selectors = payload.facts();
             facts.push(Fact {
+                state_key: None,
                 id: finding.id,
                 anchor_sequence: anchor,
                 references,
@@ -375,6 +394,8 @@ impl MultiEventFindingClaims {
             startup: producer.startup,
             wal_floor: producer.wal_floor,
             prior,
+            state_keys: vec![],
+            priors: BTreeMap::new(),
             facts,
             findings,
         };
@@ -382,12 +403,17 @@ impl MultiEventFindingClaims {
         Ok(result)
     }
     pub fn validate(&self, scope: &Scope) -> Result<(), ControlError> {
+        if self.schema_version == 4 {
+            return self.validate_multiple(scope);
+        }
         scope.validate()?;
         if &self.scope != scope
             || !matches!(self.schema_version, 2 | 3)
             || self.scope_generation.is_nil()
             || self.startup.is_nil()
             || self.wal_floor > i64::MAX as u64
+            || !self.state_keys.is_empty()
+            || !self.priors.is_empty()
         {
             return Err(ControlError::Fenced);
         }
@@ -412,7 +438,8 @@ impl MultiEventFindingClaims {
         let mut identities = BTreeSet::new();
         let mut total = 0usize;
         for fact in &self.facts {
-            if fact.id.is_nil()
+            if fact.state_key.is_some()
+                || fact.id.is_nil()
                 || !identities.insert(fact.id)
                 || fact.anchor_sequence <= self.wal_floor
                 || fact.anchor_sequence > i64::MAX as u64
@@ -498,6 +525,9 @@ impl MultiEventFindingClaims {
         current: &[StoredEvent],
         retained: &[StoredEvent],
     ) -> Result<(), ControlError> {
+        if self.schema_version == 4 {
+            return self.verify_multiple(producer, current, retained);
+        }
         self.validate(&producer.scope)?;
         if self.scope_generation != producer.scope_generation
             || self.startup != producer.startup
@@ -550,6 +580,9 @@ impl MultiEventFindingClaims {
         mut publication: crate::PublicationInput,
         state_key: &str,
     ) -> Result<MultiEventPublicationInput, ControlError> {
+        if self.schema_version == 4 {
+            return self.bind_multiple(publication, state_key);
+        }
         self.validate(&self.scope)?;
         let state = publication
             .states
@@ -655,6 +688,19 @@ impl MultiEventPublicationInput {
         let envelope: MultiEventStateEnvelope =
             serde_json::from_slice(&state.bytes).map_err(|_| ControlError::Invalid)?;
         envelope.validate(self.claims.scope_generation, self.publication.last_sequence)?;
+        if self.claims.schema_version == 4 {
+            for key in &self.claims.state_keys {
+                let state = self
+                    .publication
+                    .states
+                    .iter()
+                    .find(|s| &s.key == key)
+                    .ok_or(ControlError::Invalid)?;
+                let envelope: MultiEventStateEnvelope =
+                    serde_json::from_slice(&state.bytes).map_err(|_| ControlError::Invalid)?;
+                envelope.validate(self.claims.scope_generation, self.publication.last_sequence)?;
+            }
+        }
         self.publication.wire(&self.claims.scope)
     }
 
@@ -683,7 +729,7 @@ impl MultiEventPublicationInput {
                 "scope_generation": prior.scope_generation,
             })
         });
-        let bytes = crate::publication::encode(&serde_json::json!({
+        let mut wire = serde_json::json!({
             "schema_version": self.claims.schema_version,
             "scope_generation": self.claims.scope_generation,
             "startup": self.claims.startup,
@@ -691,7 +737,16 @@ impl MultiEventPublicationInput {
             "prior": prior,
             "facts": self.claims.facts,
             "state_key": self.state_key,
-        }))?;
+        });
+        if self.claims.schema_version == 4 {
+            wire["state_keys"] =
+                serde_json::to_value(&self.claims.state_keys).map_err(|_| ControlError::Invalid)?;
+            wire["priors"] = serde_json::to_value(self.claims.priors.iter().map(|(key, prior)| (key,
+                serde_json::json!({"schema_version":prior.schema_version,"key":prior.key,"checkpoint":prior.checkpoint,
+                    "revision":crate::publication::hex(&prior.revision),"value_sha256":crate::publication::hex(&prior.value_sha256),
+                    "scope_generation":prior.scope_generation}))).collect::<BTreeMap<_,_>>()).map_err(|_| ControlError::Invalid)?;
+        }
+        let bytes = crate::publication::encode(&wire)?;
         if bytes.len() > 131072 {
             return Err(ControlError::Full);
         }
@@ -1101,6 +1156,47 @@ mod tests {
             work: vec![],
             receipts: vec![],
         };
+        let multiple = MultiEventFindingClaims::from_state_groups(
+            &producer,
+            &rows,
+            vec![
+                StateFindingGroup {
+                    state_key: "window-fixture".into(),
+                    prior: None,
+                    retained: vec![],
+                    derived: vec![(1, finding(&producer, &rows[..1])?)],
+                },
+                StateFindingGroup {
+                    state_key: "sensor-fixture".into(),
+                    prior: None,
+                    retained: vec![],
+                    derived: vec![(2, finding(&producer, &rows[1..2])?)],
+                },
+            ],
+        )?;
+        let mut combined = publication.clone();
+        let mut sensor = combined.states[0].clone();
+        sensor.key = "sensor-fixture".into();
+        combined.states.push(sensor);
+        let combined = multiple.bind(combined, "window-fixture")?;
+        combined.verify(&producer, &rows, &[])?;
+        combined.encode_sql_publication()?;
+        let wire: serde_json::Value = serde_json::from_slice(&combined.encode_sql_claims()?)
+            .map_err(|_| ControlError::Corrupt)?;
+        assert_eq!(wire["schema_version"], 4);
+        assert_eq!(
+            wire["state_keys"],
+            serde_json::json!(["sensor-fixture", "window-fixture"])
+        );
+        assert_eq!(wire["facts"][0]["state_key"], "window-fixture");
+        assert_eq!(wire["facts"][1]["state_key"], "sensor-fixture");
+        assert_eq!(combined.publication.findings.len(), 2);
+        let mut missing = combined.clone();
+        missing.publication.states.pop();
+        assert!(missing.encode_sql_claims().is_err());
+        let mut changed = combined.clone();
+        changed.publication.states[1].bytes = b"{}".to_vec();
+        assert!(changed.encode_sql_publication().is_err());
         let bound = claims.clone().bind(publication.clone(), "window-fixture")?;
         bound.verify(&producer, &rows, &[])?;
         bound.encode_sql_publication()?;
@@ -1199,6 +1295,70 @@ mod tests {
             )
             .is_err()
         );
+        Ok(())
+    }
+    #[test]
+    fn multiple_state_retained_claims_preserve_each_prior_and_refuse_cross_key_or_legacy_injection()
+    -> Result<(), ControlError> {
+        let (producer, rows) = fixture()?;
+        let prior = |key: &str| PriorStateProvenance {
+            schema_version: 1,
+            key: key.into(),
+            checkpoint: 2,
+            revision: [1; 32],
+            value_sha256: [2; 32],
+            scope_generation: producer.scope_generation,
+        };
+        let window_rows = vec![rows[0].clone(), rows[2].clone()];
+        let sensor_rows = vec![rows[1].clone(), rows[2].clone()];
+        let claims = MultiEventFindingClaims::from_state_groups(
+            &producer,
+            &rows[2..],
+            vec![
+                StateFindingGroup {
+                    state_key: "window".into(),
+                    prior: Some(prior("window")),
+                    retained: vec![rows[0].clone()],
+                    derived: vec![(3, finding(&producer, &window_rows)?)],
+                },
+                StateFindingGroup {
+                    state_key: "sensor".into(),
+                    prior: Some(prior("sensor")),
+                    retained: vec![rows[1].clone()],
+                    derived: vec![(3, finding(&producer, &sensor_rows)?)],
+                },
+            ],
+        )?;
+        claims.verify_rows(&producer, &rows[2..], &rows[..2])?;
+        assert_eq!(claims.priors.len(), 2);
+        let mut swapped = claims.clone();
+        swapped
+            .priors
+            .get_mut("window")
+            .ok_or(ControlError::Invalid)?
+            .key = "sensor".into();
+        assert!(swapped.validate(&producer.scope).is_err());
+        let mut missing = claims.clone();
+        missing.priors.remove("window");
+        assert!(
+            missing
+                .verify_rows(&producer, &rows[2..], &rows[..2])
+                .is_err()
+        );
+        let mut legacy = claims.clone();
+        legacy.schema_version = 3;
+        assert!(legacy.validate(&producer.scope).is_err());
+        let mut changed = rows[..2].to_vec();
+        changed[0]
+            .event
+            .resource
+            .as_mut()
+            .ok_or(ControlError::Invalid)?
+            .account_id = Some("foreign".into());
+        assert!(claims.verify_rows(&producer, &rows[2..], &changed).is_err());
+        let mut stale = producer.clone();
+        stale.startup = Uuid::from_u128(999);
+        assert!(claims.verify_rows(&stale, &rows[2..], &rows[..2]).is_err());
         Ok(())
     }
 }

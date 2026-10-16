@@ -35,10 +35,12 @@ def source_inputs():
              'scripts/check-object-query.py', 'scripts/check-native-qualification.py',
              'scripts/fixtures/standard-kubernetes.py', 'scripts/fixtures/s3-query-server.py',
              'tests/integration/standard-main-process.py', 'tests/integration/transport-server-process.py',
-             'tests/integration/access-server-process.py'}
+             'tests/integration/access-server-process.py', 'tests/integration/standard-sensor.py',
+             'tests/integration/shared-feed-provider.py', 'scripts/fixtures/onboarding-host.py',
+             'scripts/check-audit-role-composition.py', 'scripts/check-audit-receiver-permissions.py'}
     for directory in ('apps', 'crates', 'schemas/shared-control', 'deploy/helm/signal', 'tests/fixtures/source-coverage'):
         names.update(str(p.relative_to(ROOT)) for p in (ROOT / directory).rglob('*')
-                     if p.is_file() and p.suffix in {'.rs', '.toml', '.json', '.sql', '.yaml', '.tpl'})
+                     if p.is_file() and p.suffix in {'.rs', '.toml', '.json', '.sql', '.yaml', '.tpl', '.sha256'})
     if len(names) > 2048:
         raise ValueError('source inventory capacity')
     return {name: digest(ROOT / name) for name in sorted(names)}
@@ -85,9 +87,8 @@ def prepare(directory, qualification, revision, arch, inputs):
             or report.get('cleanup_errors') != []):
         raise ValueError('passing native Standard qualification required')
     for name, sha in report['source_hashes'].items():
-        if name.endswith(('.rs', '.toml', '.sql')) or name == 'Cargo.lock':
-            if inputs.get(name) != sha:
-                raise ValueError('qualified compilation source drift')
+        if inputs.get(name) != sha:
+            raise ValueError('qualified compilation or runtime source drift')
     server = qualification / 'standard-server'
     if report.get('standard_offline_binary_sha256'):
         offline = qualification / 'standard-offline-fixture'

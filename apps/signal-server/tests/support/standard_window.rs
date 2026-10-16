@@ -7,6 +7,23 @@ use std::{fs, path::Path};
 use uuid::Uuid;
 
 pub async fn prepare(db: &tokio_postgres::Client, scope: &Scope, generation: Uuid) -> Result {
+    prepare_modules(db, scope, generation, true).await
+}
+pub async fn prepare_modules(
+    db: &tokio_postgres::Client,
+    scope: &Scope,
+    generation: Uuid,
+    window: bool,
+) -> Result {
+    install_modules(db, window).await?;
+    db.execute("INSERT INTO signal_multi_event.profile(singleton,scope_generation,max_rows,max_bytes) VALUES(true,$1,128,1048576)", &[&generation]).await?;
+    if window {
+        db.execute("INSERT INTO signal_window_history.profile(partition_id,state_key,scope_generation,max_rows,max_bytes,retention_ms) VALUES($1,'standard-window',$2,32,262144,60000)", &[&scope.partition_id,&generation]).await?;
+    }
+    Ok(())
+}
+
+pub async fn install_modules(db: &tokio_postgres::Client, window: bool) -> Result {
     db.batch_execute("SET ROLE signal_control_owner").await?;
     for source in [
         include_str!("../../../../schemas/shared-control/009-state-read.sql"),
@@ -21,9 +38,10 @@ pub async fn prepare(db: &tokio_postgres::Client, scope: &Scope, generation: Uui
     ] {
         db.batch_execute(source).await?;
     }
-    db.batch_execute("RESET ROLE; GRANT USAGE ON SCHEMA signal_state_read,signal_multi_event,signal_replay_transfer,signal_window_history_read,signal_replay_release,signal_window_profile,signal_finding_lookup,signal_window_pin TO signal_standard_producer; GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA signal_state_read,signal_multi_event,signal_replay_transfer,signal_window_history_read,signal_replay_release,signal_window_profile,signal_finding_lookup,signal_window_pin TO signal_standard_producer; GRANT USAGE ON SCHEMA signal_multi_event TO signal_standard_reader; GRANT SELECT ON ALL TABLES IN SCHEMA signal_multi_event TO signal_standard_reader; GRANT SELECT ON signal_control.commits TO signal_standard_reader").await?;
-    db.execute("INSERT INTO signal_multi_event.profile(singleton,scope_generation,max_rows,max_bytes) VALUES(true,$1,128,1048576)", &[&generation]).await?;
-    db.execute("INSERT INTO signal_window_history.profile(partition_id,state_key,scope_generation,max_rows,max_bytes,retention_ms) VALUES($1,'standard-window',$2,32,262144,60000)", &[&scope.partition_id,&generation]).await?;
+    db.batch_execute("RESET ROLE; GRANT USAGE ON SCHEMA signal_state_read,signal_multi_event,signal_replay_transfer,signal_replay_release,signal_finding_lookup TO signal_standard_producer; GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA signal_state_read,signal_multi_event,signal_replay_transfer,signal_replay_release,signal_finding_lookup TO signal_standard_producer; GRANT USAGE ON SCHEMA signal_multi_event TO signal_standard_reader; GRANT SELECT ON ALL TABLES IN SCHEMA signal_multi_event TO signal_standard_reader; GRANT SELECT ON signal_control.commits TO signal_standard_reader").await?;
+    if window {
+        db.batch_execute("GRANT USAGE ON SCHEMA signal_window_history_read,signal_window_profile,signal_window_pin TO signal_standard_producer; GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA signal_window_history_read,signal_window_profile,signal_window_pin TO signal_standard_producer").await?;
+    }
     Ok(())
 }
 

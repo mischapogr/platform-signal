@@ -67,6 +67,7 @@ class Run(BASE.Run):
         environment.update(SIGNAL_CONTROL_FIXTURE=str(self.control), SIGNAL_STANDARD_ROOT=str(self.out),
                            SIGNAL_STANDARD_BACKEND=self.fixture_id, SIGNAL_STANDARD_PHASE=phase)
         if getattr(self,'window_mode',False):environment['SIGNAL_STANDARD_WINDOW']='true'
+        if getattr(self,'sensor_mode',False):environment['SIGNAL_STANDARD_SENSOR']='true'
         if getattr(self,'audit_mode',False):environment['SIGNAL_STANDARD_AUDIT']='true'
         if getattr(self,'custody_mode',False):environment['SIGNAL_STANDARD_CUSTODY']='true'
         command = ([str(self.direct_offline),'standard_offline_fixture','--ignored','--exact','--nocapture']
@@ -92,6 +93,13 @@ class Run(BASE.Run):
             'verify_restored':['phase: Standard-restored-native-publication-original-WAL-floor-and-private-cursor-qualified'],
             'restore_scope_stage':['phase: Standard-populated-scoped-restore-stage-core-only-denial-counter-corruption-qualified'],
             'verify_audit_empty':['phase: Standard-audit-lifecycle-original-empty-DB-WAL-floor-checkpoint-qualified'],
+            'sensor_maintenance_diverged':['phase: Standard-SENSOR-native-frame-typed-maintenance-diverged-replay-cancel-stale-owner-guards-qualified'],
+            'sensor_quota_limit':['phase: Standard-SENSOR-native-bootstrap-quota-false-original-inventory-qualified'],
+            'sensor_quota_restore':['phase: Standard-SENSOR-native-bootstrap-quota-true-original-inventory-qualified'],
+            'sensor_restore':['phase: Standard-SENSOR-fresh-trusted-restored-generation-original-pending-known-output-owner-rebind-qualified'],
+            'sensor_hold_retirement':['phase: Standard-SENSOR-owned-retirement-refusal-installed'],
+            'sensor_snapshot_restored':['phase: Standard-SENSOR-read-only-state-finding-checkpoint-snapshot-qualified'],
+            'sensor_snapshot':['phase: Standard-SENSOR-read-only-state-finding-checkpoint-snapshot-qualified'],
             'window_saved':['phase: actual-Standard-WINDOW-original-prepared-crash-request-claims-DB-WAL-qualified'],
             'window_recovered':['phase: actual-Standard-WINDOW-original-prepared-crash-request-claims-DB-WAL-qualified'],
             'window_verify':['phase: actual-Standard-WINDOW-original-sequences-findings-history-DB-WAL-qualified'],
@@ -109,6 +117,8 @@ class Run(BASE.Run):
             'verify_unprepared_after':['phase: Standard-unprepared-native-restart-held-original-event-floor-checkpoints-unchanged-qualified'],
         }[phase]
         if phase=='prepare':
+            if getattr(self,'sensor_mode',False):
+                markers=markers+['phase: Standard-SENSOR-exact-bootstrap-maintenance-pin-producer-profile-qualified']
             if getattr(self,'window_mode',False):
                 markers=markers+['phase: Standard-WINDOW-readonly-optional-history-table-column-DDL-routine-PUBLIC-refusals-qualified']
             if self.direct_offline is not None:
@@ -671,8 +681,7 @@ class WindowRun(OnboardingRun):
         finally:
             if child.poll() is None:child.kill();child.wait(timeout=2);self.reap_log(child);self.reaped(child)
 
-    def run(self):
-        self.start_fixture();self.start_provider();self.offline('prepare');self.bootstrap_coverage()
+    def configure_window(self):
         host_module=module('standard_window_signed_host','scripts/fixtures/onboarding-host.py')
         vectors=BASE.read_json(ROOT/'tests/fixtures/source-coverage/backend-vectors.json')
         self.host_evidence=host_module.Host(self.out,ROOT,'standard-coverage',vectors['bindings'][0]['input'],
@@ -688,6 +697,10 @@ class WindowRun(OnboardingRun):
                 'history_retention_ms':60000}
         BASE.write_json(self.out/'window.json',{'schema_version':2,'shared':{'state_key':'standard-window','bootstrap_checkpoint':0,
             'recovery':{'files':128,'object_bytes':67108864,'decoded_bytes':67108864,'scanned_rows':4096,'result_bytes':65536}},'policy':policy})
+
+    def run(self):
+        self.start_fixture();self.start_provider();self.offline('prepare');self.bootstrap_coverage()
+        self.configure_window()
         try:
             self.reject_window_configuration()
             self.start_server()
@@ -1186,18 +1199,29 @@ class AuditRun(Run):
         self.audit_pending_sha256=hashlib.sha256(pending).hexdigest()
         self.record('actual_Standard_original_audit_replay_fresh_activations_existing_receiver_empty_WAL')
 
+SENSOR=module('standard_sensor_fixture','tests/integration/standard-sensor.py')
+SensorRun=SENSOR.make(Run,BASE)
+RestoreSensorRun=SENSOR.make_restore(SensorRun,BASE)
+MixedSensorRun=SENSOR.make_mixed(SensorRun,WindowRun,BASE)
+
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--server',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
-    parser.add_argument('--scenario',choices=('pipeline','audit','private','restore','custody','recovery','checkpoint-recovery','restored-custody','onboarding','window'),default='pipeline')
+    parser.add_argument('--scenario',choices=('pipeline','audit','private','restore','custody','recovery','checkpoint-recovery','restored-custody','onboarding','window','sensor','sensor-window','sensor-restore'),default='pipeline')
     args=parser.parse_args();args.output.mkdir(parents=True,mode=0o700)
-    fixture=Path(os.environ['SIGNAL_CONTROL_FIXTURE']);run=({'window':WindowRun,'onboarding':OnboardingRun,'audit':AuditRun,'private':PrivateRun,'restore':PrivateRun,'custody':CustodyRun,'recovery':CustodyRun,'checkpoint-recovery':CustodyRun,'restored-custody':RestoredCustodyRun}.get(args.scenario,Run))(args.output.resolve(),args.server.resolve(),fixture.resolve())
+    fixture=Path(os.environ['SIGNAL_CONTROL_FIXTURE']);run=({'sensor-restore':RestoreSensorRun,'sensor-window':MixedSensorRun,'sensor':SensorRun,'window':WindowRun,'onboarding':OnboardingRun,'audit':AuditRun,'private':PrivateRun,'restore':PrivateRun,'custody':CustodyRun,'recovery':CustodyRun,'checkpoint-recovery':CustodyRun,'restored-custody':RestoredCustodyRun}.get(args.scenario,Run))(args.output.resolve(),args.server.resolve(),fixture.resolve())
     run.restore_mode=args.scenario in ('restore','restored-custody')
     run.recovery_mode=args.scenario in ('recovery','checkpoint-recovery')
     run.checkpoint_recovery_mode=args.scenario=='checkpoint-recovery'
     report={'schema_version':1,'status':'failed','scope':'actual Standard executable, owned PostgreSQL TLS and persistent S3 protocol simulation; no AWS/ARM64/release proof'}
     try:
         run.run()
-        if args.scenario=='window':
+        if args.scenario=='sensor-window':
+            report.update(status='passed_simulated',scope='Actual coexisting Standard WINDOW and sensor Main with signed synthetic authority, independent state priors, original finding bytes, replay and SIGKILL/restart; not maintenance COMMIT ambiguity, fresh-generation restore, AWS or release acceptance',scenarios=run.scenarios,binary_sha256=binary_digest(run.binary),provider_calls=run.provider_calls,child_capacity=3,log_capacity=24,sensor_window_baseline=True,wal_checkpoint=run.sensor_checkpoint,event_ids=run.sensor_events,original_finding_sha256=run.sensor_finding_sha256)
+        elif args.scenario=='sensor-restore':
+            report.update(status='passed_simulated',scope='Actual sensor Standard Main atomic pending output, fresh trusted PostgreSQL scoped restore, explicit stopped owner physical-generation migration, preserved logical scope and original finding bytes, native unknown/replay/retirement and fresh health; synthetic observer/S3/restore authority, no AWS or release acceptance',scenarios=run.scenarios,binary_sha256=binary_digest(run.binary),provider_calls=run.provider_calls,child_capacity=3,log_capacity=24,sensor_restore_qualified=True,wal_checkpoint=run.sensor_checkpoint,event_ids=run.sensor_events,original_finding_sha256=run.sensor_finding_sha256,restore_receipt=run.restore_receipt)
+        elif args.scenario=='sensor':
+            report.update(status='passed_simulated',scope='Actual sensor-only Standard Main bootstrap quota refusal, zero-checkpoint idle, signed causal reports, original gap/prefix retirement and observed maintenance COMMIT/SIGKILL; typed TLS worker exact/cancel/stale/diverged replay, observed uncertain COMMIT cancellation/deadline reconciliation and hydrated native engine growth quota rollback; synthetic observer/S3 authority, not mixed WINDOW, fresh-generation restore, AWS or release acceptance',scenarios=run.scenarios,binary_sha256=binary_digest(run.binary),provider_calls=run.provider_calls,child_capacity=3,log_capacity=24,sensor_runtime_baseline=True,wal_checkpoint=run.sensor_checkpoint,event_ids=run.sensor_events,original_finding_sha256=run.sensor_finding_sha256)
+        elif args.scenario=='window':
             report.update(status='passed_simulated',scope='Actual Standard WINDOW Main startup, split batches, signed source watermark, exact retries and SIGKILL/restart with PostgreSQL TLS and simulated S3/host authority; no AWS/ARM64/release proof',scenarios=run.scenarios,binary_sha256=binary_digest(run.binary),provider_calls=run.provider_calls,child_capacity=3,log_capacity=24,window_qualified=True,wal_checkpoint=run.window_checkpoint,event_ids=run.window_events)
         elif args.scenario=='onboarding':
             report.update(status='passed_simulated',scope='Actual onboarding-enabled Standard Main, PostgreSQL TLS/S3 simulation, mTLS native identity, signed synthetic host checks and real Chromium through verified backend mTLS relay; no actual vendor/AWS/ARM64/release proof',scenarios=run.scenarios,binary_sha256=binary_digest(run.binary),provider_calls=run.provider_calls,child_capacity=3,log_capacity=24,onboarding_qualified=True,wal_checkpoint=run.onboarding_checkpoint,event_ids=run.onboarding_events,browser=run.browser_report,unsupported_browser=run.unsupported_browser_report)
