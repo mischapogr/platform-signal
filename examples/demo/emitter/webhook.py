@@ -15,7 +15,8 @@ class Handler(BaseHTTPRequestHandler):
         auth = "bearer present" if self.headers.get("authorization", "").startswith("Bearer ") else "NO AUTH"
         try:
             f = json.loads(body)
-            what = json.dumps(f.get("finding", f))[:160]
+            f = f.get("finding", f)
+            what = f'{f.get("severity")} {f.get("rule_id")} "{f.get("title")}"'
         except ValueError:
             what = "(non-json)"
         if fail_left > 0:
