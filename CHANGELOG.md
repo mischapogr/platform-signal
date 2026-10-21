@@ -9,6 +9,14 @@ and remaining required gates are recorded in the
 
 ### Implemented
 
+- Add a dry-run-by-default AWS/EKS qualification harness (`scripts/check-eks.py`, local
+  regressions in `scripts/test-eks-gate.py`) and [runbook](docs/66-aws-eks-qualification.md):
+  tagged disposable EKS/EBS cluster, ECR image, S3 KMS/Object Lock behaviour checks, pod
+  replacement and node-drain recovery, and teardown with a residual scan. It has not been run
+  against AWS; EXT-AWS stays open and Standard-on-AWS, multi-AZ and product S3 custody are
+  outside its scope.
+- Add draft [release notes and limits wording](docs/67-release-notes-draft.md); no version is
+  selected and nothing is published.
 - Add explicit stopped Small reclamation for authenticated retired query versions:
   versionId plus exact If-Match, complete candidate preflight, conservative
   exact-version absence/uncertain retry and immutable manifest/live/original/orphan
