@@ -62,6 +62,16 @@ services:
     tmpfs: ["/tmp:size=16777216,mode=1777"]
     command: ["--file", "/logs/legacy-app.log"]
 
+  # Destination for private notifications (a stand-in for pager/chat webhooks).
+  webhook:
+    <<: *hardened
+    image: python:3.13-alpine
+    user: "65532:65532"
+    ports: ["127.0.0.1:9099:9099"]
+    environment: ["FAIL_FIRST=${WEBHOOK_FAIL_FIRST:-0}"]
+    volumes: ["./emitter/webhook.py:/webhook.py:ro"]
+    command: ["python", "-u", "/webhook.py"]
+
 volumes:
   signal-data:
   app-logs:
