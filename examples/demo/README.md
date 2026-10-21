@@ -37,3 +37,14 @@ and posts the result to Signal. Build it once:
 `(cd ../../../platform-signal-private && cargo build --bin signal-enrich)`.
 With `private on`, the privileged actions (`iam:CreateUser`, `iam:CreateAccessKey`) raise
 the private finding; `s3:ListBuckets` is enriched and stored but raises nothing.
+
+### Notifications through the private outbox
+
+`./demo.sh notify` runs `signal-notify` (private repo; build with
+`cargo build --bin signal-notify`). It reads the public `GET /v1/findings/feed`, commits
+each page plus its delivery plan in one transaction to a local SQLite outbox
+(`.outbox/`), applies the private routing policy (high and critical go to the
+webhook) and sends with a stable `Idempotency-Key`. `./demo.sh webhook-logs` shows what
+the receiver got. Start the stack with `WEBHOOK_FAIL_FIRST=2 ./demo.sh up` to see 503s
+retried with the same key. Re-running `notify` only plans findings newer than the
+stored cursor. `./demo.sh notify --watch` keeps polling.
