@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: ./demo.sh up|down|inject <scenario>|findings|events|stats|crash|private on|off|replay|live
+# Usage: ./demo.sh up|down|inject <scenario>|findings|events|stats|crash|private on|off|replay|live|notify|webhook-logs
 set -euo pipefail
 cd "$(dirname "$0")"
 TOKEN_FILE=".token"
@@ -13,7 +13,7 @@ case "${1:-}" in
   up)   dc up -d --no-build
         until curl -fs "$BASE/readyz" >/dev/null; do sleep 1; done
         echo "ready: $BASE/ui   token in examples/demo/.token" ;;
-  down) dc down ${2:-} ;;
+  down) dc down ${2:-}; [ "${2:-}" = "-v" ] && rm -rf .outbox || true ;;
   inject) dc run --rm --no-deps billing-api python /emitter.py --mode http --only "${2:?brute-force|priv-grant|export|tamper}" ;;
   findings) api "/v1/findings?limit=${2:-20}" | python3 -m json.tool ;;
   events)   shift; api "/v1/events?order=desc&limit=10${1:+&$1}" | python3 -m json.tool ;;
@@ -58,5 +58,10 @@ PY
     python3 -c 'import sys,json; print(json.dumps({"events":[json.loads(l) for l in sys.stdin]}))' |
     curl -fsS -H "authorization: Bearer $SIGNAL_API_TOKEN" -H 'content-type: application/json' -d @- "$BASE/v1/events/batch" |
     python3 -c 'import sys,json; r=json.load(sys.stdin); print("enriched and accepted:", r["accepted"])' ;;
+  notify) # private outbox: findings feed -> routing policy -> webhook (add --watch to keep running)
+    BIN="${OVERLAY_NOTIFY_BIN:-$OVERLAY/../../target/debug/signal-notify}"
+    [ -x "$BIN" ] || { echo "build it: (cd $OVERLAY/../.. && cargo build --bin signal-notify)" >&2; exit 1; }
+    SIGNAL_URL="$BASE" NOTIFY_DIR="$PWD/.outbox" "$BIN" $([ "${2:-}" = "--watch" ] || echo --once) ;;
+  webhook-logs) dc logs --no-log-prefix --tail "${2:-20}" webhook ;;
   *) sed -n 2p "$0"; exit 1 ;;
 esac
