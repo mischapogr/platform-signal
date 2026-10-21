@@ -1,0 +1,15 @@
+apiVersion: signal.dev/v1
+kind: Rule
+metadata:
+  id: iam.privilege-grant
+  name: Privilege granted
+spec:
+  severity: high
+  match:
+    all:
+      - field: attributes.event.action
+        eq: role.grant
+      - field: attributes.event.outcome
+        eq: success
+  finding:
+    title: Privileged role granted

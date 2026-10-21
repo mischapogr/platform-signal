@@ -1,0 +1,68 @@
+# Demo stack: signal-server + an HTTP-posting app + a legacy file-logging app
+# tailed by signal-agent. Run from this directory via ./demo.sh up.
+x-hardened: &hardened
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+
+services:
+  signal:
+    <<: *hardened
+    image: ${SIGNAL_SERVER_IMAGE:-platform-signal:security-server-20261010t135428z}
+    user: "65532:65532"
+    ports:
+      - "127.0.0.1:${SIGNAL_HTTP_PORT:-8080}:8080"
+      - "127.0.0.1:${SIGNAL_METRICS_PORT:-9090}:9090"
+    environment:
+      - SIGNAL_CONFIG=/etc/signal/server.yaml
+      - SIGNAL_API_TOKEN
+    volumes:
+      - signal-data:/var/lib/signal
+      - ../../deploy/compose/server.yaml:/etc/signal/server.yaml:ro
+      - ./rules:/etc/signal/rules:ro
+    tmpfs: ["/tmp:size=16777216,mode=1777"]
+
+  # Source 1: an application that posts straight to the HTTP API.
+  billing-api:
+    <<: *hardened
+    image: python:3.13-alpine
+    user: "65532:65532"
+    depends_on: [signal]
+    environment: [SIGNAL_API_TOKEN]
+    volumes: ["./emitter/emitter.py:/emitter.py:ro"]
+    command: ["python", "-u", "/emitter.py", "--mode", "http", "--name", "billing-api", "--scenario-every", "15"]
+
+  # Source 2: a legacy app that only writes a log file.
+  legacy-app:
+    <<: *hardened
+    image: python:3.13-alpine
+    # root only so it can create the shared named volume's log file; all caps dropped
+    volumes:
+      - app-logs:/logs
+      - ./emitter/emitter.py:/emitter.py:ro
+    command: ["python", "-u", "/emitter.py", "--mode", "file", "--file", "/logs/legacy-app.log", "--interval", "2", "--scenario-every", "25"]
+
+  # ...collected by the edge agent: file -> durable spool -> /v1/events/batch.
+  agent:
+    <<: *hardened
+    image: ${SIGNAL_AGENT_IMAGE:-platform-signal:security-agent-20261010t135428z}
+    user: "65532:65532"
+    depends_on: [signal, legacy-app]
+    environment:
+      - SIGNAL_AGENT_SERVER=http://signal:8080
+      - SIGNAL_AGENT_API_TOKEN=${SIGNAL_API_TOKEN}
+      - SIGNAL_AGENT_SPOOL_DIR=/var/lib/signal/spool
+      - SIGNAL_AGENT_SOURCE_TYPE=application
+      - SIGNAL_AGENT_SOURCE_NAME=legacy-app
+      - SIGNAL_AGENT_FORMAT=json
+    volumes:
+      - app-logs:/logs:ro
+      - agent-spool:/var/lib/signal
+    tmpfs: ["/tmp:size=16777216,mode=1777"]
+    command: ["--file", "/logs/legacy-app.log"]
+
+volumes:
+  signal-data:
+  app-logs:
+  agent-spool:

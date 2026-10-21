@@ -1,0 +1,15 @@
+apiVersion: signal.dev/v1
+kind: Rule
+metadata:
+  id: data.sensitive-export
+  name: Sensitive export
+spec:
+  severity: high
+  match:
+    all:
+      - field: attributes.event.action
+        eq: data.export
+      - field: attributes.data.classification
+        eq: sensitive
+  finding:
+    title: Sensitive data exported
