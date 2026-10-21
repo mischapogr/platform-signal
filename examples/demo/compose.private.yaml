@@ -1,0 +1,7 @@
+# Overlay: mount the private repo's detection rules next to the public ones.
+# Nothing is copied into this repository; the path is resolved at runtime.
+services:
+  signal:
+    volumes:
+      - ./server-private.yaml:/etc/signal/server.yaml:ro
+      - ${PRIVATE_OVERLAY_DIR:-../../../platform-signal-private/overlays/example}/rules/security:/etc/signal/rules-private:ro

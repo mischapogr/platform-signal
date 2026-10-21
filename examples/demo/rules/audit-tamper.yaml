@@ -1,0 +1,15 @@
+apiVersion: signal.dev/v1
+kind: Rule
+metadata:
+  id: audit.tamper
+  name: Audit logging disabled
+spec:
+  severity: critical
+  match:
+    any:
+      - field: attributes.event.action
+        eq: audit.disable
+      - field: attributes.event.action
+        eq: cloudtrail:StopLogging
+  finding:
+    title: Audit logging was disabled
