@@ -740,3 +740,5 @@ Inventory remains36accepted/16unfinished. These bundles do not complete final
 LOCAL-CANDIDATE prerequisites or independent current-source review, actual
 AWS/EKS/vendor, released dependency, owner version/publication/main merge gates.
 No alpha or release is ready or published.
+
+EXT-AWS harness prepared, not executed — 2026-10-21. `scripts/check-eks.py` (dry-run by default, `--execute` to bill) provisions a tagged disposable EKS 1.34 cluster with EBS CSI/gp3, ECR and an S3 KMS/Object Lock bucket, verifies Small-chart ingest, pod-replacement and node-drain EBS recovery and actual S3 encryption/lock/delete-denial behaviour, then tears down with a residual scan. Four local regressions (`scripts/test-eks-gate.py`) and a full dry-run pass; no AWS account was used. Runbook: [doc 66](66-aws-eks-qualification.md). EXT-AWS stays external_pending; Standard-on-AWS, multi-AZ/HA and product S3 custody are outside this harness.
