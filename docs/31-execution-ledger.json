@@ -1443,7 +1443,7 @@
     {
       "id": "CORRELATION",
       "title": "Bounded multi-stream episodes D11/D14",
-      "status": "in_progress",
+      "status": "passed_simulated",
       "dependencies": [
         "STATE",
         "DISPOSITIONS",
@@ -1466,27 +1466,28 @@
         "target/correlation-d14-20261026/JOURNAL-CHECKPOINT.json",
         "target/correlation-d14-20261026/HISTORY-CHECKPOINT.json",
         "target/correlation-d14-20261026/native-lifecycle/frozen-native-inputs-result.json",
-        "target/correlation-d14-20261026/whole-qualification/gates.json"
+        "target/correlation-d14-20261026/whole-qualification/gates.json",
+        "target/correlation-d14-20261026/ACCEPTANCE.json"
       ],
       "references": [
         "docs/source-detection-catalog.md"
       ],
-      "notes": "D11 accepted with independent review,10frozen gates and5actualSIGKILL cuts. D14 capture/SDK,classifications,epochs,admission,sealing,journal and protected history/carry prerequisites pass focused independent review. Latest checkpoint63focused regressions(8runtimehistory/24D14/6journal/2golden/15D11/8history),40workspace-profile tests,strict rules Clippy/fmt/14boundaries. Original3outcomes and scopes survive key/scope carry and cold aliases; operation-end/pending-entry lookback and degradation floors prevent clean absence after retirement. Source drift and blocked custody I/O expiry/cancellation refuse safely. Source/private/custody/native projections synthetic; prior3journalSIGKILLcuts separately scoped. Retained-native lifecycle/catalog composition passes21cases/66records plus3actual custody SIGKILL cuts; raw/process/source/ELF/test-executable digests pinned. All13frozen workspace/helper/process gates pass1312default/1382all-feature tests. Source/private/custody authority remains synthetic; whole-item acceptance documentation remains open. CORRELATION in_progress;40accepted/12unfinished.",
+      "notes": "D11/D14 bounded local item accepted2026-10-26 after independent mechanism/catalog/final criteria reviews.13frozen gates pass1312default/1382all-feature tests, both strictClippy modes, fmt,14boundaries and helper/process regressions. Retained actual LinuxAMD64 native21cases/66records compose through journal/original publication/protected dual indexes/prune/carry/cold alias;3native custody and3runtime journal SIGKILL cuts complement D11 original/index/carry recovery. Stable original outcomes, historical classifications, exact native identity, full operation intervals and all-contributor scopes persist across newer policy and key/scope carry. Source/private/coverage/identity-link/custody authority synthetic. No automatic Main activation, full-host/currentARM64/CI/image/AWS/production/release qualification.41accepted/11unfinished; SOC-UX next.",
       "slices": {
         "D11": {
           "status": "passed_simulated",
           "evidence": "target/correlation-20261026/D11-ACCEPTANCE.json"
         },
         "D14": {
-          "status": "in_progress",
-          "evidence": "target/correlation-d14-20261026/"
+          "status": "passed_simulated",
+          "evidence": "target/correlation-d14-20261026/ACCEPTANCE.json"
         }
       }
     },
     {
       "id": "SOC-UX",
       "title": "Planned advanced SOC case/disposition/workbench workflows",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "CORRELATION",
         "DISPOSITIONS",
@@ -1497,11 +1498,37 @@
         "Response automation stays explicit opt-in; no broad new SOAR platform."
       ],
       "evidence": [
-        "target/goal-execution-20261007/SOC-UX/"
+        "target/goal-execution-20261007/SOC-UX/",
+        "target/soc-ux-20261026/backend/ACCEPTANCE.json",
+        "target/soc-ux-20261026/references/ACCEPTANCE.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
-        "docs/28-secops-ui.md"
+        "docs/28-secops-ui.md",
+        "docs/83-soc-case-workflow.md"
+      ],
+      "notes": "Two bounded local prerequisites accepted2026-10-27. Durable Small case backend passes independent review/8frozen gates,1330default/1400all-feature tests and3actualSIGKILL cuts; immutable original actor/time/request/reference inventory and commit witness preserve CAS/replay/history. Reference/internal inventory passes independent review/8frozen gates,1340default/1410all-feature tests,73focused findings tests and3SIGKILL cuts; exact physical frame SHA/provenance and bounded metadata/snapshot/lease/read-byte budgets qualified. Host actor/reference/assignee authority synthetic; constructors do not authenticate. Opaque host data grants no client access and canonical provenance is not a complete episode provider. Actual identity/assignee/provider/audit API,durable dispositions,evidence console and browser/restart remain open. SOC-UX in_progress;41accepted/11unfinished. Failed attempts and test-only config-reader fixture correction retained in evidence.",
+      "substeps": [
+        {
+          "id": "durable-small-case-assignment-backend",
+          "status": "passed_local",
+          "accepted_at": "2026-10-27",
+          "evidence": "target/soc-ux-20261026/backend/ACCEPTANCE.json"
+        },
+        {
+          "id": "bounded-reference-inventory-and-exact-resolution",
+          "status": "passed_local",
+          "accepted_at": "2026-10-27",
+          "evidence": "target/soc-ux-20261026/references/ACCEPTANCE.json"
+        },
+        {
+          "id": "scoped-api-audit-and-durable-dispositions",
+          "status": "pending"
+        },
+        {
+          "id": "case-evidence-console-browser-restart",
+          "status": "pending"
+        }
       ]
     },
     {

@@ -375,6 +375,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn configuration_loads_through_the_bounded_document_reader() -> Result {
+        let _worker_fixture = config::FILE_WORKER_TEST_LOCK.lock().await;
         let dir = tempfile::tempdir()?;
         let path = dir.path().join("sensor.json");
         std::fs::write(

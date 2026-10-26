@@ -1,5 +1,7 @@
 //! Versioned deterministic findings and bounded durable journal persistence.
+pub mod cases;
 pub mod disposition;
+pub mod resolution;
 mod scope;
 mod store;
 pub use scope::{DerivedFinding, ScopedFinding};

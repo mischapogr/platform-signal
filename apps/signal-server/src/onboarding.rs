@@ -394,6 +394,52 @@ mod tests {
         Ok(())
     }
     #[tokio::test]
+    async fn occupied_configuration_reader_blocks_coverage_until_physical_retirement() -> Result {
+        let _worker_fixture = config::FILE_WORKER_TEST_LOCK.lock().await;
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("report.json");
+        let (host, payload, _) = setup(&path, Utc::now())?;
+        let original = envelope(&payload)?;
+        std::fs::write(&path, &original)?;
+        let (started, ready) = tokio::sync::oneshot::channel();
+        let (release, wait) = std::sync::mpsc::sync_channel(1);
+        let reader = tokio::spawn(config::read_limited_document(
+            path.clone(),
+            MAX_DOCUMENT,
+            Instant::now() + Duration::from_secs(5),
+            CancellationToken::new(),
+            move |_| {
+                let _ = started.send(());
+                wait.recv_timeout(Duration::from_secs(3))
+                    .map_err(|_| ConfigError::Timeout)?;
+                Ok(())
+            },
+        ));
+        tokio::time::timeout(Duration::from_secs(2), ready).await??;
+        let blocked = host
+            .snapshot(&RuleContext::new(Duration::from_secs(2)))
+            .await?;
+        assert!(!blocked.report.detections[0].active);
+        assert_ne!(
+            blocked.report.coverage.status(),
+            signal_collector_sdk::coverage::CoverageStatus::Verified
+        );
+        release.send(())?;
+        // This await joins physical retirement, not just delivery of a worker result.
+        reader.await??;
+        let current = host
+            .snapshot(&RuleContext::new(Duration::from_secs(2)))
+            .await?;
+        assert!(current.report.detections[0].active);
+        assert_eq!(
+            current.report.coverage.status(),
+            signal_collector_sdk::coverage::CoverageStatus::Verified
+        );
+        assert_eq!(std::fs::read_to_string(path)?, original);
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn window_actual_signed_coverage_atomic_outbox_publication_and_replay() -> Result {
         use signal_buffer::{BufferMetrics, SequencedEvent};
         use signal_findings::{FindingConfig, FindingContext, FindingStore};

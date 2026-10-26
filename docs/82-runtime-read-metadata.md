@@ -1,6 +1,7 @@
 # Metadata-only runtime READ profile
 
-D14 implementation contract, not acceptance. Existing Falco open/exec/connect
+D14 implementation contract; bounded local acceptance and exact evidence are in
+`target/correlation-d14-20261026/ACCEPTANCE.json`. Existing Falco open/exec/connect
 profiles and their original bytes remain unchanged. A read-capable open is not an
 actual successful READ. A JSON whitelist alone does not prove that a sensor did
 not capture buffers internally. No credential contents, read-buffer addresses,

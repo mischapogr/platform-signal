@@ -1,33 +1,26 @@
 # Finite execution ledger
 
-Current inventory — 2026-10-26: **40 accepted / 12 unfinished** (14 passed_local,
-24 passed_simulated, 2 passed_external, 7 pending, 1 in_progress and 4 external_pending).
-STATE is passed_simulated for D04/D06/D08/D09/D13; D12 remains explicitly deferred
-to AWS-PROFILES. Independent source/criteria reviews, eight frozen gates,
-1238default/1308all-feature tests and five actual SIGKILL/original replay/policy
-generation cases pass. Evidence:`target/scoped-state-20261026/ACCEPTANCE.json`;
-[contract80](80-scoped-state.md). Source/private authority are synthetic; hosts own
-protected archives/index and exclusive activation. Next: CORRELATION (in_progress),
-D11 accepted as a slice (`target/correlation-20261026/D11-ACCEPTANCE.json`);
-D14 in_progress, whole CORRELATION stays unfinished. Older dated inventories below
-describe their own revisions.
-D14 capture/SDK focused checkpoint:21owned native x86_64 cases,seven SDK tests,
-retained-native composition and D11 exact-byte golden compatibility; see
-`target/correlation-d14-20261026/SDK-CHECKPOINT.json`. Classification/join/replay
-and whole-item acceptance remain open; inventory unchanged. Typed historical
-classification/seven core tests plus21case SDK/core bridge now pass focused checks;
-`target/correlation-d14-20261026/CORE-CHECKPOINT.json`. Shared admission/sealing
-and journal prerequisites now pass focused independent review,55regressions,
-32workspace-profile tests,strict rules checks and3actual owned SIGKILL cuts:
-`target/correlation-d14-20261026/JOURNAL-CHECKPOINT.json`. Inputs/authority are
-synthetic. Protected history/carry now passes focused independent review,63regressions,
-40workspace-profile tests and strict rules checks; original3outcomes/key/scope
-rollover and blocked custody I/O are preserved. Evidence:
-`target/correlation-d14-20261026/HISTORY-CHECKPOINT.json`. Native lifecycle/catalog
-composition now passes21cases/66records and3actual custody SIGKILL cuts. All13frozen
-workspace/helper/process gates pass1312default/1382all-feature tests; see
-`target/correlation-d14-20261026/whole-qualification/gates.json`. Synthetic authority
-remains explicit. Whole-item acceptance documentation remains open; inventory unchanged.
+Current inventory — 2026-10-27: **41 accepted / 11 unfinished** (14 passed_local,
+25 passed_simulated,2 passed_external,6 pending,1 in_progress and4 external_pending).
+CORRELATION D11/D14 passes bounded local simulation after independent source,
+catalog and final criteria review.13frozen gates pass1312default/1382all-feature
+tests,both strictClippy modes,fmt,14boundaries and helper/process regressions.
+Retained scoped LinuxAMD64 native21cases/66records compose through journal,
+original publication,protected dual indexes,prune,carry and cold aliases;
+3native custody/3runtime journal SIGKILL cuts complement D11 recovery evidence.
+Source/private/coverage/identity-link/custody authority remains synthetic.
+Evidence:`target/correlation-d14-20261026/ACCEPTANCE.json`;
+[contract81](81-correlation-episodes.md),[profile82](82-runtime-read-metadata.md).
+SOC-UX in_progress; its Small durable case/assignment backend passes independent
+review/8frozen gates,1330default/1400all-feature tests,17focused probes and3SIGKILL
+cuts. Evidence:`target/soc-ux-20261026/backend/ACCEPTANCE.json`; host authority is
+synthetic. Reference/internal inventory also passes review/8frozen gates,1340default/
+1410all-feature tests,73focused findings checks and3owned SIGKILL cuts; exact frame/
+provenance and bounded snapshot/lease/private metadata stay host data,not grants.
+Evidence:`target/soc-ux-20261026/references/ACCEPTANCE.json`. Next: identity/assignee/
+provider/audit API,durable dispositions and console with actual browser/restart tests. AWS,current ARM64/CI/images,
+production and release/publication remain separate. Earlier dated counts below
+apply only to their own revisions; STATE D12 remains deferred to AWS-PROFILES.
 
 Dependency rewrite — 2026-10-23. EKS-AUDIT now depends on SMALL-PILOT (Kubernetes audit
 normalization; the EKS CloudWatch transport stays with CLOUDWATCH), BASELINES drops
