@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "name": "positive",
+      "raw_utf8": "{\"apiVersion\":\"audit.k8s.io/v1\",\"kind\":\"Event\",\"level\":\"RequestResponse\",\"auditID\":\"synthetic-audit\",\"stage\":\"ResponseComplete\",\"verb\":\"create\",\"requestURI\":\"/api/v1/namespaces/fixture/pods\",\"requestReceivedTimestamp\":\"2026-10-24T10:00:00Z\",\"stageTimestamp\":\"2026-10-24T10:00:01Z\",\"user\":{\"username\":\"synthetic\"},\"objectRef\":{\"resource\":\"pods\",\"namespace\":\"fixture\",\"name\":\"fixture-pod\"},\"responseStatus\":{\"code\":201},\"responseObject\":{\"apiVersion\":\"v1\",\"kind\":\"Pod\",\"metadata\":{\"name\":\"fixture-pod\",\"namespace\":\"fixture\",\"uid\":\"synthetic-pod-uid\"},\"spec\":{\"containers\":[{\"name\":\"main\",\"securityContext\":{\"privileged\":true}}]}}}",
+      "expected_privileged": true,
+      "expected_findings": 1
+    },
+    {
+      "name": "negative",
+      "raw_utf8": "{\"apiVersion\":\"audit.k8s.io/v1\",\"kind\":\"Event\",\"level\":\"RequestResponse\",\"auditID\":\"synthetic-audit\",\"stage\":\"ResponseComplete\",\"verb\":\"create\",\"requestURI\":\"/api/v1/namespaces/fixture/pods\",\"requestReceivedTimestamp\":\"2026-10-24T10:00:00Z\",\"stageTimestamp\":\"2026-10-24T10:00:01Z\",\"user\":{\"username\":\"synthetic\"},\"objectRef\":{\"resource\":\"pods\",\"namespace\":\"fixture\",\"name\":\"fixture-pod\"},\"responseStatus\":{\"code\":201},\"responseObject\":{\"apiVersion\":\"v1\",\"kind\":\"Pod\",\"metadata\":{\"name\":\"fixture-pod\",\"namespace\":\"fixture\",\"uid\":\"synthetic-pod-uid\"},\"spec\":{\"containers\":[{\"name\":\"main\",\"securityContext\":{\"privileged\":false}}]}}}",
+      "expected_privileged": false,
+      "expected_findings": 0
+    },
+    {
+      "name": "metadata",
+      "raw_utf8": "{\"apiVersion\":\"audit.k8s.io/v1\",\"kind\":\"Event\",\"level\":\"Metadata\",\"auditID\":\"synthetic-audit\",\"stage\":\"ResponseComplete\",\"verb\":\"create\",\"requestURI\":\"/api/v1/namespaces/fixture/pods\",\"requestReceivedTimestamp\":\"2026-10-24T10:00:00Z\",\"stageTimestamp\":\"2026-10-24T10:00:01Z\",\"user\":{\"username\":\"synthetic\"},\"objectRef\":{\"resource\":\"pods\",\"namespace\":\"fixture\",\"name\":\"fixture-pod\"},\"responseStatus\":{\"code\":201}}",
+      "expected_privileged": null,
+      "expected_findings": 0
+    },
+    {
+      "name": "request-only",
+      "raw_utf8": "{\"apiVersion\":\"audit.k8s.io/v1\",\"kind\":\"Event\",\"level\":\"Request\",\"auditID\":\"synthetic-audit\",\"stage\":\"ResponseComplete\",\"verb\":\"create\",\"requestURI\":\"/api/v1/namespaces/fixture/pods\",\"requestReceivedTimestamp\":\"2026-10-24T10:00:00Z\",\"stageTimestamp\":\"2026-10-24T10:00:01Z\",\"user\":{\"username\":\"synthetic\"},\"objectRef\":{\"resource\":\"pods\",\"namespace\":\"fixture\",\"name\":\"fixture-pod\"},\"responseStatus\":{\"code\":201},\"requestObject\":{\"apiVersion\":\"v1\",\"kind\":\"Pod\",\"metadata\":{\"name\":\"fixture-pod\",\"namespace\":\"fixture\",\"uid\":\"synthetic-pod-uid\"},\"spec\":{\"containers\":[{\"name\":\"main\",\"securityContext\":{\"privileged\":true}}]}}}",
+      "expected_privileged": null,
+      "expected_findings": 0
+    },
+    {
+      "name": "dry-run",
+      "raw_utf8": "{\"apiVersion\":\"audit.k8s.io/v1\",\"kind\":\"Event\",\"level\":\"RequestResponse\",\"auditID\":\"synthetic-audit\",\"stage\":\"ResponseComplete\",\"verb\":\"create\",\"requestURI\":\"/api/v1/namespaces/fixture/pods?dryRun=All\",\"requestReceivedTimestamp\":\"2026-10-24T10:00:00Z\",\"stageTimestamp\":\"2026-10-24T10:00:01Z\",\"user\":{\"username\":\"synthetic\"},\"objectRef\":{\"resource\":\"pods\",\"namespace\":\"fixture\",\"name\":\"fixture-pod\"},\"responseStatus\":{\"code\":201},\"responseObject\":{\"apiVersion\":\"v1\",\"kind\":\"Pod\",\"metadata\":{\"name\":\"fixture-pod\",\"namespace\":\"fixture\",\"uid\":\"synthetic-pod-uid\"},\"spec\":{\"containers\":[{\"name\":\"main\",\"securityContext\":{\"privileged\":true}}]}}}",
+      "expected_privileged": null,
+      "expected_findings": 0
+    },
+    {
+      "name": "denied",
+      "raw_utf8": "{\"apiVersion\":\"audit.k8s.io/v1\",\"kind\":\"Event\",\"level\":\"RequestResponse\",\"auditID\":\"synthetic-audit\",\"stage\":\"ResponseComplete\",\"verb\":\"create\",\"requestURI\":\"/api/v1/namespaces/fixture/pods\",\"requestReceivedTimestamp\":\"2026-10-24T10:00:00Z\",\"stageTimestamp\":\"2026-10-24T10:00:01Z\",\"user\":{\"username\":\"synthetic\"},\"objectRef\":{\"resource\":\"pods\",\"namespace\":\"fixture\",\"name\":\"fixture-pod\"},\"responseStatus\":{\"code\":403},\"responseObject\":{\"apiVersion\":\"v1\",\"kind\":\"Pod\",\"metadata\":{\"name\":\"fixture-pod\",\"namespace\":\"fixture\",\"uid\":\"synthetic-pod-uid\"},\"spec\":{\"containers\":[{\"name\":\"main\",\"securityContext\":{\"privileged\":true}}]}}}",
+      "expected_privileged": null,
+      "expected_findings": 0
+    },
+    {
+      "name": "missing-spec",
+      "raw_utf8": "{\"apiVersion\":\"audit.k8s.io/v1\",\"kind\":\"Event\",\"level\":\"RequestResponse\",\"auditID\":\"synthetic-audit\",\"stage\":\"ResponseComplete\",\"verb\":\"create\",\"requestURI\":\"/api/v1/namespaces/fixture/pods\",\"requestReceivedTimestamp\":\"2026-10-24T10:00:00Z\",\"stageTimestamp\":\"2026-10-24T10:00:01Z\",\"user\":{\"username\":\"synthetic\"},\"objectRef\":{\"resource\":\"pods\",\"namespace\":\"fixture\",\"name\":\"fixture-pod\"},\"responseStatus\":{\"code\":201},\"responseObject\":{\"apiVersion\":\"v1\",\"kind\":\"Pod\",\"metadata\":{\"name\":\"fixture-pod\",\"namespace\":\"fixture\",\"uid\":\"synthetic-pod-uid\"}}}",
+      "expected_privileged": null,
+      "expected_findings": 0
+    },
+    {
+      "name": "init-positive",
+      "raw_utf8": "{\"apiVersion\":\"audit.k8s.io/v1\",\"kind\":\"Event\",\"level\":\"RequestResponse\",\"auditID\":\"synthetic-audit\",\"stage\":\"ResponseComplete\",\"verb\":\"create\",\"requestURI\":\"/api/v1/namespaces/fixture/pods\",\"requestReceivedTimestamp\":\"2026-10-24T10:00:00Z\",\"stageTimestamp\":\"2026-10-24T10:00:01Z\",\"user\":{\"username\":\"synthetic\"},\"objectRef\":{\"resource\":\"pods\",\"namespace\":\"fixture\",\"name\":\"fixture-pod\"},\"responseStatus\":{\"code\":201},\"responseObject\":{\"apiVersion\":\"v1\",\"kind\":\"Pod\",\"metadata\":{\"name\":\"fixture-pod\",\"namespace\":\"fixture\",\"uid\":\"synthetic-pod-uid\"},\"spec\":{\"containers\":[{\"name\":\"main\"}],\"initContainers\":[{\"name\":\"init\",\"securityContext\":{\"privileged\":true}}]}}}",
+      "expected_privileged": true,
+      "expected_findings": 1
+    }
+  ]
+}

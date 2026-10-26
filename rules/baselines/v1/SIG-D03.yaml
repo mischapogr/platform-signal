@@ -1,0 +1,44 @@
+{
+  "apiVersion": "signal.dev/v1",
+  "kind": "Rule",
+  "metadata": {
+    "id": "SIG-D03",
+    "name": "Successful IAM or root console login without MFA"
+  },
+  "spec": {
+    "severity": "high",
+    "match": {
+      "all": [
+        {
+          "field": "source.type",
+          "eq": "cloudtrail"
+        },
+        {
+          "field": "attributes.security.action",
+          "eq": "identity.console_login"
+        },
+        {
+          "field": "attributes.security.outcome",
+          "eq": "success"
+        },
+        {
+          "field": "attributes.security.mfa_used",
+          "eq": false
+        }
+      ],
+      "any": [
+        {
+          "field": "attributes.security.actor_kind",
+          "eq": "IAMUser"
+        },
+        {
+          "field": "attributes.security.actor_kind",
+          "eq": "Root"
+        }
+      ]
+    },
+    "finding": {
+      "title": "Successful IAM or root console login without MFA"
+    }
+  }
+}

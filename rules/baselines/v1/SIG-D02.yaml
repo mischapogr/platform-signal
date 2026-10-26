@@ -1,0 +1,36 @@
+{
+  "apiVersion": "signal.dev/v1",
+  "kind": "Rule",
+  "metadata": {
+    "id": "SIG-D02",
+    "name": "Audit collection stopped or deleted"
+  },
+  "spec": {
+    "severity": "critical",
+    "match": {
+      "all": [
+        {
+          "field": "source.type",
+          "eq": "cloudtrail"
+        },
+        {
+          "field": "attributes.security.outcome",
+          "eq": "success"
+        }
+      ],
+      "any": [
+        {
+          "field": "attributes.security.action",
+          "eq": "audit.stop"
+        },
+        {
+          "field": "attributes.security.action",
+          "eq": "audit.delete"
+        }
+      ]
+    },
+    "finding": {
+      "title": "Audit collection stopped or deleted"
+    }
+  }
+}

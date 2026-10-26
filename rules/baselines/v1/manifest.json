@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "pack_id": "security-baselines",
+  "revision": "1.0.0",
+  "activation": "private_explicit_selection",
+  "detections": [
+    {
+      "id": "SIG-D01",
+      "rule_file": "SIG-D01.yaml",
+      "rule_sha256": "4e061ec847d4f6c836198bdc120efeb8db4688de4ecbdea697cbae13c516d68d",
+      "source_type": "cloudtrail",
+      "normalization_profile": "cloudtrail-management-v1",
+      "actions": [],
+      "required_fields": [
+        {
+          "path": "attributes.security.outcome",
+          "kind": "string"
+        },
+        {
+          "path": "attributes.security.actor_kind",
+          "kind": "string"
+        }
+      ],
+      "source_profiles": [
+        "S01"
+      ],
+      "source_preconditions": [
+        "Required accounts/regions and read/write selectors enabled; collector can read delivered originals; exclusions and delivery delay known. Data events are a separate opt-in scope."
+      ],
+      "explanation": "A successful audited activity uses a Root identity. Confidence concerns the recorded activity, not whether it is malicious.",
+      "suggested_severity": "high",
+      "confidence": "High for root activity; intent requires investigation.",
+      "investigation": "Verify emergency/change authorization and affected resources; inspect adjacent activity before escalation."
+    },
+    {
+      "id": "SIG-D02",
+      "rule_file": "SIG-D02.yaml",
+      "rule_sha256": "f1d07617c526161d2d4b0de5f52cc1c72717c3374929070129453c715983e3b1",
+      "source_type": "cloudtrail",
+      "normalization_profile": "cloudtrail-management-v1",
+      "actions": [
+        "audit.stop",
+        "audit.delete"
+      ],
+      "required_fields": [
+        {
+          "path": "attributes.security.outcome",
+          "kind": "string"
+        }
+      ],
+      "source_profiles": [
+        "S01",
+        "S07"
+      ],
+      "source_preconditions": [
+        "Required accounts/regions and read/write selectors enabled; collector can read delivered originals; exclusions and delivery delay known. Data events are a separate opt-in scope.",
+        "Observer has independent failure visibility; expectations exist before silence; freshness and outage budgets bounded. An unhealthy observer yields unknown coverage."
+      ],
+      "explanation": "Successful stop/delete operation on an audit trail; independent observer separately verifies resulting collection state.",
+      "suggested_severity": "critical",
+      "confidence": "High for successful operation; coverage impact independently verified.",
+      "investigation": "Validate approved maintenance and current audit scope; restore collection through an authorized runbook and investigate actor."
+    },
+    {
+      "id": "SIG-D03",
+      "rule_file": "SIG-D03.yaml",
+      "rule_sha256": "2bfb433f6e775bb29c48fd5168dc166cea3094e05fca4e1f0288cd3e081fce0e",
+      "source_type": "cloudtrail",
+      "normalization_profile": "cloudtrail-management-v1",
+      "actions": [
+        "identity.console_login"
+      ],
+      "required_fields": [
+        {
+          "path": "attributes.security.outcome",
+          "kind": "string"
+        },
+        {
+          "path": "attributes.security.actor_kind",
+          "kind": "string"
+        },
+        {
+          "path": "attributes.security.mfa_used",
+          "kind": "boolean"
+        }
+      ],
+      "source_profiles": [
+        "S01"
+      ],
+      "source_preconditions": [
+        "Required accounts/regions and read/write selectors enabled; collector can read delivered originals; exclusions and delivery delay known. Data events are a separate opt-in scope."
+      ],
+      "explanation": "Successful ConsoleLogin, actor_kind IAMUser or Root, and explicit mfa_used=false. AssumedRole/federated No is not proof that IdP MFA was absent.",
+      "suggested_severity": "high",
+      "confidence": "High for native IAM/root MFA observation; federated coverage unsupported without IdP source.",
+      "investigation": "Validate identity and access policy; inspect session actions and investigate unapproved access."
+    },
+    {
+      "id": "SIG-D05",
+      "rule_file": "SIG-D05.yaml",
+      "rule_sha256": "d5309d8842db18fea27876850f74d6a8ac77f21246dc8e6f6c00926690885832",
+      "source_type": "cloudtrail",
+      "normalization_profile": "cloudtrail-management-v1",
+      "actions": [
+        "control.disable"
+      ],
+      "required_fields": [
+        {
+          "path": "attributes.security.outcome",
+          "kind": "string"
+        }
+      ],
+      "source_profiles": [
+        "S01",
+        "S07"
+      ],
+      "source_preconditions": [
+        "Required accounts/regions and read/write selectors enabled; collector can read delivered originals; exclusions and delivery delay known. Data events are a separate opt-in scope.",
+        "Observer has independent failure visibility; expectations exist before silence; freshness and outage budgets bounded. An unhealthy observer yields unknown coverage."
+      ],
+      "explanation": "Successful supported control-disable operation. Independent coverage verifies actual impact.",
+      "suggested_severity": "high",
+      "confidence": "High for operation; disabling one detector does not prove all regional/org coverage disabled.",
+      "investigation": "Validate maintenance and affected scope; restore expected control configuration with approval."
+    },
+    {
+      "id": "SIG-D07",
+      "rule_file": "SIG-D07.yaml",
+      "rule_sha256": "8208a16bb253b0edc5af0ac7cf6ae811d33e7999fd71e1f73cd32f461f12d1a2",
+      "source_type": "kubernetes.audit",
+      "normalization_profile": "kubernetes-audit-v1",
+      "actions": [
+        "k8s.workload.write"
+      ],
+      "required_fields": [
+        {
+          "path": "attributes.security.outcome",
+          "kind": "string"
+        },
+        {
+          "path": "attributes.security.privileged",
+          "kind": "boolean"
+        }
+      ],
+      "source_profiles": [
+        "S03"
+      ],
+      "source_preconditions": [
+        "Audit collection explicitly enabled and delivered; policy includes required resources/verbs and adequate request/response detail. Metadata-only records cannot prove a privileged pod specification."
+      ],
+      "explanation": "Successful workload write whose admitted workload specification has privileged=true. A rejected request is not an admitted workload.",
+      "suggested_severity": "high",
+      "confidence": "High with confirmed admitted spec; request-only is lower-confidence candidate.",
+      "investigation": "Validate workload owner and approved exception; inspect container image and operator identity."
+    }
+  ]
+}

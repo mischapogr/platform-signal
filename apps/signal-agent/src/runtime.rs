@@ -3,7 +3,7 @@ use crate::{
     config::AgentConfig,
     http::{BatchSender, Disposition, SendError, retry_delay},
     input::{InputReader, ReadOutcome},
-    spool::{Spool, SpoolError},
+    spool::{CursorProfile, Spool, SpoolError},
 };
 use std::{
     io,
@@ -25,6 +25,8 @@ use tokio_util::sync::CancellationToken;
 pub enum AgentError {
     #[error("agent input failed")]
     Input,
+    #[error("node worker physical retirement not confirmed")]
+    NodeRetirement,
     #[error("agent spool failed")]
     Spool,
     #[error("agent HTTP configuration or admission failed")]
@@ -43,6 +45,7 @@ pub(crate) struct Counters {
     done: AtomicBool,
     pub(crate) changed: Notify,
     pub(crate) syslog: crate::syslog::Metrics,
+    node: Option<crate::node_input::Metrics>,
 }
 #[derive(Clone, Copy, Debug)]
 pub struct RuntimeReport {
@@ -54,9 +57,27 @@ pub struct RuntimeReport {
 
 /// Stop source reads before draining with one shutdown deadline.
 pub async fn run(
-    config: AgentConfig,
+    mut config: AgentConfig,
     stopping: CancellationToken,
 ) -> Result<RuntimeReport, AgentError> {
+    if let Some(node) = &config.node {
+        node.validate().map_err(|_| AgentError::Input)?;
+        if !config.inputs.is_empty() || config.syslog.is_some() {
+            return Err(AgentError::Input);
+        }
+        if config.batch_bytes != config.spool.max_batch_bytes
+            || config.batch_events != config.spool.max_batch_events
+        {
+            return Err(AgentError::Spool);
+        }
+        let mut capacity = config.spool.clone();
+        capacity.cursor_profile = CursorProfile::KubernetesNode {
+            source_binding: [0; 32],
+        };
+        capacity.validate().map_err(|_| AgentError::Spool)?;
+    } else if config.spool.cursor_profile != CursorProfile::Legacy {
+        return Err(AgentError::Input);
+    }
     config.spool.validate().map_err(|_| AgentError::Spool)?;
     let tls = match &config.tls_config {
         Some(path) => Some(
@@ -94,32 +115,111 @@ pub async fn run(
     } else {
         None
     };
-    let spool = Spool::open(config.spool.clone(), &stopping)
-        .await
-        .map_err(|_| AgentError::Spool)?;
-    let checkpoints = spool
-        .cursor_snapshot(&stopping)
-        .await
-        .map_err(|_| AgentError::Spool)?;
-    let inputs: Vec<_> = config
-        .inputs
-        .iter()
-        .map(|spec| {
-            InputReader::start(
-                spec.clone(),
-                checkpoints.iter().find(|c| c.input == spec.id).cloned(),
+    let startup_deadline = Instant::now() + config.request_timeout;
+    let mut node = match &config.node {
+        Some(value) => Some(
+            crate::node_input::Reader::prepare(value.clone(), startup_deadline, &stopping)
+                .await
+                .map_err(|_| AgentError::Input)?,
+        ),
+        None => None,
+    };
+    if let Some(profile) = node.as_ref().map(|r| r.profile()) {
+        if config.spool.cursor_profile != CursorProfile::Legacy
+            && config.spool.cursor_profile != profile
+        {
+            let deadline = Instant::now() + config.shutdown_timeout;
+            close_sources(&mut node, None, deadline).await?;
+            return Err(AgentError::Input);
+        }
+        config.spool.cursor_profile = profile;
+    }
+    let opening = async {
+        Spool::open(config.spool.clone(), &stopping)
+            .await
+            .map_err(|_| AgentError::Spool)
+    };
+    let opened = if node.is_some() {
+        tokio::time::timeout_at(startup_deadline, opening)
+            .await
+            .unwrap_or(Err(AgentError::Spool))
+    } else {
+        opening.await
+    };
+    let spool = match opened {
+        Ok(s) => s,
+        Err(error) => {
+            let deadline = Instant::now() + config.shutdown_timeout;
+            close_sources(&mut node, None, deadline).await?;
+            return Err(error);
+        }
+    };
+    let startup = async {
+        let reading = spool.cursor_snapshot(&stopping);
+        let checkpoints = if node.is_some() {
+            tokio::time::timeout_at(startup_deadline, reading)
+                .await
+                .map_err(|_| AgentError::Spool)?
+                .map_err(|_| AgentError::Spool)?
+        } else {
+            reading.await.map_err(|_| AgentError::Spool)?
+        };
+        if let Some(reader) = &mut node {
+            reader
+                .restore(checkpoints.clone(), startup_deadline, &stopping)
+                .await
+                .map_err(|_| AgentError::Input)?;
+        } else {
+            crate::input::validate_source_checkpoints(
+                &config.inputs,
+                &checkpoints,
+                spool.metrics().records,
             )
-            .map_err(|_| AgentError::Input)
-        })
-        .collect::<Result<_, _>>()?;
-    let stats = Arc::new(Counters::default());
+            .map_err(|_| AgentError::Input)?;
+        }
+        config
+            .inputs
+            .iter()
+            .map(|spec| {
+                InputReader::start(
+                    spec.clone(),
+                    checkpoints.iter().find(|c| c.input == spec.id).cloned(),
+                )
+                .map_err(|_| AgentError::Input)
+            })
+            .collect::<Result<Vec<_>, _>>()
+    }
+    .await;
+    let inputs = match startup {
+        Ok(value) => value,
+        Err(error) => {
+            let deadline = Instant::now() + config.shutdown_timeout;
+            close_sources(&mut node, Some(&spool), deadline).await?;
+            return Err(error);
+        }
+    };
+    let stats = Arc::new(Counters {
+        node: node.as_ref().map(|n| n.metrics()),
+        ..Default::default()
+    });
     let input_stop = stopping.child_token();
     let force_stop = CancellationToken::new();
     let mut failure = None;
     let mut deadline = None;
     {
         let producer = async {
-            if let Some(receiver) = &syslog {
+            if let Some(reader) = &mut node {
+                produce_node(
+                    reader,
+                    &spool,
+                    &stats,
+                    &input_stop,
+                    &force_stop,
+                    config.request_timeout,
+                    config.spool.max_event_bytes,
+                )
+                .await
+            } else if let Some(receiver) = &syslog {
                 receiver
                     .run(
                         &spool,
@@ -177,10 +277,8 @@ pub async fn run(
     }
     // Dropped futures release responses; physical work retains its own permits.
     let close_deadline = deadline.unwrap_or_else(|| Instant::now() + config.shutdown_timeout);
-    let close_token = CancellationToken::new();
-    let close = tokio::time::timeout_at(close_deadline, spool.close(&close_token)).await;
-    if !matches!(close, Ok(Ok(()))) {
-        failure.get_or_insert(AgentError::Spool);
+    if let Err(error) = close_sources(&mut node, Some(&spool), close_deadline).await {
+        failure.get_or_insert(error);
     }
     let report = RuntimeReport {
         accepted: stats.accepted.load(Ordering::Relaxed),
@@ -194,6 +292,91 @@ pub async fn run(
     match failure {
         Some(error) => Err(error),
         None => Ok(report),
+    }
+}
+
+async fn close_sources(
+    node: &mut Option<crate::node_input::Reader>,
+    spool: Option<&Spool>,
+    deadline: Instant,
+) -> Result<(), AgentError> {
+    let mut error = None;
+    if let Some(reader) = node
+        && reader.close(deadline).await.is_err()
+    {
+        error = Some(AgentError::NodeRetirement);
+    }
+    if let Some(spool) = spool {
+        let token = CancellationToken::new();
+        if !matches!(
+            tokio::time::timeout_at(deadline, spool.close(&token)).await,
+            Ok(Ok(()))
+        ) {
+            error.get_or_insert(AgentError::Spool);
+        }
+    }
+    error.map_or(Ok(()), Err)
+}
+async fn produce_node(
+    reader: &mut crate::node_input::Reader,
+    spool: &Spool,
+    stats: &Counters,
+    stopping: &CancellationToken,
+    force_stop: &CancellationToken,
+    timeout: Duration,
+    max_event_bytes: usize,
+) -> Result<(), AgentError> {
+    loop {
+        if stopping.is_cancelled() {
+            return Ok(());
+        }
+        let outcome = match reader.read(Instant::now() + timeout, stopping).await {
+            Ok(v) => v,
+            Err(_) if stopping.is_cancelled() => return Ok(()),
+            Err(_) => return Err(AgentError::Input),
+        };
+        match outcome {
+            ReadOutcome::End => return Ok(()),
+            ReadOutcome::Idle => {}
+            ReadOutcome::Record(record) => {
+                if let Some(event) = &record.event {
+                    let mut count = SizeLimit {
+                        bytes: 0,
+                        limit: max_event_bytes,
+                    };
+                    serde_json::to_writer(&mut count, event).map_err(|_| AgentError::Input)?;
+                }
+                loop {
+                    if stopping.is_cancelled() {
+                        return Ok(());
+                    }
+                    let result = if let Some(event) = &record.event {
+                        spool
+                            .append(event.clone(), record.checkpoint.clone(), force_stop)
+                            .await
+                            .map(|_| ())
+                    } else if let Some(cursor) = &record.checkpoint {
+                        spool.checkpoint(cursor.clone(), force_stop).await
+                    } else {
+                        return Err(AgentError::Input);
+                    };
+                    match result {
+                        Ok(()) => break,
+                        Err(SpoolError::Quota | SpoolError::Full) => {
+                            tokio::select! {biased;_=stopping.cancelled()=>return Ok(()),_=tokio::time::sleep(Duration::from_millis(50))=>{}}
+                        }
+                        Err(_) => return Err(AgentError::Spool),
+                    }
+                }
+                stats.rejected.fetch_add(record.rejected, Ordering::Relaxed);
+                reader
+                    .commit(Instant::now() + timeout, stopping)
+                    .await
+                    .map_err(|_| AgentError::Input)?;
+                stats.changed.notify_one();
+            }
+        }
+        tokio::select! {biased;_=stopping.cancelled()=>return Ok(()),_=tokio::time::sleep(Duration::from_millis(10))=>{}}
     }
 }
 
@@ -460,6 +643,9 @@ fn metrics_text(inputs: &[InputReader], spool: &Spool, stats: &Counters) -> Stri
         signal_collector_sdk::transport::dns_depth(), signal_collector_sdk::transport::dns_rejections()
     ));
     text.push_str(&stats.syslog.text());
+    if let Some(node) = &stats.node {
+        text.push_str(&node.text());
+    }
     for (index, input) in inputs.iter().enumerate() {
         let i = input.metrics();
         for (name, value) in [
@@ -562,5 +748,56 @@ mod tests {
         assert_eq!(spool.metrics().records, 0);
         spool.close(&force).await?;
         Ok(())
+    }
+    #[tokio::test]
+    #[allow(clippy::expect_used)]
+    async fn node_programmatic_batch_mismatch_and_expected_binding_refuse_before_spool_or_send() {
+        let _serial = crate::node_input::TEST_LOCK.lock().await;
+        let temp = tempfile::tempdir().expect("temp");
+        let root = temp.path().join("pods");
+        std::fs::create_dir(&root).expect("root");
+        let spool = temp.path().join("spool");
+        let args = vec![
+            "--format".into(),
+            "kubernetes-cri".into(),
+            "--node-log-root".into(),
+            root.to_str().expect("root path").into(),
+            "--node-name".into(),
+            "node-a".into(),
+            "--source-name".into(),
+            "cluster".into(),
+            "--spool-dir".into(),
+            spool.to_str().expect("spool path").into(),
+        ];
+        let mut cfg = AgentConfig::parse(args.clone()).expect("config");
+        cfg.batch_bytes = 4096;
+        assert!(matches!(
+            run(cfg, CancellationToken::new()).await,
+            Err(AgentError::Spool)
+        ));
+        assert!(!spool.exists());
+        let mut cfg = AgentConfig::parse(args).expect("config");
+        let cancel = CancellationToken::new();
+        let mut reader = crate::node_input::Reader::prepare(
+            cfg.node.clone().expect("node"),
+            Instant::now() + Duration::from_secs(2),
+            &cancel,
+        )
+        .await
+        .expect("reader");
+        let CursorProfile::KubernetesNode { mut source_binding } = reader.profile() else {
+            panic!("node profile")
+        };
+        source_binding[0] ^= 1;
+        reader
+            .close(Instant::now() + Duration::from_secs(2))
+            .await
+            .expect("close");
+        cfg.spool.cursor_profile = CursorProfile::KubernetesNode { source_binding };
+        assert!(matches!(
+            run(cfg, CancellationToken::new()).await,
+            Err(AgentError::Input)
+        ));
+        assert!(!spool.exists());
     }
 }

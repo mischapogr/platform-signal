@@ -29,7 +29,8 @@ profiles, a threat model and upgrade/release documentation.
 Native AMD64 and ARM64 remote CI pass for runtime 7fa481e (run38898992993), including
 production images and kind recovery. Actual AWS/EKS and released external dependencies
 remain unverified; the [EKS runbook](docs/66-aws-eks-qualification.md) prepares the AWS run.
-This is not a v0.1.0 release. Current evidence and next tasks are in
+The core MVP is closed without AWS; open items and owner steps are in
+[docs/68-mvp-closure.md](docs/68-mvp-closure.md). This is not a v0.1.0 release. Current evidence and next tasks are in
 [docs/07-progress.md](docs/07-progress.md).
 
 ```bash

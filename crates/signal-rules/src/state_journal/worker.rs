@@ -72,6 +72,7 @@ struct Command {
 }
 #[derive(Clone)]
 pub struct Journal {
+    config: Arc<Config>,
     sender: mpsc::Sender<Command>,
     slots: Arc<Semaphore>,
     failures: Arc<AtomicU64>,
@@ -112,6 +113,10 @@ impl Ready {
     }
 }
 impl Journal {
+    /// Immutable configuration of the actual opened journal generation.
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
     pub fn monitor(&self) -> Monitor {
         Monitor {
             sender: self.sender.downgrade(),
@@ -127,6 +132,7 @@ impl Journal {
         context: RuleContext,
     ) -> Result<(Self, Ready), Error> {
         config.validate()?;
+        let retained_config = Arc::new(config.clone());
         let lifetime = WORKERS
             .clone()
             .try_acquire_owned()
@@ -209,6 +215,7 @@ impl Journal {
             .map_err(|_| Error::Journal)?;
         Ok((
             Self {
+                config: retained_config,
                 sender,
                 slots,
                 failures,

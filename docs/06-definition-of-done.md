@@ -1,16 +1,19 @@
 # MVP Definition of Done
 
-`v0.1.0` is ready only when all required items below pass. As of 2026-10-07,
-checked boxes mean observed **local Linux AMD64** proof, with evidence IDs from
-[the release audit](21-release-readiness.md). Native ARM64, EKS, remote CI and
-released external dependencies remain open. This checkout is `0.1.0-dev.0`;
+`v0.1.0` is ready only when all required items below pass. Checked boxes mean
+observed proof, with evidence IDs from [the release audit](21-release-readiness.md):
+local Linux AMD64 for the original items and, as of 2026-10-23, native GitHub-hosted
+AMD64/ARM64 CI at runtime `7fa481e` for the portability and hardening items.
+EKS, remote CI on an independently reviewed revision and released external
+dependencies remain open; [MVP closure](68-mvp-closure.md) classifies them. This checkout is `0.1.0-dev.0`;
 it is not a released or production-qualified version.
 
 The owner confirmed that native ARM64 and an authorized EKS environment are
 unavailable and selected a minimal local Kubernetes target for the current
 milestone. K records the preceding-image kind pass; the current-image kind
 refresh fails before application startup because kube-proxy exhausts host resources.
-Actual ARM64 and EKS qualification remains deferred and unverified.
+Native ARM64 was later qualified in GitHub-hosted CI (run 38898992993); actual EKS
+qualification remains deferred and unverified.
 The owner explicitly authorized local staging/Conventional Commits on develop
 on October 7, with assigned July evening Berlin dates. Pushes and publication
 remain on hold pending their own authority. This local
@@ -128,14 +131,17 @@ external deployment work.
 ## Portability
 
 - [x] Linux AMD64 build.
-- [ ] Linux ARM64 build.
+- [x] Linux ARM64 build.
 - [x] Docker Compose smoke test.
 - [x] Kubernetes smoke test on local Linux AMD64.
-- [ ] Kubernetes smoke test on native Linux ARM64.
+- [x] Kubernetes smoke test on native Linux ARM64.
 - [ ] EKS test-environment persistent restart smoke.
 - [x] Helm lint.
 
-Evidence: C/K/T; native ARM64 and EKS are explicitly unverified.
+Evidence: C/K/T. Native ARM64 build and kind smoke pass in GitHub-hosted run
+[38898992993](https://github.com/mischapogr/platform-signal/actions/runs/38898992993)
+at runtime `7fa481e`, with digest-verified artifacts (`target/candidate-replay-retry-20261016/NATIVE-ACCEPTANCE.json`).
+kind is not EKS: the EKS box stays open and is classified post-MVP in [MVP closure](68-mvp-closure.md).
 
 ## Engineering quality
 
@@ -164,7 +170,7 @@ These required items come from [the implementation plan](04-implementation-plan.
 - [x] Benchmark and load-test report with measured limitations (L/J/Y).
 - [x] Bounded process RSS profile (L/J/Y).
 - [x] Bounded process CPU-usage profile (L/J/Y).
-- [ ] Native Linux ARM64 hardening campaign and measured benchmark.
+- [x] Native Linux ARM64 hardening campaign and measured benchmark.
 - [x] Restart and corrupted-WAL tests (B/R/C/K).
 - [x] Architecture diagram and configuration reference.
 - [x] Reviewed Unreleased development notes ([changelog](../CHANGELOG.md)).
@@ -188,7 +194,8 @@ memory plateau or production stability. The paired wrapper records
 `scope: bounded-soak`, `full_qualification: false`.
 Independent source review closed the original findings and verified campaign/report
 hashes, cleanup, storage recovery and documentation scope. Native ARM64
-hardening/benchmark measurement remains unverified.
+hardening, seven pipeline profiles and two finite 120-second soaks later passed in
+run 38898992993; they are finite measurements, not capacity or prolonged-stability proof.
 
 ## MVP demo
 

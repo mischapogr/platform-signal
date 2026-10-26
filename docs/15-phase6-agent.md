@@ -58,6 +58,12 @@ maximum 1 MiB) are counted and skipped without stalling ingestion. For a file,
 the cursor for a skipped line is durably checkpointed, so the line is not
 retried after restart.
 
+The dedicated `--format kubernetes-audit-json` file mode requires a configured
+cluster (`--source-name`) and `--audit-policy-sha256` digest. It uses the existing
+64-KiB line ceiling, durably binds source profile/path/slot to its cursor and
+refuses drift before replaying backlog. See [the audit file contract](71-kubernetes-audit-agent.md)
+for native projection, skip/replay and compatibility limits.
+
 ## CLI and environment
 
 CLI values override their matching environment values. Token configuration is
@@ -71,7 +77,8 @@ before workers start.
 | `--stdin` | — | implicit when no inputs | At most once; Linux stdin input |
 | `--once` | — | follow files | Read files to current EOF and stop |
 | `--spool-dir PATH` | `SIGNAL_AGENT_SPOOL_DIR` | `data/agent-spool` | Dedicated, exclusively locked spool directory |
-| `--format auto\|plain\|json` | `SIGNAL_AGENT_FORMAT` | `auto` | Input parsing mode |
+| `--format auto\|plain\|json\|auth-json\|fortigate\|falco-json\|kubernetes-audit-json` | `SIGNAL_AGENT_FORMAT` | `auto` | Input parsing mode |
+| `--audit-policy-sha256 HEX` | — | none | Required 64-hex policy digest in Kubernetes audit file mode |
 | `--source-type TYPE` | `SIGNAL_AGENT_SOURCE_TYPE` | `log` | Nonempty, at most 256 bytes |
 | `--source-name NAME` | `SIGNAL_AGENT_SOURCE_NAME` | none | Optional, nonempty, at most 256 bytes |
 | `--batch-events N` | `SIGNAL_AGENT_BATCH_EVENTS` | 100 | 1–1,000 events |
@@ -93,7 +100,7 @@ an event to fit the batch envelope. The spool also has bounded command and
 operation queues and a bounded record index. Its disk quota charges logical
 record bytes plus a 16 KiB metadata reserve covering state, temporary files,
 and lock metadata. The largest configured event record must fit in an empty
-spool after that reserve, 512 bytes of cursor overhead, and the 12-byte record
+spool after that reserve, 640 bytes of cursor overhead, and the 12-byte record
 frame; invalid combinations fail configuration. This is not a process RSS or
 physical filesystem block/inode quota. The record count and index-byte limits
 separately bound record and index overhead. The input workers and disk worker

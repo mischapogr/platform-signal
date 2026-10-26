@@ -2,6 +2,7 @@
 use crate::contracts::SourceCheckpoint;
 use chrono::Utc;
 use serde_json::{Map, Value};
+use sha2::{Digest, Sha256};
 use signal_event::{SCHEMA_VERSION, Severity, SignalEvent, Source};
 use std::{
     collections::VecDeque,
@@ -30,6 +31,7 @@ pub enum ParseMode {
     AuthenticationJson,
     Fortigate,
     Falco { boot_id: Uuid },
+    KubernetesAudit { policy_sha256: [u8; 32] },
 }
 #[derive(Clone, Debug)]
 pub enum InputKind {
@@ -65,6 +67,8 @@ pub enum InputError {
     Io(#[source] io::Error),
     #[error("input path must be a regular file without a symlink")]
     NotRegular,
+    #[error("input source profile binding differs from retained cursor")]
+    SourceBinding,
     #[error("input worker is busy")]
     Busy,
     #[error("input operation timed out")]
@@ -219,6 +223,75 @@ impl Drop for InputReader {
     }
 }
 
+/// Versioned immutable source binding. No file content or native claims grant
+/// cluster/policy authority. Absolute lexical paths do not follow symlinks.
+pub(crate) fn source_binding(spec: &InputSpec) -> Result<Option<String>, InputError> {
+    let ParseMode::KubernetesAudit { policy_sha256 } = spec.mode else {
+        return Ok(None);
+    };
+    let InputKind::File(path) = &spec.kind else {
+        return Err(InputError::SourceBinding);
+    };
+    let cluster = spec
+        .source
+        .name
+        .as_deref()
+        .ok_or(InputError::SourceBinding)?;
+    let revision: String = policy_sha256.iter().map(|b| format!("{b:02x}")).collect();
+    signal_collector_sdk::kubernetes_audit::Profile::new(cluster, &revision)
+        .map_err(|_| InputError::SourceBinding)?;
+    if spec.source.source_type != "kubernetes.audit" {
+        return Err(InputError::SourceBinding);
+    }
+    let path = std::path::absolute(path)?;
+    let path = path.as_os_str().as_encoded_bytes();
+    if path.len() > 4096 {
+        return Err(InputError::SourceBinding);
+    }
+    let mut hash = Sha256::new();
+    hash.update(b"platform-signal/agent-kubernetes-audit-file/v1\0");
+    hash.update(spec.id.to_le_bytes());
+    hash.update((spec.max_line_bytes as u64).to_le_bytes());
+    for field in [path, cluster.as_bytes(), &policy_sha256] {
+        hash.update((field.len() as u64).to_le_bytes());
+        hash.update(field);
+    }
+    Ok(Some(
+        hash.finalize().iter().map(|b| format!("{b:02x}")).collect(),
+    ))
+}
+/// Must run before forwarding old backlog, including when a bound input was
+/// removed entirely. Worker-side validation alone would race the sender.
+pub(crate) fn validate_source_checkpoints(
+    inputs: &[InputSpec],
+    checkpoints: &[SourceCheckpoint],
+    pending_records: usize,
+) -> Result<(), InputError> {
+    if pending_records > 0
+        && inputs
+            .iter()
+            .any(|s| matches!(s.mode, ParseMode::KubernetesAudit { .. }))
+        && !checkpoints.iter().any(|c| c.source_binding.is_some())
+    {
+        return Err(InputError::SourceBinding);
+    }
+    for checkpoint in checkpoints {
+        if checkpoint.source_identity.is_some() {
+            return Err(InputError::SourceBinding);
+        }
+        let expected = inputs
+            .iter()
+            .find(|s| s.id == checkpoint.input)
+            .map(source_binding)
+            .transpose()?
+            .flatten();
+        if checkpoint.source_binding != expected {
+            return Err(InputError::SourceBinding);
+        }
+    }
+    Ok(())
+}
+
 struct State {
     spec: InputSpec,
     file: File,
@@ -228,9 +301,17 @@ struct State {
     oversized: bool,
     ended: bool,
     stdin_buffer: VecDeque<u8>,
+    source_binding: Option<String>,
 }
 impl State {
     fn open(spec: InputSpec, checkpoint: Option<SourceCheckpoint>) -> Result<Self, InputError> {
+        let source_binding = source_binding(&spec)?;
+        if checkpoint
+            .as_ref()
+            .is_some_and(|c| c.source_identity.is_some() || c.source_binding != source_binding)
+        {
+            return Err(InputError::SourceBinding);
+        }
         let file = match &spec.kind {
             InputKind::Stdin => OpenOptions::new()
                 .read(true)
@@ -248,6 +329,7 @@ impl State {
             oversized: false,
             ended: false,
             stdin_buffer: VecDeque::with_capacity(4096),
+            source_binding,
         };
         if let (InputKind::File(_), Some(cursor)) = (&state.spec.kind, checkpoint) {
             let metadata = state.file.metadata()?;
@@ -358,6 +440,8 @@ impl State {
                 inode: metadata.ino(),
                 offset: self.offset,
                 anchor: read_anchor(&self.file, self.offset)?,
+                source_binding: self.source_binding.clone(),
+                source_identity: None,
             })
         } else {
             None
@@ -402,6 +486,22 @@ fn read_anchor(file: &File, offset: u64) -> Result<Vec<u8>, InputError> {
     Ok(anchor)
 }
 fn parse_line(bytes: &[u8], mode: ParseMode, source: &Source) -> Option<SignalEvent> {
+    if let ParseMode::KubernetesAudit { policy_sha256 } = mode {
+        let revision: String = policy_sha256.iter().map(|b| format!("{b:02x}")).collect();
+        let profile = signal_collector_sdk::kubernetes_audit::Profile::new(
+            source.name.as_deref()?,
+            &revision,
+        )
+        .ok()?;
+        return signal_collector_sdk::kubernetes_audit::normalize_record(
+            bytes.strip_suffix(b"\r").unwrap_or(bytes),
+            &profile,
+            Uuid::new_v4(),
+            Utc::now(),
+        )
+        .ok()
+        .map(|r| r.event().clone());
+    }
     if let ParseMode::Falco { boot_id } = mode {
         let profile =
             signal_collector_sdk::falco::Profile::new(source.name.as_deref()?, boot_id).ok()?;
@@ -454,7 +554,10 @@ fn parse_line(bytes: &[u8], mode: ParseMode, source: &Source) -> Option<SignalEv
             }
         }
         ParseMode::Auto => Map::new(),
-        ParseMode::AuthenticationJson | ParseMode::Fortigate | ParseMode::Falco { .. } => {
+        ParseMode::AuthenticationJson
+        | ParseMode::Fortigate
+        | ParseMode::Falco { .. }
+        | ParseMode::KubernetesAudit { .. } => {
             return None;
         }
     };
@@ -659,6 +762,7 @@ mod tests {
             oversized: false,
             ended: false,
             stdin_buffer: VecDeque::new(),
+            source_binding: None,
         };
         assert!(matches!(state.next().expect("idle"), ReadOutcome::Idle));
         writer.write_all(b"partial").expect("write");
@@ -683,5 +787,182 @@ mod tests {
             Some("partial")
         );
         assert!(matches!(state.next().expect("end"), ReadOutcome::End));
+    }
+    fn audit_spec(path: PathBuf) -> InputSpec {
+        let mut spec = spec(path);
+        spec.source = Source {
+            source_type: "kubernetes.audit".into(),
+            name: Some("cluster".into()),
+        };
+        spec.mode = ParseMode::KubernetesAudit {
+            policy_sha256: [0xab; 32],
+        };
+        spec
+    }
+    fn native_audit_line() -> String {
+        let fixture: Value = serde_json::from_slice(include_bytes!(
+            "../../../tests/fixtures/kubernetes-audit/native.json"
+        ))
+        .expect("fixture");
+        fixture["cases"][0]["raw_utf8"]
+            .as_str()
+            .expect("raw")
+            .to_string()
+    }
+    #[test]
+    fn audit_source_bindings_refuse_profile_slot_path_mode_and_removed_input_drift() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("audit.log");
+        std::fs::write(&path, format!("{}\n", native_audit_line())).expect("file");
+        let spec = audit_spec(path.clone());
+        let mut state = State::open(spec.clone(), None).expect("open");
+        let first = record(&mut state);
+        let checkpoint = first.checkpoint.expect("cursor");
+        let event = first.event.expect("event");
+        assert_eq!(event.source.source_type, "kubernetes.audit");
+        assert_eq!(event.attributes["security"]["privileged"], true);
+        assert_eq!(
+            event.attributes["kubernetes"]["policy_revision"],
+            "ab".repeat(32)
+        );
+        assert_eq!(event.timestamp.to_rfc3339(), "2026-10-24T10:00:01+00:00");
+        assert!(
+            validate_source_checkpoints(
+                std::slice::from_ref(&spec),
+                std::slice::from_ref(&checkpoint),
+                1
+            )
+            .is_ok()
+        );
+        let mut resumed = State::open(spec.clone(), Some(checkpoint.clone())).expect("resume");
+        assert!(matches!(resumed.next().expect("idle"), ReadOutcome::Idle));
+        let mut variants = vec![];
+        let mut changed = spec.clone();
+        changed.source.name = Some("other".into());
+        variants.push(changed);
+        let mut changed = spec.clone();
+        changed.mode = ParseMode::KubernetesAudit {
+            policy_sha256: [0xcd; 32],
+        };
+        variants.push(changed);
+        let mut changed = spec.clone();
+        changed.mode = ParseMode::Json;
+        variants.push(changed);
+        let mut changed = spec.clone();
+        changed.kind = InputKind::File(dir.path().join("other"));
+        variants.push(changed);
+        let mut changed = spec.clone();
+        changed.id += 1;
+        variants.push(changed);
+        let mut changed = spec.clone();
+        changed.max_line_bytes -= 1;
+        variants.push(changed);
+        for changed in variants {
+            assert!(
+                validate_source_checkpoints(&[changed], std::slice::from_ref(&checkpoint), 1)
+                    .is_err()
+            );
+        }
+        assert!(validate_source_checkpoints(&[], std::slice::from_ref(&checkpoint), 1).is_err());
+        assert!(validate_source_checkpoints(std::slice::from_ref(&spec), &[], 1).is_err());
+        let mut unbound = checkpoint;
+        unbound.source_binding = None;
+        assert!(
+            validate_source_checkpoints(
+                std::slice::from_ref(&spec),
+                std::slice::from_ref(&unbound),
+                0
+            )
+            .is_err()
+        );
+        assert!(matches!(
+            State::open(spec, Some(unbound)),
+            Err(InputError::SourceBinding)
+        ));
+    }
+    #[tokio::test]
+    async fn audit_pending_read_reuses_original_canonical_pins_and_counts_malformed_line() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("audit.log");
+        std::fs::write(&path, format!("{}\r\nmalformed\n", native_audit_line())).expect("file");
+        let spec = audit_spec(path);
+        let reader = InputReader::start(spec.clone(), None).expect("reader");
+        let token = CancellationToken::new();
+        let ReadOutcome::Record(first) = reader
+            .read(Duration::from_secs(1), &token)
+            .await
+            .expect("read")
+        else {
+            panic!("record")
+        };
+        let ReadOutcome::Record(retry) = reader
+            .read(Duration::from_secs(1), &token)
+            .await
+            .expect("retry")
+        else {
+            panic!("record")
+        };
+        assert_eq!(
+            serde_json::to_vec(&first.event).expect("event"),
+            serde_json::to_vec(&retry.event).expect("retry event")
+        );
+        reader
+            .commit(Duration::from_secs(1), &token)
+            .await
+            .expect("commit");
+        let ReadOutcome::Record(bad) = reader
+            .read(Duration::from_secs(1), &token)
+            .await
+            .expect("bad")
+        else {
+            panic!("record")
+        };
+        assert!(bad.event.is_none());
+        assert_eq!(bad.rejected, 1);
+        assert!(
+            bad.checkpoint.as_ref().expect("bad cursor").offset
+                > first.checkpoint.expect("first cursor").offset
+        );
+        let mut resumed = State::open(spec, bad.checkpoint).expect("resume skip");
+        assert!(matches!(resumed.next().expect("idle"), ReadOutcome::Idle));
+    }
+    #[test]
+    fn legacy_and_audit_reader_seams_refuse_typed_node_cursor_before_open() {
+        let temp = tempfile::tempdir().expect("temp");
+        for audit in [false, true] {
+            let mut s = spec(temp.path().join("never-opened"));
+            if audit {
+                s.mode = ParseMode::KubernetesAudit {
+                    policy_sha256: [1; 32],
+                };
+                s.source = Source {
+                    source_type: "kubernetes.audit".into(),
+                    name: Some("cluster".into()),
+                };
+            }
+            let c = SourceCheckpoint {
+                input: s.id,
+                device: 1,
+                inode: 2,
+                offset: 0,
+                anchor: vec![],
+                source_binding: source_binding(&s).expect("binding"),
+                source_identity: Some(crate::contracts::NodeSourceIdentity {
+                    schema_version: 1,
+                    source: signal_collector_sdk::kubernetes_log::LogIdentity::from_relative(
+                        "team_workload_runtime",
+                        "main",
+                        "0.log",
+                    )
+                    .expect("identity"),
+                    file_name: "0.log".into(),
+                    terminal: None,
+                }),
+            };
+            assert!(matches!(
+                State::open(s, Some(c)),
+                Err(InputError::SourceBinding)
+            ));
+        }
     }
 }

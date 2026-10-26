@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "scope": "synthetic source/native projection and freshly supplied private authority; not live AWS/EKS/kernel qualification",
+  "supported": [
+    "SIG-D04",
+    "SIG-D06",
+    "SIG-D08",
+    "SIG-D09",
+    "SIG-D13"
+  ],
+  "deferred": {
+    "SIG-D12": "requires AWS-PROFILES database audit"
+  },
+  "cases": [
+    {
+      "catalog_fixture": "SIG-D04-positive",
+      "rule": "SIG-D04",
+      "expected": "match"
+    },
+    {
+      "catalog_fixture": "SIG-D04-negative",
+      "rule": "SIG-D04",
+      "expected": "no_match"
+    },
+    {
+      "catalog_fixture": "SIG-D04-missing_data",
+      "rule": "SIG-D04",
+      "expected": "indeterminate"
+    },
+    {
+      "catalog_fixture": "SIG-D06-positive",
+      "rule": "SIG-D06",
+      "expected": "match"
+    },
+    {
+      "catalog_fixture": "SIG-D06-negative",
+      "rule": "SIG-D06",
+      "expected": "no_match"
+    },
+    {
+      "catalog_fixture": "SIG-D06-missing_data",
+      "rule": "SIG-D06",
+      "expected": "indeterminate"
+    },
+    {
+      "catalog_fixture": "SIG-D08-positive",
+      "rule": "SIG-D08",
+      "expected": "match"
+    },
+    {
+      "catalog_fixture": "SIG-D08-negative",
+      "rule": "SIG-D08",
+      "expected": "no_match"
+    },
+    {
+      "catalog_fixture": "SIG-D08-missing_data",
+      "rule": "SIG-D08",
+      "expected": "indeterminate"
+    },
+    {
+      "catalog_fixture": "SIG-D09-positive",
+      "rule": "SIG-D09",
+      "expected": "match"
+    },
+    {
+      "catalog_fixture": "SIG-D09-negative",
+      "rule": "SIG-D09",
+      "expected": "no_match"
+    },
+    {
+      "catalog_fixture": "SIG-D09-missing_data",
+      "rule": "SIG-D09",
+      "expected": "indeterminate"
+    },
+    {
+      "catalog_fixture": "SIG-D13-positive",
+      "rule": "SIG-D13",
+      "expected": "match"
+    },
+    {
+      "catalog_fixture": "SIG-D13-negative",
+      "rule": "SIG-D13",
+      "expected": "no_match"
+    },
+    {
+      "catalog_fixture": "SIG-D13-missing_data",
+      "rule": "SIG-D13",
+      "expected": "indeterminate"
+    }
+  ],
+  "native_profile_revisions": [
+    "cloudtrail-state-management/v1",
+    "kubernetes-audit-state/v1",
+    "falco-syscall-metadata-v1 with trusted process state"
+  ],
+  "typed_augmentation": "crates/signal-rules/tests/support/scoped_state.rs",
+  "durability": "original source/state/output+checkpoint and outbox via existing state_journal; physical SIGKILL before source ACK for every supported rule"
+}

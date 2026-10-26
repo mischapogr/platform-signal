@@ -1,0 +1,30 @@
+{
+  "apiVersion": "signal.dev/v1",
+  "kind": "Rule",
+  "metadata": {
+    "id": "SIG-D05",
+    "name": "Security control disabled"
+  },
+  "spec": {
+    "severity": "high",
+    "match": {
+      "all": [
+        {
+          "field": "source.type",
+          "eq": "cloudtrail"
+        },
+        {
+          "field": "attributes.security.action",
+          "eq": "control.disable"
+        },
+        {
+          "field": "attributes.security.outcome",
+          "eq": "success"
+        }
+      ]
+    },
+    "finding": {
+      "title": "Security control disabled"
+    }
+  }
+}

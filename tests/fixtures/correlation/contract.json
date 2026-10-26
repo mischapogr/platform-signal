@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "rule": "SIG-D11",
+  "scope": "Immutable catalog envelopes with explicit native authentication projection augmentation and actual supporting native records; synthetic host authority",
+  "augmentation": "Preserve original envelope and attributes; add selected profile authentication/producer/evidence fields. Runtime never consumes catalog state booleans. Missing principal is refused by the native normalizer and tested separately as an explicitly malformed engine projection.",
+  "cases": [
+    {"catalog_fixture": "SIG-D11-positive", "native_failures": 3, "expected": "match"},
+    {"catalog_fixture": "SIG-D11-negative", "native_failures": 0, "expected": "no_match"},
+    {"catalog_fixture": "SIG-D11-missing_data", "native_failures": 0, "expected": "indeterminate"}
+  ],
+  "remaining_whole_item": "SIG-D14 protected credential READ and suspicious egress is not qualified by this D11 fixture"
+}
