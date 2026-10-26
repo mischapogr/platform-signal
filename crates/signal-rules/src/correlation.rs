@@ -236,6 +236,12 @@ struct Observation {
     verification: VerificationEvidence,
     admission_watermark: Option<DateTime<Utc>>,
     source_position: u64,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "d14::state::retained"
+    )]
+    runtime: Option<d14::state::Retained>,
 }
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -277,6 +283,12 @@ pub struct Episode {
     pub contributors: Vec<Contributor>,
     pub verification: Vec<VerificationEvidence>,
     pub finding: Option<Finding>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "d14::state::episode_evidence"
+    )]
+    pub runtime: Option<d14::RuntimeEpisode>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -320,6 +332,12 @@ pub struct State {
     last_seal_evidence: Vec<VerificationEvidence>,
     degraded_through: Option<DateTime<Utc>>,
     retired_late_inputs: u64,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "d14::state::seal_evidence"
+    )]
+    runtime_seal: Option<d14::state::RuntimeSeal>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Admission {

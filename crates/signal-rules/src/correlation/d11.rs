@@ -87,6 +87,7 @@ pub(super) fn observation(
         verification: proof.clone(),
         admission_watermark: None,
         source_position: 0,
+        runtime: None,
     })
 }
 pub(super) fn historical_proof(b: &Binding, p: &VerificationEvidence) -> Result<(), Error> {
@@ -112,7 +113,7 @@ pub(super) fn historical_proof(b: &Binding, p: &VerificationEvidence) -> Result<
 }
 pub(super) fn late(o: &Observation) -> bool {
     o.admission_watermark
-        .is_some_and(|w| o.event.timestamp <= w)
+        .is_some_and(|w| o.runtime.as_ref().map_or(o.event.timestamp, |r| r.time()) <= w)
 }
 pub(super) fn usable(o: &Observation) -> bool {
     o.native.is_some() && o.key.is_some() && o.success.is_some()
@@ -361,6 +362,7 @@ pub(super) fn episode(
         contributors,
         verification: retained_proofs,
         finding,
+        runtime: None,
     };
     codec::encode(&out, 65536, context)?;
     Ok(out)

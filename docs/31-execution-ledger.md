@@ -16,7 +16,18 @@ retained-native composition and D11 exact-byte golden compatibility; see
 `target/correlation-d14-20261026/SDK-CHECKPOINT.json`. Classification/join/replay
 and whole-item acceptance remain open; inventory unchanged. Typed historical
 classification/seven core tests plus21case SDK/core bridge now pass focused checks;
-`target/correlation-d14-20261026/CORE-CHECKPOINT.json`. Shared state/journal next.
+`target/correlation-d14-20261026/CORE-CHECKPOINT.json`. Shared admission/sealing
+and journal prerequisites now pass focused independent review,55regressions,
+32workspace-profile tests,strict rules checks and3actual owned SIGKILL cuts:
+`target/correlation-d14-20261026/JOURNAL-CHECKPOINT.json`. Inputs/authority are
+synthetic. Protected history/carry now passes focused independent review,63regressions,
+40workspace-profile tests and strict rules checks; original3outcomes/key/scope
+rollover and blocked custody I/O are preserved. Evidence:
+`target/correlation-d14-20261026/HISTORY-CHECKPOINT.json`. Native lifecycle/catalog
+composition now passes21cases/66records and3actual custody SIGKILL cuts. All13frozen
+workspace/helper/process gates pass1312default/1382all-feature tests; see
+`target/correlation-d14-20261026/whole-qualification/gates.json`. Synthetic authority
+remains explicit. Whole-item acceptance documentation remains open; inventory unchanged.
 
 Dependency rewrite — 2026-10-23. EKS-AUDIT now depends on SMALL-PILOT (Kubernetes audit
 normalization; the EKS CloudWatch transport stays with CLOUDWATCH), BASELINES drops

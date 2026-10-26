@@ -3,11 +3,15 @@
 use super::*;
 use std::net::IpAddr;
 mod epoch;
+pub(super) mod state;
 pub(super) use epoch::coverage_evidence;
 pub use epoch::{
     CaptureEvidence, PolicyCoverageEvidence, PolicyCoverageVerification, RuntimeEpoch,
     RuntimeVerification,
 };
+mod episodes;
+pub(super) use episodes::{candidate, episode, time};
+pub use state::{RuntimeEpisode, RuntimeState};
 
 pub const PROFILE: &str = "linux-owned-syscall-metadata/v1";
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -426,6 +430,17 @@ pub struct Input {
     original: RuleContext,
 }
 impl Input {
+    pub(super) fn valid_for(&self, b: &RuntimeBinding, c: &RuleContext) -> Result<(), Error> {
+        check(c)?;
+        check(&self.original)?;
+        if self.binding != b.digest {
+            return Err(Error::Conflict);
+        }
+        Ok(())
+    }
+    pub(super) fn original_context(&self) -> &RuleContext {
+        &self.original
+    }
     pub fn new(
         b: &RuntimeBinding,
         stream: Uuid,
@@ -688,6 +703,9 @@ pub struct CurrentDecision {
     original: RuleContext,
 }
 impl CurrentDecision {
+    pub(super) fn original_contexts(&self) -> [&RuleContext; 2] {
+        [&self.context, &self.original]
+    }
     pub fn new(
         b: &RuntimeBinding,
         input: &Input,

@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "rule": "SIG-D14",
+  "scope": "Original immutable catalog envelopes attached unchanged to actual retained SDK-normalized native supporting records; synthetic current host and private authority",
+  "augmentation": "Store the exact original SignalEvent as catalog_original_envelope. Never rewrite captured native timestamps, process/object identity or original-record digest. Honor catalog C. Catalog state booleans are descriptions and never runtime inputs. A missing catalog process key has no verified catalog-to-native identity link, even when the native supporting records contain process data.",
+  "cases": [
+    {"catalog_fixture": "SIG-D14-positive", "native_case": "read", "identity_link": "verified_for_fixture", "expected": "match"},
+    {"catalog_fixture": "SIG-D14-negative", "native_case": "open", "identity_link": "verified_for_fixture", "expected": "no_match"},
+    {"catalog_fixture": "SIG-D14-missing_data", "native_case": "read", "identity_link": "unavailable", "expected": "indeterminate"}
+  ],
+  "limitations": "Actual retained owned LinuxAMD64 metadata; current source, pre-exec absence, identity link, coverage and private classifications are synthetic. This fixture is not AWS/IAM, live capture, Main activation or release qualification."
+}

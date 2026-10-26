@@ -13,6 +13,7 @@ pub(super) struct Limits {
     pub lateness_ms: i64,
     pub correlation_ms: i64,
     pub extra_lookback_ms: i64,
+    pub ttl_ms: i64,
     pub max_events: usize,
     pub max_keys: usize,
     pub max_episodes: usize,
@@ -45,6 +46,7 @@ impl<'a> BindingView<'a> {
                 lateness_ms: c.lateness_ms,
                 correlation_ms: c.correlation_ms,
                 extra_lookback_ms: c.window_ms,
+                ttl_ms: c.ttl_ms,
                 max_events: c.max_events,
                 max_keys: c.max_keys,
                 max_episodes: c.max_episodes,
@@ -71,6 +73,7 @@ impl<'a> BindingView<'a> {
                 lateness_ms: c.lateness_ms,
                 correlation_ms: c.correlation_ms,
                 extra_lookback_ms: 0,
+                ttl_ms: c.ttl_ms,
                 max_events: c.max_events,
                 max_keys: c.max_keys,
                 max_episodes: c.max_episodes,
@@ -87,18 +90,109 @@ impl<'a> BindingView<'a> {
             Detector::Runtime(_) => 2,
         }
     }
-    /// Explicit bridge for authentication-specific operations during extraction;
-    /// a runtime inventory cannot accidentally be interpreted as D11.
-    pub fn authentication_binding(&self) -> Result<&'a Binding, Error> {
-        match self.detector {
-            Detector::Authentication(b) => Ok(b),
-            Detector::Runtime(_) => Err(Error::Invalid),
-        }
-    }
     pub fn runtime_binding(&self) -> Option<&'a d14::RuntimeBinding> {
         match self.detector {
             Detector::Runtime(b) => Some(b),
             Detector::Authentication(_) => None,
+        }
+    }
+    pub fn historical_proof(&self, p: &VerificationEvidence) -> Result<(), Error> {
+        match self.detector {
+            Detector::Authentication(b) => d11::historical_proof(b, p),
+            Detector::Runtime(b) => d14::state::historical_proof(b, p),
+        }
+    }
+    pub fn observation(
+        &self,
+        stream: Uuid,
+        event: &SignalEvent,
+        proof: &VerificationEvidence,
+        c: &RuleContext,
+    ) -> Result<Observation, Error> {
+        match self.detector {
+            Detector::Authentication(b) => {
+                let source = b
+                    .config
+                    .sources
+                    .iter()
+                    .find(|s| s.stream == stream)
+                    .ok_or(Error::Unverified)?;
+                d11::observation(source, event, proof, c)
+            }
+            Detector::Runtime(b) => {
+                d14::state::observation(b, &d14::Input::new(b, stream, event, c)?, proof, None, c)
+            }
+        }
+    }
+    pub fn rebuild(&self, o: &Observation, c: &RuleContext) -> Result<Observation, Error> {
+        match self.detector {
+            Detector::Authentication(_) => {
+                if o.runtime.is_some() {
+                    return Err(Error::Conflict);
+                }
+                self.observation(o.verification.stream, &o.event, &o.verification, c)
+            }
+            Detector::Runtime(b) => d14::state::rebuild(b, o, c),
+        }
+    }
+    pub fn validate_keys(&self, observations: &[Observation]) -> Result<(), Error> {
+        let count = match self.detector {
+            Detector::Authentication(_) => observations
+                .iter()
+                .filter_map(|o| o.key.as_ref())
+                .collect::<BTreeSet<_>>()
+                .len(),
+            Detector::Runtime(_) => observations
+                .iter()
+                .filter_map(|o| o.runtime.as_ref().map(|r| r.process()))
+                .collect::<BTreeSet<_>>()
+                .len(),
+        };
+        if count > self.config.max_keys {
+            return Err(Error::Capacity);
+        }
+        Ok(())
+    }
+    pub fn time(&self, o: &Observation) -> DateTime<Utc> {
+        match self.detector {
+            Detector::Authentication(_) => o.event.timestamp,
+            Detector::Runtime(_) => d14::time(o),
+        }
+    }
+    pub fn candidate(&self, o: &Observation) -> bool {
+        match self.detector {
+            Detector::Authentication(_) => !(o.success == Some(false) && d11::usable(o)),
+            Detector::Runtime(_) => d14::candidate(o),
+        }
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub fn episode(
+        &self,
+        observations: &[Observation],
+        index: usize,
+        watermark: DateTime<Utc>,
+        proofs: &[VerificationEvidence],
+        policies: &[d14::PolicyCoverageEvidence],
+        degraded: Option<DateTime<Utc>>,
+        c: &RuleContext,
+    ) -> Result<Episode, Error> {
+        match self.detector {
+            Detector::Authentication(b) => {
+                if !policies.is_empty() {
+                    return Err(Error::Conflict);
+                }
+                d11::episode(b, observations, index, watermark, proofs, degraded, c)
+            }
+            Detector::Runtime(b) => d14::episode(
+                b,
+                observations,
+                index,
+                watermark,
+                proofs,
+                policies,
+                degraded,
+                c,
+            ),
         }
     }
     pub fn journal_config(&self) -> JournalConfig {
@@ -121,6 +215,74 @@ impl<'a> BindingView<'a> {
             max_state_bytes: self.config.max_state_bytes,
             max_outputs: self.config.max_episodes,
             max_output_bytes: 65536,
+        }
+    }
+    pub fn enrollment(&self) -> Enrollment {
+        match self.detector {
+            Detector::Authentication(b) => Enrollment::Authentication(b.config.clone()),
+            Detector::Runtime(b) => Enrollment::Runtime(b.config.clone()),
+        }
+    }
+    pub fn history_namespace(&self, c: &RuleContext) -> Result<[u8; 32], Error> {
+        let (domain, bytes): (&[u8], Vec<u8>) = match self.detector {
+            Detector::Authentication(b) => (
+                b"PLATFORM::SIGNAL/correlation/history-namespace/v1\0",
+                codec::encode(
+                    &("SIG-D11", b.config.partition, &b.config.sources),
+                    16384,
+                    c,
+                )?,
+            ),
+            Detector::Runtime(b) => (
+                b"PLATFORM::SIGNAL/correlation/D14-history-namespace/v2\0",
+                codec::encode(
+                    &("SIG-D14", b.config.partition, &b.config.sources),
+                    16384,
+                    c,
+                )?,
+            ),
+        };
+        Ok(hash(domain, &bytes))
+    }
+    pub fn archive_domain(&self) -> &'static [u8] {
+        if self.version() == 1 {
+            b"PLATFORM::SIGNAL/correlation/archive/v1\0"
+        } else {
+            b"PLATFORM::SIGNAL/correlation/D14-archive/v2\0"
+        }
+    }
+}
+
+/// Actual typed historical configuration, with the v1 object unchanged on wire.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub(super) enum Enrollment {
+    Authentication(Config),
+    Runtime(d14::RuntimeConfig),
+}
+pub(super) enum OwnedBinding {
+    Authentication(Binding),
+    Runtime(d14::RuntimeBinding),
+}
+impl Enrollment {
+    pub fn bind(&self, c: &RuleContext) -> Result<OwnedBinding, Error> {
+        match self {
+            Self::Authentication(config) => Ok(OwnedBinding::Authentication(Binding::new(
+                config.clone(),
+                c,
+            )?)),
+            Self::Runtime(config) => Ok(OwnedBinding::Runtime(d14::RuntimeBinding::new(
+                config.clone(),
+                c,
+            )?)),
+        }
+    }
+}
+impl OwnedBinding {
+    pub fn view(&self) -> BindingView<'_> {
+        match self {
+            Self::Authentication(b) => BindingView::authentication(b),
+            Self::Runtime(b) => BindingView::runtime(b),
         }
     }
 }
@@ -183,7 +345,7 @@ mod tests {
         )?;
         let v = BindingView::runtime(&b);
         assert_eq!(v.version(), 2);
-        assert!(v.authentication_binding().is_err());
+        assert!(matches!(v.enrollment(), Enrollment::Runtime(_)));
         assert_eq!(v.config.sources.len(), 1);
         assert_eq!(v.config.sources[0].stream, Uuid::from_u128(1));
         let state = State::new_with(&v);
