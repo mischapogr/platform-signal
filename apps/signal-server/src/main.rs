@@ -2,6 +2,7 @@
 mod access;
 mod audit;
 mod audit_receiver;
+mod case_api;
 mod config;
 mod coverage_api;
 mod finding_api;
@@ -69,6 +70,8 @@ enum AppError {
     Settings(#[from] config::ConfigError),
     #[error(transparent)]
     Finding(#[from] signal_findings::FindingError),
+    #[error(transparent)]
+    Case(#[from] signal_findings::cases::CaseError),
     #[error(transparent)]
     Rules(#[from] signal_rules::RuleError),
     #[error(transparent)]
@@ -193,7 +196,13 @@ async fn run() -> Result<(), AppError> {
 }
 
 async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), AppError> {
+    case_api::Configuration::validate_runtime(&settings)?;
     if settings.optional("SIGNAL_SHARED_CONFIG")?.is_some() {
+        if settings.optional("SIGNAL_CASE_CONFIG")?.is_some() {
+            return Err(
+                ConfigError::Invalid("SOC cases require explicit Small composition").into(),
+            );
+        }
         return standard::run(settings, logger).await;
     }
     // One original clock spans preparation, recovery and every selected fresh
@@ -223,6 +232,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             onboarding,
             window_configuration,
             sensor_configuration,
+            case_configuration,
             listen,
             metrics_listen,
             wal_config,
@@ -241,6 +251,9 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             rule_timeout_ms,
             rules,
         } = runtime_config::load(&settings).await?;
+        if case_configuration.is_some() {
+            case_api::Configuration::validate_audit(query_audit.as_deref())?;
+        }
         // Capture exactly the retained validated objects before moving them into
         // the inactive runtime. Never reopen configuration/rule files or settings.
         let runtime_revision = match &query_audit {
@@ -265,6 +278,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
                         onboarding: onboarding.is_some(),
                         window: window_configuration.is_some(),
                         sensor_health: sensor_configuration.is_some(),
+                        cases: case_configuration.is_some(),
                         separate_metrics: metrics_listen.is_some(),
                     },
                     &startup,
@@ -356,7 +370,22 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             ),
             None => None,
         };
+        let cases = match case_configuration {
+            Some(configuration) => Some(
+                configuration
+                    .open(
+                        wal.stream_id,
+                        findings.clone(),
+                        identity.clone(),
+                        query_audit.clone(),
+                        CancellationToken::new(),
+                    )
+                    .await?,
+            ),
+            None => None,
+        };
         let pipeline = Arc::new(PipelineSink {
+            cases: cases.clone(),
             // Onboarding is fixed before admission becomes live.
             audit: query_audit.clone(),
             buffer: sink.clone(),
@@ -402,6 +431,9 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
                 },
             ))
             .merge(ui::router());
+        if let Some(cases) = &cases {
+            router = router.merge(cases.router());
+        }
         if let Some(coverage) = &coverage {
             let routes = coverage.router();
             router = router.merge(routes);
@@ -428,6 +460,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             identity,
             coverage,
             coverage_stopping,
+            cases,
             pipeline,
             consumer_config,
             query_cancel,
@@ -471,6 +504,7 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
         identity,
         coverage,
         coverage_stopping,
+        cases,
         pipeline,
         consumer_config,
         query_cancel,
@@ -525,6 +559,9 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
         if let Err(error) = activated {
             startup_cancellation.cancel();
             service.stop_admission();
+            if let Some(cases) = &cases {
+                cases.stop_admission();
+            }
             coverage_stopping.cancel();
             if let Some(identity) = &identity {
                 let _ = identity.close();
@@ -543,6 +580,14 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
                     cancellation: CancellationToken::new(),
                 })
                 .await;
+            if let Some(cases) = &cases {
+                let _ = cases
+                    .stop(FindingContext {
+                        deadline,
+                        cancellation: CancellationToken::new(),
+                    })
+                    .await;
+            }
             let _ = findings
                 .shutdown(FindingContext {
                     deadline,
@@ -618,6 +663,9 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
     };
     let deadline = Instant::now() + limits.shutdown_timeout;
     service.stop_admission();
+    if let Some(cases) = &cases {
+        cases.stop_admission();
+    }
     let identity_closed = match &identity {
         Some(identity) => identity.close().map_err(AppError::from),
         None => Ok(()),
@@ -632,6 +680,9 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
     query_cancel.cancel();
     coverage_stopping.cancel();
     service.stop_admission();
+    if let Some(cases) = &cases {
+        cases.stop_admission();
+    }
     let query_stopped = query
         .shutdown(OperationContext {
             deadline,
@@ -657,6 +708,16 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
             .await
     } else {
         Ok(())
+    };
+    let cases_stopped = match &cases {
+        Some(cases) => cases
+            .stop(FindingContext {
+                deadline,
+                cancellation: CancellationToken::new(),
+            })
+            .await
+            .map_err(AppError::from),
+        None => Ok(()),
     };
     let findings_stopped = findings
         .shutdown(FindingContext {
@@ -719,7 +780,8 @@ async fn run_configured(settings: Settings, logger: &LoggerGuard) -> Result<(), 
         .and(query_stopped.map_err(AppError::from))
         .and(identity_closed)
         .and(identity_stopped)
-        .and(coverage_stopped);
+        .and(coverage_stopped)
+        .and(cases_stopped);
     if let Err(error) = &result {
         logger.writer().report_error(error);
     }

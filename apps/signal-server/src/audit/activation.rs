@@ -56,6 +56,7 @@ pub(crate) struct RuntimeInputs<'a> {
     pub onboarding: bool,
     pub window: bool,
     pub sensor_health: bool,
+    pub cases: bool,
     pub separate_metrics: bool,
 }
 
@@ -204,6 +205,12 @@ pub(crate) fn runtime_revision(
     }
     if input.sensor_health {
         let name = "mode.sensor_health";
+        hash.update((name.len() as u64).to_le_bytes());
+        hash.update(name.as_bytes());
+        hash.update(1u128.to_le_bytes());
+    }
+    if input.cases {
+        let name = "mode.cases";
         hash.update((name.len() as u64).to_le_bytes());
         hash.update(name.as_bytes());
         hash.update(1u128.to_le_bytes());

@@ -389,6 +389,11 @@ impl CaseStore {
     }
     /// Stop admission and bound waiting; detached physical owners retain the root lock.
     pub async fn shutdown(self, context: FindingContext) -> Result<(), CaseError> {
+        self.stop(context).await
+    }
+    /// Stop an explicitly shared host handle. Physical owners and remaining
+    /// handles keep the root locked until they are dropped, including on timeout.
+    pub async fn stop(&self, context: FindingContext) -> Result<(), CaseError> {
         self.shared.closed.store(true, Ordering::Release);
         check(&context)?;
         let permits = self

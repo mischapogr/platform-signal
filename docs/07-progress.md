@@ -293,3 +293,6 @@ bounded metadata/snapshot/lease/byte budgets preserve originals; host data is no
 Evidence:`target/soc-ux-20261026/references/ACCEPTANCE.json`; [contract83](83-soc-case-workflow.md).
 SOC-UX in_progress;41accepted/11unfinished. Next: identity/assignee/provider/audit API,
 durable dispositions and actual console/browser/restart; no external/release claim.
+
+Canonical case HTTP/identity/directory/audit work is in progress; see [contract83](83-soc-case-workflow.md).
+Whole scoped API, episode custody, durable dispositions and console/browser remain open.

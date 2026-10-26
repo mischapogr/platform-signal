@@ -983,6 +983,44 @@ async fn metrics(State(service): State<IngestService>) -> Response {
             }
         }
     }
+    if let Some(cases) = sink.cases {
+        use std::fmt::Write;
+        for (name, value) in [
+            ("signal_cases_request_depth", cases.request_depth as u64),
+            (
+                "signal_cases_request_capacity",
+                cases.request_capacity as u64,
+            ),
+            (
+                "signal_cases_request_rejected_total",
+                cases.request_rejected,
+            ),
+            ("signal_cases_physical_depth", cases.physical_depth as u64),
+            (
+                "signal_cases_physical_capacity",
+                cases.physical_capacity as u64,
+            ),
+            (
+                "signal_cases_physical_rejected_total",
+                cases.physical_rejected,
+            ),
+            ("signal_cases_closed", u64::from(cases.closed)),
+            (
+                "signal_cases_shared_file_depth",
+                cases.shared_file_depth as u64,
+            ),
+            (
+                "signal_cases_shared_file_capacity",
+                cases.shared_file_capacity as u64,
+            ),
+            (
+                "signal_cases_shared_file_rejected_total",
+                cases.shared_file_rejected,
+            ),
+        ] {
+            let _ = writeln!(body, "{name} {value}");
+        }
+    }
     if let Some(findings) = sink.findings {
         use std::fmt::Write;
         for (name, value) in [
