@@ -975,7 +975,9 @@
       ],
       "references": [
         "docs/26-ingestion-architecture-audit.md"
-      ]
+      ],
+      "scope_class": "post_mvp_aws_adapter",
+      "scope_note": "Not on the path to LOCAL-CANDIDATE after the 2026-10-23 dependency rewrite."
     },
     {
       "id": "AWS-PROFILES",
@@ -995,30 +997,72 @@
       "references": [
         "docs/26-ingestion-architecture-audit.md",
         "docs/source-detection-catalog.md"
-      ]
+      ],
+      "scope_class": "post_mvp_aws_adapter",
+      "scope_note": "Not on the path to LOCAL-CANDIDATE after the 2026-10-23 dependency rewrite."
     },
     {
       "id": "EKS-AUDIT",
-      "title": "EKS/Kubernetes audit adapter",
-      "status": "pending",
+      "title": "Kubernetes audit normalization (EKS CloudWatch transport deferred)",
+      "status": "passed_simulated",
       "dependencies": [
-        "CLOUDWATCH"
+        "SMALL-PILOT"
       ],
       "acceptance": [
-        "Audit-stage/verb/resource/identity normalization and baseline D05/D07 fixtures; separate control-plane capture from node logs."
+        "Audit-stage/verb/resource/identity normalization and baseline D05/D07 fixtures; separate control-plane capture from node logs. Records arrive through existing file/object/webhook paths and are exercised on local Kubernetes."
       ],
       "evidence": [
-        "target/goal-execution-20261007/EKS-AUDIT/"
+        "target/goal-execution-20261007/EKS-AUDIT/",
+        "target/kubernetes-audit-agent-20261025/ACCEPTANCE.json",
+        "target/kubernetes-audit-agent-20261025/INDEPENDENT-REVIEW.json",
+        "target/kubernetes-audit-agent-20261025/REQUIREMENT-AUDIT.json"
       ],
       "references": [
         "docs/source-detection-catalog.md",
-        "docs/26-ingestion-architecture-audit.md"
-      ]
+        "docs/26-ingestion-architecture-audit.md",
+        "docs/69-kubernetes-audit-normalization.md",
+        "docs/70-kubernetes-audit-local-gate.md",
+        "docs/71-kubernetes-audit-agent.md"
+      ],
+      "dependency_rewrite": {
+        "date": "2026-10-23",
+        "from": [
+          "CLOUDWATCH"
+        ],
+        "to": [
+          "SMALL-PILOT"
+        ],
+        "reason": "Kubernetes audit normalization and D05/D07 fixtures do not need AWS. Only the EKS control-plane transport through CloudWatch Logs does, and it stays with CLOUDWATCH."
+      },
+      "deferred_scope": [
+        "EKS control-plane log delivery through CLOUDWATCH; actual EKS evidence stays in EXT-AWS"
+      ],
+      "native_projection_slice": {
+        "status": "passed_local",
+        "date": "2026-10-24",
+        "evidence": "target/kubernetes-audit-20261024/ACCEPTANCE.json",
+        "focused_regressions": 10,
+        "scope": "Bounded single audit.k8s.io/v1 Event projection, caller-pinned identity, trusted cluster/policy revision and conservative admitted Pod privilege. Synthetic records only; full item remains pending local capture, transport/replay and baseline integration."
+      },
+      "local_capture_slice": {
+        "status": "passed_local",
+        "date": "2026-10-24",
+        "evidence": "target/kubernetes-audit-capture-20261024/ACCEPTANCE.json",
+        "native_cases": 6,
+        "scope": "Actual owned kind API-server audit/Pod Security admission; native SDK and catalog D07 engine; exact Small WAL/checkpoint/findings SIGKILL/restart and redelivery; owned cleanup. Test-only file bridge; production application delivery/source positions remain pending."
+      },
+      "agent_delivery_slice": {
+        "status": "passed_local",
+        "date": "2026-10-25",
+        "evidence": "target/kubernetes-audit-agent-20261025/process-05/report.json",
+        "scope": "Bound regular-file mode, immutable original spool pins and durable bound cursors; profile/path/slot/line-limit/mode refusal before backlog publication, exact uncertain-ACK SIGKILL recovery and durable malformed/oversized skips."
+      },
+      "notes": "2026-10-25 independent source review and requirement audit close the bounded AWS-free item after five frozen local gates:1137 tests including doctests,49 agent library tests,3 harness failure regressions, strict Clippy/fmt/14 boundaries. Actual kind capture/policy/server hashes link6native records to production file delivery;6pending originals replay unchanged after withheld successful HTTP ACK and agent SIGKILL,3profile refusals precede any send,2durable rejected lines,8rows/7unique/one original D07 finding and checkpoint8. Existing41CloudTrail fixtures qualify D05 through actual normalizer/rules and are unchanged since7fa481e. Scope is selected Pod/file64-KiB input, not general audit coverage/custody or EKS. EKS CloudWatch delivery and actual EKS remain explicitly deferred."
     },
     {
       "id": "K8S-CONTEXT",
       "title": "Node/workload context and cluster collector mode",
-      "status": "pending",
+      "status": "passed_local",
       "dependencies": [
         "EKS-AUDIT"
       ],
@@ -1026,12 +1070,70 @@
         "Bounded metadata/watch reconciliation and node-local collection; scoped API permissions and churn tests on local Kubernetes."
       ],
       "evidence": [
-        "target/goal-execution-20261007/K8S-CONTEXT/"
+        "target/goal-execution-20261007/K8S-CONTEXT/",
+        "target/kubernetes-context-20261025/ACCEPTANCE.json",
+        "target/kubernetes-context-api-20261025/ACCEPTANCE.json",
+        "target/kubernetes-context-kind-20261025/ACCEPTANCE.json",
+        "target/kubernetes-node-cri-20261025/ACCEPTANCE.json",
+        "target/kubernetes-node-root-20261025/ACCEPTANCE.json",
+        "target/kubernetes-node-spool-20261025/ACCEPTANCE.json",
+        "target/kubernetes-node-producer-20261025/ACCEPTANCE.json"
       ],
       "references": [
         "docs/27-product-architecture.md",
-        "docs/04-implementation-plan.md"
-      ]
+        "docs/04-implementation-plan.md",
+        "docs/72-kubernetes-context.md",
+        "docs/73-kubernetes-context-api.md",
+        "docs/74-kubernetes-context-kind.md",
+        "docs/75-kubernetes-node-cri.md",
+        "docs/76-kubernetes-node-root.md",
+        "docs/77-kubernetes-node-spool.md",
+        "docs/78-kubernetes-node-producer.md"
+      ],
+      "foundation_slice": {
+        "status": "passed_local",
+        "date": "2026-10-25",
+        "evidence": "target/kubernetes-context-20261025/ACCEPTANCE.json",
+        "focused_regressions": 15,
+        "scope": "Pure scoped typed projection and atomic paginated-list/watch reconciliation; API/node/churn requirements remain."
+      },
+      "api_slice": {
+        "status": "passed_local",
+        "date": "2026-10-25",
+        "evidence": "target/kubernetes-context-api-20261025/ACCEPTANCE.json",
+        "focused_regressions": 15,
+        "scope": "Immutable HTTPS/Bearer origin/trust, bounded atomic list and owned watch with original deadlines/byte ceilings/RAII; actual cluster/node requirements remain."
+      },
+      "native_api_slice": {
+        "status": "passed_local",
+        "date": "2026-10-25",
+        "evidence": "target/kubernetes-context-kind-20261025/ACCEPTANCE.json",
+        "scope": "Actual owned kind seven-kind lists,scoped permission denials,Pod/RBAC churn,UID replacement,revocation/relist and verified cleanup. Node-local CRI remains."
+      },
+      "cri_foundation_slice": {
+        "status": "passed_local",
+        "date": "2026-10-25",
+        "evidence": "target/kubernetes-node-cri-20261025/ACCEPTANCE.json",
+        "scope": "Pure versioned runtime source identity and bounded lossless CRI physical records; rooted/durable agent/node requirements remain."
+      },
+      "rooted_filesystem_slice": {
+        "status": "passed_local",
+        "date": "2026-10-25",
+        "evidence": "target/kubernetes-node-root-20261025/ACCEPTANCE.json",
+        "scope": "Bounded safe descriptor-relative discovery and generation-checked read-only file leases; dedicated worker,durable integration and actual node campaign remain."
+      },
+      "durable_node_spool_slice": {
+        "status": "passed_local",
+        "date": "2026-10-25",
+        "evidence": "target/kubernetes-node-spool-20261025/ACCEPTANCE.json",
+        "scope": "Node-specific durable source identity/profile/state and capacity preflight; legacy behavior retained; node producer/actual composition remain."
+      },
+      "composed_node_acceptance": {
+        "status": "passed_local",
+        "date": "2026-10-25T23:49:55.548194+01:00",
+        "evidence": "target/kubernetes-node-producer-20261025/ACCEPTANCE.json",
+        "scope": "Full bounded local metadata/API and composed node collection acceptance; actual owned kind and actual process recovery"
+      }
     },
     {
       "id": "HOST-AUTH",
@@ -1165,20 +1267,39 @@
     {
       "id": "BASELINES",
       "title": "Versioned generic baseline predicate packs",
-      "status": "pending",
+      "status": "passed_simulated",
       "dependencies": [
-        "EKS-AUDIT",
-        "AWS-PROFILES"
+        "EKS-AUDIT"
       ],
       "acceptance": [
         "D01/D02/D03/D05/D07 source preconditions, fixtures, explanation/confidence/investigation defaults; actual enablement/thresholds stay private."
       ],
       "evidence": [
-        "target/goal-execution-20261007/BASELINES/"
+        "target/goal-execution-20261007/BASELINES/",
+        "target/baselines-20261025/",
+        "target/baselines-20261025/ACCEPTANCE.json"
       ],
       "references": [
-        "docs/source-detection-catalog.md"
-      ]
+        "docs/source-detection-catalog.md",
+        "docs/79-versioned-baselines.md"
+      ],
+      "dependency_rewrite": {
+        "date": "2026-10-23",
+        "from": [
+          "EKS-AUDIT",
+          "AWS-PROFILES"
+        ],
+        "to": [
+          "EKS-AUDIT"
+        ],
+        "reason": "D01/D02/D03/D05 use CloudTrail records that the accepted object adapters already deliver; D07 uses Kubernetes audit. None needs the RDS/ALB/NLB/ECS/VPC/DNS/WAF profiles of AWS-PROFILES."
+      },
+      "pack_acceptance": {
+        "status": "passed_simulated",
+        "date": "2026-10-26T00:15:24.200227+01:00",
+        "evidence": "target/baselines-20261025/ACCEPTANCE.json",
+        "scope": "Production-consumable generic pack/assessment library, native fixture composition and actual local Small packaged predicate persistence; source/authority simulated"
+      }
     },
     {
       "id": "WINDOW",
@@ -1219,21 +1340,41 @@
     {
       "id": "STATE",
       "title": "Scoped state lookup detectors D04/D06/D08/D09/D12/D13",
-      "status": "pending",
+      "status": "passed_simulated",
       "dependencies": [
         "WINDOW",
-        "BASELINES"
+        "BASELINES",
+        "K8S-CONTEXT"
       ],
       "acceptance": [
         "Each supported rule has source/state preconditions, pinned revision and bounded fixtures/replay.",
         "Effective IAM/RBAC requires explicitly limited semantics, not universal permission solving."
       ],
       "evidence": [
-        "target/goal-execution-20261007/STATE/"
+        "target/goal-execution-20261007/STATE/",
+        "target/scoped-state-20261026/",
+        "target/scoped-state-20261026/ACCEPTANCE.json"
       ],
       "references": [
         "docs/source-detection-catalog.md"
-      ]
+      ],
+      "dependency_rewrite": {
+        "date": "2026-10-23",
+        "from": [
+          "WINDOW",
+          "BASELINES"
+        ],
+        "to": [
+          "WINDOW",
+          "BASELINES",
+          "K8S-CONTEXT"
+        ],
+        "reason": "D08 and D09 need bounded Kubernetes workload/RBAC snapshots from K8S-CONTEXT. D12 needs database audit from AWS-PROFILES and is deferred, not silently dropped."
+      },
+      "deferred_scope": [
+        "SIG-D12 privileged database login until AWS-PROFILES exists; STATE passes for D04/D06/D08/D09/D13 only and says so"
+      ],
+      "notes": "Five supported historical-state rules accepted with independent source/criteria review, eight frozen gates and five actual journal SIGKILL/replay/generation cases. Source/private authority synthetic; host activation/protected archive/exclusive handoff external. D12 remains explicitly deferred."
     },
     {
       "id": "SENSOR-HEALTH",
@@ -1302,7 +1443,7 @@
     {
       "id": "CORRELATION",
       "title": "Bounded multi-stream episodes D11/D14",
-      "status": "pending",
+      "status": "in_progress",
       "dependencies": [
         "STATE",
         "DISPOSITIONS",
@@ -1315,11 +1456,26 @@
         "Correlation does not establish causal root cause."
       ],
       "evidence": [
-        "target/goal-execution-20261007/CORRELATION/"
+        "target/goal-execution-20261007/CORRELATION/",
+        "target/correlation-20261026/",
+        "target/correlation-20261026/D11-ACCEPTANCE.json",
+        "target/correlation-d14-20261026/SDK-CHECKPOINT.json",
+        "target/correlation-d14-20261026/CORE-CHECKPOINT.json"
       ],
       "references": [
         "docs/source-detection-catalog.md"
-      ]
+      ],
+      "notes": "D11 accepted with independent source/criteria review,10frozen gates and5actualSIGKILL cuts. D14 native capture/SDK and typed historical classification/pair-relation prerequisites pass focused review/checks:21native cases,7SDK and7core tests,D11v1golden,actualSDK/core bridge with syntheticprivatepolicy. Shared state/source coverage/prefix/episode journal/history/carry/replay and whole-item gates remain open; CORRELATION stays in_progress.",
+      "slices": {
+        "D11": {
+          "status": "passed_simulated",
+          "evidence": "target/correlation-20261026/D11-ACCEPTANCE.json"
+        },
+        "D14": {
+          "status": "in_progress",
+          "evidence": "target/correlation-d14-20261026/"
+        }
+      }
     },
     {
       "id": "SOC-UX",
@@ -1666,5 +1822,15 @@
         "docs/04-implementation-plan.md"
       ]
     }
-  ]
+  ],
+  "dependency_rewrite": {
+    "date": "2026-10-23",
+    "items": [
+      "EKS-AUDIT",
+      "BASELINES",
+      "STATE"
+    ],
+    "doc": "docs/68-mvp-closure.md",
+    "effect": "LOCAL-CANDIDATE no longer transitively depends on CLOUDWATCH, AWS-PROFILES or any EXT-* item. IDs and the 52-item count are unchanged; no acceptance criterion was removed, and the two deferrals are recorded as deferred_scope."
+  }
 }

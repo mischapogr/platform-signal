@@ -9,7 +9,10 @@ const HELP: &str = "signal-agent --server URL [--stdin | --file PATH ...] [--onc
   --syslog-listen ADDRESS  Dedicated FortiGate octet-counting receiver\n\
   --syslog-tls-config PATH --syslog-peer-sha256 HEX  Explicit mTLS identity binding\n\
   --runtime-boot-id UUID  Explicit private host boot binding for falco-json\n\
-  --format auto|plain|json|auth-json|fortigate|falco-json  JSON objects become attributes; auth-json validates authentication records\n\
+  --format auto|plain|json|auth-json|fortigate|falco-json|kubernetes-audit-json|kubernetes-cri  JSON objects become attributes; auth-json validates authentication records\n\
+  --node-log-root PATH --node-name NAME  Dedicated rooted CRI collection; --source-name CLUSTER required\n\
+  --node-namespace NAME  Optional immutable node-log namespace selector\n\
+  --audit-policy-sha256 HEX Explicit policy binding for Kubernetes audit files\n\
   --source-type TYPE        Source type (default log)\n\
   --source-name NAME        Optional source name\n\
   --batch-events N          Maximum batch events (default 100)\n\
@@ -22,7 +25,7 @@ const HELP: &str = "signal-agent --server URL [--stdin | --file PATH ...] [--onc
   --max-spool-bytes N       Spool disk limit (default 67108864)\n\
   --max-spool-events N      Spool record limit (default 10000)\n\
   --max-line-bytes N        Input line limit (default 65536)\n\
-  --max-event-bytes N       Canonical event JSON limit (default 65536)\n\
+  --max-event-bytes N       Canonical event JSON limit (default 65536; node 524288)\n\
   --metrics-listen ADDRESS  Optional bounded metrics listener\n\
 API token: SIGNAL_AGENT_API_TOKEN only. Optional private mTLS: SIGNAL_AGENT_TLS_CONFIG.\n\
 Flags override matching SIGNAL_AGENT_*\n\

@@ -1,0 +1,34 @@
+{
+  "apiVersion": "signal.dev/v1",
+  "kind": "Rule",
+  "metadata": {
+    "id": "SIG-D07",
+    "name": "Privileged Kubernetes workload admitted"
+  },
+  "spec": {
+    "severity": "high",
+    "match": {
+      "all": [
+        {
+          "field": "source.type",
+          "eq": "kubernetes.audit"
+        },
+        {
+          "field": "attributes.security.action",
+          "eq": "k8s.workload.write"
+        },
+        {
+          "field": "attributes.security.outcome",
+          "eq": "success"
+        },
+        {
+          "field": "attributes.security.privileged",
+          "eq": true
+        }
+      ]
+    },
+    "finding": {
+      "title": "Privileged Kubernetes workload admitted"
+    }
+  }
+}

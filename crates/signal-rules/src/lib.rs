@@ -18,8 +18,11 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
+pub mod baseline;
+pub mod correlation;
 mod journal_lease;
 mod revision;
+pub mod scoped_state;
 pub mod sensor_health;
 pub mod state_journal;
 pub mod window;

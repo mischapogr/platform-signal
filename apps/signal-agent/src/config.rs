@@ -21,6 +21,7 @@ pub struct AgentConfig {
     pub tls_config: Option<PathBuf>,
     pub inputs: Vec<InputSpec>,
     pub syslog: Option<crate::syslog::Config>,
+    pub node: Option<crate::node_input::Config>,
     pub spool: SpoolConfig,
     pub batch_events: usize,
     pub batch_bytes: usize,
@@ -61,6 +62,7 @@ impl AgentConfig {
             Err(std::env::VarError::NotPresent) => None,
             Err(_) => return Err(ConfigError("source name must be UTF-8")),
         };
+        let mut explicit_event_bytes = std::env::var_os("SIGNAL_AGENT_MAX_EVENT_BYTES").is_some();
         let mut limits = std::collections::BTreeMap::new();
         for (flag, name, default) in [
             ("--batch-events", "SIGNAL_AGENT_BATCH_EVENTS", "100"),
@@ -94,7 +96,11 @@ impl AgentConfig {
             limits.insert(flag, env(name, default)?);
         }
         let mut metrics = env("SIGNAL_AGENT_METRICS_LISTEN", "")?;
+        let mut node_root = env("SIGNAL_AGENT_NODE_LOG_ROOT", "")?;
+        let mut node_name = env("SIGNAL_AGENT_NODE_NAME", "")?;
+        let mut node_namespace = env("SIGNAL_AGENT_NODE_NAMESPACE", "")?;
         let mut runtime_boot_id = String::new();
+        let mut audit_policy_sha256 = String::new();
         let mut syslog_listen = String::new();
         let mut syslog_tls = String::new();
         let mut syslog_peer = String::new();
@@ -121,7 +127,16 @@ impl AgentConfig {
                         "--source-type" => source_type = value,
                         "--source-name" => source_name = Some(value),
                         "--metrics-listen" => metrics = value,
+                        "--node-log-root" => node_root = value,
+                        "--node-name" => node_name = value,
+                        "--node-namespace" => {
+                            if value.is_empty() {
+                                return Err(ConfigError("node namespace"));
+                            }
+                            node_namespace = value;
+                        }
                         "--runtime-boot-id" => runtime_boot_id = value,
+                        "--audit-policy-sha256" => audit_policy_sha256 = value,
                         "--syslog-listen" => syslog_listen = value,
                         "--syslog-tls-config" => syslog_tls = value,
                         "--syslog-peer-sha256" => syslog_peer = value,
@@ -132,6 +147,9 @@ impl AgentConfig {
                             kinds.push(InputKind::File(PathBuf::from(value)));
                         }
                         flag if limits.contains_key(flag) => {
+                            if flag == "--max-event-bytes" {
+                                explicit_event_bytes = true;
+                            }
                             limits.insert(
                                 limits.get_key_value(flag).ok_or(ConfigError("flag"))?.0,
                                 value,
@@ -145,6 +163,28 @@ impl AgentConfig {
                 return Err(ConfigError("at most 16 inputs"));
             }
         }
+        let node_mode = format == "kubernetes-cri";
+        if node_mode {
+            if node_root.is_empty()
+                || node_name.is_empty()
+                || source_name.is_none()
+                || !kinds.is_empty()
+                || !syslog_listen.is_empty()
+                || !["log", "kubernetes.container"].contains(&source_type.as_str())
+            {
+                return Err(ConfigError(
+                    "node mode requires dedicated root/node/cluster configuration",
+                ));
+            }
+            if !explicit_event_bytes {
+                limits.insert(
+                    "--max-event-bytes",
+                    signal_collector_sdk::kubernetes_log::MAX_EVENT_BYTES.to_string(),
+                );
+            }
+        } else if !node_root.is_empty() || !node_name.is_empty() || !node_namespace.is_empty() {
+            return Err(ConfigError("node root/name require kubernetes-cri mode"));
+        }
         if !syslog_listen.is_empty()
             && (!kinds.is_empty() || once || format != "fortigate" || source_name.is_none())
         {
@@ -155,7 +195,7 @@ impl AgentConfig {
         if syslog_listen.is_empty() && (!syslog_tls.is_empty() || !syslog_peer.is_empty()) {
             return Err(ConfigError("syslog TLS requires a listener"));
         }
-        if kinds.is_empty() && syslog_listen.is_empty() {
+        if kinds.is_empty() && syslog_listen.is_empty() && !node_mode {
             kinds.push(InputKind::Stdin);
         }
         if server.len() > 4096
@@ -172,7 +212,42 @@ impl AgentConfig {
         if format != "falco-json" && !runtime_boot_id.is_empty() {
             return Err(ConfigError("runtime boot ID requires falco-json mode"));
         }
+        if format != "kubernetes-audit-json" && !audit_policy_sha256.is_empty() {
+            return Err(ConfigError(
+                "audit policy requires kubernetes-audit-json mode",
+            ));
+        }
         let mode = match format.as_str() {
+            "kubernetes-cri" => {
+                source_type = "kubernetes.container".into();
+                ParseMode::Plain
+            }
+            "kubernetes-audit-json" => {
+                if stdin
+                    || kinds.iter().any(|k| !matches!(k, InputKind::File(_)))
+                    || audit_policy_sha256.len() != 64
+                    || !audit_policy_sha256.bytes().all(|b| b.is_ascii_hexdigit())
+                    || !["log", "kubernetes.audit"].contains(&source_type.as_str())
+                {
+                    return Err(ConfigError(
+                        "audit requires regular files and exact policy SHA256",
+                    ));
+                }
+                let cluster = source_name
+                    .as_deref()
+                    .ok_or(ConfigError("audit requires cluster source name"))?;
+                signal_collector_sdk::kubernetes_audit::Profile::new(cluster, &audit_policy_sha256)
+                    .map_err(|_| ConfigError("audit source profile"))?;
+                let mut digest = [0; 32];
+                for (i, byte) in digest.iter_mut().enumerate() {
+                    *byte = u8::from_str_radix(&audit_policy_sha256[i * 2..i * 2 + 2], 16)
+                        .map_err(|_| ConfigError("audit policy SHA256"))?;
+                }
+                source_type = "kubernetes.audit".into();
+                ParseMode::KubernetesAudit {
+                    policy_sha256: digest,
+                }
+            }
             "auto" => ParseMode::Auto,
             "plain" => ParseMode::Plain,
             "json" => ParseMode::Json,
@@ -191,7 +266,7 @@ impl AgentConfig {
             }
             _ => {
                 return Err(ConfigError(
-                    "format must be auto, plain, json, auth-json, fortigate or falco-json",
+                    "format must be auto, plain, json, auth-json, fortigate, falco-json or kubernetes-audit-json or kubernetes-cri",
                 ));
             }
         };
@@ -206,6 +281,11 @@ impl AgentConfig {
         let batch_bytes = n("--batch-bytes", 4096, 16 * 1024 * 1024)?;
         let max_line_bytes = n("--max-line-bytes", 1, 65536)?;
         let event_bytes = n("--max-event-bytes", 1024, 1024 * 1024)?;
+        if node_mode && event_bytes < signal_collector_sdk::kubernetes_log::MAX_EVENT_BYTES {
+            return Err(ConfigError(
+                "node canonical event budget must be at least 512 KiB",
+            ));
+        }
         if event_bytes + 64 + batch_events > batch_bytes {
             return Err(ConfigError("event must fit batch envelope"));
         }
@@ -228,6 +308,28 @@ impl AgentConfig {
         let source = Source {
             source_type,
             name: source_name,
+        };
+        let node = if node_mode {
+            let value = crate::node_input::Config {
+                root: node_root.into(),
+                cluster: source.name.clone().ok_or(ConfigError("node cluster"))?,
+                node: node_name,
+                namespace: if node_namespace.is_empty() {
+                    None
+                } else {
+                    Some(node_namespace)
+                },
+                max_line_bytes,
+                follow: !once,
+                limits: crate::node_root::Limits::default(),
+                scan_interval: Duration::from_millis(250),
+            };
+            value
+                .validate()
+                .map_err(|_| ConfigError("node source configuration"))?;
+            Some(value)
+        } else {
+            None
         };
         let syslog = if syslog_listen.is_empty() {
             None
@@ -296,6 +398,7 @@ impl AgentConfig {
             tls_config,
             inputs,
             syslog,
+            node,
             spool,
             batch_events,
             batch_bytes,
@@ -414,5 +517,96 @@ mod tests {
         ] {
             assert!(AgentConfig::parse(args.into_iter().map(str::to_owned)).is_err());
         }
+    }
+    #[test]
+    fn audit_mode_requires_explicit_file_cluster_and_policy_binding() {
+        let policy = "AB".repeat(32);
+        let parse = |args: &[&str]| AgentConfig::parse(args.iter().map(|v| v.to_string()));
+        let valid = [
+            "--format",
+            "kubernetes-audit-json",
+            "--file",
+            "/synthetic/audit.log",
+            "--source-name",
+            "cluster",
+            "--audit-policy-sha256",
+            &policy,
+        ];
+        let config = match parse(&valid) {
+            Ok(c) => c,
+            Err(e) => panic!("{e}"),
+        };
+        assert_eq!(config.inputs[0].source.source_type, "kubernetes.audit");
+        assert!(
+            matches!(config.inputs[0].mode, ParseMode::KubernetesAudit { policy_sha256 } if policy_sha256 == [0xab;32])
+        );
+        for args in [
+            vec!["--format", "kubernetes-audit-json"],
+            vec![
+                "--format",
+                "kubernetes-audit-json",
+                "--source-name",
+                "cluster",
+                "--audit-policy-sha256",
+                &policy,
+            ],
+            vec![
+                "--format",
+                "kubernetes-audit-json",
+                "--file",
+                "/synthetic/audit.log",
+                "--audit-policy-sha256",
+                &policy,
+            ],
+            vec!["--audit-policy-sha256", &policy],
+        ] {
+            assert!(parse(&args).is_err());
+        }
+        for suffix in [
+            vec!["--stdin"],
+            vec!["--runtime-boot-id", "00000000-0000-0000-0000-000000000001"],
+            vec!["--source-type", "forged"],
+            vec!["--audit-policy-sha256", "bad"],
+        ] {
+            let mut args = valid.to_vec();
+            args.extend(suffix);
+            assert!(parse(&args).is_err());
+        }
+    }
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn dedicated_node_flags_validate_profile_and_canonical_capacity_without_stdin() {
+        fn parse(args: &[&str]) -> Result<AgentConfig, ConfigError> {
+            AgentConfig::parse(args.iter().map(|v| v.to_string()))
+        }
+        let valid = [
+            "--format",
+            "kubernetes-cri",
+            "--node-log-root",
+            "/var/log/pods",
+            "--node-name",
+            "node-a",
+            "--source-name",
+            "cluster",
+        ];
+        let cfg = parse(&valid).expect("node config");
+        assert!(cfg.inputs.is_empty() && cfg.syslog.is_none() && cfg.node.is_some());
+        assert_eq!(
+            cfg.spool.max_event_bytes,
+            signal_collector_sdk::kubernetes_log::MAX_EVENT_BYTES
+        );
+        for suffix in [
+            vec!["--stdin"],
+            vec!["--file", "/tmp/file"],
+            vec!["--syslog-listen", "127.0.0.1:514"],
+            vec!["--audit-policy-sha256", "bad"],
+            vec!["--max-event-bytes", "65536"],
+            vec!["--node-log-root", "relative"],
+        ] {
+            let mut args = valid.to_vec();
+            args.extend(suffix);
+            assert!(parse(&args).is_err());
+        }
+        assert!(parse(&["--format", "plain", "--node-name", "node-a"]).is_err());
     }
 }

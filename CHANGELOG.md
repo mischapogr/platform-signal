@@ -116,9 +116,9 @@ Native Linux AMD64 workspace/process/container/local Kubernetes mechanisms have
 executed gates. The current workspace passes 231 tests; the prior 228-test
 post-restore result remains historical. The restore addition and native runner subsequently passed independent
 review with no unresolved source findings. Seven new AMD64 load profiles passed;
-configured ARM64 CI jobs have not executed and no ARM64 host is available. Native ARM64
-execution/benchmarks, EKS, remote CI and
-released dependency integration remain open. The soak-only run records
+native AMD64 and ARM64 GitHub-hosted CI passes for runtime 7fa481e (run 38898992993)
+with production images, hardening, finite pipeline/soak profiles and kind recovery.
+Actual EKS/AWS qualification and released dependency integration remain open. The soak-only run records
 `full_qualification: false`; that older run remains separate from the refreshed
 full native campaign. Neither campaign closes the release gate. Configured high
 pipeline target rates were not attained; finite sampled RSS/CPU measurements

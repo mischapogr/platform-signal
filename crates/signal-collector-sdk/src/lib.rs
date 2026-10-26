@@ -21,9 +21,13 @@ pub mod cloudtrail;
 pub mod coverage;
 pub mod falco;
 pub mod host_auth;
+pub mod kubernetes_audit;
+pub mod kubernetes_context;
+pub mod kubernetes_log;
 pub mod object_custody;
 mod providers;
 pub mod receipt;
+pub mod runtime_metadata;
 pub mod source_object;
 pub mod transport;
 pub use providers::{

@@ -1,6 +1,6 @@
 # Release notes and limits wording (draft)
 
-Draft only. No version is selected, nothing is published and EXT-AWS is open. The owner
+Draft only. No version is selected, nothing is published and EXT-AWS is open. Figures below are filled for runtime `7fa481e`; the remaining `<…>` fields need the owner. See [MVP closure](68-mvp-closure.md). The owner
 fills the `<…>` fields and re-verifies every figure against `docs/07-progress.md`,
 `docs/21-release-readiness.md` and the ledger at the release revision before use.
 Wording rules: say what was run, where, and what it does not prove; never imply AWS,
@@ -31,10 +31,10 @@ URL-parameter query, YAML rules with durable findings, an edge agent and a colle
 
 | Area | Evidence | Scope |
 | --- | --- | --- |
-| Rust gates | `<n>` default / `<n>` all-feature tests, strict Clippy, fmt, workspace boundaries | Source at `<revision>` |
-| Native CI | Run `<id>`: AMD64 and ARM64 Rust, production image, hardening, pipeline profiles, finite soaks, Cargo audit, image scan | GitHub-hosted runners, finite duration |
+| Rust gates | 1,121 default / 1,191 all-feature tests (local); 1,191 on each native architecture, strict Clippy, fmt, workspace boundaries | Runtime `7fa481e` |
+| Native CI | Run [38898992993](https://github.com/mischapogr/platform-signal/actions/runs/38898992993): AMD64 and ARM64 Rust, production image, hardening, pipeline profiles, finite soaks, Cargo audit, image scan | GitHub-hosted runners, finite duration |
 | Kubernetes | kind: probes, PVC, SIGKILL and pod-replacement recovery with the original WAL checkpoint | kind only |
-| AWS/EKS | `<EXT-AWS result or "not performed">` | See limits |
+| AWS/EKS | Not performed | See limits |
 
 ### Upgrade and compatibility
 
@@ -45,12 +45,8 @@ released-to-released upgrade has been tested because no earlier release exists.
 
 ## Known limitations (use verbatim)
 
-1. **Not proven on AWS.** `<Use one:>` (a) "No AWS, EKS, EBS, KMS or Object Lock qualification has
-   been run; Kubernetes testing used kind, and object storage tests used simulated S3." or
-   (b) "On `<date>` in `<region>` the Small chart ran on EKS `<version>` with encrypted gp3 EBS,
-   and an S3 bucket was tested for KMS encryption, Object Lock retention and locked-version
-   delete denial (run `<id>`). The Standard profile, product S3 custody, multi-AZ and account
-   loss were not tested on AWS."
+1. **Not proven on AWS.** No AWS, EKS, EBS, KMS or Object Lock qualification has
+   been run; Kubernetes testing used kind, and object storage tests used simulated S3.
 2. **Single writer, no HA.** One server process owns the WAL and store. Replicas, failover
    and zone/account loss are not provided or qualified.
 3. **Finite load only.** Pipeline and soak runs are finite (e.g. 120 s) on shared runners.
@@ -67,10 +63,9 @@ released-to-released upgrade has been tested because no earlier release exists.
    date/hour partitions.
 8. **Scanner results.** Cargo audit reported 0 findings and image scanning 0 HIGH/CRITICAL at
    the recorded revision; MEDIUM/LOW findings remain (`<counts>`). Scans are point-in-time.
-9. **Review.** `<Independent current-source review: done on <date> / pending.>` Writer
+9. **Review.** Independent current-source review of runtime `7fa481e` is pending. Writer
    reviews recorded in the progress log are not independent review.
-10. **Released dependencies.** The private overlay was `<tested against this released
-    version / not yet tested against a released public version>`.
+10. **Released dependencies.** The private overlay has not yet been tested against a released public version.
 
 ## Do not claim
 
@@ -82,7 +77,7 @@ released-to-released upgrade has been tested because no earlier release exists.
 
 - [ ] Version chosen; Cargo, chart and binaries match (`docs/VERSIONING.md`).
 - [ ] Figures in the tables above replaced from the evidence at the release revision.
-- [ ] Limits 1, 9 and 10 resolved to the actual state.
-- [ ] README implementation-status paragraph updated (it still says native ARM64 and remote CI
-      are unverified; both now pass) and `CHANGELOG.md` `Unreleased` section converted.
+- [ ] Limits 1, 9 and 10 re-checked at the release revision (they now state the current facts).
+- [x] README implementation status and CHANGELOG qualification wording updated on 2026-10-23.
+- [ ] `CHANGELOG.md` `Unreleased` section converted to the chosen version.
 - [ ] Signed provenance/SBOM steps and `docs/50-ghcr-publication.md` conditions satisfied.

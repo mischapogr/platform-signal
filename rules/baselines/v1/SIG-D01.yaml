@@ -1,0 +1,30 @@
+{
+  "apiVersion": "signal.dev/v1",
+  "kind": "Rule",
+  "metadata": {
+    "id": "SIG-D01",
+    "name": "Root identity activity"
+  },
+  "spec": {
+    "severity": "high",
+    "match": {
+      "all": [
+        {
+          "field": "source.type",
+          "eq": "cloudtrail"
+        },
+        {
+          "field": "attributes.security.outcome",
+          "eq": "success"
+        },
+        {
+          "field": "attributes.security.actor_kind",
+          "eq": "Root"
+        }
+      ]
+    },
+    "finding": {
+      "title": "Root identity activity"
+    }
+  }
+}

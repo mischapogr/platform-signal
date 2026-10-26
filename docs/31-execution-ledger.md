@@ -1,5 +1,33 @@
 # Finite execution ledger
 
+Current inventory — 2026-10-26: **40 accepted / 12 unfinished** (14 passed_local,
+24 passed_simulated, 2 passed_external, 7 pending, 1 in_progress and 4 external_pending).
+STATE is passed_simulated for D04/D06/D08/D09/D13; D12 remains explicitly deferred
+to AWS-PROFILES. Independent source/criteria reviews, eight frozen gates,
+1238default/1308all-feature tests and five actual SIGKILL/original replay/policy
+generation cases pass. Evidence:`target/scoped-state-20261026/ACCEPTANCE.json`;
+[contract80](80-scoped-state.md). Source/private authority are synthetic; hosts own
+protected archives/index and exclusive activation. Next: CORRELATION (in_progress),
+D11 accepted as a slice (`target/correlation-20261026/D11-ACCEPTANCE.json`);
+D14 in_progress, whole CORRELATION stays unfinished. Older dated inventories below
+describe their own revisions.
+D14 capture/SDK focused checkpoint:21owned native x86_64 cases,seven SDK tests,
+retained-native composition and D11 exact-byte golden compatibility; see
+`target/correlation-d14-20261026/SDK-CHECKPOINT.json`. Classification/join/replay
+and whole-item acceptance remain open; inventory unchanged. Typed historical
+classification/seven core tests plus21case SDK/core bridge now pass focused checks;
+`target/correlation-d14-20261026/CORE-CHECKPOINT.json`. Shared state/journal next.
+
+Dependency rewrite — 2026-10-23. EKS-AUDIT now depends on SMALL-PILOT (Kubernetes audit
+normalization; the EKS CloudWatch transport stays with CLOUDWATCH), BASELINES drops
+AWS-PROFILES (D01/D02/D03/D05 use CloudTrail adapters already accepted; D07 uses
+Kubernetes audit) and STATE adds K8S-CONTEXT (D08/D09 snapshots) and defers D12 to
+AWS-PROFILES. The 52 IDs are unchanged and no acceptance criterion was removed. LOCAL-CANDIDATE
+no longer reaches CLOUDWATCH, AWS-PROFILES or any EXT-* item. Unfinished path, in order:
+K8S-CONTEXT, BASELINES, STATE, CORRELATION, SOC-UX, PROFILE-LOAD,
+SCALE-DECISION, RELEASE-TRUST, then LOCAL-CANDIDATE. Reasons are in each item's
+`dependency_rewrite` in the JSON and in [68](68-mvp-closure.md).
+
 Current local SHARED-RUNTIME acceptance: independently reviewed `b9c58da` closes
 SHARED-METRICS-1. Current source-bound 919 default / 976 all-feature tests, both
 strict Clippy modes, formatting and 14 workspace boundaries pass. Real PostgreSQL
@@ -438,16 +466,16 @@ without adding capabilities or claiming general recovery from copied bits.
 | ONBOARDING | pending | COVERAGE-OBSERVERS, SECURITY-ACCESS, SHARED-RUNTIME | Secure scoped onboarding and coverage/detection activation |
 | CLOUDWATCH | pending | SMALL-PILOT | Bounded CloudWatch managed-log intake |
 | AWS-PROFILES | pending | CLOUDWATCH, OBJECT-READER | AWS RDS/ALB/NLB/ECS/VPC/DNS/WAF/security-event profiles |
-| EKS-AUDIT | pending | CLOUDWATCH | EKS/Kubernetes audit adapter |
-| K8S-CONTEXT | pending | EKS-AUDIT | Node/workload context and cluster collector mode |
+| EKS-AUDIT | passed_simulated | SMALL-PILOT | Kubernetes audit normalization and bound agent file delivery; actual kind/D07/uncertain-ACK replay accepted locally ([71](71-kubernetes-audit-agent.md)); EKS CloudWatch remains deferred |
+| K8S-CONTEXT | in_progress | EKS-AUDIT | Independently reviewed API/kind,CRI,rooted filesystem and durable spool prerequisites pass ([77](77-kubernetes-node-spool.md)); dedicated node producer and actual collection/recovery remain |
 | HOST-AUTH | pending | SMALL-PILOT | Selected host/runtime and authentication source profiles |
 | SYSLOG | pending | SECURITY-TRANSPORT, SOURCE-ACK | Site TCP/TLS syslog and FortiGate normalization |
 | M365 | pending | SMALL-PILOT | Selected Microsoft 365 audit/authentication API feeds |
 | CATO | pending | M365 | Cato API event collection |
 | CLOUDFLARE | pending | OBJECT-READER, SMALL-PILOT | Cloudflare object-delivery normalization |
-| BASELINES | pending | EKS-AUDIT, AWS-PROFILES | Versioned generic baseline predicate packs |
+| BASELINES | pending | EKS-AUDIT | Versioned generic baseline predicate packs |
 | WINDOW | passed_simulated | FINDINGS-CURSOR, HOST-AUTH, COVERAGE-OBSERVERS | First bounded window detector D10 |
-| STATE | pending | WINDOW, BASELINES | Scoped state lookup detectors D04/D06/D08/D09/D12/D13 |
+| STATE | pending | WINDOW, BASELINES, K8S-CONTEXT | Scoped state lookup detectors D04/D06/D08/D09/D13 (D12 deferred to AWS-PROFILES) |
 | SENSOR-HEALTH | in_progress | COVERAGE-OBSERVERS, WINDOW | Independent missing-telemetry detector D15 |
 | CORRELATION | pending | STATE, DISPOSITIONS, CATO, M365, SYSLOG | Bounded multi-stream episodes D11/D14 |
 | SOC-UX | pending | CORRELATION, DISPOSITIONS, SECURITY-ACCESS | Planned advanced SOC case/disposition/workbench workflows |

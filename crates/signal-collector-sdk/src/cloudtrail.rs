@@ -14,6 +14,8 @@ use uuid::Uuid;
 pub const PROFILE_ID: &str = "cloudtrail-management";
 pub const PROFILE_REVISION: &str = "v1";
 mod object;
+mod state;
+pub use state::normalize_state_record;
 /// Bounded native digest/log validation, separate from event projection.
 pub mod proof;
 pub use object::{CloudTrailObject, ObjectReadError, read_object};

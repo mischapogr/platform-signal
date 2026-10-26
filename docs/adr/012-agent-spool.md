@@ -37,7 +37,7 @@ duplicates.
   to free space. Corruption, closed spool, or I/O failure is fail-closed. The
   quota charges logical record bytes plus a 16 KiB metadata reserve covering
   state, temporary files, and lock metadata. The largest configured record
-  must fit an empty spool after this reserve, 512 bytes of cursor overhead, and
+  must fit an empty spool after this reserve, 640 bytes of cursor overhead, and
   its 12-byte frame. Record and index limits separately constrain overhead.
   These are not process RSS or physical filesystem block limits. Recovery may
   truncate only an incomplete, uncommitted final record; missing or truncated
@@ -74,3 +74,14 @@ high findings closed. This does not prove ARM64 behavior, process RSS, an agent
 container build, or actual power-loss behavior. Source-ordering checks are not
 power-loss proof. See [Phase 6 agent contract](../15-phase6-agent.md) and
 [implementation progress](../07-progress.md).
+
+## Bounded node-profile extension — 2026-10-25
+
+The separate node spool mechanism uses state version2 with an immutable source
+profile binding,typed runtime/file identity and larger explicitly charged limits;
+legacy state version1/defaults/JSON remain unchanged. Complete prospective cursor
+state is validated before record creation,including maximum future ACK digits.
+Recovery validates profile and historical records before staged cleanup. These
+are prerequisites for a dedicated rooted node producer,not acceptance of node
+collection or complete source coverage. Exact contract and remaining composition:
+[77](../77-kubernetes-node-spool.md).

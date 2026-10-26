@@ -8,7 +8,8 @@
 //! before acknowledged record files are removed. It preserves source cursors
 //! after reclamation. A crash may replay events, but their canonical IDs survive.
 //!
-//! Disk limits charge logical file bytes and a fixed 16 KiB metadata reserve;
+//! Disk limits charge logical file bytes and a profile-specific metadata reserve
+//! (16 KiB legacy / 64 KiB node);
 //! record/index counts independently bound filesystem and allocator overhead.
 //! All disk work runs on one ordinary thread. A timed out or dropped operation
 //! closes admission, while its permits remain held through physical completion.
@@ -39,10 +40,79 @@ pub const FRAME_BYTES: usize = 12;
 pub const METADATA_RESERVE: u64 = 16 * 1024;
 const STATE_LIMIT: usize = METADATA_RESERVE as usize / 2 - FRAME_BYTES;
 const INDEX_BYTES: usize = 256;
-const CHECKPOINT_BYTES: usize = 512;
+const CHECKPOINT_BYTES: usize = 640;
+const NODE_METADATA_RESERVE: u64 = 64 * 1024;
+const NODE_CHECKPOINT_BYTES: usize = 1536;
+/// Node mode has distinct durable identity and capacity; legacy defaults stay v1.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum CursorProfile {
+    #[default]
+    Legacy,
+    KubernetesNode {
+        source_binding: [u8; 32],
+    },
+}
+impl CursorProfile {
+    fn metadata_reserve(self) -> u64 {
+        match self {
+            Self::Legacy => METADATA_RESERVE,
+            Self::KubernetesNode { .. } => NODE_METADATA_RESERVE,
+        }
+    }
+    fn checkpoint_bytes(self) -> usize {
+        match self {
+            Self::Legacy => CHECKPOINT_BYTES,
+            Self::KubernetesNode { .. } => NODE_CHECKPOINT_BYTES,
+        }
+    }
+    fn state_limit(self) -> usize {
+        match self {
+            Self::Legacy => STATE_LIMIT,
+            Self::KubernetesNode { .. } => NODE_METADATA_RESERVE as usize / 2 - FRAME_BYTES,
+        }
+    }
+    fn version(self) -> u16 {
+        match self {
+            Self::Legacy => 1,
+            Self::KubernetesNode { .. } => 2,
+        }
+    }
+    pub(crate) fn binding(self) -> Option<String> {
+        match self {
+            Self::Legacy => None,
+            Self::KubernetesNode { source_binding } => {
+                Some(source_binding.iter().map(|b| format!("{b:02x}")).collect())
+            }
+        }
+    }
+    pub(crate) fn checkpoint(self, checkpoint: &SourceCheckpoint) -> Result<(), SpoolError> {
+        validate_checkpoint(checkpoint)?;
+        match self {
+            Self::Legacy if checkpoint.source_identity.is_some() => {
+                Err(SpoolError::Invalid("node checkpoint in legacy profile"))
+            }
+            Self::KubernetesNode { .. }
+                if checkpoint.source_identity.is_none()
+                    || checkpoint.source_binding != self.binding()
+                    || checkpoint.anchor.len() as u64 > checkpoint.offset =>
+            {
+                Err(SpoolError::Invalid("node source profile"))
+            }
+            _ => Ok(()),
+        }
+    }
+    fn optional_checkpoint(self, checkpoint: Option<&SourceCheckpoint>) -> Result<(), SpoolError> {
+        match checkpoint {
+            Some(c) => self.checkpoint(c),
+            None if self != Self::Legacy => Err(SpoolError::Invalid("node checkpoint required")),
+            None => Ok(()),
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct SpoolConfig {
+    pub cursor_profile: CursorProfile,
     pub directory: PathBuf,
     pub max_disk_bytes: u64,
     pub max_records: usize,
@@ -57,6 +127,7 @@ pub struct SpoolConfig {
 impl Default for SpoolConfig {
     fn default() -> Self {
         Self {
+            cursor_profile: CursorProfile::Legacy,
             directory: "data/agent-spool".into(),
             max_disk_bytes: 64 * 1024 * 1024,
             max_records: 10_000,
@@ -75,21 +146,29 @@ impl SpoolConfig {
         if self.directory.as_os_str().is_empty()
             || self.directory.as_os_str().as_encoded_bytes().len() > 4096
             || self.directory.components().take(129).count() > 128
-            || self.max_disk_bytes <= METADATA_RESERVE + FRAME_BYTES as u64
+            || self.max_disk_bytes <= self.cursor_profile.metadata_reserve() + FRAME_BYTES as u64
             || self.max_disk_bytes > 64 * 1024 * 1024 * 1024
             || self.max_records == 0
             || self.max_records > 1_000_000
             || self.max_event_bytes == 0
             || self.max_event_bytes > 1024 * 1024
+            || (self.cursor_profile != CursorProfile::Legacy
+                && self.max_event_bytes < signal_collector_sdk::kubernetes_log::MAX_EVENT_BYTES)
             || self.max_disk_bytes
-                < METADATA_RESERVE
+                < self.cursor_profile.metadata_reserve()
                     + self.max_event_bytes as u64
-                    + CHECKPOINT_BYTES as u64
+                    + self.cursor_profile.checkpoint_bytes() as u64
                     + FRAME_BYTES as u64
             || self.max_batch_events == 0
             || self.max_batch_events > 10_000
             || self.max_batch_bytes < self.max_event_bytes
             || self.max_batch_bytes > 16 * 1024 * 1024
+            || (self.cursor_profile != CursorProfile::Legacy
+                && self
+                    .max_event_bytes
+                    .checked_add(64)
+                    .and_then(|n| n.checked_add(self.max_batch_events))
+                    .is_none_or(|n| self.max_batch_bytes < n))
             || self.max_index_bytes < INDEX_BYTES
             || self.max_index_bytes > 256 * 1024 * 1024
             || self.command_capacity == 0
@@ -396,9 +475,11 @@ impl Spool {
             .map_err(|_| self.rejected(SpoolError::Invalid("event")))?;
         validate_complexity(&event).map_err(|error| self.rejected(error))?;
         encode(&event, self.shared.config.max_event_bytes).map_err(|error| self.rejected(error))?;
-        if let Some(checkpoint) = &checkpoint {
-            validate_checkpoint(checkpoint).map_err(|error| self.rejected(error))?;
-        }
+        self.shared
+            .config
+            .cursor_profile
+            .optional_checkpoint(checkpoint.as_ref())
+            .map_err(|error| self.rejected(error))?;
         match self
             .request(Work::Append(Box::new(event), checkpoint), cancellation)
             .await?
@@ -445,7 +526,11 @@ impl Spool {
         checkpoint: SourceCheckpoint,
         cancellation: &CancellationToken,
     ) -> Result<(), SpoolError> {
-        validate_checkpoint(&checkpoint).map_err(|error| self.rejected(error))?;
+        self.shared
+            .config
+            .cursor_profile
+            .checkpoint(&checkpoint)
+            .map_err(|error| self.rejected(error))?;
         match self
             .request(Work::Checkpoint(checkpoint), cancellation)
             .await?
@@ -606,6 +691,8 @@ struct DiskRecord {
 #[serde(deny_unknown_fields)]
 struct State {
     version: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    profile_binding: Option<String>,
     acknowledged: u64,
     next_sequence: u64,
     cursors: Vec<SourceCheckpoint>,
@@ -614,6 +701,7 @@ impl Default for State {
     fn default() -> Self {
         Self {
             version: 1,
+            profile_binding: None,
             acknowledged: 0,
             next_sequence: 1,
             cursors: Vec::new(),
@@ -645,8 +733,19 @@ fn regular(path: &Path) -> Result<(), SpoolError> {
     Ok(())
 }
 fn validate_checkpoint(checkpoint: &SourceCheckpoint) -> Result<(), SpoolError> {
-    if checkpoint.input >= 16 || checkpoint.anchor.len() > 64 {
+    if checkpoint.input >= 16
+        || checkpoint.anchor.len() > 64
+        || checkpoint.source_binding.as_ref().is_some_and(|s| {
+            s.len() != 64
+                || !s
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        })
+    {
         return Err(SpoolError::Invalid("source checkpoint"));
+    }
+    if let Some(source) = &checkpoint.source_identity {
+        source.validate().map_err(SpoolError::Invalid)?;
     }
     Ok(())
 }
@@ -677,8 +776,12 @@ fn validate_complexity(event: &SignalEvent) -> Result<(), SpoolError> {
     }
     Ok(())
 }
-fn replace_cursor(state: &mut State, checkpoint: SourceCheckpoint) -> Result<(), SpoolError> {
-    validate_checkpoint(&checkpoint)?;
+fn replace_cursor(
+    state: &mut State,
+    checkpoint: SourceCheckpoint,
+    profile: CursorProfile,
+) -> Result<(), SpoolError> {
+    profile.checkpoint(&checkpoint)?;
     if let Some(existing) = state
         .cursors
         .iter_mut()
@@ -778,11 +881,12 @@ impl Engine {
         let state_path = config.directory.join("state");
         let state = if state_path.try_exists().map_err(io)? {
             regular(&state_path)?;
-            let bytes = read_frame(&state_path, STATE_LIMIT, false)?
+            let bytes = read_frame(&state_path, config.cursor_profile.state_limit(), false)?
                 .ok_or(SpoolError::Corrupt("state incomplete"))?;
             let state: State =
                 serde_json::from_slice(&bytes).map_err(|_| SpoolError::Corrupt("state JSON"))?;
-            if state.version != 1
+            if state.version != config.cursor_profile.version()
+                || state.profile_binding != config.cursor_profile.binding()
                 || state.next_sequence <= state.acknowledged
                 || state.cursors.len() > 16
             {
@@ -790,7 +894,9 @@ impl Engine {
             }
             let mut seen = [false; 16];
             for checkpoint in &state.cursors {
-                validate_checkpoint(checkpoint)
+                config
+                    .cursor_profile
+                    .checkpoint(checkpoint)
                     .map_err(|_| SpoolError::Corrupt("source checkpoint"))?;
                 if std::mem::replace(&mut seen[checkpoint.input as usize], true) {
                     return Err(SpoolError::Corrupt("duplicate source checkpoint"));
@@ -798,16 +904,23 @@ impl Engine {
             }
             state
         } else {
-            State::default()
+            State {
+                version: config.cursor_profile.version(),
+                profile_binding: config.cursor_profile.binding(),
+                ..State::default()
+            }
         };
+        let metadata_reserve = config.cursor_profile.metadata_reserve();
         let mut engine = Self {
             config,
             _lock: lock,
             directory,
             entries: BTreeMap::new(),
             state,
-            bytes: METADATA_RESERVE,
+            bytes: metadata_reserve,
         };
+        let mut cleanup_sequences = Vec::new();
+        let mut cleanup_temporary = false;
         let mut sequences = Vec::new();
         let mut file_count = 0usize;
         for item in fs::read_dir(&engine.config.directory).map_err(io)? {
@@ -823,10 +936,12 @@ impl Engine {
             match name {
                 "lock" | "state" => {}
                 "state.tmp" => {
-                    if item.metadata().map_err(io)?.len() > (STATE_LIMIT + FRAME_BYTES) as u64 {
+                    if item.metadata().map_err(io)?.len()
+                        > (engine.config.cursor_profile.state_limit() + FRAME_BYTES) as u64
+                    {
                         return Err(SpoolError::Corrupt("state temporary size"));
                     }
-                    fs::remove_file(item.path()).map_err(io)?;
+                    cleanup_temporary = true;
                 }
                 name if name.starts_with("record-") => {
                     let number = &name[7..];
@@ -840,7 +955,7 @@ impl Engine {
                         return Err(SpoolError::Corrupt("record filename"));
                     }
                     if sequence <= engine.state.acknowledged {
-                        fs::remove_file(item.path()).map_err(io)?;
+                        cleanup_sequences.push(sequence);
                         continue;
                     }
                     if sequences.len() >= engine.config.max_records
@@ -867,7 +982,7 @@ impl Engine {
             context.check()?;
             let path = engine.record_path(sequence);
             if sequence <= engine.state.acknowledged {
-                fs::remove_file(path).map_err(io)?;
+                cleanup_sequences.push(sequence);
                 continue;
             }
             if sequence != expected {
@@ -878,7 +993,7 @@ impl Engine {
                 if sequence < engine.state.next_sequence {
                     return Err(SpoolError::Corrupt("checkpointed record incomplete"));
                 }
-                fs::remove_file(path).map_err(io)?;
+                cleanup_sequences.push(sequence);
                 break;
             };
             let record = engine.decode_record(sequence, &bytes)?;
@@ -910,7 +1025,7 @@ impl Engine {
             if sequence >= engine.state.next_sequence
                 && let Some(checkpoint) = record.checkpoint
             {
-                replace_cursor(&mut engine.state, checkpoint)?;
+                replace_cursor(&mut engine.state, checkpoint, engine.config.cursor_profile)?;
             }
             expected = expected
                 .checked_add(1)
@@ -920,6 +1035,15 @@ impl Engine {
             return Err(SpoolError::Corrupt("checkpointed record missing"));
         }
         engine.state.next_sequence = engine.state.next_sequence.max(expected);
+        engine.preflight_state(&engine.state)?;
+        if cleanup_temporary {
+            context.check()?;
+            fs::remove_file(engine.config.directory.join("state.tmp")).map_err(io)?;
+        }
+        for sequence in cleanup_sequences {
+            context.check()?;
+            fs::remove_file(engine.record_path(sequence)).map_err(io)?;
+        }
         // Persist an initial identity before admitting records. Existing state is
         // rewritten only by append acknowledgements or cursor-only checkpoints.
         if !state_path.try_exists().map_err(io)? {
@@ -934,7 +1058,7 @@ impl Engine {
         self.config.directory.join(format!("record-{sequence:020}"))
     }
     fn record_limit(&self) -> usize {
-        self.config.max_event_bytes + CHECKPOINT_BYTES
+        self.config.max_event_bytes + self.config.cursor_profile.checkpoint_bytes()
     }
     fn update_metrics(&self, counters: &Counters) {
         counters.bytes.store(self.bytes, Ordering::Relaxed);
@@ -949,15 +1073,38 @@ impl Engine {
             return Err(SpoolError::Corrupt("record contract"));
         }
         validate_complexity(&record.event).map_err(|_| SpoolError::Corrupt("event complexity"))?;
-        if let Some(checkpoint) = &record.checkpoint {
-            validate_checkpoint(checkpoint)
-                .map_err(|_| SpoolError::Corrupt("source checkpoint"))?;
-        }
+        self.config
+            .cursor_profile
+            .optional_checkpoint(record.checkpoint.as_ref())
+            .map_err(|_| SpoolError::Corrupt("source checkpoint profile"))?;
         Ok(record)
+    }
+    fn preflight_state(&self, state: &State) -> Result<(), SpoolError> {
+        if state.version != self.config.cursor_profile.version()
+            || state.profile_binding != self.config.cursor_profile.binding()
+            || state.cursors.len() > 16
+            || state.next_sequence <= state.acknowledged
+        {
+            return Err(SpoolError::Invalid("state source profile"));
+        }
+        let mut seen = [false; 16];
+        for checkpoint in &state.cursors {
+            self.config.cursor_profile.checkpoint(checkpoint)?;
+            if std::mem::replace(&mut seen[checkpoint.input as usize], true) {
+                return Err(SpoolError::Invalid("duplicate source checkpoint"));
+            }
+        }
+        // Reserve all future ACK/sequence decimal growth, not only current digits.
+        let mut worst = state.clone();
+        worst.acknowledged = u64::MAX;
+        worst.next_sequence = u64::MAX;
+        encode(&worst, self.config.cursor_profile.state_limit())?;
+        Ok(())
     }
     fn persist_state(&self, state: &State, context: &Context) -> Result<(), SpoolError> {
         context.check()?;
-        let data = encode(state, STATE_LIMIT)?;
+        self.preflight_state(state)?;
+        let data = encode(state, self.config.cursor_profile.state_limit())?;
         let temporary = self.config.directory.join("state.tmp");
         let mut file = file_options()
             .write(true)
@@ -978,9 +1125,9 @@ impl Engine {
             Work::Append(event, checkpoint) => {
                 event.validate().map_err(|_| SpoolError::Invalid("event"))?;
                 let event_bytes = encode(&event, self.config.max_event_bytes)?.len();
-                if let Some(checkpoint) = &checkpoint {
-                    validate_checkpoint(checkpoint)?;
-                }
+                self.config
+                    .cursor_profile
+                    .optional_checkpoint(checkpoint.as_ref())?;
                 if self.entries.len() >= self.config.max_records
                     || (self.entries.len() + 1) * INDEX_BYTES > self.config.max_index_bytes
                 {
@@ -990,6 +1137,16 @@ impl Engine {
                 let next_sequence = sequence
                     .checked_add(1)
                     .ok_or(SpoolError::Invalid("sequence overflow"))?;
+                let mut prospective = self.state.clone();
+                prospective.next_sequence = next_sequence;
+                if let Some(checkpoint) = &checkpoint {
+                    replace_cursor(
+                        &mut prospective,
+                        checkpoint.clone(),
+                        self.config.cursor_profile,
+                    )?;
+                }
+                self.preflight_state(&prospective)?;
                 let record = DiskRecord {
                     version: 1,
                     sequence,
@@ -1018,10 +1175,7 @@ impl Engine {
                 context.check()?;
                 self.bytes += bytes as u64;
                 self.entries.insert(sequence, Entry { bytes, event_bytes });
-                self.state.next_sequence = next_sequence;
-                if let Some(checkpoint) = record.checkpoint {
-                    replace_cursor(&mut self.state, checkpoint)?;
-                }
+                self.state = prospective;
                 Ok(Value::Sequence(sequence))
             }
             Work::Read(max_events, max_bytes) => {
@@ -1071,7 +1225,7 @@ impl Engine {
             }
             Work::Checkpoint(checkpoint) => {
                 let mut state = self.state.clone();
-                replace_cursor(&mut state, checkpoint)?;
+                replace_cursor(&mut state, checkpoint, self.config.cursor_profile)?;
                 self.persist_state(&state, context)?;
                 self.state = state;
                 Ok(Value::Done)
@@ -1211,6 +1365,8 @@ mod tests {
             inode: 2,
             offset,
             anchor: b"line\n".to_vec(),
+            source_binding: None,
+            source_identity: None,
         }
     }
     async fn batch(
@@ -1421,9 +1577,11 @@ mod tests {
         cfg.max_index_bytes = 10 * INDEX_BYTES;
         cfg.max_disk_bytes = METADATA_RESERVE + 1024 + CHECKPOINT_BYTES as u64 + FRAME_BYTES as u64;
         let spool = Spool::open(cfg, &token).await?;
-        spool.append(event(&"x".repeat(512))?, None, &token).await?;
+        let disk_event = event(&"x".repeat(640))?;
+        assert!(serde_json::to_vec(&disk_event)?.len() <= 1024);
+        spool.append(disk_event.clone(), None, &token).await?;
         assert!(matches!(
-            spool.append(event(&"x".repeat(512))?, None, &token).await,
+            spool.append(disk_event, None, &token).await,
             Err(SpoolError::Quota)
         ));
         assert_eq!(batch(&spool, &token).await?.len(), 1);
@@ -1829,4 +1987,82 @@ mod tests {
         assert_eq!(spool.metrics().operations_in_flight, 0);
         Ok(())
     }
+    #[test]
+    fn bound_checkpoint_record_and_sixteen_cursor_state_fit_reserved_capacity() -> TestResult {
+        let checkpoint = SourceCheckpoint {
+            input: 15,
+            device: u64::MAX,
+            inode: u64::MAX,
+            offset: u64::MAX,
+            anchor: vec![255; 64],
+            source_binding: Some("f".repeat(64)),
+            source_identity: None,
+        };
+        validate_checkpoint(&checkpoint)?;
+        let event = event("maximum cursor budget")?;
+        let event_bytes = serde_json::to_vec(&event)?.len();
+        let bytes = serde_json::to_vec(&DiskRecord {
+            version: 1,
+            sequence: u64::MAX,
+            event,
+            checkpoint: Some(checkpoint.clone()),
+        })?;
+        assert!(bytes.len() - event_bytes <= CHECKPOINT_BYTES);
+        assert!(bytes.len() - event_bytes > 512);
+        let state = State {
+            version: 1,
+            profile_binding: None,
+            acknowledged: u64::MAX,
+            next_sequence: u64::MAX,
+            cursors: (0..16)
+                .map(|input| SourceCheckpoint {
+                    input,
+                    ..checkpoint.clone()
+                })
+                .collect(),
+        };
+        assert!(serde_json::to_vec(&state)?.len() <= STATE_LIMIT);
+        let mut malformed = checkpoint;
+        malformed.source_binding = Some("G".repeat(64));
+        assert!(validate_checkpoint(&malformed).is_err());
+        let unbound = cursor(0, 1);
+        let mut serialized = serde_json::to_value(&unbound)?;
+        assert!(serialized.get("source_binding").is_none());
+        let decoded: SourceCheckpoint = serde_json::from_value(serialized.take())?;
+        assert_eq!(decoded, unbound);
+        Ok(())
+    }
+    #[tokio::test]
+    async fn bound_cursor_and_canonical_bytes_survive_pending_and_acknowledged_restart()
+    -> TestResult {
+        let dir = tempfile::tempdir()?;
+        let token = CancellationToken::new();
+        let cfg = config(dir.path());
+        let original = event("audit canonical pin")?;
+        let mut checkpoint = cursor(0, 33);
+        checkpoint.source_binding = Some("a".repeat(64));
+        let spool = Spool::open(cfg.clone(), &token).await?;
+        spool
+            .append(original.clone(), Some(checkpoint.clone()), &token)
+            .await?;
+        spool.close(&token).await?;
+        let spool = Spool::open(cfg.clone(), &token).await?;
+        let records = batch(&spool, &token).await?;
+        assert_eq!(records[0].event, original);
+        assert_eq!(
+            spool.cursor_snapshot(&token).await?,
+            vec![checkpoint.clone()]
+        );
+        spool.ack(1, &token).await?;
+        spool.close(&token).await?;
+        let spool = Spool::open(cfg, &token).await?;
+        assert_eq!(spool.cursor_snapshot(&token).await?, vec![checkpoint]);
+        assert!(batch(&spool, &token).await?.is_empty());
+        spool.close(&token).await?;
+        Ok(())
+    }
 }
+
+#[cfg(test)]
+#[path = "node_spool_tests.rs"]
+mod node_tests;
