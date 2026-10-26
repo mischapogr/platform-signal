@@ -1,8 +1,8 @@
 # Release readiness audit
 
-Current snapshot: 2026-10-26. **No alpha or release is ready or published.**
+Current snapshot: 2026-10-27. **No alpha or release is ready or published.**
 The package remains `0.1.0-dev.0`; no release version/date has been selected.
-Current local inventory is40accepted/12unfinished; CORRELATION is in_progress.
+Current local inventory is41accepted/11unfinished; SOC-UX is in_progress.
 See [progress](07-progress.md), [ledger](31-execution-ledger.json) and
 [next task](11-model-work-plan.md). Local simulations do not establish production.
 
@@ -10,7 +10,9 @@ See [progress](07-progress.md), [ledger](31-execution-ledger.json) and
 
 | Scope | Accepted evidence | Limit |
 | --- | --- | --- |
-| CORRELATION D11 slice — 2026-10-26 | Independent reviews,10frozen gates,1264default/1334all-feature tests,sixhelper checks and5actualSIGKILL original/index/carry cases; `target/correlation-20261026/D11-ACCEPTANCE.json` | D11 only;D14/wholeCORRELATION still open. Actual local files/SQLite/processes with synthetic source/custody authority; private all-contributor access, protected indexes and single-writer activation; no new live/kernel/ARM64/CI/image/release qualification |
+| SOC-UX reference/internal inventory — 2026-10-27 | Independent review/8frozen gates,1340default/1410all-feature tests,73focused findings checks and3owned SIGKILL cuts; `target/soc-ux-20261026/references/ACCEPTANCE.json` | Host-only exact physical provenance/private metadata and bounds; no grant,client serialization or actual API/RBAC/disposition/console/browser/Standard/external qualification |
+| SOC-UX Small case backend — 2026-10-27 | Independent review/8frozen gates,1330default/1400all-feature tests,17case/boundary/lifetime probes and3owned SIGKILL cuts; `target/soc-ux-20261026/backend/ACCEPTANCE.json` | Backend prerequisite only; host authority synthetic. No API/RBAC/disposition/evidence console/browser/Standard or current external/release qualification; whole SOC-UX remains in_progress |
+| CORRELATION D11/D14 — 2026-10-26 | Independent mechanism/catalog/final criteria reviews,13frozen gates,1312default/1382all-feature tests and helper/process recovery; retained native21cases/66records,3native custody/3runtime journal SIGKILL cuts; `target/correlation-d14-20261026/ACCEPTANCE.json` | Bounded local mechanisms; source/private/coverage/identity-link/custody authority synthetic. Protected complete indexes,all-contributor grants and exclusive activation remain host obligations. No automatic Main activation,full-host/currentARM64/CI/image/AWS/production/release qualification |
 | STATE historical lookups — 2026-10-26 | Independent source/criteria review; eight frozen gates,1238default/1308all-feature tests;15catalog outcomes,three native composition/three helper tests and five actual SIGKILL/original replay/intervening-event/generation reopen cases; `target/scoped-state-20261026/ACCEPTANCE.json` | D04/D06/D08/D09/D13 only;D12 deferred. Synthetic source/private authority through production library/journal; private protected archive/index/exclusive handoff. No Main automatic activation,current AWS/ARM64/CI/image or release claim.40accepted/12unfinished; CORRELATION next |
 | BASELINES public pack — 2026-10-26 | Independent source/criteria review; six gates,1221tests/27ignores;15catalog assessments,41CloudTrail/8K8s native cases, exact packagedSmall15events5findings/checkpoint15/SIGKILL restart and cleanup; `target/baselines-20261025/ACCEPTANCE.json` | Source/host readiness simulated. Library returns assessments; Main runs privately selected YAML without automatic assessment persistence.39accepted/13unfinished; STATE next,D12 deferred; no AWS/current ARM64/CI/release claim |
 | K8S-CONTEXT full local item — 2026-10-25 | Independent source/criteria review; six gates,1212tests/27ignores; actual node hostPath/nonroot/permissions/rotation/deletion/recreation/SIGKILL replay,323rows322unique, process and legacy regressions with cleanup; `target/kubernetes-node-producer-20261025/ACCEPTANCE.json` | Bounded local AMD64; explicit supplemental group0 grant; runtime UID is unverified API association. AWS/EKS,current ARM64/remote CI/production-image and release remain open.38accepted/14unfinished; next BASELINES |
@@ -23,7 +25,7 @@ exact evidence is in the final dated entry.
 
 | Gate | Remaining requirement |
 | --- | --- |
-| Final LOCAL-CANDIDATE prerequisites | SOC-UX, SCALE-DECISION and RELEASE-TRUST remain pending through their unfinished baseline/correlation/Phase9 dependencies; a CI development bundle does not close these ledger items |
+| Final LOCAL-CANDIDATE prerequisites | SOC-UX, SCALE-DECISION and RELEASE-TRUST remain unfinished on the AWS-free dependency graph; a CI development bundle does not close these ledger items |
 | Independent current-source release review | Source-bound reviewer assessment of the current durability/sensor/restore changes; read-only scope is prepared and current-task delegation authorization is pending |
 | Actual EKS/AWS/vendor | Authorized environments and actual provider/storage/identity/runtime evidence; kind and synthetic endpoints do not close these gates |
 | Released external dependency | Private application against the actual released public version and locked dependency graph |

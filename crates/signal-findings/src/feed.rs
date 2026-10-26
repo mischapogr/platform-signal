@@ -30,6 +30,16 @@ impl Engine {
         next: FindingsCursor,
         id: Uuid,
     ) -> Result<Finding, FindingError> {
+        self.read_feed_record_bytes(entry, previous, next, id)
+            .map(|(finding, _)| finding)
+    }
+    pub(super) fn read_feed_record_bytes(
+        &mut self,
+        entry: &Entry,
+        previous: FindingsCursor,
+        next: FindingsCursor,
+        id: Uuid,
+    ) -> Result<(Finding, Vec<u8>), FindingError> {
         let header_offset = entry
             .offset
             .checked_sub(FINDING_FRAME_BYTES as u64)
@@ -55,7 +65,7 @@ impl Engine {
         if finding.id != id {
             return Err(FindingError::Corrupt("feed record identity"));
         }
-        Ok(finding)
+        Ok((finding, data))
     }
     pub(super) fn feed(
         &mut self,

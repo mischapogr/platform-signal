@@ -36,7 +36,7 @@ finite; they prove neither capacity nor prolonged stability.
 ## Ledger classification
 
 The 2026-10-23 ledger listed 36 accepted and 16 unfinished items. The current
-2026-10-26 inventory is 40 accepted and 12 unfinished, with CORRELATION in progress;
+2026-10-26 inventory is 41 accepted and 11 unfinished, with SOC-UX in progress;
 the linked ledger is authoritative. Historical classification after core MVP closure:
 
 | Items | Class | Reason |

@@ -232,16 +232,38 @@ impl Boundary {
     /// Only newly derived records in this verified generation have scope facts.
     /// Missing/malformed/old metadata cannot satisfy any restricted selector.
     pub fn facts<'a>(&self, finding: &'a Finding, offset: u64) -> ScopeFacts<'a> {
-        let unknown = ScopeFacts {
-            source: None,
-            account: None,
-            resource: None,
-        };
+        self.verified_facts(finding, offset)
+            .map(|(facts, _)| facts)
+            .unwrap_or(ScopeFacts {
+                source: None,
+                account: None,
+                resource: None,
+            })
+    }
+    pub(crate) fn provenance(
+        &self,
+        finding: &Finding,
+        offset: u64,
+    ) -> Option<crate::resolution::CanonicalProvenance> {
+        let (facts, digest) = self.verified_facts(finding, offset)?;
+        Some(crate::resolution::CanonicalProvenance {
+            generation: self.generation,
+            source: facts.source.map(Into::into),
+            account: facts.account.map(Into::into),
+            resource: facts.resource.map(Into::into),
+            binding_digest: digest.into(),
+        })
+    }
+    fn verified_facts<'a>(
+        &self,
+        finding: &'a Finding,
+        offset: u64,
+    ) -> Option<(ScopeFacts<'a>, &'a str)> {
         if offset <= self.bytes {
-            return unknown;
+            return None;
         }
         let Some(Value::Object(scope)) = finding.attributes.get(KEY) else {
-            return unknown;
+            return None;
         };
         if scope.len() != 6
             || scope.get("schema_version").and_then(Value::as_u64) != Some(1)
@@ -251,7 +273,7 @@ impl Boundary {
                 .and_then(|s| Uuid::parse_str(s).ok())
                 != Some(self.generation)
         {
-            return unknown;
+            return None;
         }
         if scope
             .get("binding_digest")
@@ -263,7 +285,7 @@ impl Boundary {
                         .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
             })
         {
-            return unknown;
+            return None;
         }
         fn fact(value: Option<&Value>) -> Result<Option<&str>, ()> {
             match value {
@@ -279,12 +301,15 @@ impl Boundary {
             fact(scope.get("account")),
             fact(scope.get("resource")),
         ) {
-            (Ok(source), Ok(account), Ok(resource)) => ScopeFacts {
-                source,
-                account,
-                resource,
-            },
-            _ => unknown,
+            (Ok(source), Ok(account), Ok(resource)) => Some((
+                ScopeFacts {
+                    source,
+                    account,
+                    resource,
+                },
+                scope.get("binding_digest")?.as_str()?,
+            )),
+            _ => None,
         }
     }
 }

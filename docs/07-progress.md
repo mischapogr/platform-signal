@@ -1,7 +1,7 @@
 # Implementation progress
 
-Current snapshot: 2026-10-26. **40 accepted / 12 unfinished**. STATE is
-passed_simulated; CORRELATION is in_progress, starting with D11 then D14.
+Current snapshot: 2026-10-27. **41 accepted / 11 unfinished**. CORRELATION is
+passed_simulated; SOC-UX is in_progress after its accepted Small backend prerequisite.
 The package remains `0.1.0-dev.0`; no alpha/release is ready or published.
 Read [release boundaries](21-release-readiness.md), [the finite ledger](31-execution-ledger.json)
 and [next task/routing](11-model-work-plan.md).
@@ -13,24 +13,16 @@ LOCAL-CANDIDATE product prerequisites and independent release review remain open
 
 ## K8S-CONTEXT full bounded local acceptance — 2026-10-25
 
-The dedicated production node worker/registry/CLI/runtime/metrics compose the
-accepted CRI/root/spool mechanisms. Independent source and whole-item audits plus
-six frozen gates pass1212workspace tests/27explicit ignores,85agent tests,
-8node helper regressions,strict Clippy,formatting and14package boundaries.
-Actual owned kind passes native stdout/stderr/P/F,UID65532+explicit log-root group0,
-read-only EROFS and fresh mode000denial,SIGKILL137/exact replay/empty restart,
-kubelet rotation and actual workload deletion->source absence->durable gap->
-same-name/newUID capture;323rows322unique andverified cleanup. Process campaign
-passes twoSIGKILLs,17rows15unique,sixprofile refusals,slot reuse with unACKed pins
-and393806bytecanonical expansion. Legacy audit remains exact8rows7unique,
-onefinding/checkpoint8. Retained metadata/API kind campaign still covers seven
-kinds,scoped denials,Pod/RBAC churn/revocation; current gates cover node Cargo
-build drift without claiming that API campaign reran. Evidence:
-`target/kubernetes-node-producer-20261025/ACCEPTANCE.json`;
-[contract78](78-kubernetes-node-producer.md). K8S-CONTEXT is passed_local;
-38accepted/14unfinished. BASELINES is now in_progress. Runtime UID association,
-complete/loss-free source coverage,AWS/EKS,current ARM64/remote CI/production
-image and release/publication qualification remain separate.
+Independent review/six frozen gates pass1212workspace tests/27ignores,85agent
+checks,8node helpers,strict Clippy/fmt/14boundaries. Owned kind UID65532 with
+explicit log-root group0 qualifies stdout/stderr/P/F,permissions/rotation/deletion/
+recreation andSIGKILL replay:323rows322unique,owned cleanup. Process cuts retain
+17rows15unique and legacy audit8rows7unique/onefinding/checkpoint8. Retained API
+kind coverage remains separately source-bound; new node Cargo drift checks do
+not claim that API campaign reran. Exact scope/counts/limits and evidence:
+`target/kubernetes-node-producer-20261025/ACCEPTANCE.json`,[contract78](78-kubernetes-node-producer.md).
+K8S-CONTEXT passed_local. Runtime UID association,loss-free coverage,AWS/EKS,
+currentARM64/CI/image and release qualification remain separate.
 
 ## BASELINES generic pack accepted locally — 2026-10-26
 
@@ -280,21 +272,24 @@ Dated archives preserve original evidence, counts, limits and source identities.
 
 ## CORRELATION D11 slice accepted — 2026-10-26
 
-Independent source/criteria review and10frozen gates pass1264default/1334all-feature
-tests,sixhelper checks and5actualSIGKILL original/index/carry cases. Local actual
-SQLite/files/processes; source/custody authority synthetic. Evidence:
-`target/correlation-20261026/D11-ACCEPTANCE.json`. CORRELATION remains unfinished,
-40accepted/12unfinished. D14 capture/SDK and typed classification prerequisites
-pass focused review:21actual owned x86_64 cases,7SDK/7core regressions and actual
-retained-native composition. [Profile82](82-runtime-read-metadata.md); evidence:
-`target/correlation-d14-20261026/SDK-CHECKPOINT.json` and `CORE-CHECKPOINT.json`.
+D11 evidence:`target/correlation-20261026/D11-ACCEPTANCE.json`; D14 completes the item.
 
-### D14 runtime lifecycle checkpoints — 2026-10-26
+### CORRELATION D14 and whole local item accepted — 2026-10-26
 
-Protected runtime archives/index lookup,interval-aware pruning and key/scope carry
-now preserve original outcomes and all prior authority as data. Independent review,
-63focused regressions/40workspace-profile tests,strict rules Clippy/fmt/14boundaries
-pass: `target/correlation-d14-20261026/HISTORY-CHECKPOINT.json`. Prior journal3SIGKILL
-cuts remain separately scoped. [Contract81](81-correlation-episodes.md).
-Native lifecycle/catalog:21cases/66records/3custodySIGKILL cuts;13gates:1312default/1382all-feature tests. Evidence:`target/correlation-d14-20261026/whole-qualification/gates.json`.
-Next: settle whole-item acceptance;D14 in_progress,40accepted/12unfinished. No CI/image/AWS/release claim.
+Independent reviews/13frozen gates pass1312default/1382all-feature tests. Retained
+native21cases/66records traverse journal/original publication/indexes/prune/carry/
+cold aliases;3custody/3runtime journal SIGKILL cuts complement D11 recovery.
+Evidence:`target/correlation-d14-20261026/ACCEPTANCE.json` and `HANDOFF.md`.
+Authority synthetic; no automatic Main/full-host/currentARM64/CI/image/AWS/release claim.
+
+### SOC-UX durable Small backend prerequisite accepted — 2026-10-27
+
+Backend: independent review/8gates pass1330default/1400all-feature tests,17case/
+lifetime/boundary probes and3SIGKILL cuts. Original audit/history survives CAS/replay;
+commit witness protects history. Evidence:`target/soc-ux-20261026/backend/ACCEPTANCE.json`.
+Reference/inventory prerequisite now passes review/8gates:1340default/1410all-feature
+tests,73findings-focused checks and3SIGKILL cuts. Exact physical frame/provenance and
+bounded metadata/snapshot/lease/byte budgets preserve originals; host data is no grant.
+Evidence:`target/soc-ux-20261026/references/ACCEPTANCE.json`; [contract83](83-soc-case-workflow.md).
+SOC-UX in_progress;41accepted/11unfinished. Next: identity/assignee/provider/audit API,
+durable dispositions and actual console/browser/restart; no external/release claim.

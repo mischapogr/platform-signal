@@ -1,8 +1,8 @@
 # Bounded correlation episodes
 
-Implementation contract, not acceptance. CORRELATION is in_progress after STATE;
-complete D11 first, then D14. Both rules and their full replay/coverage tests are
-required for the ledger item. Existing YAML remains unchanged. Private policy
+Implementation contract. CORRELATION D11/D14 now passes bounded local simulation;
+acceptance is recorded in `target/correlation-d14-20261026/ACCEPTANCE.json`.
+Both rules and their full replay/coverage tests qualify only the stated local scope. Existing YAML remains unchanged. Private policy
 selects thresholds, windows, source inventory, classifications and response.
 Correlation creates an investigative candidate, not causal root cause, compromise
 or proof of exfiltration. No Main activation or new publication authority is
@@ -289,5 +289,6 @@ pass1312default/1382all-feature tests. Evidence:
 `target/correlation-d14-20261026/whole-qualification/gates.json`. Validation uses
 an isolated proposed tree excluding unrelated WINDOW/configuration/presentation
 changes. These settled documentation updates follow the frozen runtime campaign.
-Whole-item acceptance reconciliation is next; CORRELATION/D14 remains in_progress.
+Whole-item final criteria review now passes; CORRELATION/D14 is passed_simulated.
+Final source/evidence bindings and limits: `target/correlation-d14-20261026/ACCEPTANCE.json`.
 No current ARM64, CI, image, AWS, production or release qualification is claimed.

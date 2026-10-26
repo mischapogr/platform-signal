@@ -9,41 +9,33 @@ phase rows and measurements; completed rows are not new implementation tasks.
 ## Next task and plan order
 
 Current AWS-free continuation — 2026-10-26: K8S-CONTEXT is passed_local;
-BASELINES and STATE are passed_simulated. STATE D04/D06/D08/D09/D13 passes
-independent source/criteria review and eight frozen gates:1238default/1308all-feature
-tests, both strictClippy modes, formatting,14workspace boundaries,threehelper
-regressions and five actual journal SIGKILL/original replay cases across newer
-policy,interveningevents and generation reopen. Evidence:
-`target/scoped-state-20261026/ACCEPTANCE.json`; [contract80](80-scoped-state.md).
-D12 remains explicitly deferred to AWS-PROFILES. Source/private authority are
-synthetic; protected archive/index and single-writer exclusive activation remain
-host responsibilities. Main does not automatically activate STATE assessments.
-Inventory40accepted/12unfinished. CORRELATION is now in_progress: D11 bounded
-authentication episode first, then D14 protected credential read/egress. Plan:
-`target/correlation-20261026/PLAN.md`. Both rules, bounded historical coverage,
-original evidence and coordinated crash/recovery are required for whole-item
-acceptance. AWS,current ARM64/CI,whole release review and owner publication remain
-separate. Older routing below is historical.
+BASELINES,STATE and CORRELATION are passed_simulated. D11/D14 whole-item
+independent source/catalog/criteria review and13frozen gates pass1312default/
+1382all-feature tests,both strictClippy modes,fmt,14boundaries and helpers.
+Retained native21cases/66records traverse journal/original publication/protected
+indexes/prune/key-scope carry/cold aliases;3native custody and3runtime journal
+SIGKILL cuts complement D11 recovery. Evidence:
+`target/correlation-d14-20261026/ACCEPTANCE.json` and `HANDOFF.md`.
+Source/private/coverage/identity-link/custody authority synthetic. Private hosts
+own current verification,all-contributor grants,protected indexes and exclusive
+activation. No automatic Main activation,currentARM64/CI/images/AWS/release claim.
+Inventory41accepted/11unfinished; STATE D12 remains deferred to AWS-PROFILES.
 
-D11 slice accepted — 2026-10-26: independent source/criteria review and10frozen
-gates pass1264default/1334all-feature tests,sixhelper checks and five ownedSIGKILL
-cuts for original effects, protecteddualindexes and carry uncertainty. Evidence:
-`target/correlation-20261026/D11-ACCEPTANCE.json`. D14 is now in_progress; complete
-metadata-only protected READ plus suspiciousconnect and matching fullitem gates
-before marking CORRELATION passed. Continue
-`target/correlation-d14-20261026/PLAN.md`. Native/vendor/kernel/currentARM64/CI/image
-and release claims stay separate. Inventory40accepted/12unfinished unchanged.
-
-D14 capture/SDK checkpoint — 2026-10-26:21actual owned x86_64 native cases,
-seven strict SDK regressions, retained-native composition and D11 v1 exact-byte
-compatibility pass focused review/checks. `target/correlation-d14-20261026/SDK-CHECKPOINT.json`.
-Next: typed D14 historical asset/destination verification and interval selection,
-shared original journal/history/carry, process replay and complete-item gates;
-`target/correlation-d14-20261026/INTEGRATION-NEXT.md`. This is not D14 acceptance.
-Typed RuntimeConfig/input/historical-decision/pair-relation checkpoint now passes
-seven core regressions and all21native cases through SDK/core with synthetic
-private classification; `target/correlation-d14-20261026/CORE-CHECKPOINT.json`.
-Next: shared state, fresh source/policy coverage, episode journal/history/carry.
+SOC-UX durable Small backend prerequisite accepted — 2026-10-27: independent
+review/8frozen gates pass1330default/1400all-feature tests,17case/boundary/lifetime
+probes and3actual owned SIGKILL cuts. Independent commit witness protects original
+history/CAS/replay; test-only config-reader isolation now has controlled busy-reader
+proof. Evidence:`target/soc-ux-20261026/backend/ACCEPTANCE.json` and `HANDOFF.md`.
+Host authority synthetic; no API/RBAC/console/browser/Standard or release claim.
+Reference/internal inventory prerequisite also passes review/8frozen gates,
+1340default/1410all-feature tests,73focused findings checks and3owned SIGKILL cuts.
+`target/soc-ux-20261026/references/ACCEPTANCE.json` binds exact physical provenance
+and metadata/snapshot/lease/read-byte budgets; these host data are not grants.
+SOC-UX remains in_progress;41accepted/11unfinished. Next: scoped identity/assignee/
+provider/audit API and durable dispositions,
+console and actual browser/restart. No automatic response or broad SOAR platform.
+Continue PROFILE-LOAD,SCALE-DECISION,RELEASE-TRUST,LOCAL-CANDIDATE in dependency order.
+AWS/publication/owner release decisions stay deferred; older routing is historical.
 
 Latest local acceptance — 2026-10-16:SENSOR-HEALTH passes local simulation,
 eight frozen gates1,121default/1,191all-feature tests and current Small/Standard

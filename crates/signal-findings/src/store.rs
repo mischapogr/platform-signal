@@ -682,6 +682,9 @@ impl Engine {
         Ok(())
     }
     fn read(&mut self, e: &Entry) -> Result<Finding, FindingError> {
+        self.read_bytes(e).map(|(finding, _)| finding)
+    }
+    fn read_bytes(&mut self, e: &Entry) -> Result<(Finding, Vec<u8>), FindingError> {
         let invalid = || FindingError::Corrupt("finding retained history index");
         let next = self.append_order.get(&e.position).ok_or_else(invalid)?;
         let (next_cursor, id) = (next.cursor, next.id);
@@ -693,7 +696,48 @@ impl Engine {
                 .ok_or_else(invalid)?
                 .cursor
         };
-        self.read_feed_record(e, previous, next_cursor, id)
+        self.read_feed_record_bytes(e, previous, next_cursor, id)
+    }
+    fn resolve_reference(
+        &mut self,
+        reference: crate::disposition::FindingReference,
+        context: &FindingContext,
+    ) -> Result<Option<crate::resolution::ResolvedFinding>, FindingError> {
+        context.check()?;
+        if reference.stream_id != self.prefix.stream() {
+            return Err(FindingError::StreamMismatch);
+        }
+        let Some(entry) = self.ids.get(&reference.finding_id).copied() else {
+            return Ok(None);
+        };
+        // Match the query path's conservative decoded-node charge, including
+        // retained original bytes and bounded owned provenance selectors.
+        let charge = entry
+            .len
+            .checked_mul(64)
+            .and_then(|bytes| {
+                bytes.checked_add(std::mem::size_of::<crate::resolution::ResolvedFinding>() + 1024)
+            })
+            .ok_or(FindingError::Quota)?;
+        if charge > self.config.max_query_bytes {
+            return Err(FindingError::Quota);
+        }
+        let (finding, original) = self.read_bytes(&entry)?;
+        if finding.id != reference.finding_id {
+            return Err(FindingError::Corrupt("reference identity"));
+        }
+        let provenance = self
+            .scope
+            .as_ref()
+            .and_then(|scope| scope.provenance(&finding, entry.offset));
+        let original_sha256 = Sha256::digest(original).into();
+        context.check()?;
+        Ok(Some(crate::resolution::ResolvedFinding {
+            reference,
+            finding,
+            original_sha256,
+            provenance,
+        }))
     }
     fn append(
         &mut self,
@@ -901,6 +945,7 @@ enum Operation {
     AppendDerived(Vec<DerivedFinding>),
     EnableScope,
     Query(FindingQuery, Option<Arc<RequestGrant>>),
+    ResolveReference(crate::disposition::FindingReference),
     Feed(FindingsFeedQuery, usize),
     Flush,
     Stop,
@@ -915,7 +960,7 @@ impl Operation {
     fn mutation(&self) -> bool {
         match self {
             Self::Append(_) | Self::AppendDerived(_) | Self::EnableScope | Self::Flush => true,
-            Self::Query(_, _) | Self::Feed(_, _) | Self::Stop => false,
+            Self::Query(_, _) | Self::ResolveReference(_) | Self::Feed(_, _) | Self::Stop => false,
             #[cfg(test)]
             Self::Pause(_, _, mutation) => *mutation,
         }
@@ -924,6 +969,7 @@ impl Operation {
 enum Reply {
     Receipt(FindingReceipt),
     Findings(Vec<Finding>),
+    ResolvedReference(Option<Box<crate::resolution::ResolvedFinding>>),
     Feed(Vec<u8>),
     Done,
 }
@@ -1030,6 +1076,9 @@ impl FindingStore {
                                 Operation::Query(q, grant) => engine
                                     .query(q, &command.context, grant.as_deref())
                                     .map(Reply::Findings),
+                                Operation::ResolveReference(reference) => engine
+                                    .resolve_reference(reference, &command.context)
+                                    .map(|value| Reply::ResolvedReference(value.map(Box::new))),
                                 Operation::Feed(q, max_bytes) => {
                                     engine.feed(q, max_bytes, &command.context).map(Reply::Feed)
                                 }
@@ -1183,6 +1232,27 @@ impl FindingStore {
         }
         match self.command(Operation::Append(batch), context).await? {
             Reply::Receipt(r) => Ok(r),
+            _ => Err(FindingError::Closed),
+        }
+    }
+    /// Host-only exact lookup through the retained physical ID/cursor index.
+    /// Unknown stored provenance is explicit; this method grants no permission.
+    /// The authenticated adapter must verify current provider enrollment and all
+    /// contributors before exposing any returned data to a client.
+    pub async fn resolve_reference(
+        &self,
+        reference: crate::disposition::FindingReference,
+        context: FindingContext,
+    ) -> Result<Option<crate::resolution::ResolvedFinding>, FindingError> {
+        if reference.validate().is_err() {
+            self.shared.rejections.fetch_add(1, Ordering::Relaxed);
+            return Err(FindingError::Invalid("reference"));
+        }
+        match self
+            .command(Operation::ResolveReference(reference), context)
+            .await?
+        {
+            Reply::ResolvedReference(value) => Ok(value.map(|resolved| *resolved)),
             _ => Err(FindingError::Closed),
         }
     }
