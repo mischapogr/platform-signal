@@ -377,3 +377,105 @@ async fn inventory_authority_cancellation_retains_physical_capacity_and_hides_st
     );
     Ok(())
 }
+#[test]
+fn utc_windows_reject_future_expired_or_invalid_without_authenticating() -> TestResult {
+    let now = u64::try_from(Utc::now().timestamp())?;
+    assert!(matches!(
+        CaseUtcWindow::new(now + 60, now + 120),
+        Err(CaseError::Timeout)
+    ));
+    assert!(matches!(
+        CaseUtcWindow::new(now - 120, now - 60),
+        Err(CaseError::Timeout)
+    ));
+    assert!(matches!(
+        CaseUtcWindow::new(now, u64::MAX),
+        Err(CaseError::Invalid)
+    ));
+    let window = CaseUtcWindow::new(now - 1, now + 60)?;
+    CaseAuthority::for_write_bounded(
+        Uuid::from_u128(100),
+        "actor".into(),
+        references(),
+        &create(),
+        context(),
+        window,
+    )?;
+    CaseAuthority::for_read_bounded(
+        Uuid::from_u128(100),
+        Uuid::from_u128(20),
+        "actor".into(),
+        references(),
+        context(),
+        window,
+    )?;
+    CaseInventoryAuthority::new_bounded(Uuid::from_u128(100), "actor".into(), context(), window)?;
+    Ok(())
+}
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn absolute_utc_expiry_after_temp_sync_cannot_replace_committed_witness() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let cfg = CaseConfig {
+        directory: dir.path().join("cases"),
+        operation_capacity: 1,
+        ..CaseConfig::default()
+    };
+    let store = Arc::new(CaseStore::open(cfg.clone(), Uuid::from_u128(100), context()).await?);
+    let original = store
+        .record(write(&create()), create(), context())
+        .await?
+        .record;
+    let committed = fs::read(cfg.directory.join("cases.commit"))?;
+    let (started, ready) = tokio::sync::oneshot::channel();
+    let (release, wait) = std::sync::mpsc::sync_channel(1);
+    store
+        .engine
+        .lock()
+        .map_err(|_| "engine poisoned")?
+        .witness_pause = Some(WitnessPause {
+        started,
+        release: wait,
+    });
+    let now = u64::try_from(Utc::now().timestamp())?;
+    let until = now + 2;
+    let next = assign(1);
+    let mut proof = CaseAuthority::for_write_bounded(
+        Uuid::from_u128(100),
+        "analyst".into(),
+        references(),
+        &next,
+        context(),
+        CaseUtcWindow::new(now - 1, until)?,
+    )?;
+    // Isolate the absolute guard from its monotonic conversion, as if wall time
+    // advanced sooner than the original monotonic budget. No system clock changes.
+    proof.context.deadline = Instant::now() + Duration::from_secs(5);
+    let owned = store.clone();
+    let task = tokio::spawn(async move { owned.record(proof, next, context()).await });
+    tokio::time::timeout(Duration::from_secs(2), ready).await??;
+    assert_eq!(fs::read(cfg.directory.join("cases.commit"))?, committed);
+    let deadline = Instant::now() + Duration::from_secs(4);
+    while u64::try_from(Utc::now().timestamp())? < until {
+        if Instant::now() >= deadline {
+            return Err("UTC deadline did not advance".into());
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    release.send(())?;
+    assert_eq!(task.await?.unwrap_err(), CaseError::Timeout);
+    assert!(store.metrics().closed);
+    assert_eq!(fs::read(cfg.directory.join("cases.commit"))?, committed);
+    let store = Arc::try_unwrap(store).map_err(|_| "retained physical store")?;
+    store.shutdown(context()).await?;
+    let store = CaseStore::open(cfg, Uuid::from_u128(100), context()).await?;
+    assert_eq!(
+        store.history(read(), 0, 2, context()).await?.records,
+        vec![original]
+    );
+    let retry = store
+        .record(write(&assign(1)), assign(1), context())
+        .await?;
+    assert!(!retry.replayed);
+    assert_eq!(retry.record.head.revision, 2);
+    Ok(())
+}

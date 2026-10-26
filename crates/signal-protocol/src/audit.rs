@@ -150,9 +150,139 @@ pub enum ConfigurationKind {
     Runtime,
     Rules,
 }
+/// Restricted workflow references only; no notes, titles, cursors, tokens or free data.
+/// Historical audit metadata never authorizes the referenced resource.
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum WorkflowTarget {
+    Namespace {
+        namespace: Uuid,
+    },
+    Case {
+        namespace: Uuid,
+        case_id: Uuid,
+    },
+    CaseMutation {
+        namespace: Uuid,
+        case_id: Uuid,
+        intent_id: Uuid,
+        expected_revision: u64,
+    },
+    Finding {
+        stream_id: Uuid,
+        finding_id: Uuid,
+    },
+    FindingMutation {
+        stream_id: Uuid,
+        finding_id: Uuid,
+        intent_id: Uuid,
+        expected_revision: u64,
+    },
+    CaseEvidence {
+        namespace: Uuid,
+        case_id: Uuid,
+        stream_id: Uuid,
+        finding_id: Uuid,
+    },
+}
+impl WorkflowTarget {
+    /// Validate bounded metadata compatibility; this never grants permission.
+    pub fn validate_for(&self, operation: Operation, granted: bool) -> Result<(), AuditError> {
+        if workflow_operation(operation) && self.valid(operation, granted) {
+            Ok(())
+        } else {
+            Err(AuditError::InvalidRecord)
+        }
+    }
+    fn valid(&self, operation: Operation, granted: bool) -> bool {
+        match self {
+            Self::Namespace { namespace } => {
+                !namespace.is_nil() && (!granted || operation == Operation::ReadCases)
+            }
+            Self::Case { namespace, case_id } => {
+                !namespace.is_nil() && !case_id.is_nil() && operation == Operation::ReadCases
+            }
+            Self::CaseMutation {
+                namespace,
+                case_id,
+                intent_id,
+                expected_revision,
+            } => {
+                !namespace.is_nil()
+                    && !case_id.is_nil()
+                    && !intent_id.is_nil()
+                    && *expected_revision < 1_000_000
+                    && match operation {
+                        Operation::CreateCases => *expected_revision == 0,
+                        Operation::AssignCases => *expected_revision > 0,
+                        _ => false,
+                    }
+            }
+            Self::Finding {
+                stream_id,
+                finding_id,
+            } => {
+                !stream_id.is_nil()
+                    && !finding_id.is_nil()
+                    && matches!(
+                        operation,
+                        Operation::ReadDispositions | Operation::ReadEvidence
+                    )
+            }
+            Self::FindingMutation {
+                stream_id,
+                finding_id,
+                intent_id,
+                expected_revision,
+            } => {
+                !stream_id.is_nil()
+                    && !finding_id.is_nil()
+                    && !intent_id.is_nil()
+                    && *expected_revision < 1_000_000
+                    && operation == Operation::WriteDispositions
+            }
+            Self::CaseEvidence {
+                namespace,
+                case_id,
+                stream_id,
+                finding_id,
+            } => {
+                !namespace.is_nil()
+                    && !case_id.is_nil()
+                    && !stream_id.is_nil()
+                    && !finding_id.is_nil()
+                    && operation == Operation::ReadEvidence
+            }
+        }
+    }
+}
+/// Whether a detailed workflow target is required by the analyst audit seam.
+pub fn workflow_operation(operation: Operation) -> bool {
+    matches!(
+        operation,
+        Operation::ReadCases
+            | Operation::CreateCases
+            | Operation::AssignCases
+            | Operation::ReadDispositions
+            | Operation::WriteDispositions
+            | Operation::ReadEvidence
+    )
+}
 #[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    WorkflowAccessDecision {
+        operation: Operation,
+        operation_id: Uuid,
+        target: WorkflowTarget,
+        decision: Decision,
+    },
+    WorkflowOperationCompletion {
+        operation: Operation,
+        operation_id: Uuid,
+        target: WorkflowTarget,
+        completion: Completion,
+    },
     AccessDecision {
         operation: Operation,
         operation_id: Uuid,
@@ -188,6 +318,30 @@ fn digest_text(value: &str) -> bool {
 impl AuditRecord {
     pub fn validate(&self) -> Result<(), AuditError> {
         let action_valid = match &self.action {
+            Action::WorkflowAccessDecision {
+                operation,
+                operation_id,
+                target,
+                decision,
+            } => {
+                workflow_operation(*operation)
+                    && !operation_id.is_nil()
+                    && target.valid(*operation, *decision == Decision::Granted)
+                    && (*decision != Decision::Granted
+                        || matches!(self.actor, Actor::VerifiedSubject { .. }))
+            }
+            Action::WorkflowOperationCompletion {
+                operation,
+                operation_id,
+                target,
+                completion,
+            } => {
+                workflow_operation(*operation)
+                    && !operation_id.is_nil()
+                    && target.valid(*operation, *completion == Completion::Success)
+                    && (*completion != Completion::Success
+                        || matches!(self.actor, Actor::VerifiedSubject { .. }))
+            }
             Action::AccessDecision { operation_id, .. }
             | Action::OperationCompletion { operation_id, .. } => !operation_id.is_nil(),
             Action::ConfigurationActivation {
