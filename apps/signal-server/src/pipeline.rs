@@ -23,6 +23,7 @@ use tokio_util::sync::CancellationToken;
 
 pub struct PipelineSink {
     pub audit: Option<Arc<crate::audit::Control>>,
+    pub cases: Option<Arc<crate::case_api::Host>>,
     pub buffer: Arc<DurableBuffer>,
     pub store: Arc<crate::storage::Backend>,
     pub query: Option<Arc<QueryEngine>>,
@@ -49,6 +50,10 @@ impl EventSink for PipelineSink {
     fn admit(&self, event: SignalEvent) -> AdmissionFuture<'_> {
         if self.store.metrics().fail_closed
             || self.store.metrics().closed
+            || self
+                .cases
+                .as_ref()
+                .is_some_and(|cases| cases.metrics().closed)
             || self
                 .detection
                 .as_ref()
@@ -87,6 +92,10 @@ impl EventSink for PipelineSink {
             if self.store.metrics().fail_closed
                 || self.store.metrics().closed
                 || self
+                    .cases
+                    .as_ref()
+                    .is_some_and(|cases| cases.metrics().closed)
+                || self
                     .detection
                     .as_ref()
                     .is_some_and(|d| d.findings.metrics().closed)
@@ -109,6 +118,8 @@ impl EventSink for PipelineSink {
     fn metrics(&self) -> SinkMetrics {
         let mut metrics = self.buffer.metrics();
         metrics.audit = self.audit.as_ref().map(|audit| audit.metrics());
+        metrics.cases = self.cases.as_ref().map(|cases| cases.metrics());
+        metrics.closed |= metrics.cases.is_some_and(|cases| cases.closed);
         metrics.closed |= metrics.audit.is_some_and(|audit| audit.held);
         metrics.closed |= self
             .coverage
@@ -783,6 +794,7 @@ mod tests {
         ));
         Ok(Arc::new(PipelineSink {
             audit: None,
+            cases: None,
             buffer,
             store,
             query: None,
@@ -842,6 +854,7 @@ mod tests {
         )?;
         Ok(Arc::new(PipelineSink {
             audit: None,
+            cases: None,
             buffer,
             store,
             query: None,
@@ -1208,6 +1221,7 @@ mod tests {
         Ok((
             Arc::new(PipelineSink {
                 audit: None,
+                cases: None,
                 buffer,
                 store,
                 query: None,

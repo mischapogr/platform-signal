@@ -96,6 +96,7 @@ pub enum AdmissionError {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SinkMetrics {
     pub audit: Option<AuditControlMetrics>,
+    pub cases: Option<CaseSinkMetrics>,
     pub findings: Option<FindingSinkMetrics>,
     pub logging: Option<LoggingSinkMetrics>,
     pub rules: Option<RuleSinkMetrics>,
@@ -122,6 +123,21 @@ pub struct SinkMetrics {
     pub waiters: usize,
     pub waiter_capacity: usize,
     pub timeouts: u64,
+}
+
+/// Operational capacity only; no case IDs, titles, actors or denied-row counts.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct CaseSinkMetrics {
+    pub request_depth: usize,
+    pub request_capacity: usize,
+    pub request_rejected: u64,
+    pub physical_depth: usize,
+    pub physical_capacity: usize,
+    pub physical_rejected: u64,
+    pub shared_file_depth: usize,
+    pub shared_file_capacity: usize,
+    pub shared_file_rejected: u64,
+    pub closed: bool,
 }
 
 /// Fixed control-audit capacity and uncertainty, never identity or record data.

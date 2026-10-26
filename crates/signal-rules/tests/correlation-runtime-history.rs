@@ -241,7 +241,42 @@ async fn runtime_archive_cold_replay_and_key_scope_carry_preserve_original_outco
         cfg.policy_authorities[1].account = Some("new-scope".into());
         cfg.policy_authorities[1].policy_revision = "new-policy".into();
         let new = RuntimeBinding::new(cfg, &c)?;
+        let summary = restored.historical_summary(&c)?;
+        assert_eq!(summary.schema_version(), 2);
+        assert_eq!(
+            summary.enrollment_binding(),
+            b.journal_config().enrollment_binding
+        );
+        assert_ne!(
+            summary.enrollment_binding(),
+            new.journal_config().enrollment_binding
+        );
+        assert_eq!(
+            summary.journal_source_binding(),
+            b.journal_config().source_binding
+        );
+        assert_eq!(
+            summary.detector_partition(),
+            b.journal_config().source_stream
+        );
+        assert_eq!(
+            summary.authority_keys_sha256(),
+            b.config().authority_keys_sha256
+        );
+        assert_ne!(
+            summary.authority_keys_sha256(),
+            new.config().authority_keys_sha256
+        );
+        assert_eq!(summary.revision(), r.revision);
+        assert_eq!(summary.checkpoint(), r.checkpoint);
+        assert!(summary.prior_anchor().is_none());
         let carried_archive = history::export_runtime(&b, &pruned, &c)?;
+        let carried_summary = carried_archive.historical_summary(&c)?;
+        assert_eq!(
+            carried_summary.prior_anchor(),
+            journal::recover_runtime(&b, &pruned, &c)?.archive_anchor()
+        );
+        assert_eq!(carried_summary.namespace(), summary.namespace());
         let current = journal::recover_runtime(&b, &pruned, &c)?
             .archive_anchor()
             .unwrap()

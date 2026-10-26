@@ -1293,6 +1293,7 @@ fn runtime_revision_tracks_installed_limits_and_excludes_secret_and_path_values(
                     onboarding,
                     window: false,
                     sensor_health,
+                    cases: false,
                     separate_metrics: false,
                 },
                 &context()?,

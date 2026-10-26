@@ -16,6 +16,7 @@ pub(crate) struct RuntimeConfig {
     pub onboarding: Option<std::sync::Arc<crate::onboarding::Host>>,
     pub window_configuration: Option<crate::window::Configuration>,
     pub sensor_configuration: Option<crate::sensor_runtime::Configuration>,
+    pub case_configuration: Option<crate::case_api::Configuration>,
     pub listen: SocketAddr,
     pub metrics_listen: Option<SocketAddr>,
     pub wal_config: BufferConfig,
@@ -35,6 +36,7 @@ pub(crate) struct RuntimeConfig {
     pub rules: RuleSet,
 }
 pub(crate) async fn load(settings: &Settings) -> Result<RuntimeConfig, AppError> {
+    crate::case_api::Configuration::validate_runtime(settings)?;
     let config = IngestConfig {
         max_request_bytes: settings.number("SIGNAL_MAX_REQUEST_BYTES", 1_048_576)?,
         max_batch_events: settings.number("SIGNAL_MAX_BATCH_EVENTS", 1000)?,
@@ -58,6 +60,10 @@ pub(crate) async fn load(settings: &Settings) -> Result<RuntimeConfig, AppError>
     let tls = tls::load(settings).await?;
     let identity_configuration = access::Configuration::load(settings).await?;
     let coverage_configuration = coverage_api::Configuration::load(settings).await?;
+    let case_configuration = crate::case_api::Configuration::load(settings).await?;
+    if case_configuration.is_some() && identity_configuration.is_none() {
+        return Err(ConfigError::Invalid("SOC cases require native identity").into());
+    }
     let listen: SocketAddr = settings
         .optional("SIGNAL_LISTEN")?
         .unwrap_or_else(|| "127.0.0.1:8080".to_owned())
@@ -281,6 +287,7 @@ pub(crate) async fn load(settings: &Settings) -> Result<RuntimeConfig, AppError>
         onboarding,
         window_configuration,
         sensor_configuration,
+        case_configuration,
         listen,
         metrics_listen,
         wal_config,

@@ -142,3 +142,87 @@ mandatory resource-bound auditing. Complete focused independent review and
 source-bound full acceptance before integrating this checkpoint into develop.
 Durable dispositions and console/browser/restart evidence remain open. The
 whole SOC-UX item remains in progress; no AWS or release qualification is added.
+
+## Canonical Small HTTP implementation in progress — 2026-10-27
+
+Opt-in `cases.config` / `SIGNAL_CASE_CONFIG` now installs bounded create,
+assignment, detail, history, full bounded list and selected-finding evidence
+routes. Startup requires native identity and selected case/evidence audits;
+Standard composition refuses. The original request lease caps physical case
+commit and result delivery. Fresh introspection, exact-original resolution and
+recipient verification run after decision auditing and around completion
+confirmation. A later refusal withholds the response without claiming rollback;
+reconcile writes with their original operation UUID.
+
+Write responses contain only schema_version, case_id, operation_id,
+result_revision and replayed. History/detail require ReadCases plus ReadFindings
+for every immutable reference; selected evidence additionally requires its own
+ReadEvidence grant. Lists examine at most100 cases and refuse a larger inventory
+rather than returning false-empty or exposing an internal cursor/denied count.
+Request and physical depth/capacity/refusals are operational metrics; closed case
+storage participates in readiness and admission shutdown.
+
+Canonical enrollment means actual physical provenance from authenticated
+`from_event` or complete same-scope `from_events`, including retained canonical
+windows. It does not assert every row in the stream is known. Unknown legacy
+provenance refuses individually; reserved attributes cannot promote it. This is
+not a D11/D14 episode-provider enrollment or a substitute for policy-only scopes.
+
+Assignment targets use an independently pinned Ed25519 directory observer and
+fixed alias-to-issuer/subject mappings. A freshly read signed report binds the
+namespace, audience, observer, key/policy/directory revisions, target active status,
+capabilities and scopes. Each recipient needs ReadCases and ReadFindings across
+the full original inventory. No target AuthenticatedIdentity/RequestGrant is
+fabricated. Reports have an absolute configured freshness bound of at most30s;
+new inactive reports refuse fresh assignments/retries, while a retained report
+can only speak for its original bounded observation window. This is not an
+instantaneous live IdP revocation guarantee. Local signed observers qualify
+adapter mechanics only.
+
+The HTTP router tests use actual TLS introspection and real finding/case stores,
+including close/reopen and controlled decision/completion audit barriers. They
+are not a monolith subprocess restart, complete episode custody, durable public
+disposition, browser, Standard, current ARM64/CI/image or release campaign.
+The full scoped API task and whole SOC-UX acceptance remain open; continue those
+requirements rather than declaring the canonical path a replacement for them.
+
+## Protected episode provider implementation in progress — 2026-10-27
+
+Explicit `episode_providers` enroll separate publication stream UUIDs and pinned
+observer/config/history generations. They cannot shadow the canonical store or
+fall back to its scope metadata. A fresh domain-separated Ed25519 custody report
+binds the exact finding publication receipt, original raw finding bytes, validated
+original archive/effect, complete contributor commitment and current cumulative
+canonical/native index ancestry. Artifact names derive from digests or UUIDs;
+no report-supplied path or arbitrary scope map grants authority. The observer is
+responsible for current-root/rollback visibility outside the bounded observation
+window; local hashes cannot prove a newest external root.
+
+The provider validates actual typed archives and every index witness/key set,
+including prior indexes, original effects and recorded ancestry. Historical
+summary fields are data: detector partition, journal commitment, original
+keys/config/policy binding and prior Anchor. Finding IDs and episode output IDs
+are distinct and connected only by the protected publication receipt and original
+effect. Pruning/carry cannot replace old contributor scopes with newer policy.
+
+A private rooted artifact reader pins directory/file descriptors, refuses leaf
+symlinks, special files, hardlinks and unsafe permissions, and checks replacement
+metadata before/after reading. It uses the existing retained physical worker and
+original cancellation/deadline. Its separate32MiB artifact cap does not expand
+ordinary configuration limits. Shared reader depth/capacity/refusals are exposed
+through operational metrics, including cancelled physical work that has not retired.
+The configured graph allowance counts raw encoded
+artifact bytes and is applied before each decoder; typed state/index/work limits
+remain separate. Reference inventories retain per-reference contributor ranges
+with a1024-scope ceiling. Actor and recipient checks cover the full original
+inventory; evidence permission covers all contributors of the selected reference.
+Provider lease minima cap physical case authority and delivery and cannot be
+renewed within an old request by a later signed report.
+
+Current tests generate actual D11/D14 journal/export/publication/index files,
+prune and reopen stores, carry new keys and policy scopes, and exercise TLS IdP
+router access, semantic partial/duplicate/conflicting indexes, publication and
+inventory substitution, lease expiry, audit barriers and no fallback. Source,
+classification, directory and custody authority remain synthetic. Native monolith
+process/mTLS-audit/restart composition, full final acceptance, durable public
+dispositions and console/browser evidence are still required for whole SOC-UX.

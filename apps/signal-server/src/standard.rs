@@ -1030,6 +1030,7 @@ mod host {
                     onboarding: cfg.onboarding.is_some(),
                     window: cfg.window_configuration.is_some(),
                     sensor_health: cfg.sensor_configuration.is_some(),
+                    cases: false,
                     separate_metrics: cfg.metrics_listen.is_some(),
                 },
                 &startup,

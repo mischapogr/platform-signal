@@ -1862,3 +1862,71 @@ async fn retired_late_input_counter_survives_hot_history_reclamation() -> Result
     db.shutdown(context()).await?;
     Ok(())
 }
+
+#[tokio::test]
+async fn archive_summary_keeps_original_enrollment_and_prior_anchor_without_renewing_authority()
+-> Result {
+    let (b, dir, db, record, _, _) = initial(true).await?;
+    let mut host = Host::new(dir.path());
+    let (sha, index) = host.publish(&b, &record)?;
+    let archive = host.archives.get(&sha).ok_or("archive")?;
+    let original_bytes = archive.bytes().to_vec();
+    let summary = archive.historical_summary(&context())?;
+    let configured = b.journal_config();
+    assert_eq!(summary.schema_version(), 1);
+    assert_eq!(summary.detector_partition(), configured.source_stream);
+    assert_eq!(summary.journal_source_binding(), configured.source_binding);
+    assert_eq!(summary.enrollment_binding(), configured.enrollment_binding);
+    assert_eq!(
+        summary.authority_keys_sha256(),
+        b.config().authority_keys_sha256
+    );
+    assert_eq!(summary.revision(), record.revision);
+    assert_eq!(summary.checkpoint(), record.checkpoint);
+    assert!(summary.prior_anchor().is_none());
+    let state = journal::recover(&b, &record, &context())?;
+    let receipt = host.receipt(&b, &state, sha, index)?;
+    let pruned = history::prune(
+        &b,
+        &record,
+        archive,
+        &receipt,
+        &source_epoch(&b, Some(&record), 500, false)?,
+        &context(),
+    )?
+    .commit(&db)
+    .await?;
+    let after = history::export(&b, &pruned, &context())?;
+    let after = Archive::from_bytes(after.bytes(), after.sha256(), &context())?;
+    let anchored = after.historical_summary(&context())?;
+    assert_eq!(
+        anchored.prior_anchor(),
+        journal::recover(&b, &pruned, &context())?.archive_anchor()
+    );
+    assert_eq!(anchored.namespace(), summary.namespace());
+    assert_eq!(anchored.revision(), pruned.revision);
+    let current = next_binding()?;
+    let old = Archive::from_bytes(&original_bytes, sha, &context())?;
+    let old_summary = old.historical_summary(&context())?;
+    assert_eq!(
+        old_summary.enrollment_binding(),
+        configured.enrollment_binding
+    );
+    assert_ne!(
+        old_summary.enrollment_binding(),
+        current.journal_config().enrollment_binding
+    );
+    assert_ne!(
+        old_summary.authority_keys_sha256(),
+        current.config().authority_keys_sha256
+    );
+    assert_eq!(old.bytes(), original_bytes);
+    let cancelled = context();
+    cancelled.cancellation.cancel();
+    assert!(matches!(
+        old.historical_summary(&cancelled),
+        Err(Error::Cancelled)
+    ));
+    db.shutdown(context()).await?;
+    Ok(())
+}

@@ -295,7 +295,77 @@ pub struct Archive {
     state: State,
     namespace: [u8; 32],
 }
+/// Validated historical enrollment and ancestry DATA, never current custody,
+/// an activation permit, or a complete external index attestation. Deliberately
+/// nonserialized: applications construct their own independently verified report.
+#[derive(Clone)]
+pub struct HistoricalSummary {
+    schema_version: u16,
+    namespace: [u8; 32],
+    source_stream: Uuid,
+    source_binding: [u8; 32],
+    enrollment_binding: [u8; 32],
+    authority_keys_sha256: [u8; 32],
+    revision: u64,
+    checkpoint: u64,
+    prior_anchor: Option<Anchor>,
+}
+impl HistoricalSummary {
+    pub fn schema_version(&self) -> u16 {
+        self.schema_version
+    }
+    pub fn namespace(&self) -> [u8; 32] {
+        self.namespace
+    }
+    /// Detector journal partition UUID, not an input or finding-publication stream.
+    pub fn detector_partition(&self) -> Uuid {
+        self.source_stream
+    }
+    /// Detector journal's domain-separated enrollment commitment.
+    pub fn journal_source_binding(&self) -> [u8; 32] {
+        self.source_binding
+    }
+    /// Complete typed detector/config/policy/key enrollment commitment. This is
+    /// the archive's original enrollment, never a caller-selected current one.
+    pub fn enrollment_binding(&self) -> [u8; 32] {
+        self.enrollment_binding
+    }
+    pub fn authority_keys_sha256(&self) -> [u8; 32] {
+        self.authority_keys_sha256
+    }
+    pub fn revision(&self) -> u64 {
+        self.revision
+    }
+    pub fn checkpoint(&self) -> u64 {
+        self.checkpoint
+    }
+    /// Original recorded ancestry, never freshly verified custody or newest root.
+    pub fn prior_anchor(&self) -> Option<&Anchor> {
+        self.prior_anchor.as_ref()
+    }
+}
 impl Archive {
+    /// Inspect the already validated original archive without exposing its
+    /// private envelope or constructing any fresh Binding/Epoch/Authority.
+    pub fn historical_summary(&self, c: &RuleContext) -> Result<HistoricalSummary, Error> {
+        check(c)?;
+        let historical = self.envelope.config.bind(c)?;
+        let binding = historical.view();
+        let journal = binding.journal_config();
+        let summary = HistoricalSummary {
+            schema_version: self.envelope.schema_version,
+            namespace: self.namespace,
+            source_stream: journal.source_stream,
+            source_binding: journal.source_binding,
+            enrollment_binding: journal.enrollment_binding,
+            authority_keys_sha256: binding.config.authority_keys_sha256,
+            revision: self.envelope.record.revision,
+            checkpoint: self.envelope.record.checkpoint,
+            prior_anchor: self.state.archive.clone(),
+        };
+        check(c)?;
+        Ok(summary)
+    }
     pub fn bytes(&self) -> &[u8] {
         &self.bytes
     }

@@ -24,6 +24,17 @@ const MAX_PRIVATE_BYTES: usize = 512 * 1024;
 const MAX_RULE_DIRECTORIES: usize = 64;
 static WORKER: Mutex<Option<thread::JoinHandle<()>>> = Mutex::new(None);
 static CAPACITY: OnceLock<Arc<Semaphore>> = OnceLock::new();
+static FILE_REJECTIONS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+/// Shared physical configuration/artifact reader, including retained cancelled work.
+pub fn file_worker_metrics() -> (usize, usize, u64) {
+    (
+        CAPACITY
+            .get()
+            .map_or(0, |slots| 1 - slots.available_permits()),
+        1,
+        FILE_REJECTIONS.load(std::sync::atomic::Ordering::Relaxed),
+    )
+}
 // Tests that deliberately occupy the process-wide worker must not interfere
 // with unrelated positive file-read fixtures. Production capacity is unchanged.
 #[cfg(test)]
@@ -241,6 +252,7 @@ section!(SensorHealth { config: Text });
 section!(Access { config: Text });
 section!(Audit { config: Text });
 section!(Shared { config: Text });
+section!(Cases { config: Text });
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Document {
@@ -274,6 +286,8 @@ struct Document {
     audit: Audit,
     #[serde(default, deserialize_with = "section_map")]
     shared: Shared,
+    #[serde(default, deserialize_with = "section_map")]
+    cases: Cases,
 }
 trait Value {
     fn setting_value(&self) -> String;
@@ -477,6 +491,7 @@ impl Settings {
         mapping!(values,document.sensor_health,{config=>"SIGNAL_SENSOR_HEALTH_CONFIG"});
         mapping!(values,document.access,{config=>"SIGNAL_ACCESS_CONFIG"});
         mapping!(values,document.audit,{config=>"SIGNAL_AUDIT_CONFIG"});
+        mapping!(values,document.cases,{config=>"SIGNAL_CASE_CONFIG"});
         mapping!(values,document.shared,{config=>"SIGNAL_SHARED_CONFIG"});
         duration(
             &mut values,
@@ -705,13 +720,17 @@ where
             .get_or_init(|| Arc::new(Semaphore::new(1)))
             .clone()
             .try_acquire_owned()
-            .map_err(|_| ConfigError::Full)?,
+            .map_err(|_| {
+                FILE_REJECTIONS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                ConfigError::Full
+            })?,
     );
     let worker_permit = permit.clone();
     let (reply, response) = oneshot::channel();
     {
         let mut worker = WORKER.lock().map_err(|_| ConfigError::Unavailable)?;
         if worker.as_ref().is_some_and(|worker| !worker.is_finished()) {
+            FILE_REJECTIONS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             return Err(ConfigError::Full);
         }
         if let Some(previous) = worker.take() {
@@ -794,6 +813,184 @@ where
     drop(guard);
     result
 }
+
+/// Explicit protected artifact I/O, separate from the unchanged configuration
+/// limits. The host protects the root's parent; only a fixed basename is read.
+/// The same singleton physical worker retains ownership after caller timeout.
+pub async fn read_protected_artifact<T, F>(
+    root: PathBuf,
+    name: String,
+    max_bytes: usize,
+    deadline: Instant,
+    cancellation: CancellationToken,
+    parse: F,
+) -> Result<T, ConfigError>
+where
+    T: Send + 'static,
+    F: FnOnce(&str) -> Result<T, ConfigError> + Send + 'static,
+{
+    use rustix::fs::{Mode, OFlags, openat};
+    use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    if !root.is_absolute()
+        || root.as_os_str().len() > 4096
+        || name.is_empty()
+        || name.len() > 128
+        || std::path::Path::new(&name).components().count() != 1
+        || !matches!(
+            std::path::Path::new(&name).components().next(),
+            Some(std::path::Component::Normal(_))
+        )
+        || max_bytes == 0
+        || max_bytes > 32 * 1024 * 1024
+    {
+        return Err(ConfigError::Invalid("protected artifact bounds"));
+    }
+    let worker_cancel = cancellation.child_token();
+    let operation_cancel = worker_cancel.clone();
+    let guard = CancelOnDrop(worker_cancel.clone());
+    let result = run_worker(deadline, &worker_cancel, move || {
+        check(deadline, &operation_cancel)?;
+        let directory = fs::symlink_metadata(&root).map_err(|_| ConfigError::Io)?;
+        if !directory.is_dir() || directory.permissions().mode() & 0o777 != 0o700 {
+            return Err(ConfigError::Invalid("protected artifact root"));
+        }
+        let parent = File::from(
+            openat(
+                rustix::fs::CWD,
+                &root,
+                OFlags::RDONLY
+                    | OFlags::DIRECTORY
+                    | OFlags::NOFOLLOW
+                    | OFlags::NONBLOCK
+                    | OFlags::CLOEXEC,
+                Mode::empty(),
+            )
+            .map_err(|_| ConfigError::Io)?,
+        );
+        let parent_metadata = parent.metadata().map_err(|_| ConfigError::Io)?;
+        if artifact_directory_identity(&directory) != artifact_directory_identity(&parent_metadata)
+        {
+            return Err(ConfigError::Invalid("protected artifact root replaced"));
+        }
+        let path = root.join(name);
+        let before = fs::symlink_metadata(&path).map_err(|_| ConfigError::Io)?;
+        if !before.is_file()
+            || before.nlink() != 1
+            || before.uid() != directory.uid()
+            || before.permissions().mode() & 0o777 != 0o600
+        {
+            return Err(ConfigError::Invalid("protected artifact file"));
+        }
+        if before.len() > max_bytes as u64 {
+            return Err(ConfigError::Invalid("protected artifact byte capacity"));
+        }
+        #[cfg(test)]
+        let pause = ARTIFACT_OPEN_PAUSE
+            .lock()
+            .map_err(|_| ConfigError::Unavailable)?
+            .take();
+        #[cfg(test)]
+        if let Some(pause) = &pause {
+            pause.before_open()?;
+        }
+        let mut file = File::from(
+            openat(
+                &parent,
+                path.file_name().ok_or(ConfigError::Io)?,
+                OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+                Mode::empty(),
+            )
+            .map_err(|_| ConfigError::Io)?,
+        );
+        #[cfg(test)]
+        if let Some(pause) = &pause {
+            pause.after_open()?;
+        }
+        let descriptor = file.metadata().map_err(|_| ConfigError::Io)?;
+        if !descriptor.is_file()
+            || artifact_file_identity(&before) != artifact_file_identity(&descriptor)
+        {
+            return Err(ConfigError::Invalid(
+                "protected artifact descriptor replaced",
+            ));
+        }
+        let mut bytes = Vec::with_capacity(before.len() as usize);
+        let mut chunk = [0; 4096];
+        loop {
+            check(deadline, &operation_cancel)?;
+            let count = file.read(&mut chunk).map_err(|_| ConfigError::Io)?;
+            if count == 0 {
+                break;
+            }
+            if count > max_bytes.saturating_sub(bytes.len()) {
+                return Err(ConfigError::Invalid("protected artifact byte capacity"));
+            }
+            bytes.extend_from_slice(&chunk[..count]);
+        }
+        let final_descriptor = file.metadata().map_err(|_| ConfigError::Io)?;
+        let after = fs::symlink_metadata(&path).map_err(|_| ConfigError::Io)?;
+        let current = fs::symlink_metadata(&root).map_err(|_| ConfigError::Io)?;
+        if artifact_file_identity(&before) != artifact_file_identity(&after)
+            || artifact_file_identity(&before) != artifact_file_identity(&final_descriptor)
+            || artifact_directory_identity(&directory) != artifact_directory_identity(&current)
+        {
+            return Err(ConfigError::Invalid("protected artifact replaced"));
+        }
+        let text = String::from_utf8(bytes)
+            .map_err(|_| ConfigError::Invalid("protected artifact encoding"))?;
+        check(deadline, &operation_cancel)?;
+        let value = parse(&text)?;
+        check(deadline, &operation_cancel)?;
+        Ok(value)
+    })
+    .await;
+    drop(guard);
+    result
+}
+fn artifact_file_identity(m: &fs::Metadata) -> (u64, u64, u64, u32, u32, u64, i64, i64, i64, i64) {
+    use std::os::unix::fs::MetadataExt;
+    (
+        m.dev(),
+        m.ino(),
+        m.len(),
+        m.uid(),
+        m.mode(),
+        m.nlink(),
+        m.mtime(),
+        m.mtime_nsec(),
+        m.ctime(),
+        m.ctime_nsec(),
+    )
+}
+fn artifact_directory_identity(m: &fs::Metadata) -> (u64, u64, u32, u32) {
+    use std::os::unix::fs::MetadataExt;
+    (m.dev(), m.ino(), m.uid(), m.mode())
+}
+#[cfg(test)]
+struct ArtifactOpenPause {
+    before: Arc<tokio::sync::Notify>,
+    opened: Arc<tokio::sync::Notify>,
+    release: std::sync::mpsc::Receiver<()>,
+    restored: std::sync::mpsc::Receiver<()>,
+}
+#[cfg(test)]
+impl ArtifactOpenPause {
+    fn before_open(&self) -> Result<(), ConfigError> {
+        self.before.notify_one();
+        self.release
+            .recv_timeout(std::time::Duration::from_secs(3))
+            .map_err(|_| ConfigError::Timeout)
+    }
+    fn after_open(&self) -> Result<(), ConfigError> {
+        self.opened.notify_one();
+        self.restored
+            .recv_timeout(std::time::Duration::from_secs(3))
+            .map_err(|_| ConfigError::Timeout)
+    }
+}
+#[cfg(test)]
+static ARTIFACT_OPEN_PAUSE: std::sync::Mutex<Option<ArtifactOpenPause>> =
+    std::sync::Mutex::new(None);
 
 #[cfg(test)]
 mod tests {
@@ -1298,6 +1495,193 @@ telemetry:
             .await,
             Err(ConfigError::Invalid("configuration byte ceiling"))
         ));
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod protected_artifact_tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+    type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error>>;
+    fn private_root() -> Result<tempfile::TempDir> {
+        let root = tempfile::tempdir()?;
+        fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700))?;
+        Ok(root)
+    }
+    fn write(path: &std::path::Path, bytes: &[u8]) -> Result {
+        fs::write(path, bytes)?;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+        Ok(())
+    }
+    #[tokio::test]
+    async fn protected_artifact_bounds_do_not_expand_configuration_or_accept_unsafe_entries()
+    -> Result {
+        let _serial = FILE_WORKER_TEST_LOCK.lock().await;
+        let root = private_root()?;
+        let file = root.path().join("large.json");
+        write(&file, &vec![b'x'; MAX_PRIVATE_BYTES + 1])?;
+        assert!(matches!(
+            read_limited_document(
+                file.clone(),
+                MAX_PRIVATE_BYTES + 1,
+                Instant::now() + std::time::Duration::from_secs(3),
+                CancellationToken::new(),
+                |s| Ok(s.len())
+            )
+            .await,
+            Err(ConfigError::Invalid(_))
+        ));
+        assert_eq!(
+            read_protected_artifact(
+                root.path().into(),
+                "large.json".into(),
+                1024 * 1024,
+                Instant::now() + std::time::Duration::from_secs(3),
+                CancellationToken::new(),
+                |s| Ok(s.len())
+            )
+            .await?,
+            MAX_PRIVATE_BYTES + 1
+        );
+        for name in ["../large.json", ".", "", "nested/large.json"] {
+            assert!(
+                read_protected_artifact(
+                    root.path().into(),
+                    name.into(),
+                    1024,
+                    Instant::now() + std::time::Duration::from_secs(3),
+                    CancellationToken::new(),
+                    |_| Ok(())
+                )
+                .await
+                .is_err()
+            );
+        }
+        std::os::unix::fs::symlink(&file, root.path().join("symlink"))?;
+        fs::hard_link(&file, root.path().join("hardlink"))?;
+        for name in ["symlink", "hardlink"] {
+            assert!(
+                read_protected_artifact(
+                    root.path().into(),
+                    name.into(),
+                    1024 * 1024,
+                    Instant::now() + std::time::Duration::from_secs(3),
+                    CancellationToken::new(),
+                    |_| Ok(())
+                )
+                .await
+                .is_err()
+            );
+        }
+        Ok(())
+    }
+    #[tokio::test]
+    async fn transient_path_replacement_cannot_substitute_the_descriptor_read() -> Result {
+        let _serial = FILE_WORKER_TEST_LOCK.lock().await;
+        let root = private_root()?;
+        let path = root.path().join("artifact.json");
+        write(&path, b"original")?;
+        write(&root.path().join("substitute.json"), b"attacker")?;
+        let before = Arc::new(tokio::sync::Notify::new());
+        let opened = Arc::new(tokio::sync::Notify::new());
+        let (release, wait) = std::sync::mpsc::sync_channel(1);
+        let (restore, restored) = std::sync::mpsc::sync_channel(1);
+        *ARTIFACT_OPEN_PAUSE.lock().map_err(|_| "pause lock")? = Some(ArtifactOpenPause {
+            before: before.clone(),
+            opened: opened.clone(),
+            release: wait,
+            restored,
+        });
+        let reading = tokio::spawn(read_protected_artifact(
+            root.path().into(),
+            "artifact.json".into(),
+            1024,
+            Instant::now() + std::time::Duration::from_secs(5),
+            CancellationToken::new(),
+            |_| -> std::result::Result<(), ConfigError> {
+                panic!("substituted descriptor reached parser")
+            },
+        ));
+        tokio::time::timeout(std::time::Duration::from_secs(2), before.notified()).await?;
+        fs::rename(&path, root.path().join("saved.json"))?;
+        fs::rename(root.path().join("substitute.json"), &path)?;
+        release.send(())?;
+        tokio::time::timeout(std::time::Duration::from_secs(2), opened.notified()).await?;
+        fs::rename(&path, root.path().join("substitute.json"))?;
+        fs::rename(root.path().join("saved.json"), &path)?;
+        restore.send(())?;
+        assert!(matches!(
+            reading.await?,
+            Err(ConfigError::Invalid(
+                "protected artifact descriptor replaced"
+            ))
+        ));
+        assert_eq!(fs::read(&path)?, b"original");
+        Ok(())
+    }
+    #[tokio::test]
+    async fn cancelled_artifact_parser_keeps_the_physical_worker_until_retirement() -> Result {
+        let _serial = FILE_WORKER_TEST_LOCK.lock().await;
+        let root = private_root()?;
+        write(&root.path().join("artifact.json"), b"fixture")?;
+        let cancel = CancellationToken::new();
+        let (start, started) = oneshot::channel();
+        let (release, wait) = std::sync::mpsc::sync_channel(1);
+        let reading = tokio::spawn(read_protected_artifact(
+            root.path().into(),
+            "artifact.json".into(),
+            1024,
+            Instant::now() + std::time::Duration::from_secs(5),
+            cancel.clone(),
+            move |_| {
+                let _ = start.send(());
+                wait.recv_timeout(std::time::Duration::from_secs(3))
+                    .map_err(|_| ConfigError::Timeout)?;
+                Ok(())
+            },
+        ));
+        tokio::time::timeout(std::time::Duration::from_secs(2), started).await??;
+        cancel.cancel();
+        assert!(matches!(reading.await?, Err(ConfigError::Cancelled)));
+        let before = file_worker_metrics();
+        assert_eq!((before.0, before.1), (1, 1));
+        assert!(matches!(
+            read_protected_artifact(
+                root.path().into(),
+                "artifact.json".into(),
+                1024,
+                Instant::now() + std::time::Duration::from_secs(2),
+                CancellationToken::new(),
+                |_| Ok(())
+            )
+            .await,
+            Err(ConfigError::Full)
+        ));
+        assert_eq!(file_worker_metrics().2, before.2 + 1);
+        release.send(())?;
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while WORKER
+                .lock()
+                .map_err(|_| ConfigError::Unavailable)?
+                .as_ref()
+                .is_some_and(|w| !w.is_finished())
+            {
+                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            }
+            Ok::<_, ConfigError>(())
+        })
+        .await??;
+        read_protected_artifact(
+            root.path().into(),
+            "artifact.json".into(),
+            1024,
+            Instant::now() + std::time::Duration::from_secs(2),
+            CancellationToken::new(),
+            |_| Ok(()),
+        )
+        .await?;
+        assert_eq!(file_worker_metrics().0, 0);
         Ok(())
     }
 }
