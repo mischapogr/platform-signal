@@ -395,3 +395,60 @@ fn prepared_metadata_cannot_retain_callers_large_spare_string_capacity() -> Resu
     assert!(prepared.body.capacity() <= RECORD_BYTES);
     Ok(())
 }
+#[test]
+fn workflow_audit_targets_are_closed_actor_bound_metadata_and_not_grants() -> Result {
+    let mut event = record()?;
+    event.actor = Actor::VerifiedSubject {
+        key: "0".repeat(64),
+    };
+    let target = WorkflowTarget::CaseMutation {
+        namespace: Uuid::from_u128(1),
+        case_id: Uuid::from_u128(2),
+        intent_id: Uuid::from_u128(3),
+        expected_revision: 0,
+    };
+    event.action = Action::WorkflowAccessDecision {
+        operation: Operation::CreateCases,
+        operation_id: Uuid::from_u128(4),
+        target: target.clone(),
+        decision: Decision::Granted,
+    };
+    let original = event.clone().prepare()?;
+    let decoded = PreparedAudit::from_original(original.body())?;
+    assert!(decoded.record() == &event);
+    let mut value: Value = serde_json::from_slice(original.body())?;
+    value["action"]["target"]["note"] = json!("must-not-enter-audit");
+    assert!(PreparedAudit::from_original(&serde_json::to_vec(&value)?).is_err());
+    event.actor = Actor::Bootstrap {};
+    assert!(event.clone().prepare().is_err());
+    event.actor = Actor::VerifiedSubject {
+        key: "0".repeat(64),
+    };
+    event.action = Action::WorkflowAccessDecision {
+        operation: Operation::AssignCases,
+        operation_id: Uuid::from_u128(4),
+        target,
+        decision: Decision::Granted,
+    };
+    assert!(event.clone().prepare().is_err());
+    event.action = Action::WorkflowAccessDecision {
+        operation: Operation::CreateCases,
+        operation_id: Uuid::from_u128(4),
+        target: WorkflowTarget::Namespace {
+            namespace: Uuid::from_u128(1),
+        },
+        decision: Decision::Granted,
+    };
+    assert!(event.clone().prepare().is_err());
+    event.actor = Actor::Anonymous {};
+    event.action = Action::WorkflowAccessDecision {
+        operation: Operation::CreateCases,
+        operation_id: Uuid::from_u128(4),
+        target: WorkflowTarget::Namespace {
+            namespace: Uuid::from_u128(1),
+        },
+        decision: Decision::Denied,
+    };
+    event.clone().prepare()?;
+    Ok(())
+}

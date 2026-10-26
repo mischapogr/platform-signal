@@ -120,3 +120,25 @@ and complete canonical/native indexes. It must retain policy-only contributors
 and original scopes through pruning/carry; unknown or partial provider custody
 refuses. Canonical finding provenance cannot stand in for this provider or activate
 Main correlation. API/assignee/audit/disposition/console/browser work remains open.
+
+## API foundation checkpoint — 2026-10-27
+
+The case backend and exact reference/inventory prerequisite are committed in
+`4ee43f6`. The subsequent API foundations are work in progress: explicit scoped
+case/disposition operations, closed resource/intent audit targets, paired durable
+audit sessions, and absolute UTC windows through physical case commit. They do
+not expose HTTP routes or establish identity/provider/assignee authorization.
+
+Checkpoint validation: protocol/findings tests passed 123 tests (2 ignored),
+and the server workflow-audit regression passed 1 test. Formatting, workspace
+boundaries and AI workflow checks passed. Strict targeted Clippy failed because
+`Control::begin_workflow` is unused in the production server until route wiring.
+The checkpoint is preserved on a separate WIP branch; it is not API acceptance.
+Logs remain in `target/soc-ux-20261026/api/checkpoint-{tests,clippy}.log`.
+
+Next: wire the actual opt-in authenticated API with enrolled original-contributor
+providers, independent assignee eligibility, minimal write acknowledgements and
+mandatory resource-bound auditing. Complete focused independent review and
+source-bound full acceptance before integrating this checkpoint into develop.
+Durable dispositions and console/browser/restart evidence remain open. The
+whole SOC-UX item remains in progress; no AWS or release qualification is added.

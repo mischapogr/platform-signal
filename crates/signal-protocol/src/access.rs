@@ -32,6 +32,11 @@ pub enum Operation {
     Configure,
     ManageRules,
     ReadAudit,
+    ReadCases,
+    CreateCases,
+    AssignCases,
+    ReadDispositions,
+    WriteDispositions,
 }
 impl Operation {
     // The current feed/global controls have no row-scope contract. Never imply

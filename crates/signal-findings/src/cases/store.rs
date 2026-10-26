@@ -423,6 +423,8 @@ struct Engine {
     charge: usize,
     prefix: Sha256,
     failed: bool,
+    #[cfg(test)]
+    witness_pause: Option<WitnessPause>,
 }
 fn io<T>(result: std::io::Result<T>) -> Result<T, CaseError> {
     result.map_err(|_| CaseError::Unavailable)
@@ -596,6 +598,8 @@ impl Engine {
             charge: 0,
             prefix,
             failed: false,
+            #[cfg(test)]
+            witness_pause: None,
         };
         while e.bytes < witness.end {
             check(context)?;
@@ -724,7 +728,7 @@ impl Engine {
         self.records.push((record, data));
     }
     fn witness(
-        &self,
+        &mut self,
         witness: &Witness,
         context: &FindingContext,
         authority: Option<&CaseAuthority>,
@@ -738,6 +742,14 @@ impl Engine {
             .open(&temp))?;
         io(f.write_all(&data))?;
         io(f.sync_all())?;
+        #[cfg(test)]
+        if let Some(pause) = self.witness_pause.take() {
+            let _ = pause.started.send(());
+            pause
+                .release
+                .recv_timeout(Duration::from_secs(5))
+                .map_err(|_| CaseError::Timeout)?;
+        }
         check(context)?;
         if let Some(authority) = authority {
             authority.check()?;
@@ -852,3 +864,9 @@ fn test_hook(phase: &str, record: &CaseRecord) -> Result<(), CaseError> {
 #[cfg(test)]
 #[path = "tests.rs"]
 mod tests;
+
+#[cfg(test)]
+struct WitnessPause {
+    started: tokio::sync::oneshot::Sender<()>,
+    release: std::sync::mpsc::Receiver<()>,
+}

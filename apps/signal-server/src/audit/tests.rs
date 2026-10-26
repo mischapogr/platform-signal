@@ -1502,3 +1502,96 @@ async fn selected_preparation_cannot_renew_the_clock_or_enable_after_ready_hando
     assert!(completed.load(Ordering::SeqCst));
     Ok(())
 }
+#[tokio::test]
+async fn workflow_audit_preserves_resource_and_intent_with_distinct_request_pairs() -> Result {
+    let _serial = SERIAL.lock().await;
+    let outbox = root()?;
+    let dest = root()?;
+    let sink = destination(dest.path(), 0);
+    let control = Control::test_open(
+        outbox.path(),
+        sink.clone(),
+        vec![Operation::CreateCases, Operation::ReadCases],
+        context()?,
+    )
+    .await?;
+    let actor = Actor::VerifiedSubject {
+        key: "0".repeat(64),
+    };
+    let target = WorkflowTarget::CaseMutation {
+        namespace: Uuid::from_u128(1),
+        case_id: Uuid::from_u128(2),
+        intent_id: Uuid::from_u128(3),
+        expected_revision: 0,
+    };
+    assert!(
+        control
+            .begin(
+                actor.clone(),
+                Decision::Granted,
+                Operation::CreateCases,
+                Instant::now() + Duration::from_secs(5),
+                CancellationToken::new()
+            )
+            .await
+            .is_err()
+    );
+    assert!(
+        control
+            .begin_workflow(
+                Actor::Bootstrap {},
+                Decision::Granted,
+                Operation::CreateCases,
+                target.clone(),
+                Instant::now() + Duration::from_secs(5),
+                CancellationToken::new()
+            )
+            .await
+            .is_err()
+    );
+    assert!(!control.metrics().held);
+    assert_eq!(sink.calls.load(Ordering::SeqCst), 0);
+    let mut request_ids = Vec::new();
+    for offset in [0, 2] {
+        let session = control
+            .begin_workflow(
+                actor.clone(),
+                Decision::Granted,
+                Operation::CreateCases,
+                target.clone(),
+                Instant::now() + Duration::from_secs(5),
+                CancellationToken::new(),
+            )
+            .await?;
+        session.finish(Completion::Success).await?;
+        let decision =
+            PreparedAudit::from_original(&fs::read(dest.path().join((offset + 1).to_string()))?)?;
+        let complete =
+            PreparedAudit::from_original(&fs::read(dest.path().join((offset + 2).to_string()))?)?;
+        let Action::WorkflowAccessDecision {
+            operation,
+            operation_id,
+            target: recorded,
+            decision: granted,
+        } = &decision.record().action
+        else {
+            return Err("wrong workflow decision".into());
+        };
+        assert!(*operation == Operation::CreateCases);
+        assert!(*recorded == target);
+        assert!(*granted == Decision::Granted);
+        assert!(
+            complete.record().action
+                == Action::WorkflowOperationCompletion {
+                    operation: *operation,
+                    operation_id: *operation_id,
+                    target: target.clone(),
+                    completion: Completion::Success
+                }
+        );
+        request_ids.push(*operation_id);
+    }
+    assert_ne!(request_ids[0], request_ids[1]);
+    assert!(!control.metrics().held);
+    Ok(())
+}

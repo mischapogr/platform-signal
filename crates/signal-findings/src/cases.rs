@@ -187,8 +187,38 @@ pub struct CaseAuthority {
     references: Vec<FindingReference>,
     request: Option<[u8; 32]>,
     context: FindingContext,
+    utc_window: Option<CaseUtcWindow>,
 }
 impl CaseAuthority {
+    /// Bridge an independently verified UTC lease; this still does not authenticate.
+    pub fn for_write_bounded(
+        namespace: Uuid,
+        actor: String,
+        references: Vec<FindingReference>,
+        request: &CaseRequest,
+        context: FindingContext,
+        window: CaseUtcWindow,
+    ) -> Result<Self, CaseError> {
+        let mut proof =
+            Self::for_write(namespace, actor, references, request, window.cap(context)?)?;
+        proof.utc_window = Some(window);
+        proof.check()?;
+        Ok(proof)
+    }
+    pub fn for_read_bounded(
+        namespace: Uuid,
+        case_id: Uuid,
+        actor: String,
+        references: Vec<FindingReference>,
+        context: FindingContext,
+        window: CaseUtcWindow,
+    ) -> Result<Self, CaseError> {
+        let mut proof =
+            Self::for_read(namespace, case_id, actor, references, window.cap(context)?)?;
+        proof.utc_window = Some(window);
+        proof.check()?;
+        Ok(proof)
+    }
     pub fn for_write(
         namespace: Uuid,
         actor: String,
@@ -203,6 +233,7 @@ impl CaseAuthority {
             references,
             request: Some(request.digest()?),
             context,
+            utc_window: None,
         };
         proof.check()?;
         Ok(proof)
@@ -221,6 +252,7 @@ impl CaseAuthority {
             references,
             request: None,
             context,
+            utc_window: None,
         };
         proof.check()?;
         Ok(proof)
@@ -234,7 +266,11 @@ impl CaseAuthority {
         {
             return Err(CaseError::Invalid);
         }
-        check(&self.context)
+        check(&self.context)?;
+        if let Some(window) = self.utc_window {
+            window.check()?;
+        }
+        Ok(())
     }
     fn authorize(
         &self,
@@ -298,13 +334,26 @@ pub struct CaseInventoryAuthority {
     namespace: Uuid,
     actor: String,
     context: FindingContext,
+    utc_window: Option<CaseUtcWindow>,
 }
 impl CaseInventoryAuthority {
+    pub fn new_bounded(
+        namespace: Uuid,
+        actor: String,
+        context: FindingContext,
+        window: CaseUtcWindow,
+    ) -> Result<Self, CaseError> {
+        let mut proof = Self::new(namespace, actor, window.cap(context)?)?;
+        proof.utc_window = Some(window);
+        proof.check()?;
+        Ok(proof)
+    }
     pub fn new(namespace: Uuid, actor: String, context: FindingContext) -> Result<Self, CaseError> {
         let authority = Self {
             namespace,
             actor,
             context,
+            utc_window: None,
         };
         authority.check()?;
         Ok(authority)
@@ -313,7 +362,11 @@ impl CaseInventoryAuthority {
         if self.namespace.is_nil() || !identity(&self.actor) {
             return Err(CaseError::Invalid);
         }
-        check(&self.context)
+        check(&self.context)?;
+        if let Some(window) = self.utc_window {
+            window.check()?;
+        }
+        Ok(())
     }
     fn authorize(&self, namespace: Uuid) -> Result<(), CaseError> {
         self.check()?;
@@ -435,5 +488,51 @@ impl CaseInventoryPage {
         };
         serde_json::to_writer(&mut counter, &wire).map_err(|_| CaseError::Capacity)?;
         Ok(counter.bytes)
+    }
+}
+
+/// Independent absolute UTC lease, paired with an original monotonic context.
+/// Shape/freshness checks only: callers must authenticate and verify all grants.
+/// No serialization path can turn stored timestamps into current authority.
+#[derive(Clone, Copy)]
+pub struct CaseUtcWindow {
+    not_before: u64,
+    expires_at: u64,
+}
+impl CaseUtcWindow {
+    pub fn new(not_before: u64, expires_at: u64) -> Result<Self, CaseError> {
+        if not_before >= expires_at || expires_at > 253_402_300_799 {
+            return Err(CaseError::Invalid);
+        }
+        let window = Self {
+            not_before,
+            expires_at,
+        };
+        window.check()?;
+        Ok(window)
+    }
+    fn check(&self) -> Result<(), CaseError> {
+        let now = u64::try_from(Utc::now().timestamp()).map_err(|_| CaseError::Timeout)?;
+        if now < self.not_before || now >= self.expires_at {
+            Err(CaseError::Timeout)
+        } else {
+            Ok(())
+        }
+    }
+    fn cap(self, mut context: FindingContext) -> Result<FindingContext, CaseError> {
+        self.check()?;
+        check(&context)?;
+        let until =
+            DateTime::<Utc>::from_timestamp(self.expires_at as i64, 0).ok_or(CaseError::Invalid)?;
+        let remaining = until
+            .signed_duration_since(Utc::now())
+            .to_std()
+            .map_err(|_| CaseError::Timeout)?;
+        let now = tokio::time::Instant::now();
+        context.deadline = now
+            .checked_add(remaining.min(context.deadline.saturating_duration_since(now)))
+            .ok_or(CaseError::Invalid)?;
+        check(&context)?;
+        Ok(context)
     }
 }

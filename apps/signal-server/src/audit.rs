@@ -11,7 +11,10 @@ use signal_collector_sdk::{
 use signal_protocol::{
     AuditControlMetrics,
     access::Operation,
-    audit::{Action, Actor, AuditSink, Completion, ConfigurationKind, Decision},
+    audit::{
+        Action, Actor, AuditSink, Completion, ConfigurationKind, Decision, WorkflowTarget,
+        workflow_operation,
+    },
 };
 use std::{
     path::{Path, PathBuf},
@@ -67,7 +70,7 @@ impl Wire {
 }
 fn valid_operations(operations: &[Operation]) -> bool {
     !operations.is_empty()
-        && operations.len() <= 6
+        && operations.len() <= 12
         && operations.iter().enumerate().all(|(index, operation)| {
             matches!(
                 operation,
@@ -77,6 +80,12 @@ fn valid_operations(operations: &[Operation]) -> bool {
                     | Operation::ReadCoverage
                     | Operation::WriteCoverage
                     | Operation::IngestEvents
+                    | Operation::ReadCases
+                    | Operation::CreateCases
+                    | Operation::AssignCases
+                    | Operation::ReadDispositions
+                    | Operation::WriteDispositions
+                    | Operation::ReadEvidence
             ) && !operations[..index].contains(operation)
         })
 }
@@ -269,12 +278,68 @@ impl Control {
     }
     pub async fn begin(
         self: &Arc<Self>,
-        mut actor: Actor,
+        actor: Actor,
         decision: Decision,
         operation: Operation,
         deadline: Instant,
         cancellation: CancellationToken,
     ) -> Result<Session, Unavailable> {
+        if workflow_operation(operation) {
+            return Err(Unavailable);
+        }
+        self.begin_inner(
+            Start {
+                actor,
+                decision,
+                operation,
+                target: None,
+            },
+            deadline,
+            cancellation,
+        )
+        .await
+    }
+    pub async fn begin_workflow(
+        self: &Arc<Self>,
+        actor: Actor,
+        decision: Decision,
+        operation: Operation,
+        target: WorkflowTarget,
+        deadline: Instant,
+        cancellation: CancellationToken,
+    ) -> Result<Session, Unavailable> {
+        if !workflow_operation(operation)
+            || target
+                .validate_for(operation, decision == Decision::Granted)
+                .is_err()
+            || (decision == Decision::Granted && !matches!(&actor, Actor::VerifiedSubject { .. }))
+        {
+            return Err(Unavailable);
+        }
+        self.begin_inner(
+            Start {
+                actor,
+                decision,
+                operation,
+                target: Some(target),
+            },
+            deadline,
+            cancellation,
+        )
+        .await
+    }
+    async fn begin_inner(
+        self: &Arc<Self>,
+        start: Start,
+        deadline: Instant,
+        cancellation: CancellationToken,
+    ) -> Result<Session, Unavailable> {
+        let Start {
+            mut actor,
+            decision,
+            operation,
+            target,
+        } = start;
         let context =
             ExtensionContext::from_deadline(cancellation, deadline).map_err(|_| Unavailable)?;
         context.check().map_err(|_| Unavailable)?;
@@ -296,18 +361,33 @@ impl Control {
             decision,
             operation,
             operation_id: Uuid::new_v4(),
+            target,
             context,
             completed: false,
         };
-        session
-            .publish(Action::AccessDecision {
+        let action = match &session.target {
+            Some(target) => Action::WorkflowAccessDecision {
+                operation,
+                operation_id: session.operation_id,
+                target: target.clone(),
+                decision,
+            },
+            None => Action::AccessDecision {
                 operation,
                 operation_id: session.operation_id,
                 decision,
-            })
-            .await?;
+            },
+        };
+        session.publish(action).await?;
         Ok(session)
     }
+}
+
+struct Start {
+    actor: Actor,
+    decision: Decision,
+    operation: Operation,
+    target: Option<WorkflowTarget>,
 }
 
 pub struct Session {
@@ -317,6 +397,7 @@ pub struct Session {
     decision: Decision,
     operation: Operation,
     operation_id: Uuid,
+    target: Option<WorkflowTarget>,
     context: ExtensionContext,
     completed: bool,
 }
@@ -383,12 +464,20 @@ impl Session {
         {
             return Err(Unavailable);
         }
-        self.publish(Action::OperationCompletion {
-            operation: self.operation,
-            operation_id: self.operation_id,
-            completion,
-        })
-        .await?;
+        let action = match &self.target {
+            Some(target) => Action::WorkflowOperationCompletion {
+                operation: self.operation,
+                operation_id: self.operation_id,
+                target: target.clone(),
+                completion,
+            },
+            None => Action::OperationCompletion {
+                operation: self.operation,
+                operation_id: self.operation_id,
+                completion,
+            },
+        };
+        self.publish(action).await?;
         self.completed = true;
         Ok(())
     }

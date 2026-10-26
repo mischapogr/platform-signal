@@ -569,3 +569,51 @@ fn exact_subject_matching_and_lease_bounds_do_not_confer_capabilities() {
         120
     ));
 }
+#[test]
+fn analyst_workflow_operations_are_explicit_scoped_and_never_cross_combine_roles() {
+    let actor = grant(policy(vec![
+        Role {
+            id: "case-reader-a".into(),
+            permissions: vec![permission(Operation::ReadCases, scope("a"))],
+        },
+        Role {
+            id: "case-assigner-b".into(),
+            permissions: vec![permission(Operation::AssignCases, scope("b"))],
+        },
+        Role {
+            id: "finding-reader-a".into(),
+            permissions: vec![permission(Operation::ReadFindings, scope("a"))],
+        },
+        Role {
+            id: "disposition-writer-a".into(),
+            permissions: vec![permission(Operation::WriteDispositions, scope("a"))],
+        },
+    ]));
+    let facts = |account| ScopeFacts {
+        source: Some("application"),
+        account: Some(account),
+        resource: Some("api"),
+    };
+    assert!(actor.allows(Operation::ReadCases, facts("a"), 120));
+    assert!(!actor.allows(Operation::ReadCases, facts("b"), 120));
+    assert!(actor.allows(Operation::AssignCases, facts("b"), 120));
+    assert!(!actor.allows(Operation::AssignCases, facts("a"), 120));
+    assert!(!actor.allows(Operation::CreateCases, facts("a"), 120));
+    assert!(actor.allows(Operation::WriteDispositions, facts("a"), 120));
+    assert!(!actor.allows(Operation::ReadDispositions, facts("a"), 120));
+    assert!(!actor.allows(Operation::ReadEvidence, facts("a"), 120));
+    assert!(!actor.allows(Operation::ReadCases, facts("a"), 200));
+    for operation in [
+        Operation::ReadCases,
+        Operation::CreateCases,
+        Operation::AssignCases,
+        Operation::ReadDispositions,
+        Operation::WriteDispositions,
+    ] {
+        let encoded = serde_json::to_string(&operation).unwrap();
+        assert_eq!(
+            serde_json::from_str::<Operation>(&encoded).unwrap(),
+            operation
+        );
+    }
+}
