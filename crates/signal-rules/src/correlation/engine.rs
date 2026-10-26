@@ -1,5 +1,5 @@
 use super::binding::BindingView;
-use super::d11::{episode, historical_proof, late, observation, usable};
+use super::d11::late;
 use super::*;
 // Existing public authentication APIs remain wrappers around the common engine.
 impl State {
@@ -79,6 +79,7 @@ impl State {
             last_seal_evidence: vec![],
             degraded_through: None,
             retired_late_inputs: 0,
+            runtime_seal: None,
         }
     }
     pub(super) fn metrics_with(&self, b: &BindingView<'_>) -> Result<Metrics, Error> {
@@ -152,7 +153,14 @@ impl State {
         {
             return Err(Error::Conflict);
         }
-        history::validate_metadata(b.authentication_binding()?, self, c)?;
+        if b.runtime_binding().is_some() && self.retired_late_inputs != 0 && self.archive.is_none()
+        {
+            return Err(Error::Conflict);
+        }
+        if b.runtime_binding().is_none() && self.runtime_seal.is_some() {
+            return Err(Error::Conflict);
+        }
+        history::validate_metadata_with(b, self, c)?;
         let mut streams = BTreeSet::new();
         for (stream, _) in &self.positions {
             if !streams.insert(*stream) || !b.config.sources.iter().any(|s| s.stream == *stream) {
@@ -165,7 +173,7 @@ impl State {
             }
             let mut streams = BTreeSet::new();
             for p in &self.last_seal_evidence {
-                historical_proof(b.authentication_binding()?, p)?;
+                b.historical_proof(p)?;
                 if !streams.insert(p.stream)
                     || self
                         .positions
@@ -176,28 +184,39 @@ impl State {
                     return Err(Error::Conflict);
                 }
             }
-            let min = self
-                .last_seal_evidence
-                .iter()
-                .map(|p| {
-                    p.frontier
-                        .checked_sub_signed(TimeDelta::milliseconds(b.config.lateness_ms))
-                })
-                .collect::<Option<Vec<_>>>()
-                .ok_or(Error::Invalid)?
-                .into_iter()
-                .min();
+            let min = if let Some(runtime) = b.runtime_binding() {
+                Some(d14::state::historical_watermark(
+                    runtime,
+                    &self.last_seal_evidence,
+                    &self.runtime_seal.as_ref().ok_or(Error::Conflict)?.policy,
+                    c,
+                )?)
+            } else {
+                self.last_seal_evidence
+                    .iter()
+                    .map(|p| {
+                        p.frontier
+                            .checked_sub_signed(TimeDelta::milliseconds(b.config.lateness_ms))
+                    })
+                    .collect::<Option<Vec<_>>>()
+                    .ok_or(Error::Invalid)?
+                    .into_iter()
+                    .min()
+            };
             if min != Some(watermark) {
                 return Err(Error::Conflict);
             }
-        } else if !self.last_seal_evidence.is_empty() {
+        } else if !self.last_seal_evidence.is_empty()
+            || self.runtime_seal.is_some()
+            || self.degraded_through.is_some()
+        {
             return Err(Error::Conflict);
         }
         let mut ids = BTreeSet::new();
         let mut natives = BTreeSet::new();
         for o in &self.observations {
             check(c)?;
-            historical_proof(b.authentication_binding()?, &o.verification)?;
+            b.historical_proof(&o.verification)?;
             if !ids.insert(o.event.id)
                 || o.native
                     .as_ref()
@@ -205,14 +224,8 @@ impl State {
             {
                 return Err(Error::Conflict);
             }
-            let source = b
-                .authentication_binding()?
-                .config
-                .sources
-                .iter()
-                .find(|s| s.stream == o.verification.stream)
-                .ok_or(Error::Conflict)?;
-            let mut rebuilt = observation(source, &o.event, &o.verification, c)?;
+            let mut rebuilt = b.rebuild(o, c)?;
+            d14::state::verify_range(o)?;
             rebuilt.admission_watermark = o.admission_watermark;
             rebuilt.source_position = o.source_position;
             if o.event.timestamp < o.verification.coverage_from
@@ -260,14 +273,7 @@ impl State {
         {
             return Err(Error::Conflict);
         }
-        let keys: BTreeSet<_> = self
-            .observations
-            .iter()
-            .filter_map(|o| o.key.as_ref())
-            .collect();
-        if keys.len() > b.config.max_keys {
-            return Err(Error::Capacity);
-        }
+        b.validate_keys(&self.observations)?;
         let mut episode_ids = BTreeSet::new();
         for e in &self.episodes {
             if !episode_ids.insert(e.id)
@@ -277,7 +283,7 @@ impl State {
                 return Err(Error::Conflict);
             }
             for p in &e.verification {
-                historical_proof(b.authentication_binding()?, p)?;
+                b.historical_proof(p)?;
                 if self
                     .positions
                     .iter()
@@ -292,12 +298,14 @@ impl State {
                 .iter()
                 .position(|o| e.originals.last().is_some_and(|x| x.id == o.event.id))
                 .ok_or(Error::Conflict)?;
-            if episode(
-                b.authentication_binding()?,
+            if b.episode(
                 observations,
                 anchor,
                 e.sealed_watermark,
                 &e.verification,
+                e.runtime
+                    .as_ref()
+                    .map_or(&[][..], |r| r.policy_coverage.as_slice()),
                 e.coverage_degraded_through,
                 c,
             )? != *e
@@ -336,19 +344,27 @@ impl State {
         lookup: Option<&history::Lookup<'_>>,
         c: &RuleContext,
     ) -> Result<Admission, Error> {
-        epoch.valid(b.authentication_binding()?, c)?;
+        self.admit_selected_with(b, stream, position, event, epoch, lookup, None, None, c)
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn admit_selected_with(
+        &mut self,
+        b: &BindingView<'_>,
+        stream: Uuid,
+        position: u64,
+        event: &SignalEvent,
+        epoch: &Epoch,
+        lookup: Option<&history::Lookup<'_>>,
+        decision: Option<&d14::CurrentDecision>,
+        original_input: Option<&RuleContext>,
+        c: &RuleContext,
+    ) -> Result<Admission, Error> {
+        epoch.valid_with(b, c)?;
         self.validate_with(b, c)?;
         if position == 0 {
             return Err(Error::Conflict);
         }
         let proof = epoch.proof(stream)?;
-        let source = b
-            .authentication_binding()?
-            .config
-            .sources
-            .iter()
-            .find(|s| s.stream == stream)
-            .ok_or(Error::Unverified)?;
         if position > proof.position
             || self
                 .last_seal_evidence
@@ -358,8 +374,8 @@ impl State {
         {
             return Err(Error::Conflict);
         }
-        let mut input = observation(source, event, proof, c)?;
-        let cold = history::resolve(b.authentication_binding()?, self, &input, lookup, c)?;
+        let mut input = b.observation(stream, event, proof, c)?;
+        let cold = history::resolve(b, self, &input, lookup, c)?;
         let mut next = self.clone();
         let frontier = next
             .positions
@@ -431,8 +447,20 @@ impl State {
         let admission = if canonical.is_some() || native.is_some() || cold.is_some() {
             Admission::Duplicate
         } else {
-            if event.timestamp < proof.coverage_from || event.timestamp > proof.frontier {
-                return Err(Error::Unverified);
+            d14::state::verify_range(&input)?;
+            if let Some(runtime) = b.runtime_binding() {
+                if let Some(decision) = decision {
+                    let original = d14::Input::new(runtime, stream, event, c)?;
+                    input = d14::state::observation(
+                        runtime,
+                        &original,
+                        proof,
+                        Some(decision.retained(runtime, &original, c)?),
+                        c,
+                    )?;
+                }
+            } else if decision.is_some() {
+                return Err(Error::Invalid);
             }
             if position <= frontier.1 {
                 return Err(Error::Conflict);
@@ -452,10 +480,26 @@ impl State {
         };
         frontier.1 = frontier.1.max(position);
         next.validate_with(b, c)?;
-        epoch.valid(b.authentication_binding()?, c)?;
-        if let Some(lookup) = lookup {
-            lookup.valid(b.authentication_binding()?, c)?;
+        if admission != Admission::Duplicate
+            && let (Some(runtime), Some(decision)) = (b.runtime_binding(), decision)
+        {
+            decision.retained(runtime, &d14::Input::new(runtime, stream, event, c)?, c)?;
         }
+        if let Some(lookup) = lookup {
+            lookup.valid(b, c)?;
+        }
+        if admission != Admission::Duplicate
+            && let Some(decision) = decision
+        {
+            for original in decision.original_contexts() {
+                check(original)?;
+            }
+        }
+        epoch.valid_with(b, c)?;
+        if let Some(original) = original_input {
+            check(original)?;
+        }
+        check(c)?;
         *self = next;
         Ok(admission)
     }
@@ -465,9 +509,9 @@ impl State {
         epoch: &Epoch,
         c: &RuleContext,
     ) -> Result<Seal, Error> {
-        epoch.valid(b.authentication_binding()?, c)?;
+        epoch.valid_with(b, c)?;
         self.validate_with(b, c)?;
-        let Some(watermark) = epoch.watermark(b.authentication_binding()?) else {
+        let Some(watermark) = epoch.watermark_with(b) else {
             return Ok(Seal {
                 watermark: self.watermark,
                 new_episodes: 0,
@@ -496,7 +540,20 @@ impl State {
         }
         let mut next = self.clone();
         let mut count = 0;
-        let incomplete = epoch.evidence.iter().any(|p| !p.complete);
+        if let Some(old) = &self.runtime_seal {
+            for p in &epoch.policy {
+                if old
+                    .policy
+                    .iter()
+                    .find(|o| o.authority == p.authority)
+                    .is_some_and(|o| p.frontier < o.frontier)
+                {
+                    return Err(Error::Conflict);
+                }
+            }
+        }
+        let incomplete = epoch.evidence.iter().any(|p| !p.complete)
+            || epoch.policy.iter().any(|p| !p.complete());
         if incomplete {
             let until = watermark
                 .checked_add_signed(TimeDelta::milliseconds(
@@ -507,16 +564,15 @@ impl State {
         }
         let mut coverage_gap = incomplete || next.degraded_through.is_some_and(|t| watermark <= t);
         let mut candidates: Vec<_> = self.observations.iter().enumerate().collect();
-        candidates.sort_by(|(_, a), (_, b)| {
-            a.event
-                .timestamp
-                .cmp(&b.event.timestamp)
-                .then_with(|| a.native.cmp(&b.native))
-                .then_with(|| a.event.id.cmp(&b.event.id))
+        candidates.sort_by(|(_, a), (_, other)| {
+            b.time(a)
+                .cmp(&b.time(other))
+                .then_with(|| a.native.cmp(&other.native))
+                .then_with(|| a.event.id.cmp(&other.event.id))
         });
         for (index, o) in candidates {
             check(c)?;
-            if o.event.timestamp > watermark || (o.success == Some(false) && usable(o)) {
+            if b.time(o) > watermark || !b.candidate(o) {
                 continue;
             }
             if self
@@ -534,12 +590,12 @@ impl State {
             if next.episodes.len() >= b.config.max_episodes {
                 return Err(Error::Capacity);
             }
-            let e = episode(
-                b.authentication_binding()?,
+            let e = b.episode(
                 &self.observations,
                 index,
                 watermark,
                 &epoch.evidence,
+                &epoch.policy,
                 next.degraded_through,
                 c,
             )?;
@@ -553,8 +609,11 @@ impl State {
         }
         next.watermark = Some(watermark);
         next.last_seal_evidence = epoch.evidence.clone();
+        next.runtime_seal = b.runtime_binding().map(|_| d14::state::RuntimeSeal {
+            policy: epoch.policy.clone(),
+        });
         next.validate_with(b, c)?;
-        epoch.valid(b.authentication_binding()?, c)?;
+        epoch.valid_with(b, c)?;
         *self = next;
         Ok(Seal {
             watermark: Some(watermark),

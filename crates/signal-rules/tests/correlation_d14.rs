@@ -444,3 +444,656 @@ async fn current_lifetime_preserves_both_cancellation_tokens_and_historical_data
     assert_eq!(short.retained(&b, &i, &c), Err(Error::Cancelled));
     Ok(())
 }
+
+#[test]
+fn runtime_admission_retains_first_unknown_negative_and_positive_classification_on_native_replay()
+-> Result {
+    use signal_rules::correlation::Admission;
+    let c = context();
+    let b = RuntimeBinding::new(config(), &c)?;
+    for classified in [None, Some(false), Some(true)] {
+        let e = event(true)?;
+        let i = input(&b, &e, &c)?;
+        let current = classified
+            .map(|yes| -> Result<CurrentDecision> {
+                Ok(CurrentDecision::new(
+                    &b,
+                    &i,
+                    verification(&b, &i, yes, &c)?,
+                    &c,
+                )?)
+            })
+            .transpose()?;
+        let ep = RuntimeEpoch::new(&b, runtime_proofs(&b), policy_coverage(&b), &c)?;
+        let mut state = RuntimeState::new(&b);
+        assert_eq!(
+            state.admit(&b, &i, 1, &ep, current.as_ref(), &c)?,
+            Admission::New
+        );
+        let first: serde_json::Value = serde_json::from_slice(&state.encode(&b, &c)?)?;
+        let original = first["observations"][0].clone();
+        // A restart and an intervening unrelated native operation cannot cause
+        // an old operation to gain a new policy decision or source proof.
+        let mut state = RuntimeState::decode(&b, &state.encode(&b, &c)?, &c)?;
+        let unrelated = input(&b, &event(false)?, &c)?;
+        state.admit(&b, &unrelated, 2, &ep, None, &c)?;
+        let opposite = CurrentDecision::new(
+            &b,
+            &i,
+            verification(&b, &i, !classified.unwrap_or(false), &c)?,
+            &c,
+        )?;
+        assert_eq!(
+            state.admit(&b, &i, 1, &ep, Some(&opposite), &c)?,
+            Admission::Duplicate
+        );
+        let mut alias = e.clone();
+        alias.id = Uuid::from_u128(999);
+        alias.observed_at += chrono::TimeDelta::seconds(1);
+        let ai = input(&b, &alias, &c)?;
+        let mut alias_proof = verification(&b, &ai, true, &c)?;
+        alias_proof.now = ns(BASE + 2_000_000_000);
+        alias_proof.verified_at = alias_proof.now;
+        let permit = CurrentDecision::new(&b, &ai, alias_proof, &c)?;
+        assert_eq!(
+            state.admit(&b, &ai, 3, &ep, Some(&permit), &c)?,
+            Admission::Duplicate
+        );
+        let bytes = state.encode(&b, &c)?;
+        let after: serde_json::Value = serde_json::from_slice(&bytes)?;
+        assert_eq!(after["observations"][0], original);
+        assert_eq!(state.metrics(&b)?.retained_events, 2);
+        assert_eq!(state.metrics(&b)?.retained_aliases, 3);
+        assert_eq!(
+            state.source_positions(),
+            &[(b.config().sources[0].stream, 3)]
+        );
+        assert_eq!(RuntimeState::decode(&b, &bytes, &c)?.encode(&b, &c)?, bytes);
+    }
+    Ok(())
+}
+
+#[test]
+fn runtime_admission_refuses_conflicts_gaps_in_positions_and_incomplete_intervals_atomically()
+-> Result {
+    let c = context();
+    let b = RuntimeBinding::new(config(), &c)?;
+    let ep = RuntimeEpoch::new(&b, runtime_proofs(&b), policy_coverage(&b), &c)?;
+    let e = event(true)?;
+    let i = input(&b, &e, &c)?;
+    let mut state = RuntimeState::new(&b);
+    let empty = state.encode(&b, &c)?;
+    assert_eq!(state.admit(&b, &i, 2, &ep, None, &c), Err(Error::Conflict));
+    assert_eq!(state.encode(&b, &c)?, empty);
+    let mut proofs = runtime_proofs(&b);
+    proofs[0].source.coverage_from = ns(BASE + 1);
+    let short = RuntimeEpoch::new(&b, proofs, policy_coverage(&b), &c)?;
+    assert_eq!(
+        state.admit(&b, &i, 1, &short, None, &c),
+        Err(Error::Unverified)
+    );
+    assert_eq!(state.encode(&b, &c)?, empty);
+    state.admit(&b, &i, 1, &ep, None, &c)?;
+    let saved = state.encode(&b, &c)?;
+    for native_conflict in [false, true] {
+        let mut changed = e.clone();
+        if native_conflict {
+            changed.id = Uuid::from_u128(999);
+        }
+        changed.message = Some("Conflicting native metadata".into());
+        let i = input(&b, &changed, &c)?;
+        assert_eq!(state.admit(&b, &i, 2, &ep, None, &c), Err(Error::Conflict));
+        assert_eq!(state.encode(&b, &c)?, saved);
+    }
+    // A policy proof for another exact input cannot classify this admission.
+    let con = input(&b, &event(false)?, &c)?;
+    let wrong = CurrentDecision::new(&b, &con, verification(&b, &con, true, &c)?, &c)?;
+    let mut other = event(true)?;
+    other.id = Uuid::from_u128(44);
+    other.attributes["runtime_metadata"]["native"]["sequence"] = json!(4);
+    let i = input(&b, &other, &c)?;
+    assert!(state.admit(&b, &i, 2, &ep, Some(&wrong), &c).is_err());
+    assert_eq!(state.encode(&b, &c)?, saved);
+    Ok(())
+}
+
+#[test]
+fn runtime_decode_rebuilds_exact_projections_decisions_and_detector_domains() -> Result {
+    let c = context();
+    let b = RuntimeBinding::new(config(), &c)?;
+    let ep = RuntimeEpoch::new(&b, runtime_proofs(&b), policy_coverage(&b), &c)?;
+    let i = input(&b, &event(true)?, &c)?;
+    let permit = CurrentDecision::new(&b, &i, verification(&b, &i, true, &c)?, &c)?;
+    let mut state = RuntimeState::new(&b);
+    state.admit(&b, &i, 1, &ep, Some(&permit), &c)?;
+    let bytes = state.encode(&b, &c)?;
+    for edit in 0..15 {
+        let mut v: serde_json::Value = serde_json::from_slice(&bytes)?;
+        match edit {
+            0 => v["schema_version"] = json!(1),
+            1 => v["observations"][0]["runtime"] = serde_json::Value::Null,
+            2 => {
+                v["observations"][0]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("runtime");
+            }
+            3 => {
+                v["observations"][0]["runtime"]["projection"]["process"]["execution_generation"] =
+                    json!(2)
+            }
+            4 => v["observations"][0]["runtime"]["decision"]["policy_revision"] = json!("other"),
+            5 => {
+                v["observations"][0]["runtime"]["decision"]["claim"]["input_sha256"] =
+                    json!(vec![9; 32])
+            }
+            6 => v["observations"][0]["verification"]["runtime"]["metadata_only"] = json!(false),
+            7 => v["observations"][0]["verification"]["runtime"]["clock_continuity"] = json!(false),
+            8 => v["observations"][0]["success"] = json!(true),
+            9 => {
+                v["observations"][0]["key"] =
+                    json!({"authority":"fake","principal":"fake","target":"fake"})
+            }
+            10 => v["positions"][0][1] = json!(0),
+            11 => v["watermark"] = json!(ns(BASE + 49_000_000)),
+            12 => v["last_seal_evidence"] = json!([v["observations"][0]["verification"].clone()]),
+            13 => v["degraded_through"] = json!(ns(BASE)),
+            _ => v["retired_late_inputs"] = json!(1),
+        }
+        assert!(
+            RuntimeState::decode(&b, &serde_json::to_vec(&v)?, &c).is_err(),
+            "edit{edit}"
+        );
+    }
+    let mut other = config();
+    other.policy_authorities[0].account = Some("new-scope".into());
+    assert!(RuntimeState::decode(&RuntimeBinding::new(other, &c)?, &bytes, &c).is_err());
+    Ok(())
+}
+
+#[test]
+fn runtime_hot_event_key_and_byte_caps_preserve_original_identity() -> Result {
+    for cap in ["events", "keys", "bytes"] {
+        let c = context();
+        let mut cfg = config();
+        match cap {
+            "events" => cfg.max_events = 2,
+            "keys" => cfg.max_keys = 1,
+            _ => cfg.max_state_bytes = 4096,
+        }
+        let b = RuntimeBinding::new(cfg, &c)?;
+        let ep = RuntimeEpoch::new(&b, runtime_proofs(&b), policy_coverage(&b), &c)?;
+        let mut state = RuntimeState::new(&b);
+        let saved = state.encode(&b, &c)?;
+        if cap == "bytes" {
+            let i = input(&b, &event(true)?, &c)?;
+            let permit = CurrentDecision::new(&b, &i, verification(&b, &i, true, &c)?, &c)?;
+            assert_eq!(
+                state.admit(&b, &i, 1, &ep, Some(&permit), &c),
+                Err(Error::Capacity)
+            );
+            assert_eq!(state.encode(&b, &c)?, saved);
+            continue;
+        }
+        for seq in 1..=2 {
+            let mut e = event(true)?;
+            e.id = Uuid::from_u128(100 + seq);
+            e.attributes["runtime_metadata"]["native"]["sequence"] = json!(seq);
+            let i = input(&b, &e, &c)?;
+            state.admit(&b, &i, seq as u64, &ep, None, &c)?;
+        }
+        let saved = state.encode(&b, &c)?;
+        let mut e = event(false)?;
+        if cap == "keys" {
+            e.attributes["runtime_metadata"]["process"]["pid"] = json!(101);
+        }
+        let i = input(&b, &e, &c)?;
+        assert_eq!(state.admit(&b, &i, 3, &ep, None, &c), Err(Error::Capacity));
+        assert_eq!(state.encode(&b, &c)?, saved);
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn runtime_admission_preserves_input_epoch_and_classification_contexts() -> Result {
+    let c = context();
+    let b = RuntimeBinding::new(config(), &c)?;
+    for which in ["input", "epoch", "decision"] {
+        let input_context = context();
+        let epoch_context = context();
+        let decision_context = context();
+        let i = input(&b, &event(true)?, &input_context)?;
+        let ep = RuntimeEpoch::new(&b, runtime_proofs(&b), policy_coverage(&b), &epoch_context)?;
+        let decision = CurrentDecision::new(
+            &b,
+            &i,
+            verification(&b, &i, true, &decision_context)?,
+            &decision_context,
+        )?;
+        let mut state = RuntimeState::new(&b);
+        let saved = state.encode(&b, &c)?;
+        match which {
+            "input" => input_context.cancellation.cancel(),
+            "epoch" => epoch_context.cancellation.cancel(),
+            _ => decision_context.cancellation.cancel(),
+        }
+        assert_eq!(
+            state.admit(&b, &i, 1, &ep, Some(&decision), &c),
+            Err(Error::Cancelled)
+        );
+        assert_eq!(state.encode(&b, &c)?, saved);
+    }
+    let i = input(&b, &event(true)?, &c)?;
+    let ep = RuntimeEpoch::new(&b, runtime_proofs(&b), policy_coverage(&b), &c)?;
+    let mut p = verification(&b, &i, true, &c)?;
+    p.verified_until = p.now + chrono::TimeDelta::milliseconds(2);
+    let short = CurrentDecision::new(&b, &i, p, &c)?;
+    let mut state = RuntimeState::new(&b);
+    tokio::time::sleep(Duration::from_millis(5)).await;
+    assert_eq!(
+        state.admit(&b, &i, 1, &ep, Some(&short), &c),
+        Err(Error::Cancelled)
+    );
+    Ok(())
+}
+
+#[test]
+fn unknown_runtime_operations_and_incomplete_capture_remain_original_gap_data() -> Result {
+    let c = context();
+    let b = RuntimeBinding::new(config(), &c)?;
+    let mut proofs = runtime_proofs(&b);
+    proofs[0].capture.execution_continuity = false;
+    let ep = RuntimeEpoch::new(&b, proofs, policy_coverage(&b), &c)?;
+    let mut e = event(true)?;
+    e.attributes["runtime_metadata"]["operation"] =
+        json!({"kind":"gap","stops":1,"reason":"unsupported_syscall"});
+    let i = input(&b, &e, &c)?;
+    assert_eq!(i.claim(&c), Err(Error::Invalid));
+    let mut state = RuntimeState::new(&b);
+    assert_eq!(
+        state.admit(&b, &i, 1, &ep, None, &c)?,
+        signal_rules::correlation::Admission::New
+    );
+    let bytes = state.encode(&b, &c)?;
+    let data: serde_json::Value = serde_json::from_slice(&bytes)?;
+    assert_eq!(
+        data["observations"][0]["runtime"]["projection"]["operation"]["kind"],
+        "gap"
+    );
+    assert_eq!(
+        data["observations"][0]["runtime"]["decision"],
+        serde_json::Value::Null
+    );
+    assert_eq!(data["observations"][0]["verification"]["complete"], false);
+    assert_eq!(
+        RuntimeState::decode(&b, &bytes, &context())?.encode(&b, &c)?,
+        bytes
+    );
+    Ok(())
+}
+
+fn sealing_epoch(b: &RuntimeBinding, position: u64, complete: bool) -> Result<RuntimeEpoch> {
+    let mut proofs = runtime_proofs(b);
+    for p in &mut proofs {
+        p.source.position = position;
+        p.source.complete = complete;
+    }
+    Ok(RuntimeEpoch::new(
+        b,
+        proofs,
+        policy_coverage(b),
+        &context(),
+    )?)
+}
+fn admit_runtime(
+    state: &mut RuntimeState,
+    b: &RuntimeBinding,
+    e: &signal_event::SignalEvent,
+    position: u64,
+    classified: Option<bool>,
+) -> Result {
+    let c = context();
+    let i = input(b, e, &c)?;
+    let permit = classified
+        .map(|yes| -> Result<CurrentDecision> {
+            Ok(CurrentDecision::new(
+                b,
+                &i,
+                verification(b, &i, yes, &c)?,
+                &c,
+            )?)
+        })
+        .transpose()?;
+    state.admit(
+        b,
+        &i,
+        position,
+        &sealing_epoch(b, position, true)?,
+        permit.as_ref(),
+        &c,
+    )?;
+    Ok(())
+}
+#[test]
+fn runtime_seal_has_stable_native_pair_scopes_and_exact_source_policy_proofs() -> Result {
+    use signal_rules::correlation::Status;
+    let c = context();
+    let mut cfg = config();
+    cfg.policy_authorities[0].account = Some("private-policy-scope".into());
+    let b = RuntimeBinding::new(cfg, &c)?;
+    let events = [event(true)?, event(false)?];
+    let mut ids = Vec::new();
+    for order in [[0, 1], [1, 0]] {
+        let mut state = RuntimeState::new(&b);
+        for (n, i) in order.into_iter().enumerate() {
+            admit_runtime(&mut state, &b, &events[i], n as u64 + 1, Some(true))?;
+        }
+        let ep = sealing_epoch(&b, 2, true)?;
+        let sealed = state.seal(&b, &ep, &c)?;
+        assert_eq!(sealed.new_episodes, 1);
+        assert!(!sealed.coverage_gap);
+        let e = &state.episodes()[0];
+        assert_eq!(e.status, Status::Match);
+        assert_eq!(e.rule_id, "SIG-D14");
+        assert_eq!(e.event_ids, vec![events[0].id, events[1].id]);
+        assert_eq!(
+            e.contributors
+                .iter()
+                .filter(|s| s.stream == Uuid::from_u128(100))
+                .count(),
+            1
+        );
+        assert!(
+            e.contributors
+                .iter()
+                .any(|s| s.account.as_deref() == Some("private-policy-scope"))
+        );
+        assert_eq!(e.runtime.as_ref().unwrap().policy_coverage.len(), 2);
+        ids.push((e.id, e.finding.as_ref().unwrap().id));
+        let bytes = state.encode(&b, &c)?;
+        let mut reopened = RuntimeState::decode(&b, &bytes, &c)?;
+        assert_eq!(reopened.seal(&b, &ep, &c)?.new_episodes, 0);
+        assert_eq!(reopened.encode(&b, &c)?, bytes);
+        let mut v: serde_json::Value = serde_json::from_slice(&bytes)?;
+        v["runtime_seal"]["policy"].as_array_mut().unwrap().pop();
+        assert!(RuntimeState::decode(&b, &serde_json::to_vec(&v)?, &c).is_err());
+    }
+    assert_eq!(ids[0], ids[1]);
+    Ok(())
+}
+#[test]
+fn runtime_clean_negative_unknown_interval_and_degraded_match_are_distinct() -> Result {
+    use signal_rules::correlation::Status;
+    let c = context();
+    let b = RuntimeBinding::new(config(), &c)?;
+    for case in [
+        "clean",
+        "unknown",
+        "uncertain",
+        "degraded",
+        "different_execution",
+        "eof",
+        "failed_read",
+        "gap",
+    ] {
+        let mut r = event(true)?;
+        let con = event(false)?;
+        match case {
+            "uncertain" => {
+                r.attributes["runtime_metadata"]["operation"]["interval"]["exit_ns"] =
+                    json!(BASE + 10_000_000)
+            }
+            "different_execution" => {
+                r.attributes["runtime_metadata"]["process"]["execution_generation"] = json!(2)
+            }
+            "eof" => r.attributes["runtime_metadata"]["operation"]["result"] = json!(0),
+            "failed_read" => {
+                r.attributes["runtime_metadata"]["operation"]["result"] = json!(-14);
+                r.attributes["runtime_metadata"]["operation"]["error"] = json!(true);
+            }
+            "gap" => {
+                r.attributes["runtime_metadata"]["operation"] =
+                    json!({"kind":"gap","stops":1,"reason":"unsupported_syscall"})
+            }
+            _ => (),
+        }
+        if case == "uncertain" {
+            r.attributes["runtime_metadata"]["observed_ns"] = json!(BASE + 10_000_001);
+            r.timestamp = ns(BASE + 10_000_001);
+        }
+        let mut state = RuntimeState::new(&b);
+        let classified = if ["unknown", "eof", "failed_read", "gap"].contains(&case) {
+            None
+        } else {
+            Some(case != "clean")
+        };
+        admit_runtime(&mut state, &b, &r, 1, classified)?;
+        admit_runtime(&mut state, &b, &con, 2, Some(true))?;
+        state.seal(&b, &sealing_epoch(&b, 2, case != "degraded")?, &c)?;
+        let e = state
+            .episodes()
+            .iter()
+            .find(|e| e.originals.last().unwrap().id == con.id)
+            .unwrap();
+        let expected = match case {
+            "unknown" | "uncertain" | "gap" => Status::Indeterminate,
+            "degraded" => Status::Match,
+            _ => Status::NoMatch,
+        };
+        assert_eq!(e.status, expected, "{case}");
+        assert_eq!(
+            e.coverage_gap,
+            ["unknown", "uncertain", "degraded", "gap"].contains(&case),
+            "{case}"
+        );
+        if case == "gap" {
+            assert!(state.episodes().iter().any(
+                |e| e.originals.last().unwrap().id == r.id && e.status == Status::Indeterminate
+            ));
+        }
+    }
+    Ok(())
+}
+#[test]
+fn runtime_seals_use_operation_time_and_require_exact_positions_and_policy_monotonicity() -> Result
+{
+    let c = context();
+    let b = RuntimeBinding::new(config(), &c)?;
+    let mut state = RuntimeState::new(&b);
+    let r = event(true)?;
+    let mut con = event(false)?;
+    con.timestamp = ns(BASE + 45_000_000);
+    con.attributes["runtime_metadata"]["observed_ns"] = json!(BASE + 45_000_000);
+    admit_runtime(&mut state, &b, &r, 1, Some(true))?;
+    admit_runtime(&mut state, &b, &con, 2, Some(true))?;
+    let before = state.encode(&b, &c)?;
+    assert_eq!(
+        state.seal(&b, &sealing_epoch(&b, 3, true)?, &c),
+        Err(Error::Conflict)
+    );
+    assert_eq!(state.encode(&b, &c)?, before);
+    assert_eq!(
+        state
+            .seal(&b, &sealing_epoch(&b, 2, true)?, &c)?
+            .new_episodes,
+        1
+    );
+    assert_eq!(state.episodes()[0].anchor, ns(BASE + 11_000_000));
+    let saved = state.encode(&b, &c)?;
+    let mut sources = runtime_proofs(&b);
+    sources[0].source.position = 2;
+    let mut policies = policy_coverage(&b);
+    policies[0].frontier -= chrono::TimeDelta::milliseconds(1);
+    // The minimum watermark does not move; a non-minimum policy still cannot regress.
+    let ep = RuntimeEpoch::new(&b, sources, policies, &c)?;
+    assert_eq!(state.seal(&b, &ep, &c), Err(Error::Conflict));
+    assert_eq!(state.encode(&b, &c)?, saved);
+    Ok(())
+}
+
+#[test]
+fn runtime_newer_uncertain_or_unknown_read_cannot_hide_an_older_definite_match() -> Result {
+    use signal_rules::correlation::Status;
+    let c = context();
+    let b = RuntimeBinding::new(config(), &c)?;
+    for uncertain in [true, false] {
+        let first = event(true)?;
+        let mut newer = first.clone();
+        newer.id = Uuid::from_u128(20);
+        newer.attributes["runtime_metadata"]["native"]["sequence"] = json!(3);
+        newer.attributes["runtime_metadata"]["operation"]["interval"] = json!({"entry_ns":BASE+5_000_000,"exit_ns":BASE+if uncertain{10_000_000}else{6_000_000}});
+        newer.attributes["runtime_metadata"]["observed_ns"] = json!(BASE + 10_000_001);
+        newer.timestamp = ns(BASE + 10_000_001);
+        let mut con = event(false)?;
+        con.attributes["runtime_metadata"]["native"]["sequence"] = json!(4);
+        let events = [first, newer, con];
+        let mut original = None;
+        for order in [
+            [0, 1, 2],
+            [0, 2, 1],
+            [1, 0, 2],
+            [1, 2, 0],
+            [2, 0, 1],
+            [2, 1, 0],
+        ] {
+            let mut state = RuntimeState::new(&b);
+            for (n, index) in order.into_iter().enumerate() {
+                let classification = if index == 1 && !uncertain {
+                    None
+                } else {
+                    Some(true)
+                };
+                admit_runtime(&mut state, &b, &events[index], n as u64 + 1, classification)?;
+            }
+            state.seal(&b, &sealing_epoch(&b, 3, true)?, &c)?;
+            let e = &state.episodes()[0];
+            assert_eq!(e.status, Status::Match);
+            assert!(e.coverage_gap);
+            assert_eq!(e.event_ids, vec![events[0].id, events[2].id]);
+            let bytes = serde_json::to_vec(e)?;
+            if let Some(expected) = &original {
+                assert_eq!(&bytes, expected);
+            } else {
+                original = Some(bytes);
+            }
+        }
+    }
+    Ok(())
+}
+#[test]
+fn runtime_ttl_and_late_admission_use_operation_end_with_full_precision() -> Result {
+    use signal_rules::correlation::{Admission, Status};
+    let c = context();
+    let b = RuntimeBinding::new(config(), &c)?;
+    for over in [0, 1] {
+        let mut state = RuntimeState::new(&b);
+        admit_runtime(&mut state, &b, &event(true)?, 1, Some(true))?;
+        admit_runtime(&mut state, &b, &event(false)?, 2, Some(true))?;
+        let frontier = ns(BASE + 11_000_000 + 1_000_000_000 + over + 1_000_000);
+        let mut proofs = runtime_proofs(&b);
+        proofs[0].source.position = 2;
+        proofs[0].source.frontier = frontier;
+        proofs[0].source.now = ns(BASE + 2_000_000_000);
+        let mut policies = policy_coverage(&b);
+        for p in &mut policies {
+            p.frontier = frontier;
+            p.now = ns(BASE + 2_000_000_000);
+        }
+        state.seal(&b, &RuntimeEpoch::new(&b, proofs, policies, &c)?, &c)?;
+        assert_eq!(
+            state.episodes()[0].status,
+            if over == 0 {
+                Status::Match
+            } else {
+                Status::Indeterminate
+            }
+        );
+    }
+    let mut state = RuntimeState::new(&b);
+    state.seal(&b, &sealing_epoch(&b, 0, true)?, &c)?;
+    let mut e = event(false)?;
+    e.timestamp = ns(BASE + 45_000_000);
+    e.attributes["runtime_metadata"]["observed_ns"] = json!(BASE + 45_000_000);
+    let i = input(&b, &e, &c)?;
+    let permit = CurrentDecision::new(&b, &i, verification(&b, &i, true, &c)?, &c)?;
+    assert_eq!(
+        state.admit(&b, &i, 1, &sealing_epoch(&b, 1, true)?, Some(&permit), &c)?,
+        Admission::Late
+    );
+    assert_eq!(state.metrics(&b)?.late_inputs, 1);
+    state.seal(&b, &sealing_epoch(&b, 1, true)?, &c)?;
+    assert_eq!(state.episodes()[0].status, Status::Indeterminate);
+    Ok(())
+}
+
+#[test]
+fn later_complete_seal_cannot_upgrade_original_unknown_clock_or_execution() -> Result {
+    use signal_rules::correlation::Status;
+    let c = context();
+    let b = RuntimeBinding::new(config(), &c)?;
+    for bad_read in [true, false] {
+        for clock in [true, false] {
+            let mut state = RuntimeState::new(&b);
+            for (n, read) in [true, false].into_iter().enumerate() {
+                let e = event(read)?;
+                let i = input(&b, &e, &c)?;
+                let decision = CurrentDecision::new(&b, &i, verification(&b, &i, true, &c)?, &c)?;
+                let mut proofs = runtime_proofs(&b);
+                proofs[0].source.position = n as u64 + 1;
+                if read == bad_read {
+                    if clock {
+                        proofs[0].capture.clock_continuity = false;
+                    } else {
+                        proofs[0].capture.execution_continuity = false;
+                    }
+                }
+                let ep = RuntimeEpoch::new(&b, proofs, policy_coverage(&b), &c)?;
+                state.admit(&b, &i, n as u64 + 1, &ep, Some(&decision), &c)?;
+            }
+            state.seal(&b, &sealing_epoch(&b, 2, true)?, &c)?;
+            assert_eq!(state.episodes()[0].status, Status::Indeterminate);
+            assert!(state.episodes()[0].coverage_gap);
+            let bytes = state.encode(&b, &c)?;
+            assert_eq!(RuntimeState::decode(&b, &bytes, &c)?.encode(&b, &c)?, bytes);
+        }
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn runtime_seal_missing_policy_expiry_and_cancellation_preserve_prior_state() -> Result {
+    let c = context();
+    let b = RuntimeBinding::new(config(), &c)?;
+    let mut state = RuntimeState::new(&b);
+    admit_runtime(&mut state, &b, &event(true)?, 1, Some(true))?;
+    admit_runtime(&mut state, &b, &event(false)?, 2, Some(true))?;
+    let saved = state.encode(&b, &c)?;
+    let mut sources = runtime_proofs(&b);
+    sources[0].source.position = 2;
+    let mut policies = policy_coverage(&b);
+    policies.pop();
+    let missing = RuntimeEpoch::new(&b, sources, policies, &c)?;
+    let result = state.seal(&b, &missing, &c)?;
+    assert!(result.coverage_gap);
+    assert_eq!(result.new_episodes, 0);
+    assert_eq!(result.watermark, None);
+    assert_eq!(state.encode(&b, &c)?, saved);
+    for expired in [true, false] {
+        let original = context();
+        let mut sources = runtime_proofs(&b);
+        sources[0].source.position = 2;
+        let mut policies = policy_coverage(&b);
+        if expired {
+            policies[0].verified_until = policies[0].now + chrono::TimeDelta::milliseconds(2);
+        }
+        let ep = RuntimeEpoch::new(&b, sources, policies, &original)?;
+        if expired {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        } else {
+            original.cancellation.cancel();
+        }
+        assert_eq!(state.seal(&b, &ep, &c), Err(Error::Cancelled));
+        assert_eq!(state.encode(&b, &c)?, saved);
+    }
+    Ok(())
+}

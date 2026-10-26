@@ -18,12 +18,6 @@ impl Epoch {
             c,
         )
     }
-    pub(super) fn valid(&self, b: &Binding, c: &RuleContext) -> Result<(), Error> {
-        self.valid_with(&BindingView::authentication(b), c)
-    }
-    pub(super) fn watermark(&self, b: &Binding) -> Option<DateTime<Utc>> {
-        self.watermark_with(&BindingView::authentication(b))
-    }
 }
 impl Epoch {
     pub(super) fn new_with(

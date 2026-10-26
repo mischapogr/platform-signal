@@ -32,7 +32,6 @@ build drift without claiming that API campaign reran. Evidence:
 complete/loss-free source coverage,AWS/EKS,current ARM64/remote CI/production
 image and release/publication qualification remain separate.
 
-
 ## BASELINES generic pack accepted locally — 2026-10-26
 
 Versioned public D01/D02/D03/D05/D07 pack, exact canonical executable binding,
@@ -53,7 +52,6 @@ source and host authority are synthetic. Main does not automatically persist
 pack assessments/gaps; consuming hosts retain them with original evidence.
 39accepted/13unfinished; STATE is in_progress forD04/D06/D08/D09/D13. D12 stays
 explicitly deferred toAWS-PROFILES. No AWS/current ARM64/remoteCI/release claim.
-
 
 ## STATE bounded historical lookups accepted — 2026-10-26
 
@@ -280,20 +278,23 @@ Dated archives preserve original evidence, counts, limits and source identities.
 <a id="k8s-context-rooted-filesystem-primitive--2026-10-25"></a>[Historical detail](07-progress-history-20261026.md#k8s-context-rooted-filesystem-primitive--2026-10-25)
 <a id="k8s-context-durable-node-spool-prerequisites--2026-10-25"></a>[Historical detail](07-progress-history-20261026.md#k8s-context-durable-node-spool-prerequisites--2026-10-25)
 
-
 ## CORRELATION D11 slice accepted — 2026-10-26
 
-Independent source/criteria reviews and10frozen gates pass:1264default/1334all-
-feature tests,sixhelper checks and five actualSIGKILL original/index/carry cases.
-Evidence:`target/correlation-20261026/D11-ACCEPTANCE.json`. Protected inactiveTTL
-retirement, canonical+native cumulative lookup and exact original effects survive
-key/policy handoff with processed-prefix proofs and owned cleanup. Local actual
-SQLite/files/processes; source/custody authority synthetic. D14 is now in_progress;
-wholeCORRELATION remains unfinished,40accepted/12unfinished. Continue
-`target/correlation-d14-20261026/PLAN.md`. No AWS/CI/image/release claim.
-D14 capture/SDK checkpoint: independent review,21actual owned x86_64 native
-cases,seven SDK regressions and retained-native composition pass; D11 v1 golden
-state/archive/effect/enrollment bytes remain exact. [Profile82](82-runtime-read-metadata.md).
-`target/correlation-d14-20261026/SDK-CHECKPOINT.json` records bounded capture and
-normalization only. Typed historical classification/seven core tests and21case
-SDK/core bridge now pass focused review; shared episode/journal/replay remain open.
+Independent source/criteria review and10frozen gates pass1264default/1334all-feature
+tests,sixhelper checks and5actualSIGKILL original/index/carry cases. Local actual
+SQLite/files/processes; source/custody authority synthetic. Evidence:
+`target/correlation-20261026/D11-ACCEPTANCE.json`. CORRELATION remains unfinished,
+40accepted/12unfinished. D14 capture/SDK and typed classification prerequisites
+pass focused review:21actual owned x86_64 cases,7SDK/7core regressions and actual
+retained-native composition. [Profile82](82-runtime-read-metadata.md); evidence:
+`target/correlation-d14-20261026/SDK-CHECKPOINT.json` and `CORE-CHECKPOINT.json`.
+
+### D14 runtime lifecycle checkpoints — 2026-10-26
+
+Protected runtime archives/index lookup,interval-aware pruning and key/scope carry
+now preserve original outcomes and all prior authority as data. Independent review,
+63focused regressions/40workspace-profile tests,strict rules Clippy/fmt/14boundaries
+pass: `target/correlation-d14-20261026/HISTORY-CHECKPOINT.json`. Prior journal3SIGKILL
+cuts remain separately scoped. [Contract81](81-correlation-episodes.md).
+Native lifecycle/catalog:21cases/66records/3custodySIGKILL cuts;13gates:1312default/1382all-feature tests. Evidence:`target/correlation-d14-20261026/whole-qualification/gates.json`.
+Next: settle whole-item acceptance;D14 in_progress,40accepted/12unfinished. No CI/image/AWS/release claim.

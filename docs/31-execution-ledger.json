@@ -1460,12 +1460,18 @@
         "target/correlation-20261026/",
         "target/correlation-20261026/D11-ACCEPTANCE.json",
         "target/correlation-d14-20261026/SDK-CHECKPOINT.json",
-        "target/correlation-d14-20261026/CORE-CHECKPOINT.json"
+        "target/correlation-d14-20261026/CORE-CHECKPOINT.json",
+        "target/correlation-d14-20261026/HOT-ADMISSION-CHECKPOINT.json",
+        "target/correlation-d14-20261026/SEALING-CHECKPOINT.json",
+        "target/correlation-d14-20261026/JOURNAL-CHECKPOINT.json",
+        "target/correlation-d14-20261026/HISTORY-CHECKPOINT.json",
+        "target/correlation-d14-20261026/native-lifecycle/frozen-native-inputs-result.json",
+        "target/correlation-d14-20261026/whole-qualification/gates.json"
       ],
       "references": [
         "docs/source-detection-catalog.md"
       ],
-      "notes": "D11 accepted with independent source/criteria review,10frozen gates and5actualSIGKILL cuts. D14 native capture/SDK and typed historical classification/pair-relation prerequisites pass focused review/checks:21native cases,7SDK and7core tests,D11v1golden,actualSDK/core bridge with syntheticprivatepolicy. Shared state/source coverage/prefix/episode journal/history/carry/replay and whole-item gates remain open; CORRELATION stays in_progress.",
+      "notes": "D11 accepted with independent review,10frozen gates and5actualSIGKILL cuts. D14 capture/SDK,classifications,epochs,admission,sealing,journal and protected history/carry prerequisites pass focused independent review. Latest checkpoint63focused regressions(8runtimehistory/24D14/6journal/2golden/15D11/8history),40workspace-profile tests,strict rules Clippy/fmt/14boundaries. Original3outcomes and scopes survive key/scope carry and cold aliases; operation-end/pending-entry lookback and degradation floors prevent clean absence after retirement. Source drift and blocked custody I/O expiry/cancellation refuse safely. Source/private/custody/native projections synthetic; prior3journalSIGKILLcuts separately scoped. Retained-native lifecycle/catalog composition passes21cases/66records plus3actual custody SIGKILL cuts; raw/process/source/ELF/test-executable digests pinned. All13frozen workspace/helper/process gates pass1312default/1382all-feature tests. Source/private/custody authority remains synthetic; whole-item acceptance documentation remains open. CORRELATION in_progress;40accepted/12unfinished.",
       "slices": {
         "D11": {
           "status": "passed_simulated",

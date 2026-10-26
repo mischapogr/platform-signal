@@ -1,5 +1,6 @@
 //! Protected custody and complete cumulative dual-index host boundary.
 //! Historical archives/identity witnesses never construct a fresh Epoch.
+use super::binding::{BindingView, Enrollment};
 use super::*;
 use crate::state_journal::{Journal, Output, Record};
 
@@ -116,7 +117,17 @@ pub struct Authority {
     context: RuleContext,
 }
 impl Authority {
-    pub fn new(b: &Binding, proof: Verification, c: &RuleContext) -> Result<Self, Error> {
+    pub fn new(b: &Binding, p: Verification, c: &RuleContext) -> Result<Self, Error> {
+        Self::new_with(&BindingView::authentication(b), p, c)
+    }
+    pub fn new_runtime(
+        b: &d14::RuntimeBinding,
+        p: Verification,
+        c: &RuleContext,
+    ) -> Result<Self, Error> {
+        Self::new_with(&BindingView::runtime(b), p, c)
+    }
+    fn new_with(b: &BindingView<'_>, proof: Verification, c: &RuleContext) -> Result<Self, Error> {
         check(c)?;
         if !identity(&proof.reference)
             || proof.verified_at > proof.now
@@ -150,26 +161,20 @@ impl Authority {
             context,
         })
     }
-    fn valid(&self, b: &Binding, c: &RuleContext) -> Result<(), Error> {
+    fn valid(&self, b: &BindingView<'_>, c: &RuleContext) -> Result<(), Error> {
         check(c)?;
         check(&self.context)?;
         if self.binding != b.digest || self.namespace != namespace(b, c)? {
-            Err(Error::Unverified)
-        } else {
-            Ok(())
+            return Err(Error::Unverified);
         }
+        check(&self.context)?;
+        check(c)
     }
 }
-fn namespace(b: &Binding, c: &RuleContext) -> Result<[u8; 32], Error> {
-    Ok(hash(
-        b"PLATFORM::SIGNAL/correlation/history-namespace/v1\0",
-        &codec::encode(
-            &("SIG-D11", b.config.partition, &b.config.sources),
-            16384,
-            c,
-        )?,
-    ))
+fn namespace(b: &BindingView<'_>, c: &RuleContext) -> Result<[u8; 32], Error> {
+    b.history_namespace(c)
 }
+
 fn root(a: &Anchor, c: &RuleContext) -> Result<[u8; 32], Error> {
     Ok(hash(
         b"PLATFORM::SIGNAL/correlation/history-root/v1\0",
@@ -190,7 +195,11 @@ fn root(a: &Anchor, c: &RuleContext) -> Result<[u8; 32], Error> {
 fn valid_effect(e: &EffectRef) -> bool {
     e.archive_sha256 != [0; 32] && !e.id.is_nil() && e.output_sha256 != [0; 32]
 }
-pub(super) fn validate_metadata(b: &Binding, s: &State, c: &RuleContext) -> Result<(), Error> {
+pub(super) fn validate_metadata_with(
+    b: &binding::BindingView<'_>,
+    s: &State,
+    c: &RuleContext,
+) -> Result<(), Error> {
     if let Some(a) = &s.archive {
         if a.namespace != namespace(b, c)?
             || a.generation == 0
@@ -222,15 +231,7 @@ pub(super) fn validate_metadata(b: &Binding, s: &State, c: &RuleContext) -> Resu
         }
     }
     s.retired_late_inputs
-        .checked_add(
-            s.observations
-                .iter()
-                .filter(|o| {
-                    o.admission_watermark
-                        .is_some_and(|w| o.event.timestamp <= w)
-                })
-                .count() as u64,
-        )
+        .checked_add(s.observations.iter().filter(|o| d11::late(o)).count() as u64)
         .ok_or(Error::Capacity)?;
     for a in &s.aliases {
         if let Some(p) = &a.lookup {
@@ -283,7 +284,7 @@ pub(super) fn validate_metadata(b: &Binding, s: &State, c: &RuleContext) -> Resu
 #[serde(deny_unknown_fields)]
 struct Envelope {
     schema_version: u16,
-    config: Config,
+    config: Enrollment,
     record: Record,
 }
 /// Exact bytes published by the private host before any hot-state retirement.
@@ -308,21 +309,26 @@ impl Archive {
     ) -> Result<Self, Error> {
         check(c)?;
         if bytes.len() > 32 * 1024 * 1024
-            || hash(b"PLATFORM::SIGNAL/correlation/archive/v1\0", bytes) != expected_sha256
+            || (hash(b"PLATFORM::SIGNAL/correlation/archive/v1\0", bytes) != expected_sha256
+                && hash(b"PLATFORM::SIGNAL/correlation/D14-archive/v2\0", bytes) != expected_sha256)
         {
             return Err(Error::Conflict);
         }
         let envelope: Envelope = serde_json::from_slice(bytes).map_err(|_| Error::Invalid)?;
-        if envelope.schema_version != 1 || !envelope.record.outbox.is_empty() {
+        // Typed historical enrollment validates data, never fresh source authority.
+        let historical = envelope.config.bind(c)?;
+        let binding = historical.view();
+        if envelope.schema_version != binding.version()
+            || !envelope.record.outbox.is_empty()
+            || hash(binding.archive_domain(), bytes) != expected_sha256
+        {
             return Err(Error::Conflict);
         }
-        // Pure historical config validation; this does not construct current source authority.
-        let historical = Binding::new(envelope.config.clone(), c)?;
-        let state = journal::recover(&historical, &envelope.record, c)?;
+        let state = journal::recover_with(&binding, &envelope.record, c)?;
         Ok(Self {
             bytes: bytes.to_vec(),
             sha256: expected_sha256,
-            namespace: namespace(&historical, c)?,
+            namespace: namespace(&binding, c)?,
             envelope,
             state,
         })
@@ -438,18 +444,28 @@ impl ArchivedIdentity {
         self.alias.effect.as_ref()
     }
 }
-pub fn export(b: &Binding, record: &Record, c: &RuleContext) -> Result<Archive, Error> {
-    let state = journal::recover(b, record, c)?;
+pub fn export(b: &Binding, r: &Record, c: &RuleContext) -> Result<Archive, Error> {
+    export_with(&BindingView::authentication(b), r, c)
+}
+pub fn export_runtime(
+    b: &d14::RuntimeBinding,
+    r: &Record,
+    c: &RuleContext,
+) -> Result<Archive, Error> {
+    export_with(&BindingView::runtime(b), r, c)
+}
+fn export_with(b: &BindingView<'_>, record: &Record, c: &RuleContext) -> Result<Archive, Error> {
+    let state = journal::recover_with(b, record, c)?;
     if !record.outbox.is_empty() {
         return Err(Error::Pending);
     }
     let envelope = Envelope {
-        schema_version: 1,
-        config: b.config.clone(),
+        schema_version: b.version(),
+        config: b.enrollment(),
         record: record.clone(),
     };
     let bytes = codec::encode(&envelope, 32 * 1024 * 1024, c)?;
-    let sha256 = hash(b"PLATFORM::SIGNAL/correlation/archive/v1\0", &bytes);
+    let sha256 = hash(b.archive_domain(), &bytes);
     Ok(Archive {
         bytes,
         sha256,
@@ -465,7 +481,7 @@ pub struct Receipt {
     pub authority: Authority,
 }
 fn anchor(
-    b: &Binding,
+    b: &BindingView<'_>,
     state: &State,
     archive: &Archive,
     receipt: &Receipt,
@@ -514,17 +530,37 @@ impl Query {
         epoch: &Epoch,
         c: &RuleContext,
     ) -> Result<Self, Error> {
-        epoch.valid(b, c)?;
-        let source = b
-            .config
-            .sources
-            .iter()
-            .find(|s| s.stream == stream)
-            .ok_or(Error::Unverified)?;
-        let observation = d11::observation(source, event, epoch.proof(stream)?, c)?;
+        Self::new_with(&BindingView::authentication(b), stream, event, epoch, c)
+    }
+    pub fn new_runtime(
+        b: &d14::RuntimeBinding,
+        input: &d14::Input,
+        epoch: &d14::RuntimeEpoch,
+        c: &RuleContext,
+    ) -> Result<Self, Error> {
+        input.valid_for(b, c)?;
+        let view = BindingView::runtime(b);
+        let query = Self::new_with(&view, input.stream(), input.event(), &epoch.inner, c)?;
+        input.valid_for(b, c)?;
+        epoch.inner.valid_with(&view, c)?;
+        Ok(query)
+    }
+    fn new_with(
+        b: &BindingView<'_>,
+        stream: Uuid,
+        event: &SignalEvent,
+        epoch: &Epoch,
+        c: &RuleContext,
+    ) -> Result<Self, Error> {
+        epoch.valid_with(b, c)?;
+        let observation = b.observation(stream, event, epoch.proof(stream)?, c)?;
         Self::from_observation(b, &observation, c)
     }
-    fn from_observation(b: &Binding, o: &Observation, c: &RuleContext) -> Result<Self, Error> {
+    fn from_observation(
+        b: &BindingView<'_>,
+        o: &Observation,
+        c: &RuleContext,
+    ) -> Result<Self, Error> {
         Ok(Self {
             binding: b.digest,
             namespace: namespace(b, c)?,
@@ -592,6 +628,8 @@ impl<'a> Lookup<'a> {
         {
             return Err(Error::Unverified);
         }
+        check(&authority.context)?;
+        check(c)?;
         Ok(Self {
             query,
             anchor,
@@ -600,7 +638,7 @@ impl<'a> Lookup<'a> {
             authority,
         })
     }
-    pub(super) fn valid(&self, b: &Binding, c: &RuleContext) -> Result<(), Error> {
+    pub(super) fn valid(&self, b: &BindingView<'_>, c: &RuleContext) -> Result<(), Error> {
         self.authority.valid(b, c)
     }
     pub(super) fn retained(&self, c: &RuleContext) -> Result<LookupEvidence, Error> {
@@ -641,7 +679,7 @@ fn same(a: &Known, b: &Known) -> bool {
         && a.effect == b.effect
 }
 pub(super) fn resolve(
-    b: &Binding,
+    b: &BindingView<'_>,
     state: &State,
     input: &Observation,
     lookup: Option<&Lookup<'_>>,
@@ -742,9 +780,9 @@ pub(super) fn consistent_local(
     }
     Ok(())
 }
-fn prefix(b: &Binding, state: &State, epoch: &Epoch, c: &RuleContext) -> Result<(), Error> {
-    epoch.valid(b, c)?;
-    let watermark = epoch.watermark(b).ok_or(Error::Unverified)?;
+fn prefix(b: &BindingView<'_>, state: &State, epoch: &Epoch, c: &RuleContext) -> Result<(), Error> {
+    epoch.valid_with(b, c)?;
+    let watermark = epoch.watermark_with(b).ok_or(Error::Unverified)?;
     if state.watermark.is_none_or(|old| watermark < old) {
         return Err(Error::Conflict);
     }
@@ -763,10 +801,22 @@ fn prefix(b: &Binding, state: &State, epoch: &Epoch, c: &RuleContext) -> Result<
             return Err(Error::Conflict);
         }
     }
+    if let Some(old) = &state.runtime_seal {
+        for p in &epoch.policy {
+            if old
+                .policy
+                .iter()
+                .find(|o| o.authority == p.authority)
+                .is_some_and(|o| p.frontier < o.frontier)
+            {
+                return Err(Error::Conflict);
+            }
+        }
+    }
     Ok(())
 }
 fn proposal(
-    b: &Binding,
+    b: &BindingView<'_>,
     previous: Option<&Record>,
     state: State,
     checkpoint: u64,
@@ -774,7 +824,7 @@ fn proposal(
     authority: &Authority,
     c: &RuleContext,
 ) -> Result<journal::Prepared, Error> {
-    epoch.valid(b, c)?;
+    epoch.valid_with(b, c)?;
     authority.valid(b, c)?;
     let revision = previous.map_or(Ok(1), |r| {
         r.revision
@@ -786,11 +836,11 @@ fn proposal(
         schema_version: 1,
         revision,
         checkpoint,
-        state: state.encode(b, c)?,
+        state: state.encode_with(b, c)?,
         outbox: vec![],
     };
     codec::encode(&record, b.journal_config().max_record_bytes, c)?;
-    epoch.valid(b, c)?;
+    epoch.valid_with(b, c)?;
     authority.valid(b, c)?;
     Ok(journal::Prepared {
         record,
@@ -799,6 +849,7 @@ fn proposal(
         original: c.clone(),
         authority: epoch.context.clone(),
         history_authority: Some(authority.context.clone()),
+        runtime_contexts: Vec::new(),
         source: None,
         applied: journal::Applied::History,
     })
@@ -807,17 +858,37 @@ fn proposal(
 /// until both receipts and an exact fresh processed prefix are verified.
 pub fn prune(
     b: &Binding,
+    r: &Record,
+    a: &Archive,
+    receipt: &Receipt,
+    e: &Epoch,
+    c: &RuleContext,
+) -> Result<journal::Prepared, Error> {
+    prune_with(&BindingView::authentication(b), r, a, receipt, e, c)
+}
+pub fn prune_runtime(
+    b: &d14::RuntimeBinding,
+    r: &Record,
+    a: &Archive,
+    receipt: &Receipt,
+    e: &d14::RuntimeEpoch,
+    c: &RuleContext,
+) -> Result<journal::Prepared, Error> {
+    prune_with(&BindingView::runtime(b), r, a, receipt, &e.inner, c)
+}
+fn prune_with(
+    b: &BindingView<'_>,
     record: &Record,
     archive: &Archive,
     receipt: &Receipt,
     epoch: &Epoch,
     c: &RuleContext,
 ) -> Result<journal::Prepared, Error> {
-    let mut state = journal::recover(b, record, c)?;
+    let mut state = journal::recover_with(b, record, c)?;
     if !record.outbox.is_empty() {
         return Err(Error::Pending);
     }
-    if archive.envelope.config != b.config || archive.envelope.record != *record {
+    if archive.envelope.config != b.enrollment() || archive.envelope.record != *record {
         return Err(Error::Conflict);
     }
     prefix(b, &state, epoch, c)?;
@@ -827,20 +898,73 @@ pub fn prune(
         .ok_or(Error::Conflict)?
         .checked_sub_signed(TimeDelta::milliseconds(b.config.ttl_ms))
         .ok_or(Error::Invalid)?;
-    let retired = state
+    let pending_ids = state
         .observations
         .iter()
         .filter(|o| {
-            o.event.timestamp <= cutoff
-                && o.admission_watermark
-                    .is_some_and(|w| o.event.timestamp <= w)
+            b.runtime_binding().is_some()
+                && b.candidate(o)
+                && !state
+                    .completions
+                    .iter()
+                    .any(|m| m.canonical_id == o.event.id)
+                && !state
+                    .episodes
+                    .iter()
+                    .any(|e| e.originals.last().is_some_and(|x| x.id == o.event.id))
         })
+        .map(|o| o.event.id)
+        .collect::<BTreeSet<_>>();
+    let pending_floor = state
+        .observations
+        .iter()
+        .filter(|o| pending_ids.contains(&o.event.id))
+        .map(|o| {
+            o.runtime
+                .as_ref()
+                .ok_or(Error::Conflict)?
+                .lookback_start(b.config.correlation_ms)
+        })
+        .collect::<Result<Vec<_>, Error>>()?
+        .into_iter()
+        .min();
+    let retained = state
+        .observations
+        .iter()
+        .filter(|o| {
+            b.time(o) > cutoff
+                || pending_ids.contains(&o.event.id)
+                || pending_floor.is_some_and(|lower| b.time(o) >= lower)
+        })
+        .map(|o| o.event.id)
+        .collect::<BTreeSet<_>>();
+    let retired = state
+        .observations
+        .iter()
+        .filter(|o| !retained.contains(&o.event.id) && d11::late(o))
         .count() as u64;
+    if b.runtime_binding().is_some() {
+        // A future long operation can still start in this retired lookback.
+        // Pin degradation by its entry time, rather than silently proving absence.
+        for o in state
+            .observations
+            .iter()
+            .filter(|o| !retained.contains(&o.event.id))
+        {
+            let until = b
+                .time(o)
+                .checked_add_signed(TimeDelta::milliseconds(b.config.correlation_ms))
+                .ok_or(Error::Invalid)?;
+            state.degraded_through = Some(state.degraded_through.map_or(until, |t| t.max(until)));
+        }
+    }
     state.retired_late_inputs = state
         .retired_late_inputs
         .checked_add(retired)
         .ok_or(Error::Capacity)?;
-    state.observations.retain(|o| o.event.timestamp > cutoff);
+    state
+        .observations
+        .retain(|o| retained.contains(&o.event.id));
     state.completions.retain(|m| {
         state
             .observations
@@ -890,14 +1014,60 @@ pub fn prune(
 pub async fn carry(
     old: &Binding,
     source: &Journal,
+    r: &Record,
+    a: &Archive,
+    receipt: &Receipt,
+    new: &Binding,
+    e: &Epoch,
+    c: &RuleContext,
+) -> Result<journal::Prepared, Error> {
+    carry_with(
+        &BindingView::authentication(old),
+        source,
+        r,
+        a,
+        receipt,
+        &BindingView::authentication(new),
+        e,
+        c,
+    )
+    .await
+}
+#[allow(clippy::too_many_arguments)]
+pub async fn carry_runtime(
+    old: &d14::RuntimeBinding,
+    source: &Journal,
+    r: &Record,
+    a: &Archive,
+    receipt: &Receipt,
+    new: &d14::RuntimeBinding,
+    e: &d14::RuntimeEpoch,
+    c: &RuleContext,
+) -> Result<journal::Prepared, Error> {
+    carry_with(
+        &BindingView::runtime(old),
+        source,
+        r,
+        a,
+        receipt,
+        &BindingView::runtime(new),
+        &e.inner,
+        c,
+    )
+    .await
+}
+#[allow(clippy::too_many_arguments)]
+async fn carry_with(
+    old: &BindingView<'_>,
+    source: &Journal,
     record: &Record,
     archive: &Archive,
     receipt: &Receipt,
-    new: &Binding,
+    new: &BindingView<'_>,
     epoch: &Epoch,
     c: &RuleContext,
 ) -> Result<journal::Prepared, Error> {
-    epoch.valid(new, c)?;
+    epoch.valid_with(new, c)?;
     receipt.authority.valid(new, c)?;
     if source.config() != &old.journal_config() {
         return Err(Error::Conflict);
@@ -912,18 +1082,18 @@ pub async fn carry(
         _=receipt.authority.context.cancellation.cancelled()=>return Err(Error::Cancelled),
         result=source.load(operation)=>result.map_err(|_|Error::Journal)?,
     };
-    epoch.valid(new, c)?;
+    epoch.valid_with(new, c)?;
     receipt.authority.valid(new, c)?;
     if actual.as_ref() != Some(record) {
         return Err(Error::Conflict);
     }
-    let prior = journal::recover(old, record, c)?;
+    let prior = journal::recover_with(old, record, c)?;
     if !record.outbox.is_empty() {
         return Err(Error::Pending);
     }
     // A new policy must not strand any admitted old candidate without its original outcome.
     if prior.observations.iter().any(|o| {
-        let needs = o.success != Some(false) || o.native.is_none() || o.key.is_none();
+        let needs = old.candidate(o);
         needs
             && !prior
                 .episodes
@@ -938,37 +1108,42 @@ pub async fn carry(
     }
 
     if old.digest == new.digest
-        || archive.envelope.config != old.config
+        || archive.envelope.config != old.enrollment()
         || archive.envelope.record != *record
         || namespace(old, c)? != namespace(new, c)?
     {
         return Err(Error::Conflict);
     }
     prefix(new, &prior, epoch, c)?;
-    let mut state = State::new(new);
+    let mut state = State::new_with(new);
     state.positions = prior.positions.clone();
-    state.watermark = epoch.watermark(new);
+    state.watermark = epoch.watermark_with(new);
     state.last_seal_evidence = epoch.evidence.clone();
-    let floor = state
+    state.runtime_seal = new.runtime_binding().map(|_| d14::state::RuntimeSeal {
+        policy: epoch.policy.clone(),
+    });
+    let mut floor = state
         .watermark
         .ok_or(Error::Unverified)?
         .checked_add_signed(TimeDelta::milliseconds(
-            new.config.window_ms + new.config.correlation_ms,
+            new.config.extra_lookback_ms + new.config.correlation_ms,
         ))
         .ok_or(Error::Invalid)?;
+    if new.runtime_binding().is_some() {
+        // A processed read may be ahead of a slower policy/source watermark.
+        // Emptying active facts must degrade every still-relevant carried range.
+        for o in &prior.observations {
+            let until = old
+                .time(o)
+                .checked_add_signed(TimeDelta::milliseconds(new.config.correlation_ms))
+                .ok_or(Error::Invalid)?;
+            floor = floor.max(until);
+        }
+    }
     state.degraded_through = Some(prior.degraded_through.map_or(floor, |t| t.max(floor)));
     state.retired_late_inputs = prior
         .retired_late_inputs
-        .checked_add(
-            prior
-                .observations
-                .iter()
-                .filter(|o| {
-                    o.admission_watermark
-                        .is_some_and(|w| o.event.timestamp <= w)
-                })
-                .count() as u64,
-        )
+        .checked_add(prior.observations.iter().filter(|o| d11::late(o)).count() as u64)
         .ok_or(Error::Capacity)?;
     state.archive = Some(anchor(new, &prior, archive, receipt, c)?);
     let mut prepared = proposal(
