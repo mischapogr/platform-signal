@@ -1,0 +1,5 @@
+# Override the root Compose service with an already-qualified, digest-pinned image.
+# Never used by automation here; --no-build --pull never is required by the guide.
+services:
+  signal:
+    image: ${SIGNAL_PREVIEW_IMAGE:?Set a reviewed digest-pinned local preview image}

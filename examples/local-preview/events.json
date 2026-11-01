@@ -1,0 +1,92 @@
+{
+  "events": [
+    {
+      "schema_version": 1,
+      "id": "78d2c6e0-0c9f-4e0a-8d74-000000000001",
+      "timestamp": "2026-11-01T12:00:01Z",
+      "observed_at": "2026-11-01T12:00:01Z",
+      "source": {
+        "type": "application",
+        "name": "local-preview-fixture"
+      },
+      "severity": "info",
+      "message": "service healthy fixture",
+      "attributes": {
+        "demo": {
+          "synthetic": true,
+          "case_id": "fixture-1"
+        }
+      },
+      "tags": [
+        "synthetic",
+        "demo"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "78d2c6e0-0c9f-4e0a-8d74-000000000002",
+      "timestamp": "2026-11-01T12:00:02Z",
+      "observed_at": "2026-11-01T12:00:02Z",
+      "source": {
+        "type": "application",
+        "name": "local-preview-fixture"
+      },
+      "severity": "warn",
+      "message": "login failed: synthetic fixture A",
+      "attributes": {
+        "demo": {
+          "synthetic": true,
+          "case_id": "fixture-2"
+        }
+      },
+      "tags": [
+        "synthetic",
+        "demo"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "78d2c6e0-0c9f-4e0a-8d74-000000000003",
+      "timestamp": "2026-11-01T12:00:03Z",
+      "observed_at": "2026-11-01T12:00:03Z",
+      "source": {
+        "type": "application",
+        "name": "local-preview-fixture"
+      },
+      "severity": "warn",
+      "message": "login failed: synthetic fixture B",
+      "attributes": {
+        "demo": {
+          "synthetic": true,
+          "case_id": "fixture-3"
+        }
+      },
+      "tags": [
+        "synthetic",
+        "demo"
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "78d2c6e0-0c9f-4e0a-8d74-000000000004",
+      "timestamp": "2026-11-01T12:00:04Z",
+      "observed_at": "2026-11-01T12:00:04Z",
+      "source": {
+        "type": "application",
+        "name": "local-preview-fixture"
+      },
+      "severity": "info",
+      "message": "request completed fixture",
+      "attributes": {
+        "demo": {
+          "synthetic": true,
+          "case_id": "fixture-4"
+        }
+      },
+      "tags": [
+        "synthetic",
+        "demo"
+      ]
+    }
+  ]
+}

@@ -45,6 +45,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and
 [development tooling](docs/08-development-tooling.md) for setup. Licensed under
 [Apache-2.0](LICENSE). No production release is available yet.
 
+The [public fixture preview](docs/94-local-preview-walkthrough.md) provides an
+offline-prepared walkthrough with setup/reset instructions. Its
+[saved-record verifier](docs/100-local-preview-evidence-verification.md) checks
+record consistency without starting a server; it does not establish live capture,
+image provenance, durability, capacity or release qualification.
+
 Run the current server with `cargo run -p signal-server`, then use the
 [HTTP ingest examples](docs/09-phase1-ingest.md) and
 [durable WAL configuration](docs/10-phase2-wal.md) and
